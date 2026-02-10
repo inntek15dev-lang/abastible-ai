@@ -379,7 +379,7 @@ export default function RegistroForm() {
 
                                     {/* US-2.25 & US-2.27: Evidence Upload */}
                                     {isEdit && act.id ? (
-                                        <div className="evidence-section" style={{ marginTop: '0.5rem' }}>
+                                        <div className="evidence-section tutorial-evidence-section" style={{ marginTop: '0.5rem' }}>
                                             {act.requiere_evidencia && <small className="text-warning" style={{ display: 'block', marginBottom: 4 }}>* Evidencia Requerida</small>}
                                             <FileUpload
                                                 registroActividadId={act.id}

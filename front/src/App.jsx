@@ -81,6 +81,9 @@ function PublicRoute({ children }) {
   return children;
 }
 
+import { TutorialProvider } from './context/TutorialContext';
+import TutorialsPage from './pages/TutorialsPage';
+
 function AppRoutes() {
   return (
     <Routes>
@@ -98,6 +101,9 @@ function AppRoutes() {
         </ProtectedRoute>
       }>
         <Route path="/" element={<Dashboard />} />
+
+        {/* Tutorials */}
+        <Route path="/tutorials" element={<TutorialsPage />} />
 
         {/* Programas */}
         <Route path="/programas" element={<ProgramaList />} />
@@ -172,7 +178,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <TutorialProvider>
+            <AppRoutes />
+          </TutorialProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

@@ -120,7 +120,7 @@ export default function Dashboard() {
 
             <div className="kpi-grid">
                 {kpiCards.map((kpi, index) => (
-                    <div key={index} className="kpi-card" style={{ borderLeftColor: kpi.color }}>
+                    <div key={index} id={`kpi-card-${index}`} className="kpi-card" style={{ borderLeftColor: kpi.color }}>
                         <div className="kpi-icon" style={{ backgroundColor: `${kpi.color}20` }}>
                             <kpi.icon size={24} color={kpi.color} />
                         </div>

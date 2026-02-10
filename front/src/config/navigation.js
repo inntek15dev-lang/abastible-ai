@@ -11,7 +11,8 @@ import {
     Settings,
     UserCircle,
     Search,
-    Building
+    Building,
+    BookOpen
 } from 'lucide-react';
 
 export const MODULES = [
@@ -70,11 +71,18 @@ export const MODULES = [
         label: 'Seguridad',
         icon: Shield,
         color: '#EF4444', // Red
-        module: 'Usuarios',
         items: [
             { path: '/usuarios', label: 'Gestión de Usuarios', icon: Users, module: 'Usuarios' },
             { path: '/roles', label: 'Roles y Privilegios', icon: Shield, module: 'Admin_Usuarios' }
         ]
+    },
+    {
+        id: 'tutoriales',
+        label: 'Centro de Ayuda',
+        icon: BookOpen,
+        color: '#2563EB', // Blue
+        path: '/tutorials',
+        module: 'Dashboard' // Accessible to everyone
     }
 ];
 

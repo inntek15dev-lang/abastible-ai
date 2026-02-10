@@ -4,13 +4,13 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
 import {
-    Plus, Eye, Edit, RefreshCw, Trash2, FileText,
+    Plus, Eye, Edit, Edit2, RefreshCw, Trash2, FileText,
     Search, Filter, Calendar, Building, List
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import TraceabilityPanel from '../../components/TraceabilityPanel';
-import Modal from '../../components/ui/Modal';
+import SolicitudReaperturaModal from '../../components/forms/SolicitudReaperturaModal';
 
 // --- Tab Navigation Component (from Skin) ---
 const TabNav = ({ activeTab, onTabChange }) => (
@@ -52,8 +52,7 @@ export default function RegistroList() {
     const [selectedRegistroId, setSelectedRegistroId] = useState(null);
 
     // Reapertura Modal State
-    const [reaperturaModalOpen, setReaperturaModalOpen] = useState(false);
-    const [reaperturaMotivo, setReaperturaMotivo] = useState('');
+    const [reaperturaModal, setReaperturaModal] = useState(false);
 
     // Advanced Filters State (US-050)
     const [filters, setFilters] = useState({
@@ -140,21 +139,7 @@ export default function RegistroList() {
 
     const openReaperturaModal = (registroId) => {
         setSelectedRegistroId(registroId);
-        setReaperturaMotivo('');
-        setReaperturaModalOpen(true);
-    };
-
-    const submitReapertura = async () => {
-        if (!reaperturaMotivo.trim()) return;
-
-        try {
-            await api.post('/reaperturas', { registro_id: selectedRegistroId, motivo: reaperturaMotivo });
-            alert('Solicitud de reapertura enviada correctamente');
-            setReaperturaModalOpen(false);
-            fetchRegistros();
-        } catch (err) {
-            alert(err.response?.data?.message || 'Error al solicitar reapertura');
-        }
+        setReaperturaModal(true);
     };
 
     // --- PDF Generation Action ---
@@ -219,8 +204,9 @@ export default function RegistroList() {
                 display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'end'
             }}>
                 <div className="form-group" style={{ flex: 1, minWidth: '200px' }}>
-                    <label><Search size={14} style={{ marginRight: 4 }} /> Buscar Empresa / RUT</label>
+                    <label htmlFor="filter-search"><Search size={14} style={{ marginRight: 4 }} /> Buscar Empresa / RUT</label>
                     <input
+                        id="filter-search"
                         type="text"
                         className="form-control"
                         placeholder="Ej: Constructora, 76.123..."
@@ -231,8 +217,9 @@ export default function RegistroList() {
                 </div>
 
                 <div className="form-group" style={{ width: '180px' }}>
-                    <label><Calendar size={14} style={{ marginRight: 4 }} /> Periodo</label>
+                    <label htmlFor="filter-period"><Calendar size={14} style={{ marginRight: 4 }} /> Periodo</label>
                     <input
+                        id="filter-period"
                         type="month"
                         className="form-control"
                         value={filters.period}
@@ -241,8 +228,9 @@ export default function RegistroList() {
                 </div>
 
                 <div className="form-group" style={{ width: '200px' }}>
-                    <label><Filter size={14} style={{ marginRight: 4 }} /> Estado Auditoría</label>
+                    <label htmlFor="filter-status"><Filter size={14} style={{ marginRight: 4 }} /> Estado Auditoría</label>
                     <select
+                        id="filter-status"
                         className="form-control"
                         value={filters.status}
                         onChange={(e) => setFilters({ ...filters, status: e.target.value })}
@@ -330,9 +318,9 @@ export default function RegistroList() {
                                     <td className="actions-cell">
                                         <div className="btn-icon-group">
                                             {/* Action: Audit/View */}
-                                            {canWrite('Auditoria') && registro.estado_auditoria === 'pendiente' ? (
-                                                <Link to={`/registros/${registro.id}/edit`} className="btn-action btn-auditar" title="Auditar">
-                                                    <Edit size={14} /> Auditar
+                                            {(registro.estado_auditoria === 'pendiente' || registro.estado_auditoria === 'reabierto') ? (
+                                                <Link to={`/registros/${registro.id}`} className="btn-icon tutorial-btn-editar" title="Editar Registro">
+                                                    <Edit2 size={16} />
                                                 </Link>
                                             ) : (
                                                 <Link to={`/registros/${registro.id}`} className="btn-icon" title="Ver Detalle">
@@ -364,7 +352,7 @@ export default function RegistroList() {
                                             {['auditada_sistema', 'auditada_terreno', 'cerrado'].includes(registro.estado_auditoria) && (
                                                 <button
                                                     onClick={() => openReaperturaModal(registro.id)}
-                                                    className="btn-action btn-pdf" // Reusing style for now
+                                                    className="btn-action btn-pdf tutorial-btn-reabrir" // Reusing style for now
                                                     title="Solicitar Reapertura"
                                                     style={{ color: 'var(--color-brand-primary)' }}
                                                 >
@@ -392,40 +380,16 @@ export default function RegistroList() {
             />
 
             {/* Reapertura Modal */}
-            <Modal
-                isOpen={reaperturaModalOpen}
-                onClose={() => setReaperturaModalOpen(false)}
-                title="Solicitar Reapertura"
-            >
-                <div className="flex flex-col gap-4">
-                    <p className="text-sm text-gray-600">
-                        Indique el motivo por el cual solicita reabrir este registro.
-                        Esta solicitud será enviada al administrador para su aprobación.
-                    </p>
-                    <textarea
-                        className="form-control"
-                        rows={4}
-                        placeholder="Ej: Necesito corregir la evidencia de la actividad 3..."
-                        value={reaperturaMotivo}
-                        onChange={(e) => setReaperturaMotivo(e.target.value)}
-                    />
-                    <div className="flex justify-end gap-2 mt-4">
-                        <button
-                            onClick={() => setReaperturaModalOpen(false)}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            onClick={submitReapertura}
-                            disabled={!reaperturaMotivo.trim()}
-                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
-                        >
-                            Enviar Solicitud
-                        </button>
-                    </div>
-                </div>
-            </Modal>
+            {reaperturaModal && (
+                <SolicitudReaperturaModal
+                    registroId={selectedRegistroId}
+                    onClose={() => setReaperturaModal(false)}
+                    onSuccess={() => {
+                        alert('Solicitud enviada correctamente');
+                        fetchRegistros();
+                    }}
+                />
+            )}
         </div>
     );
 }

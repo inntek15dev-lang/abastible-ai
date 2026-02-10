@@ -149,7 +149,7 @@ export default function RegistroAudit() {
             {/* Actions */}
             {isPendiente && canWrite('Auditoria') && (
                 <div className="form-actions">
-                    <button className="btn-primary" onClick={handleIniciarAuditoria}>
+                    <button id="btn-iniciar-auditoria" className="btn-primary" onClick={handleIniciarAuditoria}>
                         Iniciar Auditoría
                     </button>
                 </div>
@@ -215,21 +215,21 @@ export default function RegistroAudit() {
                             {isAuditando && canWrite('Auditoria') && (
                                 <div className="audit-actions">
                                     <button
-                                        className="btn-audit success"
+                                        className="btn-audit success tutorial-audit-btn-cumple"
                                         onClick={() => handleAuditarActividad(ra.id, true, null)}
                                         disabled={ra.cumple_auditor === true}
                                     >
                                         <Check size={16} /> Cumple
                                     </button>
                                     <button
-                                        className="btn-audit danger"
+                                        className="btn-audit danger tutorial-audit-btn-no-cumple"
                                         onClick={() => handleAuditarActividad(ra.id, false, null)}
                                         disabled={ra.cumple_auditor === false}
                                     >
                                         <X size={16} /> No cumple
                                     </button>
                                     <button
-                                        className="btn-audit warning"
+                                        className="btn-audit warning tutorial-btn-hallazgo"
                                         onClick={() => {
                                             const desc = prompt('Descripción del hallazgo:');
                                             if (desc) handleCrearHallazgo(ra.id, desc);
@@ -269,8 +269,9 @@ export default function RegistroAudit() {
                 <div className="form-card">
                     <h2>Finalizar Auditoría</h2>
                     <div className="form-group">
-                        <label>Comentario General</label>
+                        <label htmlFor="txt-comentario-general">Comentario General</label>
                         <textarea
+                            id="txt-comentario-general"
                             value={comentarioGeneral}
                             onChange={(e) => setComentarioGeneral(e.target.value)}
                             rows={3}
@@ -279,6 +280,7 @@ export default function RegistroAudit() {
                     </div>
                     <div className="form-actions">
                         <button
+                            id="btn-finalizar-auditoria"
                             className="btn-primary"
                             onClick={handleFinalizarAuditoria}
                             disabled={saving}

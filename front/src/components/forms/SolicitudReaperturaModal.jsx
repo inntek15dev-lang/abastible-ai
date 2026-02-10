@@ -38,6 +38,7 @@ const SolicitudReaperturaModal = ({ registroId, onClose, onSuccess }) => {
                     <div className="form-group">
                         <label>Motivo de la solicitud</label>
                         <textarea
+                            id="reapertura-motivo"
                             value={motivo}
                             onChange={(e) => setMotivo(e.target.value)}
                             placeholder="Explique por qué necesita reabrir este registro..."
@@ -53,7 +54,7 @@ const SolicitudReaperturaModal = ({ registroId, onClose, onSuccess }) => {
                         <button type="button" onClick={onClose} className="btn-secondary" disabled={loading}>
                             Cancelar
                         </button>
-                        <button type="submit" className="btn-primary" disabled={loading}>
+                        <button id="btn-enviar-reapertura" type="submit" className="btn-primary" disabled={loading}>
                             {loading ? 'Enviando...' : (
                                 <>
                                     <Send size={16} /> Enviar Solicitud
