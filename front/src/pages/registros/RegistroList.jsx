@@ -148,12 +148,17 @@ export default function RegistroList() {
         if (!reaperturaMotivo.trim()) return;
 
         try {
-            await api.post('/reaperturas', { registro_id: selectedRegistroId, motivo: reaperturaMotivo });
-            alert('Solicitud de reapertura enviada correctamente');
+            if (canExec('Reaperturas')) {
+                await api.post('/reaperturas/directa', { registro_id: selectedRegistroId, motivo: reaperturaMotivo });
+                alert('Registro reabierto exitosamente');
+            } else {
+                await api.post('/reaperturas', { registro_id: selectedRegistroId, motivo: reaperturaMotivo });
+                alert('Solicitud de reapertura enviada correctamente');
+            }
             setReaperturaModalOpen(false);
             fetchRegistros();
         } catch (err) {
-            alert(err.response?.data?.message || 'Error al solicitar reapertura');
+            alert(err.response?.data?.message || 'Error al procesar reapertura');
         }
     };
 
@@ -219,8 +224,10 @@ export default function RegistroList() {
                 display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'end'
             }}>
                 <div className="form-group" style={{ flex: 1, minWidth: '200px' }}>
-                    <label><Search size={14} style={{ marginRight: 4 }} /> Buscar Empresa / RUT</label>
+                    <label htmlFor="filter-search"><Search size={14} style={{ marginRight: 4 }} /> Buscar Empresa / RUT</label>
                     <input
+                        id="filter-search"
+                        name="filter-search"
                         type="text"
                         className="form-control"
                         placeholder="Ej: Constructora, 76.123..."
@@ -231,8 +238,10 @@ export default function RegistroList() {
                 </div>
 
                 <div className="form-group" style={{ width: '180px' }}>
-                    <label><Calendar size={14} style={{ marginRight: 4 }} /> Periodo</label>
+                    <label htmlFor="filter-period"><Calendar size={14} style={{ marginRight: 4 }} /> Periodo</label>
                     <input
+                        id="filter-period"
+                        name="filter-period"
                         type="month"
                         className="form-control"
                         value={filters.period}
@@ -241,8 +250,10 @@ export default function RegistroList() {
                 </div>
 
                 <div className="form-group" style={{ width: '200px' }}>
-                    <label><Filter size={14} style={{ marginRight: 4 }} /> Estado Auditoría</label>
+                    <label htmlFor="filter-status"><Filter size={14} style={{ marginRight: 4 }} /> Estado Auditoría</label>
                     <select
+                        id="filter-status"
+                        name="filter-status"
                         className="form-control"
                         value={filters.status}
                         onChange={(e) => setFilters({ ...filters, status: e.target.value })}
@@ -365,7 +376,7 @@ export default function RegistroList() {
                                                 <button
                                                     onClick={() => openReaperturaModal(registro.id)}
                                                     className="btn-action btn-pdf" // Reusing style for now
-                                                    title="Solicitar Reapertura"
+                                                    title={canExec('Reaperturas') ? "Reabrir Registro (Directo)" : "Solicitar Reapertura"}
                                                     style={{ color: 'var(--color-brand-primary)' }}
                                                 >
                                                     <RefreshCw size={14} /> Reabrir
@@ -395,19 +406,25 @@ export default function RegistroList() {
             <Modal
                 isOpen={reaperturaModalOpen}
                 onClose={() => setReaperturaModalOpen(false)}
-                title="Solicitar Reapertura"
+                title={canExec('Reaperturas') ? "Reapertura Directa" : "Solicitar Reapertura"}
             >
                 <div className="flex flex-col gap-4">
                     <p className="text-sm text-gray-600">
-                        Indique el motivo por el cual solicita reabrir este registro.
-                        Esta solicitud será enviada al administrador para su aprobación.
+                        {canExec('Reaperturas')
+                            ? "Indique el motivo por el cual reabre este registro. El estado cambiará a 'Pendiente' inmediatamente."
+                            : "Indique el motivo por el cual solicita reabrir este registro. Esta solicitud será enviada al administrador para su aprobación."
+                        }
                     </p>
                     <textarea
+                        id="reapertura-motivo"
+                        name="reapertura-motivo"
                         className="form-control"
                         rows={4}
                         placeholder="Ej: Necesito corregir la evidencia de la actividad 3..."
                         value={reaperturaMotivo}
                         onChange={(e) => setReaperturaMotivo(e.target.value)}
+                        aria-label="Motivo de la reapertura"
+                        autoFocus
                     />
                     <div className="flex justify-end gap-2 mt-4">
                         <button

@@ -103,6 +103,7 @@ export default function TraceabilityPanel({ isOpen, onClose, registroId }) {
                 <button
                     onClick={onClose}
                     className="text-white/80 hover:text-white hover:bg-white/10 rounded-full p-1 transition-colors"
+                    autoFocus
                 >
                     <X size={20} />
                 </button>
