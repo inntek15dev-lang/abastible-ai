@@ -1,0 +1,169 @@
+
+
+35:41 - Marcos Alarcon
+Ya, vamos a comenzar a hacer la presentación. La idea es no ver mucho lo que no se modificó, sino que enfocarnos en lo que estaba pendiente. Y lo nuevo. Entonces, yo voy a sacar mi cámara para que no se me ralentice el sistema y ocupar esta pantalla también. Ya, y estoy compartiendo el perfil administrador. Si ustedes se encuentran, acá arriba está el menú de navegación, y por lo pronto aparece, dice admin, para que se identifique qué perfil, o sea, qué rol está el usuario. Aquí tengo el admin, ¿cierto? Bueno, acá estamos en la pestaña programas, que es donde se determinan los programas, ¿cierto? Ahí se pueden ver los elementos, eso ya lo vimos, voy a pinchar uno, no sé si está viendo ahí. Sí. Ahí están los elementos, vos ahí dan los elementos. ¿Cierto? Ya. Entonces, aquí vamos a señalar que ustedes tienen pendiente de enviarnos los programas, ¿Ya?
+
+37:11 - Katherine Dominguez
+Para nosotros.
+
+37:12 - Marcos Alarcon
+Sí, sí. Lo voy a mencionar porque la transcripción de la IA, eso lo tienen pendiente ustedes, enviárnoslo. Así es. Después vamos a pasar a los a la pestaña Contratistas. Aquí sí que hay cambios en Contratistas. No sé si está muy chico pero ahí les voy a ir explicando. Entonces en la en la primera parte tengo la columna el contratista y recuerden que yo le había mencionado que la lógica me decía que un servicios operar en diferentes dependencias. Así es. Entonces acá el primer contratista en el fondo tiene tres tiene tres servicios, o sea, dos servicios y operan tres plantas, por lo tanto, acá uno determina dónde, qué servicio, qué dependencia, y se le puede asignar un administrador de contrato, que en este caso está el administrador de ¿De aquí uno le puede asignar otro? ¿Puede cambiar acá mismo? ¿Qué administrador de contrato? Consulta, Marcos.
+
+38:18 - Katherine Dominguez
+¿El administrador de contrato es un rol dentro del sistema o es una persona? Es un rol dentro del sistema.
+
+38:26 - Marcos Alarcon
+Pueden haber varios administradores de contrato, que eso entiendo que son internos de ustedes, pero también puede ser un externo que administre un contrato. Pero el administrador de contrato el fondo es el que va a auditar los los diferentes programas. ¿Ya? Es el el rol que sería. Ahora sí. Al al final. Es es es un perfil, es un perfil más.
+
+38:49 - Francisco García
+Sí, o sea, ustedes, ustedes le generan cuenta, ustedes dicen, voy a tener quince, diez, un administrador, cada uno con su cuenta, puede entrar, puede visualizar, y el rol al final de este de este perfil es auditar lo que subió un contratista.
+
+39:05 - Katherine Dominguez
+Claro, pero por ejemplo, acá dicen, porque entiendo que acá es el rol, que es el rol administrador de contrato, pero por ejemplo, si yo se lo asigno a Marcos Betancourt, acá yo puedo colocar Marcos Betancourt.
+
+39:17 - Marcos Alarcon
+Correcto, lo que pasa es que dice administrador de contrato 1, pero en realidad eso es un nombre.
+
+39:24 - karla aguirre
+Ah, perfecto. Por eso podríamos ver ahí Marcos, Pedro y Juan, por ejemplo.
+
+39:28 - Marcos Alarcon
+Claro. Si yo me voy acá, ¿Sí? No, el que cambió fue el ocho treinta y cinco.
+
+39:45 - Rodrigo Zapata
+El otro treinta y cinco. Rodrigo yo te mandé un gracias. Gracias. Después de esta Reunión lo voy a hacer. Gracias.
+
+40:06 - Marcos Alarcon
+me entiendo ya entonces este este cambio de los administradores lo van a hacer ustedes en el usuario como lo hice yo no por código ahora si se dan y ahí tengo Juan, puedo cambiar Juan Pedro. Entonces, Juan Pedro, en el fondo, al administrador de contrato hace un rol en los sistemas, lo que puede o no puede hacer algo se llama, se está definido por roles. Entonces, un rol le puede dar la siguiente módulo o acciones y otro rol otro, ¿ya? Entonces, en términos generales, Transportes DEMO, que es la primera, opera, tiene dos servicios, y tres dependencias, por lo tanto está obligado a ingresar tres registros, tres programas. Total, sí. Aquí uno puede agregar otra dependencia, otro servicio, eso lo hacen a nivel de usuario ustedes mismos. Pueden desactivar también al contratista, eliminarlo, tienen todas las opciones acá. Para que se entienda, este sistema tiene casi todas las piezas. Ahora después falta ordenar las piezas, ¿Ya? Ordenar las piezas y generar algunas reglas del juego. Por lo por lo pronto acá están todas las piezas. Ejemplo, si ustedes quisieran, porque ahí le puse eliminar contratista directamente. Que lo tengo como para como para la usabilidad para corroborar cosas. Ustedes podrían decir, no, ¿Sabes qué? No quiero que esté ese botón de eliminar el contratista. O que esté en otro lado. Entonces, lo cambiamos. Pero están todas las opciones. Entonces yendo contratista ustedes acá tienen el contratista pueden ir a editar el contratista acá en el botón ver acá están todos los datos Contratistas están su registro y lo pueden editar acá ahí están los nombres que eso ya lo vimos la vez anterior pero se supone Marcos que estos Contratistas vienen desde acreditación cierto por supuesto sí lo que tenemos al final les voy a dar el de cómo seguimos con esto. Pero acá digamos se puede crear un contratista manual y obviamente una carga masiva de Contratistas.
+
+42:25 - karla aguirre
+Que no debiésemos, no debiésemos crear Contratistas acá, ¿no?
+
+42:28 - Katherine Dominguez
+Y no debiéramos editar tampoco el contratista.
+
+42:30 - Marcos Alarcon
+Esa es una regla, justamente, esa es una regla que ustedes tienen que ir a terminar. Si no quieren que se edite el contratista acá, no se edita el contratista.
+
+42:40 - karla aguirre
+No, porque esto es como un complemento de lo que tenemos ya como acreditación, pues entonces no debiésemos manejarlo por allá. Y y de hecho bueno me imagino que aquí igual vamos a tener distintos tipos de perfiles de administrador o o un solo tipo de administrador y y ahí estamos claros que no podemos modificar nada aquí.
+
+42:59 - Marcos Alarcon
+Claro, hoy día yo tengo considerado en en por parte de Abastible eh el administrador que el que hace todo tiene nivel dios digo yo. Exactamente.
+
+43:07 - karla aguirre
+Y el administrador de contrato que solamente ve sus Contratistas que tienen que auditar. Que pueden ser también porque pasa en la realidad también en los los administradores de contratos tienen unos ayudantes entonces puede ser que lo ayuden a gestionar ciertas cosas pero que no le den el doble check a a todo ¿No? Correcto.
+
+43:26 - Marcos Alarcon
+Al final cuando terminemos de esta presentación eh les voy a dar las pautas de cómo seguimos ¿No? Porque digamos eh yo le voy a mencionar los roles y ustedes después van a tener que devolverme qué es lo que quieren que haga o no haga acá. Y ahí tiene todo considerado, tiene eliminar, editar, entonces, dependiendo del rol, ustedes dicen que sí, que no. Ya, pero sigamos.
+
+43:52 - Katherine Dominguez
+Entonces aquí. Disculpa que te interrumpa. Disculpa que te interrumpa. ¿Sabes qué? Independientemente de la información que nosotros capturemos desde la acreditación de la empresa, nosotros en acreditación a la empresa le tenemos asignado un administrador de contrato de la empresa contratista.
+
+44:11 - Orador no identificado
+que ejecuta este programa, probablemente no es la misma persona que está configurada como administrador de contrato allá.
+
+44:18 - Katherine Dominguez
+Entonces, si bien es cierto, yo te digo, capturemos la información de allá, que debiera ser el nombre de la empresa, el como los datos de la empresa, no capturaría allá el nombre del administrador de contrato, sino que haría que el el contratista indique quien nos indique a nosotros, no sé si lo programamos, va a administrar el programa dentro de la plataforma.
+
+44:42 - Marcos Alarcon
+Ya, eso está considerado.
+
+44:44 - karla aguirre
+Y eso si pudiésemos hacerlo manual, Cati, nosotras como administradoras, nosotros, no sé, cuando entro en una empresa, no, pues, pero para las viejas quizás en la ficha de incorporación de nosotras de tener a alguien ahí que es administrador de contrato y luego programa de gestión OIM, o a las viejas que vamos a hacer todo esto con las viejas, hacerlo manual no más, porque me parece totalmente razonable. Que es el contratista administrable.
+
+45:06 - Marcos Alarcon
+Mira, eso está considerado porque dentro del de los de los roles de contratista, está el contratista administrador, ya que es el dios dentro del contratista. Mhm. Luego tiene el contratista usuario, que son diferentes usuarios que puedan administrar los programas que el administrador dios le diga.
+
+45:24 - Orador no identificado
+Mhm.
+
+45:24 - Marcos Alarcon
+Por ejemplo, el poder, un superadministrador contratista, el administrador dios que le digo yo, él ve todos los programas de todas las cada uno una dependencia. Eso pasa bastante, sí. Eso ya lo tenemos, que de ahí lo vamos a ver en el perfil contratista, ya está considerado. Entonces, vamos por parte, yo creo que las dudas que tengan, que vayan siendo con respecto a lo que estamos viendo, al módulo que estamos viendo. Porque los otros módulos, como consideran otras cosas, van a irnos saltando de una a otra. Entonces, en el fondo Contratistas acá eh usted puede determinar el servicio, la dependencia, y asignarle un administrador de contrato. Y lo otro es un periodo de inicio que está en la última columna. Si se fijan eh el servicio comenzó en diciembre que de diciembre en adelante está el tiene que ingresar el registro y después tengo eh Granel, región del Bio Bio, que partiría en enero. Para que no se produzcan inconsistencias, ¿Ya? Que de ahí va adelante. Y el último, el envasado, parte en marzo, ¿Ya? Todos con fecha diferente, con pedido diferente. Entonces acá uno administra los Contratistas. Vamos a pasar ahora a la pestaña usuarios, que estos son los usuarios internos, ¿Ya? Y acá están los administradores de contrato, que ahí está Pedro Juan, ¿Cierto? Y el administrador general. Los roles que están acá son administrador que es el modo Dios y dentro de administrador adaptible está administrador de contrato y aquí puedo crear nuevos usuarios después voy a pasar a la pestaña servicio que acá digamos está el servicio que le cambiamos el nombre ahora y el programa que le aplica o sea el del medio Granel le aplica el programa OM distribución Granel y aquí yo puedo crear nuevos servicios todos los que yo quiera y eso lo la pestaña del usuario, no tienen que pedirnos nosotros. Después tenemos la pestaña evidencia que ahí están en consolidado de las evidencias y después tenemos las dependencias que ahí digamos todas las dependencias que había por haberse pueden editar, eliminar y lo que se agregó ahora es una solicitud de apertura que la vamos a ver De nuevo, estas dependencias deberían venir desde la acreditación. Claro, son las que están determinadas en la acreditación.
+
+47:58 - Francisco García
+Eso es otra cosa, bueno, Marcos va a comentar después, pero tenemos que saber qué información queremos traer. Ahí necesitamos ayuda de usted.
+
+48:07 - Marcos Alarcon
+Eso lo vamos a ver al final, digamos, la información que se necesita para dar a buen término a todo el flujo. Voy a compartir ¿Otra pantalla?
+
+48:45 - Marcos Alarcon
+ahí estoy en el perfil contratista. Ahí aparece el rol para no equivocarse porque a veces uno no sabe en qué pantalla está. Ahí está. Ese es el rol. Contratista. Entonces, contratista. Aquí vamos a volver a lo que es lo que tomamos antes. Tiene una pestaña que es usuarios. Voy a tener que abrirla acá mismo para que se vea así. Ahí abrí la pestaña de usuarios y ahí tengo el nombre. Digamos que ese es un nombre de de pila de ese contratista pero si aquí creo un nuevo usuario ahí le pongo el nombre completo.
+
+49:16 - Katherine Dominguez
+Eso está interesante, karla, porque ahí el contratista asigna a tantos usuarios quiera, sin tener que pedirnoslo a nosotros.
+
+49:23 - Marcos Alarcon
+Ahí está Carlos, y aquí yo a Carlos le asigno un servicio, granel o envasado, que son los que tengo, y una dependencia.
+
+49:31 - Katherine Dominguez
+Y una pregunta, Marcos, porque, por ejemplo, si ellos asignan a fulanito de tal que no tiene acceso a la plataforma, ¿Cómo hacen para ingresar aquí?
+
+49:41 - Marcos Alarcon
+No, con los datos que tenga acá, cuando yo creo a este usuario, hay un email, ¿cierto? Él, con esos datos, se lo guía. Y con la contraseña que yo le creo, que él después la puede cambiar. ¿Pero se lo guía solamente aquí en el programa?
+
+49:56 - Katherine Dominguez
+No, se lo guía en la web.
+
+49:58 - Marcos Alarcon
+Lo que pasa es que, bueno, este sistema va a estar alojado en la web, no sé dónde todavía, ustedes tienen que ver. En ese link, él va, Tiene que haber un ingresar al sistema y se lo guía con el correo y la contraseña.
+
+50:13 - Francisco García
+Pero sí, pero se crean las cuentas en este sistema, Katherine.
+
+50:17 - Katherine Dominguez
+Se crean acá y sale como la apertura de lo que uno ve allá, por ejemplo, acreditación, verificación laboral, monitoreo, solamente que a esa persona no le va a salir estas tres anteriores, sino solo el programa.
+
+50:29 - Marcos Alarcon
+Correcto, solamente el programa. Ahora, esta creación de usuario contratista ahora está considerada contratista, lo crea el mismo contratista, sus usuarios. Ahora, si ustedes determinan que no, le pasamos esa opción al administrador de contrato o al administrador Dios. O sea, ese es lo que ustedes tienen que determinar. Es por eso mismo que al final yo les voy a dar unos unos tips de cómo de cómo vamos a seguir un y un correo con lo que necesitamos. Justamente ahí está los roles. Si determinamos que al usabilidad de de crear usuarios, ustedes tienen que terminarla y decirla. Si no, tienen que decir ¿Quién? ¿Quién puede crear esos usuarios? Pero por lo pronto la funcionalidad está y eso es lo que lo que importa. Entonces, en este caso, el mismo contratista crea sus usuarios y le puede asignar diferentes servicios y dependencias. Entonces, ahora voy a navegar a la que acá es donde está mi historial de en este caso este contratista tiene tres programas, o sea, opera servicio Granel, planta Mejillones, servicio Granel, región del Bio Bio, y servicio Embasado, planta Mejillones. Entonces, un contratista puede tener tantos programas, tantos servicios como se requiera. Eso, digamos, eh no está supeditado a un solo dice el servicio Granel planta mejillones él tiene dos registros que envió y aquí están los datos del registro ahí dice está el de enero dice de diciembre dice mi declaración mi declaración es lo que declaré yo como contratista declaré noventa como cuarenta y ocho por ciento de cumplimiento pero después de la auditoría dio un ochenta y siete coma cinco por ciento comparativo ahí. Después tiene que ahí que la auditoría fue por sistema y aquí se habilitó una poder abrir el periodo que ustedes tienen que decidir si es que damos opción o no pero hoy día por lo pronto está porque hay que dejar todo abierto si ustedes no les no quieren eso no lo hacemos entonces aquí para el periodo de enero el contratista ya solicitó la apertura dice apertura solicitada solicitud de apertura solicitada entonces yo me voy a ir aquí a solicitudes de apertura que son las que yo envié y ahí está la de enero y el motivo dice necesito rectificar eso mandó el contratista ya sea porque se equivocó en algo él necesita y esa solicitud de apertura
+
+53:08 - Katherine Dominguez
+le llega en este caso al administrador de contrato que puede aceptarla o rechazarla solicitud de apertura se hace luego de que ya es cerrado el programa?
+
+53:20 - Marcos Alarcon
+Sí, luego que fue auditado el programa. El programa, el contratista lo puede editar mientras no se pinche auditar. Cuando el administrador de contrato pinche auditar, ya no puede editar, tiene que esperar al resultado, puede pedir en la apertura.
+
+53:37 - Francisco García
+Y es como que quizás ahí el administrador de contrato tiene un levantamiento y tengo que decir al mismo contratista mira rectifica tal cosa pero nosotros esta funcionalidad más que ustedes nos dicen si la quieren mantener o no pero más que nada nosotros entendemos que sería valioso que un auditor en algún momento audite un periodo este que hay bloqueado porque porque son periodos que ya pasó en diciembre no te suban cosas de enero por cierto cualquier cosa por lo tanto el auditor tiene ahí la está para decir, se abre un periodo, se cierra un periodo, un contratista quizás subió el documento, te digo, oye, subí la versión mala, perfecto, y me lo auditaste y te di un
+
+54:21 - Katherine Dominguez
+cero por ciento. Claro. Perfecto.
+
+54:23 - Francisco García
+Se abre entonces, pero siempre hay Control del del auditor en este caso.
+
+54:27 - Marcos Alarcon
+Claro, porque la la solicitud de apertura siempre la hace el contratista. Y esa solicitud le llega al administrador de contrato y él decide en realidad si le abre el periodo o no. Ya siempre después de rechazar, voy a compartir la otra pantalla para que veamos la solicitud. Dejarla acá ahí está ahí está solicitudes de apertura ahí está la solicitud aquí tengo un filtro digamos por pendientes puedo filtrar me aparecen todas las pendientes ahí está el contradicta dice necesito rectificar entonces ahí tengo dos botones aprobar y rechazar entonces en este caso la voy a aprobar y le puedo dar un comentario ya y aquí dice fecha límite estoy abriendo el periodo, le voy a decir que tiene dos días nomás. Entonces, el día como está Manuel, voy a dar hasta el martes. Le pongo el martes treinta y un. El martes trece. Entonces, un contratista tiene hasta el trece para rectificar. Si no lo hace, se cierra automáticamente y queda la auditoría como estaba.
+
+55:53 - karla aguirre
+Perfecto. Pero bueno, por el paso. Sí.
+
+55:55 - Marcos Alarcon
+Entonces, yo aprobé y ahora me voy a ir al Deberíamos tener eso en la acreditación, Cati, plazo. Después lo podemos implementar. Entonces aquí yo me voy a... Voy a pinchar solicitud. Solicitudes de nuevo y ahí dice que fue aprobada ¿Ya? Entonces como fue aprobada yo ahora recién pudiera subsanar. Y voy a mi eh historial y ahora me aparece editar. Entonces yo edito mi su programa. Ya aquí yo aquí rectifico si supongamos esta que en realidad cumplo cumplo y guardo el registro. Una pregunta, Marcos, ¿es obligatorio que carguen la evidencia para cerrar el registro?
+
+57:02 - Katherine Dominguez
+Esa es una regla de negocio que ustedes determinan.
+
+57:05 - Marcos Alarcon
+Por eso después viene, claro, si usted me dice obligatorio, obligatorio. Si usted me dice no obligatorio, no lo hacemos obligatorio. Es por eso que ahora viene el fino, el fino del flujo real como tiene que ser. Y eso yo le he conversado con Francisco eso tiene que ser súper al detalle porque ese es el problema de los desarrollos que a veces se tornan interminables y eternos porque ah no es que esto que esto que esto sea la idea es tener claridad absoluta y esa claridad vamos a redactar nosotros la la petición para que ustedes nos den esa claridad que necesitamos y así mientras más claro esté y más rápido más rápido terminamos entonces es el es el tema ya con aquí yo tengo, puedo exportar a PDF inmediatamente mi registro y no sé si se está viendo ahí. Está cargando. Ah ya, pero está cargando y... No sé si se me va a ver en la... Ah, perfecto, ahí está. Ay, qué bonito. Ahí está el registro que tiene su periodo, todos los datos del contratista, el resultado de la auditoría, el detalle de la auditoría, el detalle es el del el declarado, y este es el del auditado. Ahí está todo el detalle.
+
+58:33 - Katherine Dominguez
+Y la audiencia que cargan en el programa de gestión hoy en karla. De la de la de la instalación y Chao Pescado. Espectacular.
+
+58:44 - Marcos Alarcon
+Está muy lindo. Ya y después viene el ahí está toda la fecha ahora, usuario, la acción, la descripción. O sea, si yo hice algo aquí va a quedar registrado. Entonces, la exportación de PDF, esta misma trazabilidad la tengo en el sistema. O sea, si yo me voy acá y pincho ahí traza, ahí la traza, ¿cierto? No le quise poner trazabilidad. Ahí se está explicando la trazabilidad completa de lo que se hizo. Con fecha, hora. Lo mismo, si ustedes requieren otros datos, no sé, IP del usuario, ciudad donde estuvo. De qué computador puede ser también, qué sesión, qué navegador, todo. Pero aquí está, digamos, lo que se... Y aquí mismo... Para el informe estaría bien así, yo creo.
+
+59:37 - Katherine Dominguez
+Bien nomás el usuario, ¿no?
+
+59:40 - Marcos Alarcon
+Entonces, aquí directamente también puedo exportar a PDF solamente de la de la trazabilidad. La trazabilidad. Entonces ya vimos la y acá mi de contratista están los diferentes programas que tengo y acá yo creo el registro. Quise eliminar a la pestaña para no inundar tanto con pestañas y aquí yo creo el registro aquí se registra a enviar a enviar febrero del registro y aquí creo mi registro, pincho crear registro e ingreso todos los los datos, las evidencias que se requieran. Y al final guardar registro y el registro se envía.
+
+1:00:24 - Katherine Dominguez
+Claro, y ellos pueden modificar, por ejemplo, hoy cargar la actividad uno, mañana la dos, y así sucesivamente porque tienen la apertura hasta que los auditan.
+
+1:00:34 - Marcos Alarcon
+Justamente, ¿Ya? Así como el contratista tiene esa opción, el administrador de contrato cuando pone pausar para continuarlo después. O sea, para que no pierda el trabajo, no deje la pantalla abierta. O sea, también está considerado que pueda continuar después. Ya. El administrador de contrato, vamos a... Voy a dejar de compartir, voy a compartir el perfil del administrador de contrato.
+
+1:00:59 - Katherine Dominguez
+Yo tengo una consulta, Marcos. Pero que también está conectada con lo que vamos a grabar. Cuando el administrador de trato hace la auditoría, él va a detectar brechas, ¿verdad? Correcto. Va a detectar brechas y va a definir porque cuál es cuál es mi idea, que justamente lo que tú estás haciendo ahora, el administrador de contrato se va a sentar con la empresa contratista y va a decir, listo, vamos a revisar enero. Y a medida que va revisando enero, le va poniendo cumple, no cumple, cumple, no cumple, generar compromisos.

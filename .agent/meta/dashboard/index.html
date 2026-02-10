@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antigravity Meta-Dashboard</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --border: #30363d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --accent: #58a6ff;
+            --accent-hover: #79b8ff;
+            --success: #3fb950;
+            --warning: #d29922;
+            --danger: #f85149;
+            --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 220px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 16px 0;
+        }
+
+        .logo {
+            padding: 0 16px 16px;
+            font-size: 18px;
+            font-weight: 700;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+            color: var(--text-secondary);
+        }
+
+        .nav-item:hover,
+        .nav-item.active {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-left-color: var(--accent);
+        }
+
+        .nav-item .icon {
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
+        }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        .module {
+            display: none;
+        }
+
+        .module.active {
+            display: block;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        /* Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 32px;
+            font-weight: 700;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Status Badges */
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background: rgba(63, 185, 80, 0.2);
+            color: var(--success);
+        }
+
+        .badge-warning {
+            background: rgba(210, 153, 34, 0.2);
+            color: var(--warning);
+        }
+
+        .badge-danger {
+            background: rgba(248, 81, 73, 0.2);
+            color: var(--danger);
+        }
+
+        /* Chat Module */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 140px);
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .message {
+            max-width: 80%;
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .message.user {
+            background: var(--accent);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant {
+            background: var(--bg-tertiary);
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-input-container {
+            display: flex;
+            gap: 12px;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: var(--text-primary);
+            font-size: 14px;
+            resize: none;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: black;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--bg-tertiary);
+        }
+
+        /* Skill List */
+        .skill-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .skill-item:last-child {
+            border-bottom: none;
+        }
+
+        .skill-info h4 {
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .skill-info p {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Improvement Proposal */
+        .proposal-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .proposal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .proposal-title {
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .proposal-section {
+            margin-bottom: 12px;
+        }
+
+        .proposal-section h5 {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .proposal-section p {
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        /* Workflow Executor */
+        .workflow-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .form-control {
+            width: 100%;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 12px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        select.form-control {
+            cursor: pointer;
+        }
+
+        textarea.form-control {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        /* Documentation */
+        .doc-section {
+            margin-bottom: 24px;
+        }
+
+        .doc-section h3 {
+            font-size: 16px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .capability-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 12px;
+        }
+
+        .capability-item {
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            padding: 12px;
+        }
+
+        .capability-item h4 {
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+
+        .capability-item p {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .data-table th {
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 1000;
+        }
+
+        .toast {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="logo">🚀 Antigravity</div>
+        <div class="nav-item active" data-module="dashboard">
+            <span class="icon">📊</span> Dashboard
+        </div>
+        <div class="nav-item" data-module="chat">
+            <span class="icon">💬</span> Chat
+        </div>
+        <div class="nav-item" data-module="docs">
+            <span class="icon">📚</span> Documentación
+        </div>
+        <div class="nav-item" data-module="improve">
+            <span class="icon">🔧</span> Auto-Mejora
+        </div>
+        <div class="nav-item" data-module="workflows">
+            <span class="icon">⚙️</span> Workflows
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main">
+        <header class="header">
+            <h1 id="moduleTitle">Dashboard</h1>
+            <span class="badge badge-success">Sistema Activo</span>
+        </header>
+
+        <div class="content">
+            <!-- Dashboard Module -->
+            <div id="dashboard" class="module active">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value" id="metricSkills">16</div>
+                        <div class="metric-label">Skills Totales</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="metricExecs">0</div>
+                        <div class="metric-label">Ejecuciones</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="metricSuccess">100%</div>
+                        <div class="metric-label">Tasa de Éxito</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="metricHealth">✓</div>
+                        <div class="metric-label">Health Status</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Estado de Skills</span>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Skill</th>
+                                <th>Capa</th>
+                                <th>Estado</th>
+                                <th>Última Ejecución</th>
+                            </tr>
+                        </thead>
+                        <tbody id="skillsTable"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Chat Module -->
+            <div id="chat" class="module">
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages"></div>
+                    <div class="chat-input-container">
+                        <textarea class="chat-input" id="chatInput" placeholder="Escribe un mensaje..."
+                            rows="2"></textarea>
+                        <button class="btn btn-primary" onclick="sendMessage()">Enviar</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Documentation Module -->
+            <div id="docs" class="module">
+                <div class="doc-section">
+                    <h3>🎯 Capacidades del Agente</h3>
+                    <div class="capability-list" id="capabilitiesList"></div>
+                </div>
+
+                <div class="doc-section">
+                    <h3>📋 Skills Operativas</h3>
+                    <div class="card">
+                        <div id="operationalSkills"></div>
+                    </div>
+                </div>
+
+                <div class="doc-section">
+                    <h3>🧠 Meta-Skills (Level 6)</h3>
+                    <div class="card">
+                        <div id="metaSkillsDocs"></div>
+                    </div>
+                </div>
+
+                <div class="doc-section">
+                    <h3>📖 Manual de Uso</h3>
+                    <div class="card">
+                        <h4 style="margin-bottom: 12px;">Cómo aprovechar al máximo el sistema</h4>
+                        <ol style="padding-left: 20px; line-height: 1.8; font-size: 14px;">
+                            <li><strong>Usa el Chat</strong> para comunicarte directamente con el agente</li>
+                            <li><strong>Monitorea el Dashboard</strong> para ver el estado del ecosistema</li>
+                            <li><strong>Revisa Auto-Mejora</strong> para ver propuestas de optimización</li>
+                            <li><strong>Ejecuta Workflows</strong> para correr skills específicas con instrucciones</li>
+                            <li><strong>Consulta Documentación</strong> para entender cada skill</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Self-Improvement Module -->
+            <div id="improve" class="module">
+                <div class="card" style="margin-bottom: 16px;">
+                    <p>Propuestas de mejora detectadas por el sistema basadas en patrones de ejecución y contexto
+                        histórico.</p>
+                </div>
+                <div id="proposalsList"></div>
+            </div>
+
+            <!-- Workflows Module -->
+            <div id="workflows" class="module">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Ejecutar Skill</span>
+                    </div>
+                    <div class="workflow-form">
+                        <div class="form-group">
+                            <label>Seleccionar Skill</label>
+                            <select class="form-control" id="skillSelect">
+                                <option value="">-- Selecciona una skill --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Instrucción</label>
+                            <textarea class="form-control" id="workflowInstruction"
+                                placeholder="Describe qué quieres que haga la skill..."></textarea>
+                        </div>
+                        <div style="display: flex; gap: 12px;">
+                            <button class="btn btn-primary" onclick="executeWorkflow()">▶️ Ejecutar</button>
+                            <button class="btn btn-outline" onclick="clearWorkflow()">Limpiar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 16px;">
+                    <div class="card-header">
+                        <span class="card-title">Resultado</span>
+                    </div>
+                    <pre id="workflowResult"
+                        style="font-size: 13px; color: var(--text-secondary); white-space: pre-wrap;">Selecciona una skill y proporciona instrucciones para ejecutar.</pre>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        // ==================== DATA & STATE ====================
+        const APP_STATE_KEY = 'antigravity_dashboard_state';
+
+        // Connect to local bridge
+        const socket = io("http://localhost:3000", {
+            reconnectionAttempts: 5,
+            timeout: 2000
+        });
+
+        // ==================== STATE MANAGEMENT ====================
+        // Removed local storage reliance for chat. Now purely driven by Server State.
+        let appState = {
+            chatHistory: [], // Populated from server
+            executions: 0    // Kept local for now
+        };
+
+        // ==================== SOCKET EVENTS ====================
+        socket.on('connect', () => {
+            showToast('Sincronizado con Conciencia Compartida', 'success');
+            document.querySelector('.badge-success').textContent = 'Synced';
+            document.querySelector('.badge-success').style.background = 'rgba(63, 185, 80, 0.2)';
+        });
+
+        socket.on('disconnect', () => {
+            showToast('Desconectado del Bridge', 'error');
+            document.querySelector('.badge-success').textContent = 'Offline';
+            document.querySelector('.badge-success').style.background = 'rgba(248, 81, 73, 0.2)';
+        });
+
+        socket.on('state:update', (remoteState) => {
+            console.log('State updated:', remoteState);
+            // Merge remote message history
+            if (remoteState.messages) {
+                appState.chatHistory = remoteState.messages;
+                renderChat();
+            }
+        });
+        const skills = {
+            operational: [
+                { id: 'ieee-gen', name: 'IEEE Generator', desc: 'Transforma documentación en blueprints IEEE', layer: 'operational' },
+                { id: 'make-software', name: 'Make Software', desc: 'Materializa blueprints en código funcional', layer: 'operational' },
+                { id: 'privilegios-engine', name: 'Privilegios Engine', desc: 'Gestión granular de permisos', layer: 'operational' },
+                { id: 'img-to-css', name: 'Image to CSS', desc: 'Extrae themes desde imágenes', layer: 'operational' },
+                { id: 'img-to-user-story', name: 'Image to Search', desc: 'Analiza UI e infiere historias de usuario', layer: 'operational' }
+            ],
+            meta: [
+                { id: 'skill-registry', name: 'Skill Registry', desc: 'Catálogo centralizado de skills', layer: 'infrastructure' },
+                { id: 'agent-api-bridge', name: 'Agent API Bridge', desc: 'Puente WebSocket para Dashboard', layer: 'infrastructure' },
+                // ... (rest kept for display)
+            ]
+        };
+
+        // ... (Capabilities list kept static for now) ...
+        const capabilities = [
+            { name: 'Generación de Código', desc: 'Backend, Frontend, Full-Stack en múltiples lenguajes' },
+            { name: 'Análisis de Arquitectura', desc: 'Diseño de sistemas, patrones, microservicios' },
+            { name: 'Debugging Inteligente', desc: 'Identificación y resolución de errores' },
+            { name: 'Auto-Mejora Continua', desc: 'Detección de patrones y evolución de skills' },
+            { name: 'Gestión de Proyectos', desc: 'Scaffolding, configuración, deployment' },
+            { name: 'Documentación IEEE', desc: 'Generación de especificaciones formales' }
+        ];
+
+        // State initialized above
+        // let appState = { chatHistory: [], executions: 0 }; // REMOVED DUPLICATE
+
+        // ==================== SOCKET EVENTS ====================
+        socket.on('connect', () => {
+            showToast('Conectado al Cerebro del Agente (Bridge)', 'success');
+            document.querySelector('.badge-success').textContent = 'Online';
+            document.querySelector('.badge-success').style.background = 'rgba(63, 185, 80, 0.2)';
+        });
+
+        socket.on('disconnect', () => {
+            showToast('Desconectado del Bridge', 'error');
+            document.querySelector('.badge-success').textContent = 'Offline';
+            document.querySelector('.badge-success').style.background = 'rgba(248, 81, 73, 0.2)';
+        });
+
+        socket.on('system:status', (data) => {
+            console.log('System Status:', data);
+        });
+
+        socket.on('chat:response', (msg) => {
+            appState.chatHistory.push({ role: 'assistant', content: processMarkdown(msg.content) });
+            renderChat();
+        });
+
+        // ==================== NAVIGATION (UNCHANGED) ====================
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const moduleId = item.dataset.module;
+                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+                item.classList.add('active');
+                document.getElementById(moduleId).classList.add('active');
+
+                const titles = { dashboard: 'Dashboard', chat: 'Chat', docs: 'Documentación', improve: 'Auto-Mejora', workflows: 'Workflows' };
+                document.getElementById('moduleTitle').textContent = titles[moduleId];
+            });
+        });
+
+        // ==================== DASHBOARD & DOCS (STATIC RENDER) ====================
+        function renderDashboard() {
+            // ... (Rendering logic kept similar for UI consistency) ...
+            document.getElementById('metricSkills').textContent = skills.operational.length + skills.meta.length;
+
+            const tbody = document.getElementById('skillsTable');
+            tbody.innerHTML = [...skills.operational, ...skills.meta].map(s => `
+                <tr>
+                    <td><strong>${s.name}</strong></td>
+                    <td>${s.layer || 'N/A'}</td>
+                    <td><span class="badge badge-success">Active</span></td>
+                    <td style="color: var(--text-secondary)">--</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderDocs() {
+            // Render capabilities
+            document.getElementById('capabilitiesList').innerHTML = capabilities.map(c => `
+                <div class="capability-item"><h4>${c.name}</h4><p>${c.desc}</p></div>
+            `).join('');
+
+            // Render Operational Skills
+            document.getElementById('operationalSkills').innerHTML = skills.operational.map(s => `
+                <div class="skill-item"><div class="skill-info"><h4>${s.name}</h4><p>${s.desc}</p></div><span class="badge badge-success">${s.layer}</span></div>
+            `).join('');
+
+            // Render Meta Skills (Grouped)
+            const grouped = skills.meta.reduce((acc, s) => { (acc[s.layer] = acc[s.layer] || []).push(s); return acc; }, {});
+            document.getElementById('metaSkillsDocs').innerHTML = Object.entries(grouped).map(([layer, items]) => `
+                <div style="margin-bottom: 16px;"><h4 style="margin-bottom: 8px; color: var(--accent); text-transform: capitalize;">${layer}</h4>${items.map(s => `<div class="skill-item"><div class="skill-info"><h4>${s.name}</h4><p>${s.desc}</p></div></div>`).join('')}</div>
+            `).join('');
+        }
+
+        // ==================== CHAT LOGIC (SHARED STATE) ====================
+        function renderChat() {
+            const container = document.getElementById('chatMessages');
+            container.innerHTML = appState.chatHistory.map(m => `
+                <div class="message ${m.role}">
+                    ${processMarkdown(m.content)}
+                    ${m.role === 'user' && !m.processed ? '<span style="font-size:0.7em; opacity:0.5; display:block">Enviando...</span>' : ''}
+                </div>
+            `).join('');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            // Send to Bridge (which updates State -> Broadcasts back)
+            socket.emit('chat:message', {
+                content: message,
+                id: Date.now().toString()
+            });
+
+            input.value = '';
+        }
+
+        document.getElementById('chatInput').addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // ==================== UTILS ====================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            const icons = { success: '✅', warning: '⚠️', info: 'ℹ️', error: '❌' };
+            toast.innerHTML = `<span>${icons[type] || icons.info}</span><span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function processMarkdown(text) {
+            // Simple markdown parser for demo
+            return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/`(.*?)`/g, '<code>$1</code>')
+                .replace(/\n/g, '<br>');
+        }
+
+        // ==================== INITIALIZATION ====================
+        function init() {
+            renderDashboard();
+            renderDocs();
+            renderChat();
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

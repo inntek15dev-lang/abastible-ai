@@ -1,0 +1,505 @@
+/* ============================================
+  @import '../.agent/themes/skin-abastible.css';
+
+   Generated: 2026-02-06
+   Source: c:\laragon\www\abastible-ai\info\skin-abastible.png
+   ============================================ */
+
+/* -----------------------------
+   1. CSS VARIABLES
+   Define all theme tokens here
+   ----------------------------- */
+:root {
+  /* Brand Colors (Extracted from Abastible Brand) */
+  --color-brand-primary: #ff6600;
+  /* Signature Orange */
+  --color-brand-secondary: #003366;
+  /* Deep Blue */
+  --color-brand-tertiary: #f47920;
+  /* Lighter Orange */
+
+  /* Background Colors */
+  --color-bg-body: #f3f4f6;
+  /* Light gray body */
+  --color-bg-surface: #ffffff;
+  /* White cards */
+  --color-bg-sidebar: #ffffff;
+  --color-bg-hover: #fff7ed;
+  /* Light orange tint for hovers */
+
+  /* Text Colors */
+  --color-text-primary: #111827;
+  /* Near black */
+  --color-text-secondary: #6b7280;
+  /* Gray muted */
+  --color-text-inverse: #ffffff;
+  --color-text-brand: #ff6600;
+
+  /* Status Tokens */
+  --color-status-success-bg: #dcfce7;
+  --color-status-success-text: #166534;
+  --color-status-warning-bg: #fef9c3;
+  --color-status-warning-text: #854d0e;
+  --color-status-danger-bg: #fee2e2;
+  --color-status-danger-text: #991b1b;
+  --color-status-info-bg: #e0f2fe;
+  --color-status-info-text: #075985;
+
+  /* Module Specific (Tabs) */
+  --color-tab-resumen: #0ea5e9;
+  --color-tab-operaciones: #ff6600;
+  --color-tab-personas: #22c55e;
+  --color-tab-config: #a855f7;
+  --color-tab-security: #ef4444;
+
+  /* Typography */
+  --font-family-base: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 600;
+
+  /* Spacing System */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* Borders & Radius */
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --border-radius-pill: 9999px;
+  --border-color: #e5e7eb;
+  --border-width: 1px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-depth: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+
+  /* Navbar Height */
+  --header-height: 64px;
+}
+
+/* -----------------------------
+   2. BASE ELEMENTS
+   ----------------------------- */
+
+body {
+  background: var(--color-bg-body);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  /* Compact default */
+  line-height: 1.5;
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--color-text-primary);
+  margin-top: 0;
+}
+
+a {
+  transition: all 0.2s;
+  text-decoration: none;
+  color: inherit;
+}
+
+/* -----------------------------
+   3. COMPONENT CLASSES
+   ----------------------------- */
+
+/* Navigation Layout (New) */
+.main-navbar {
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  height: var(--header-height);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  border-bottom: 3px solid var(--color-brand-primary);
+  /* Brand highlight */
+}
+
+.navbar-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 32px;
+}
+
+/* Brand */
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-brand-secondary);
+  min-width: 180px;
+}
+
+.logo-circle {
+  width: 36px;
+  height: 36px;
+  background: var(--color-brand-primary);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-style: italic;
+}
+
+/* Module Tabs (Pill Style) */
+.navbar-modules {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+}
+
+.module-item {
+  position: relative;
+}
+
+.module-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--border-radius-pill);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.module-link:hover {
+  background: #F3F4F6;
+  color: var(--color-text-primary);
+}
+
+.module-link.active {
+  background: var(--module-color);
+  color: #ff6600 !important;
+  /* Force white text on colored pills */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  border-color: transparent !important;
+}
+
+/* Sub-menu Dropdowns */
+.dropdown-menu {
+  position: absolute;
+  top: 120%;
+  left: 0;
+  width: 260px;
+  background: white;
+  border-radius: var(--border-radius-md);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-color);
+  padding: 8px 0;
+  z-index: 50;
+  overflow: hidden;
+}
+
+.dropdown-menu.right {
+  left: auto;
+  right: 0;
+  width: 200px;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  color: var(--color-text-primary);
+  font-weight: 500;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+}
+
+.dropdown-item:hover {
+  background-color: #F9FAFB;
+  color: var(--color-brand-primary);
+}
+
+/* User Profile */
+.user-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px;
+  border-radius: var(--border-radius-pill);
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+.user-btn:hover {
+  background: #F3F4F6;
+}
+
+.user-info-mini {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  line-height: 1.1;
+}
+
+.user-info-mini .name {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--color-text-primary);
+}
+
+.user-info-mini .role {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+/* Page Containers */
+.main-content {
+  background-color: var(--color-bg-body);
+  padding: 24px;
+  min-height: calc(100vh - var(--header-height));
+}
+
+.content-wrapper {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+/* Cards & Layout */
+.card,
+.table-container,
+.filters-bar {
+  background: var(--color-bg-surface);
+  border-radius: var(--border-radius-md);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-color);
+}
+
+/* In-Page Tabs (Secondary) */
+.nav-tabs {
+  display: inline-flex;
+  background: #E5E7EB;
+  padding: 4px;
+  border-radius: var(--border-radius-pill);
+}
+
+.nav-tab {
+  padding: 6px 16px;
+  border-radius: var(--border-radius-pill);
+  font-weight: 600;
+  font-size: 0.9rem;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: var(--color-text-secondary);
+  transition: all 0.2s;
+}
+
+.nav-tab.active {
+  background: white;
+  color: var(--color-brand-secondary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Buttons */
+.btn-primary {
+  background-color: var(--color-brand-primary);
+  color: white;
+  padding: 8px 16px;
+  border-radius: var(--border-radius-md);
+  border: none;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-brand-tertiary);
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+  transition: all 0.2s;
+}
+
+.btn-icon:hover {
+  background: #f3f4f6;
+  color: var(--color-text-primary);
+}
+
+.btn-icon.warning:hover {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.btn-icon.danger:hover {
+  background: #fee2e2;
+  color: #991b1B;
+}
+
+/* Tables */
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.data-table th {
+  background: #F9FAFB;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.data-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle;
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Badges */
+.badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  display: inline-block;
+}
+
+.badge.success {
+  background: #DCFCE7;
+  color: #166534;
+}
+
+.badge.warning {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.badge.danger {
+  background: #FEE2E2;
+  color: #991B1B;
+}
+
+.badge.info {
+  background: #DBEAFE;
+  color: #1E40AF;
+}
+
+.badge.secondary {
+  background: #F3F4F6;
+  color: #4B5563;
+}
+
+/* Forms */
+.form-control {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--border-color);
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+}
+
+/* Action Buttons Group (Table) */
+.btn-icon-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  background: white;
+}
+
+.btn-auditar {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.btn-auditar:hover {
+  background: #f0fdf4;
+}
+
+.btn-pdf {
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-secondary);
+}
+
+.btn-pdf:hover {
+  background: #f3f4f6;
+  color: var(--color-text-primary);
+}
+
+.btn-traza {
+  border-color: transparent;
+  color: var(--color-brand-secondary);
+}
+
+.btn-traza:hover {
+  background: #eff6ff;
+}

@@ -1,0 +1,100 @@
+Inspecting actividades columns...
+Executing (default): SHOW COLUMNS FROM actividades
+Columns: [
+  {
+    "Field": "id",
+    "Type": "bigint unsigned",
+    "Null": "NO",
+    "Key": "PRI",
+    "Default": null,
+    "Extra": "auto_increment"
+  },
+  {
+    "Field": "elemento_id",
+    "Type": "bigint unsigned",
+    "Null": "NO",
+    "Key": "MUL",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "codigo",
+    "Type": "varchar(20)",
+    "Null": "NO",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "descripcion",
+    "Type": "text",
+    "Null": "NO",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "criterios",
+    "Type": "text",
+    "Null": "YES",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "frecuencia",
+    "Type": "enum('mensual','trimestral','semestral','anual','cuando_aplique')",
+    "Null": "NO",
+    "Key": "",
+    "Default": "mensual",
+    "Extra": ""
+  },
+  {
+    "Field": "requiere_evidencia",
+    "Type": "tinyint(1)",
+    "Null": "NO",
+    "Key": "",
+    "Default": "1",
+    "Extra": ""
+  },
+  {
+    "Field": "orden",
+    "Type": "int",
+    "Null": "NO",
+    "Key": "",
+    "Default": "0",
+    "Extra": ""
+  },
+  {
+    "Field": "activo",
+    "Type": "tinyint(1)",
+    "Null": "NO",
+    "Key": "",
+    "Default": "1",
+    "Extra": ""
+  },
+  {
+    "Field": "created_at",
+    "Type": "datetime",
+    "Null": "NO",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "updated_at",
+    "Type": "datetime",
+    "Null": "NO",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "actividad",
+    "Type": "text",
+    "Null": "YES",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  }
+]

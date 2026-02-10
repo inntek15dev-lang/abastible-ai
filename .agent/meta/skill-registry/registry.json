@@ -1,0 +1,544 @@
+{
+    "$schema": "./schemas/skill.schema.json",
+    "registry_version": "1.0.0",
+    "last_updated": "2026-02-05T22:44:00-03:00",
+    "skills": [
+        {
+            "id": "ieee-gen",
+            "version": "1.0.0",
+            "path": ".agent/skills/ieee-gen/SKILL.md",
+            "inputs": [
+                ".agent/docs/*"
+            ],
+            "outputs": [
+                ".agent/prompts/master_blueprint.prompt"
+            ],
+            "dependencies": [],
+            "tags": [
+                "generator",
+                "ieee",
+                "blueprint",
+                "analysis"
+            ],
+            "metrics": {
+                "total_executions": 0,
+                "success_rate": 0.0,
+                "avg_execution_time_ms": 0,
+                "last_execution": null,
+                "last_status": null
+            },
+            "meta": {
+                "created_at": "2026-02-05T22:44:00-03:00",
+                "updated_at": "2026-02-05T22:44:00-03:00",
+                "author": "system",
+                "description": "Transforms documentation into IEEE-compliant blueprints"
+            }
+        },
+        {
+            "id": "make-software",
+            "version": "1.0.0",
+            "path": ".agent/skills/make-software/SKILL.md",
+            "inputs": [
+                ".agent/prompts/master_blueprint.prompt"
+            ],
+            "outputs": [
+                "./back/",
+                "./front/"
+            ],
+            "dependencies": [
+                "ieee-gen"
+            ],
+            "tags": [
+                "generator",
+                "scaffold",
+                "backend",
+                "frontend",
+                "code"
+            ],
+            "metrics": {
+                "total_executions": 0,
+                "success_rate": 0.0,
+                "avg_execution_time_ms": 0,
+                "last_execution": null,
+                "last_status": null
+            },
+            "meta": {
+                "created_at": "2026-02-05T22:44:00-03:00",
+                "updated_at": "2026-02-05T22:44:00-03:00",
+                "author": "system",
+                "description": "Materializes blueprints into functional full-stack code"
+            }
+        },
+        {
+            "id": "privilegios-engine",
+            "version": "1.0.0",
+            "path": ".agent/skills/privilegios-engine/SKILL.md",
+            "inputs": [
+                ".agent/prompts/master_blueprint.prompt",
+                ".agent/docs/roles.json"
+            ],
+            "outputs": [
+                "./back/src/middleware/",
+                "./front/src/context/",
+                "./front/src/config/navigation.js"
+            ],
+            "dependencies": [],
+            "tags": [
+                "security",
+                "rbac",
+                "privileges",
+                "auth"
+            ],
+            "metrics": {
+                "total_executions": 0,
+                "success_rate": 0.0,
+                "avg_execution_time_ms": 0,
+                "last_execution": null,
+                "last_status": null
+            },
+            "meta": {
+                "created_at": "2026-02-05T22:44:00-03:00",
+                "updated_at": "2026-02-05T22:44:00-03:00",
+                "author": "system",
+                "description": "Manages granular role-based access control"
+            }
+        },
+        {
+            "id": "img-to-css",
+            "version": "1.0.0",
+            "path": ".agent/skills/img-to-css/SKILL.md",
+            "inputs": [
+                "*.png",
+                "*.jpg",
+                "*.webp"
+            ],
+            "outputs": [
+                ".agent/themes/*.css"
+            ],
+            "dependencies": [],
+            "tags": [
+                "generator",
+                "css",
+                "theme",
+                "image-analysis",
+                "design"
+            ],
+            "metrics": {
+                "total_executions": 0,
+                "success_rate": 0.0,
+                "avg_execution_time_ms": 0,
+                "last_execution": null,
+                "last_status": null
+            },
+            "meta": {
+                "created_at": "2026-02-06T00:07:57-03:00",
+                "updated_at": "2026-02-06T00:07:57-03:00",
+                "author": "parko",
+                "description": "Analyzes images to extract visual elements and generate exact CSS theme files"
+            }
+        },
+        {
+            "id": "img-to-user-story",
+            "version": "1.0.0",
+            "path": ".agent/skills/img-to-user-story/SKILL.md",
+            "inputs": [
+                "*.png",
+                "*.jpg",
+                "*.webp"
+            ],
+            "outputs": [
+                ".agent/user-stories/*.md"
+            ],
+            "dependencies": [],
+            "tags": [
+                "analyzer",
+                "user-story",
+                "ui-analysis",
+                "requirements"
+            ],
+            "metrics": {
+                "total_executions": 0,
+                "success_rate": 0.0,
+                "avg_execution_time_ms": 0,
+                "last_execution": null,
+                "last_status": null
+            },
+            "meta": {
+                "created_at": "2026-02-06T00:13:09-03:00",
+                "updated_at": "2026-02-06T00:13:09-03:00",
+                "author": "parko",
+                "description": "Analyzes UI images recursively to infer user stories with acceptance criteria"
+            }
+        },
+        {
+            "id": "sync-chat",
+            "version": "1.0.0",
+            "path": ".agent/skills/sync-chat/SKILL.md",
+            "inputs": [
+                "manual",
+                "bridge-event"
+            ],
+            "outputs": [
+                "stdout",
+                "chat_state.json"
+            ],
+            "dependencies": [
+                "agent-api-bridge"
+            ],
+            "tags": [
+                "communication",
+                "sync",
+                "interface"
+            ],
+            "metrics": {
+                "total_executions": 0,
+                "success_rate": 0.0,
+                "avg_execution_time_ms": 0,
+                "last_execution": null,
+                "last_status": null
+            },
+            "meta": {
+                "created_at": "2026-02-06T01:08:00-03:00",
+                "updated_at": "2026-02-06T01:08:00-03:00",
+                "author": "parko",
+                "description": "Interfaces with shared chat state for bidirectional communication"
+            }
+        },
+        {
+            "id": "omniscient-analyst",
+            "version": "1.0.0",
+            "path": ".agent/skills/omniscient-analyst/SKILL.md",
+            "inputs": [
+                "files",
+                "directories"
+            ],
+            "outputs": [
+                "analysis_dump.json"
+            ],
+            "dependencies": [
+                "visual-decoder",
+                "text-miner",
+                "code-archeologist"
+            ],
+            "tags": [
+                "analysis",
+                "orchestrator",
+                "ai"
+            ],
+            "metrics": {
+                "total_executions": 0
+            },
+            "meta": {
+                "author": "parko",
+                "description": "Orchestrates multimodal document analysis"
+            }
+        },
+        {
+            "id": "visual-decoder",
+            "version": "1.0.0",
+            "path": ".agent/skills/visual-decoder/SKILL.md",
+            "inputs": [
+                "images"
+            ],
+            "outputs": [
+                "ui_specs.json"
+            ],
+            "dependencies": [],
+            "tags": [
+                "analysis",
+                "ui",
+                "ux"
+            ],
+            "metrics": {
+                "total_executions": 0
+            },
+            "meta": {
+                "author": "parko",
+                "description": "Extracts UI/UX specs from images"
+            }
+        },
+        {
+            "id": "text-miner",
+            "version": "1.1.0",
+            "path": ".agent/skills/text-miner/SKILL.md",
+            "inputs": [
+                "text",
+                "pdf"
+            ],
+            "outputs": [
+                "requirements.json",
+                "process_diagram.xml"
+            ],
+            "dependencies": [],
+            "tags": [
+                "analysis",
+                "nlp",
+                "requirements",
+                "bpmn"
+            ],
+            "metrics": {
+                "total_executions": 0
+            },
+            "meta": {
+                "author": "parko",
+                "description": "Extracts business rules and flows (XML) from text"
+            }
+        },
+        {
+            "id": "code-archeologist",
+            "version": "1.1.0",
+            "path": ".agent/skills/code-archeologist/SKILL.md",
+            "inputs": [
+                "code",
+                "sql",
+                "json"
+            ],
+            "outputs": [
+                "models.json",
+                "erd_diagram.xml"
+            ],
+            "dependencies": [],
+            "tags": [
+                "analysis",
+                "code",
+                "legacy",
+                "erd"
+            ],
+            "metrics": {
+                "total_executions": 0
+            },
+            "meta": {
+                "author": "parko",
+                "description": "Reverse engineers data models and diagrams (XML) from code"
+            }
+        },
+        {
+            "id": "blueprint-synthesizer",
+            "version": "1.0.0",
+            "path": ".agent/skills/blueprint-synthesizer/SKILL.md",
+            "inputs": [
+                "analysis_dump.json"
+            ],
+            "outputs": [
+                "master_blueprint.json"
+            ],
+            "dependencies": [],
+            "tags": [
+                "synthesis",
+                "architecture"
+            ],
+            "metrics": {
+                "total_executions": 0
+            },
+            "meta": {
+                "author": "parko",
+                "description": "Synthesizes analysis into a universal blueprint"
+            }
+        },
+        {
+            "id": "agile-coach",
+            "version": "1.0.0",
+            "path": ".agent/skills/agile-coach/SKILL.md",
+            "inputs": [
+                "master_blueprint.json"
+            ],
+            "outputs": [
+                "product_backlog.md",
+                "sprint_plan.json",
+                "blueprints/sprint_*.json"
+            ],
+            "dependencies": [
+                "blueprint-synthesizer"
+            ],
+            "tags": [
+                "agile",
+                "planning",
+                "scrum",
+                "management"
+            ],
+            "metrics": {
+                "total_executions": 0
+            },
+            "meta": {
+                "author": "parko",
+                "description": "Slices blueprints into Agile Sprints"
+            }
+        },
+        {
+            "id": "iso-guardian",
+            "version": "1.0.0",
+            "path": ".agent/skills/iso-guardian/SKILL.md",
+            "inputs": [
+                "master_blueprint.json",
+                "src/**"
+            ],
+            "outputs": [
+                "security_audit.json",
+                "compliance_report.md"
+            ],
+            "dependencies": [],
+            "tags": [
+                "security",
+                "iso27001",
+                "audit",
+                "ciso"
+            ],
+            "metrics": {
+                "total_executions": 0
+            },
+            "meta": {
+                "author": "parko",
+                "description": "Enforces security standards across lifecycle"
+            }
+        },
+        {
+            "id": "masterdocs-auditor",
+            "version": "1.0.0",
+            "path": ".agent/skills/masterdocs-auditor/SKILL.md",
+            "inputs": [
+                "documentos_mes_*.zip",
+                "manual_input"
+            ],
+            "outputs": [
+                "audit_report.json",
+                "executive_summary.md"
+            ],
+            "dependencies": [
+                "text-miner"
+            ],
+            "tags": [
+                "audit",
+                "legal",
+                "chile",
+                "labor-law",
+                "ley-20123"
+            ],
+            "metrics": {
+                "total_executions": 0
+            },
+            "meta": {
+                "author": "parko",
+                "description": "Expert Legal Auditor for Chilean Labor Law"
+            }
+        }
+    ],
+    "meta_skills": [
+        {
+            "id": "skill-registry",
+            "version": "1.0.0",
+            "path": ".agent/meta/skill-registry/SKILL.md",
+            "layer": "infrastructure",
+            "meta": {
+                "description": "Centralized catalog of all skills"
+            }
+        },
+        {
+            "id": "execution-logger",
+            "version": "1.0.0",
+            "path": ".agent/meta/execution-logger/SKILL.md",
+            "layer": "infrastructure",
+            "meta": {
+                "description": "Records every skill execution"
+            }
+        },
+        {
+            "id": "context-memory",
+            "version": "1.0.0",
+            "path": ".agent/meta/context-memory/SKILL.md",
+            "layer": "infrastructure",
+            "meta": {
+                "description": "Persistent state and knowledge storage"
+            }
+        },
+        {
+            "id": "metrics-collector",
+            "version": "1.0.0",
+            "path": ".agent/meta/metrics-collector/SKILL.md",
+            "layer": "observability",
+            "meta": {
+                "description": "Aggregates performance metrics"
+            }
+        },
+        {
+            "id": "drift-detector",
+            "version": "1.0.0",
+            "path": ".agent/meta/drift-detector/SKILL.md",
+            "layer": "observability",
+            "meta": {
+                "description": "Detects synchronization issues"
+            }
+        },
+        {
+            "id": "health-monitor",
+            "version": "1.0.0",
+            "path": ".agent/meta/health-monitor/SKILL.md",
+            "layer": "observability",
+            "meta": {
+                "description": "Unified health dashboard"
+            }
+        },
+        {
+            "id": "pattern-recognizer",
+            "version": "1.0.0",
+            "path": ".agent/meta/pattern-recognizer/SKILL.md",
+            "layer": "auto-improvement",
+            "meta": {
+                "description": "Identifies recurring patterns"
+            }
+        },
+        {
+            "id": "skill-mutator",
+            "version": "1.0.0",
+            "path": ".agent/meta/skill-mutator/SKILL.md",
+            "layer": "auto-improvement",
+            "meta": {
+                "description": "Proposes and applies skill modifications"
+            }
+        },
+        {
+            "id": "ab-tester",
+            "version": "1.0.0",
+            "path": ".agent/meta/ab-tester/SKILL.md",
+            "layer": "auto-improvement",
+            "meta": {
+                "description": "Compares skill versions"
+            }
+        },
+        {
+            "id": "self-evaluator",
+            "version": "1.0.0",
+            "path": ".agent/meta/self-evaluator/SKILL.md",
+            "layer": "meta-cognition",
+            "meta": {
+                "description": "Evaluates output quality"
+            }
+        },
+        {
+            "id": "strategy-optimizer",
+            "version": "1.0.0",
+            "path": ".agent/meta/strategy-optimizer/SKILL.md",
+            "layer": "meta-cognition",
+            "meta": {
+                "description": "Dynamically adjusts execution strategies"
+            }
+        },
+        {
+            "id": "knowledge-distiller",
+            "version": "1.0.0",
+            "path": ".agent/meta/knowledge-distiller/SKILL.md",
+            "layer": "meta-cognition",
+            "meta": {
+                "description": "Extracts learnings into reusable knowledge"
+            }
+        },
+        {
+            "id": "orchestrator",
+            "version": "1.0.0",
+            "path": ".agent/meta/orchestrator/SKILL.md",
+            "layer": "meta-cognition",
+            "meta": {
+                "description": "Central coordinator for all meta-skills"
+            }
+        }
+    ]
+}

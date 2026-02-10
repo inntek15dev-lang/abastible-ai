@@ -1,0 +1,22 @@
+🔍 Verifying Blueprint <-> Seed Synchronization...
+
+Checking Users...
+✅ Found: admin@abastible.cl
+❌ Missing User in seed.js: admin.contrato1@demo.cl (defined in Blueprint)
+❌ Missing User in seed.js: admin.contrato2@demo.cl (defined in Blueprint)
+✅ Found: contratista@demo.cl
+
+Checking Roles...
+✅ Found: admin
+✅ Found: administrador_contrato
+✅ Found: contratista_admin
+✅ Found: contratista_user
+
+Checking Configurations...
+✅ Found: meta_programa
+❌ Missing Config Key in seed.js: fecha_limite_reporte (defined in Blueprint)
+✅ Found: evidencia_obligatoria
+✅ Found: max_evidencias_por_actividad
+
+❌ SYNC FAILED: seed.js is missing data defined in master_blueprint.prompt
+👉 Rule: Any new element/user/role added to Blueprint MUST be added to seed.js

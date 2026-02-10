@@ -1,0 +1,22 @@
+🔍 Verifying Blueprint <-> Seed Synchronization...
+
+Checking Users...
+✅ Found: admin@abastible.cl
+✅ Found: pedro.ac@abastible.cl
+✅ Found: juan.ac@abastible.cl
+✅ Found: contratista@demo.cl
+✅ Found: operativo@demo.cl
+
+Checking Roles...
+✅ Found: admin
+✅ Found: administrador_contrato
+✅ Found: contratista_admin
+✅ Found: contratista_user
+
+Checking Configurations...
+✅ Found: meta_programa
+✅ Found: fecha_limite_reporte
+✅ Found: evidencia_obligatoria
+✅ Found: max_evidencias_por_actividad
+
+✅ Blueprint and Seed are synchronized.

@@ -1,0 +1,23 @@
+    "system_manifest": {
+        "project_name": "isomon 27001 v0",
+        "architecture": {
+            "backend": {
+                "engine": "Node_Express",
+                "type": "REST_API_Stateless",
+                "directory": "back",
+                "port": 4000
+            },
+            "frontend": {
+                "engine": "React_Vite",
+                "type": "SPA_Client",
+                "directory": "front",
+                "port": 5173
+            }
+        },
+        "security_policies": {
+            "strict_multimedia_block": true,
+            "hashing": "SHA-256",
+            "auth_protocol": "JWT",
+            "compliance_meta": 85.0
+        }
+    }

@@ -1,0 +1,30 @@
+{
+    "methodology": "systematic",
+    "depth_preference": "exhaustive",
+    "risk_assessment": {
+        "default_stance": "paranoid",
+        "escalation_triggers": [
+            "ambiguous_requirements",
+            "destructive_operations",
+            "production_systems",
+            "security_concerns"
+        ],
+        "always_verify": [
+            "database_operations",
+            "file_deletions",
+            "external_api_calls",
+            "authentication_changes"
+        ]
+    },
+    "decomposition": {
+        "strategy": "top_down",
+        "granularity": "fine"
+    },
+    "verification": {
+        "double_check": true,
+        "seek_counterexamples": true,
+        "confidence_threshold": 0.9
+    },
+    "edge_case_handling": "explicit",
+    "assumption_documentation": "always"
+}

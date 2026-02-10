@@ -1,0 +1,62 @@
+{
+    "sprint": 3,
+    "name": "Reaperturas + Notificaciones",
+    "priority": "SHOULD",
+    "user_stories": [
+        "US-004",
+        "US-007"
+    ],
+    "entities": [
+        "solicitudes_reapertura"
+    ],
+    "endpoints": [
+        {
+            "method": "GET",
+            "path": "/api/reaperturas",
+            "controller": "reaperturaController"
+        },
+        {
+            "method": "POST",
+            "path": "/api/reaperturas",
+            "controller": "reaperturaController",
+            "description": "Solicitar reapertura de registro"
+        },
+        {
+            "method": "PUT",
+            "path": "/api/reaperturas/:id/aprobar",
+            "controller": "reaperturaController",
+            "description": "Aprobar reapertura"
+        },
+        {
+            "method": "PUT",
+            "path": "/api/reaperturas/:id/rechazar",
+            "controller": "reaperturaController",
+            "description": "Rechazar reapertura"
+        },
+        {
+            "method": "GET",
+            "path": "/api/usuarios/:id/operativos",
+            "controller": "usuarioController",
+            "description": "Obtener usuarios operativos de un contratista"
+        },
+        {
+            "method": "POST",
+            "path": "/api/usuarios/:id/operativos",
+            "controller": "usuarioController",
+            "description": "Crear usuario operativo"
+        }
+    ],
+    "pages": [
+        {
+            "path": "/reaperturas",
+            "component": "ReaperturaList",
+            "module": "Reaperturas"
+        }
+    ],
+    "services": [
+        {
+            "name": "emailService",
+            "description": "Nodemailer para notificaciones"
+        }
+    ]
+}

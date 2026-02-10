@@ -1,0 +1,99 @@
+{
+    "sprint": 2,
+    "name": "Auditoría + Evidencias + Compromisos",
+    "priority": "SHOULD",
+    "user_stories": [
+        "US-003",
+        "US-005",
+        "US-010"
+    ],
+    "entities": [
+        "evidencias",
+        "hallazgos",
+        "compromisos",
+        "auditoria_comentarios"
+    ],
+    "endpoints": [
+        {
+            "method": "POST",
+            "path": "/api/registros/:id/auditar",
+            "controller": "auditoriaController",
+            "description": "Iniciar auditoría de un registro"
+        },
+        {
+            "method": "POST",
+            "path": "/api/registros/:id/finalizar-auditoria",
+            "controller": "auditoriaController",
+            "description": "Finalizar auditoría"
+        },
+        {
+            "method": "GET",
+            "path": "/api/evidencias",
+            "controller": "evidenciaController"
+        },
+        {
+            "method": "POST",
+            "path": "/api/evidencias",
+            "controller": "evidenciaController",
+            "description": "Subir evidencia (multipart/form-data)"
+        },
+        {
+            "method": "DELETE",
+            "path": "/api/evidencias/:id",
+            "controller": "evidenciaController"
+        },
+        {
+            "method": "GET",
+            "path": "/api/hallazgos",
+            "controller": "hallazgoController"
+        },
+        {
+            "method": "POST",
+            "path": "/api/hallazgos",
+            "controller": "hallazgoController"
+        },
+        {
+            "method": "PUT",
+            "path": "/api/hallazgos/:id",
+            "controller": "hallazgoController"
+        },
+        {
+            "method": "GET",
+            "path": "/api/compromisos",
+            "controller": "compromisoController"
+        },
+        {
+            "method": "POST",
+            "path": "/api/compromisos",
+            "controller": "compromisoController"
+        },
+        {
+            "method": "PUT",
+            "path": "/api/compromisos/:id",
+            "controller": "compromisoController"
+        },
+        {
+            "method": "PATCH",
+            "path": "/api/compromisos/:id/cumplir",
+            "controller": "compromisoController",
+            "description": "Marcar compromiso como cumplido"
+        }
+    ],
+    "pages": [
+        {
+            "path": "/registros/:id/auditar",
+            "component": "RegistroAudit",
+            "module": "Registros"
+        },
+        {
+            "path": "/hallazgos",
+            "component": "HallazgoList",
+            "module": "Registros"
+        },
+        {
+            "path": "/compromisos",
+            "component": "CompromisoList",
+            "module": "Compromisos"
+        }
+    ]
+}

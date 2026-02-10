@@ -1,0 +1,304 @@
+{
+    "sprint": 1,
+    "name": "MVP Core - Auth + Programas + Registros",
+    "priority": "MUST",
+    "user_stories": [
+        "US-001",
+        "US-002",
+        "US-006",
+        "US-007"
+    ],
+    "entities": [
+        "roles",
+        "privilegios",
+        "dependencias",
+        "programas",
+        "tipos_contratista",
+        "elementos",
+        "actividades",
+        "users",
+        "contratista_asignaciones",
+        "registros",
+        "registro_actividades",
+        "configuraciones"
+    ],
+    "endpoints": [
+        {
+            "method": "POST",
+            "path": "/api/auth/login",
+            "controller": "authController"
+        },
+        {
+            "method": "POST",
+            "path": "/api/auth/logout",
+            "controller": "authController"
+        },
+        {
+            "method": "GET",
+            "path": "/api/auth/me",
+            "controller": "authController"
+        },
+        {
+            "method": "GET",
+            "path": "/api/programas",
+            "controller": "programaController"
+        },
+        {
+            "method": "POST",
+            "path": "/api/programas",
+            "controller": "programaController"
+        },
+        {
+            "method": "PUT",
+            "path": "/api/programas/:id",
+            "controller": "programaController"
+        },
+        {
+            "method": "DELETE",
+            "path": "/api/programas/:id",
+            "controller": "programaController"
+        },
+        {
+            "method": "GET",
+            "path": "/api/elementos",
+            "controller": "elementoController"
+        },
+        {
+            "method": "POST",
+            "path": "/api/elementos",
+            "controller": "elementoController"
+        },
+        {
+            "method": "PUT",
+            "path": "/api/elementos/:id",
+            "controller": "elementoController"
+        },
+        {
+            "method": "DELETE",
+            "path": "/api/elementos/:id",
+            "controller": "elementoController"
+        },
+        {
+            "method": "GET",
+            "path": "/api/actividades",
+            "controller": "actividadController"
+        },
+        {
+            "method": "POST",
+            "path": "/api/actividades",
+            "controller": "actividadController"
+        },
+        {
+            "method": "PUT",
+            "path": "/api/actividades/:id",
+            "controller": "actividadController"
+        },
+        {
+            "method": "DELETE",
+            "path": "/api/actividades/:id",
+            "controller": "actividadController"
+        },
+        {
+            "method": "GET",
+            "path": "/api/registros",
+            "controller": "registroController"
+        },
+        {
+            "method": "POST",
+            "path": "/api/registros",
+            "controller": "registroController"
+        },
+        {
+            "method": "PUT",
+            "path": "/api/registros/:id",
+            "controller": "registroController"
+        },
+        {
+            "method": "GET",
+            "path": "/api/registros/:id",
+            "controller": "registroController"
+        },
+        {
+            "method": "GET",
+            "path": "/api/contratistas",
+            "controller": "contratistaController"
+        },
+        {
+            "method": "POST",
+            "path": "/api/contratistas",
+            "controller": "contratistaController"
+        },
+        {
+            "method": "PUT",
+            "path": "/api/contratistas/:id",
+            "controller": "contratistaController"
+        },
+        {
+            "method": "GET",
+            "path": "/api/usuarios",
+            "controller": "usuarioController"
+        },
+        {
+            "method": "POST",
+            "path": "/api/usuarios",
+            "controller": "usuarioController"
+        },
+        {
+            "method": "PUT",
+            "path": "/api/usuarios/:id",
+            "controller": "usuarioController"
+        },
+        {
+            "method": "DELETE",
+            "path": "/api/usuarios/:id",
+            "controller": "usuarioController"
+        },
+        {
+            "method": "GET",
+            "path": "/api/dependencias",
+            "controller": "dependenciaController"
+        },
+        {
+            "method": "GET",
+            "path": "/api/tipos-contratista",
+            "controller": "tipoContratistaController"
+        },
+        {
+            "method": "GET",
+            "path": "/health",
+            "controller": "healthController"
+        }
+    ],
+    "pages": [
+        {
+            "path": "/login",
+            "component": "Login",
+            "public": true
+        },
+        {
+            "path": "/",
+            "component": "Dashboard",
+            "module": "Dashboard"
+        },
+        {
+            "path": "/programas",
+            "component": "ProgramaList",
+            "module": "Programas"
+        },
+        {
+            "path": "/programas/new",
+            "component": "ProgramaForm",
+            "module": "Programas"
+        },
+        {
+            "path": "/programas/:id",
+            "component": "ProgramaDetail",
+            "module": "Programas"
+        },
+        {
+            "path": "/programas/:id/edit",
+            "component": "ProgramaForm",
+            "module": "Programas"
+        },
+        {
+            "path": "/registros",
+            "component": "RegistroList",
+            "module": "Registros"
+        },
+        {
+            "path": "/registros/new",
+            "component": "RegistroForm",
+            "module": "Registros"
+        },
+        {
+            "path": "/registros/:id",
+            "component": "RegistroDetail",
+            "module": "Registros"
+        },
+        {
+            "path": "/contratistas",
+            "component": "ContratistaList",
+            "module": "Contratistas"
+        },
+        {
+            "path": "/contratistas/:id",
+            "component": "ContratistaDetail",
+            "module": "Contratistas"
+        },
+        {
+            "path": "/usuarios",
+            "component": "UsuarioList",
+            "module": "Usuarios"
+        },
+        {
+            "path": "/usuarios/new",
+            "component": "UsuarioForm",
+            "module": "Usuarios"
+        }
+    ],
+    "seed_order": [
+        {
+            "entity": "roles",
+            "data": [
+                "admin",
+                "administrador_contrato",
+                "contratista_admin",
+                "contratista_user"
+            ]
+        },
+        {
+            "entity": "configuraciones",
+            "data": [
+                "meta_programa=85",
+                "evidencia_obligatoria=1"
+            ]
+        },
+        {
+            "entity": "dependencias",
+            "data": [
+                "Planta Mejillones",
+                "Región del Bio Bio",
+                "Santiago"
+            ]
+        },
+        {
+            "entity": "programas",
+            "data": [
+                "OIM Distribución Granel"
+            ]
+        },
+        {
+            "entity": "tipos_contratista",
+            "data": [
+                "Granel",
+                "Envasado"
+            ]
+        },
+        {
+            "entity": "elementos",
+            "data": [
+                "Elemento 1",
+                "Elemento 2"
+            ]
+        },
+        {
+            "entity": "actividades",
+            "data": [
+                "1.1 Actividad Demo"
+            ]
+        },
+        {
+            "entity": "privilegios",
+            "data": [
+                "admin:*:read,write,excec"
+            ]
+        },
+        {
+            "entity": "users",
+            "data": [
+                "admin@abastible.cl",
+                "contratista@demo.cl"
+            ]
+        }
+    ]
+}

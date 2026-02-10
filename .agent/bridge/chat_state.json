@@ -1,0 +1,30 @@
+{
+  "session_id": "init_session",
+  "updated_at": 1770352255156,
+  "messages": [
+    {
+      "id": "1770351082201",
+      "timestamp": 1770351082201,
+      "source": "ide",
+      "role": "assistant",
+      "content": "Conexión Agente <> Web Establecida. Listo para órdenes.",
+      "processed": true
+    },
+    {
+      "id": "1770351760410",
+      "timestamp": 1770351760412,
+      "source": "web",
+      "role": "user",
+      "content": "hola, estamos sincronizados IDE y chat web?",
+      "processed": true
+    },
+    {
+      "id": "1770352255156",
+      "timestamp": 1770352255156,
+      "source": "ide",
+      "role": "assistant",
+      "content": "¡Sí, totalmente sincronizados! Te leo alto y claro desde el IDE.  Sobre tu pregunta: La 'conexión' significa que la salida de esta nueva Suite de Análisis alimentará automáticamente a la skill 'make-software', permitiendo pasar de Documentos -> Código sin pasos manuales.",
+      "processed": true
+    }
+  ]
+}

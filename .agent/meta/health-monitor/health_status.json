@@ -1,0 +1,62 @@
+{
+    "timestamp": "2026-02-05T22:47:00-03:00",
+    "overall_status": "healthy",
+    "uptime_percentage": 100.0,
+    "last_check": "2026-02-05T22:47:00-03:00",
+    "components": {
+        "skill-registry": {
+            "status": "healthy",
+            "message": null
+        },
+        "execution-logger": {
+            "status": "healthy",
+            "message": null
+        },
+        "context-memory": {
+            "status": "healthy",
+            "message": null
+        },
+        "metrics-collector": {
+            "status": "healthy",
+            "message": null
+        },
+        "drift-detector": {
+            "status": "healthy",
+            "message": null
+        },
+        "health-monitor": {
+            "status": "healthy",
+            "message": null
+        }
+    },
+    "skills": {
+        "ieee-gen": {
+            "status": "healthy",
+            "success_rate": 0,
+            "last_execution": null,
+            "last_status": null,
+            "drift_status": "unknown",
+            "alerts": []
+        },
+        "make-software": {
+            "status": "healthy",
+            "success_rate": 0,
+            "last_execution": null,
+            "last_status": null,
+            "drift_status": "unknown",
+            "alerts": []
+        },
+        "privilegios-engine": {
+            "status": "healthy",
+            "success_rate": 0,
+            "last_execution": null,
+            "last_status": null,
+            "drift_status": "unknown",
+            "alerts": []
+        }
+    },
+    "active_alerts": [],
+    "recommendations": [
+        "Execute skills to start collecting metrics"
+    ]
+}

@@ -1,0 +1,15 @@
+{
+    "sprint": 6,
+    "name": "UX Refinement & Functional Actions",
+    "priority": "SHOULD",
+    "user_stories": [
+        "UX-001",
+        "UX-002"
+    ],
+    "changes": [
+        "Update RegistroList with 'Solicitar Reapertura' button for eligible records (auditada + closed)",
+        "Ensure Edit/New buttons in all lists (Programas, Registros, Licitaciones)",
+        "Implement 'Solicitar Reapertura' logic inside RegistroList",
+        "Verify styling for action buttons"
+    ]
+}

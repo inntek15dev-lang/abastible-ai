@@ -1,0 +1,28 @@
+{
+    "approach": "mixed",
+    "knowledge_acquisition": {
+        "preferred_sources": [
+            "patterns",
+            "examples",
+            "documentation",
+            "code"
+        ],
+        "validation_depth": "deep",
+        "retention_strategy": "always"
+    },
+    "pattern_recognition": {
+        "sensitivity": "medium",
+        "generalization_threshold": 0.7,
+        "cross_domain_transfer": true
+    },
+    "feedback_integration": {
+        "immediate_correction": true,
+        "long_term_adaptation": true,
+        "error_weight": 0.9
+    },
+    "skill_creation": {
+        "auto_create_on_need": true,
+        "template_adherence": "strict",
+        "documentation_required": true
+    }
+}

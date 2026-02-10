@@ -1,0 +1,10 @@
+{
+    "patterns": [],
+    "last_analysis": null,
+    "statistics": {
+        "total_detected": 0,
+        "total_confirmed": 0,
+        "total_resolved": 0,
+        "total_false_positives": 0
+    }
+}

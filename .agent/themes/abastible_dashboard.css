@@ -1,0 +1,254 @@
+/* ============================================
+   Theme: abastible_dashboard
+   Generated: 2026-02-06
+   Source: User provided screenshot of Dashboard
+   ============================================ */
+
+/* -----------------------------
+   1. CSS VARIABLES
+   Define all theme tokens here
+   ----------------------------- */
+:root {
+  /* Brand Colors */
+  --color-brand-primary: #ff6600; /* Abastible Orange */
+  --color-brand-secondary: #003366; /* Deep Blue assumption */
+
+  /* Background Colors */
+  --color-bg-body: #f3f4f6; /* Light gray background */
+  --color-bg-surface: #ffffff; /* White cards/header */
+  --color-bg-hover: #f9fafb;
+
+  /* Text Colors */
+  --color-text-primary: #111827; /* Near black */
+  --color-text-secondary: #6b7280; /* Gray muted */
+  --color-text-light: #ffffff;
+  --color-text-danger: #ef4444;
+
+  /* Status Colors (Backgrounds & Text) */
+  --color-status-success-bg: #dcfce7;
+  --color-status-success-text: #166534;
+  --color-status-warning-bg: #fef9c3;
+  --color-status-warning-text: #854d0e;
+  --color-status-danger-bg: #fee2e2;
+  --color-status-danger-text: #991b1b;
+  --color-status-info-bg: #e0f2fe;
+  --color-status-info-text: #075985;
+  --color-status-purple-bg: #f3e8ff;
+  --color-status-purple-text: #6b21a8;
+
+  /* Module Colors (Tabs) */
+  --color-module-resumen-bg: #e0f2fe;
+  --color-module-resumen-text: #0ea5e9;
+  --color-module-operaciones-bg: #ff6600; /* Active state */
+  --color-module-operaciones-text: #ffffff;
+  --color-module-personas-bg: #dcfce7;
+  --color-module-personas-text: #22c55e;
+  --color-module-config-bg: #f3e8ff;
+  --color-module-config-text: #a855f7;
+  --color-module-security-bg: #fee2e2;
+  --color-module-security-text: #ef4444;
+
+  /* Action Buttons */
+  --color-btn-auditar: #22c55e;
+  --color-btn-pdf: #ef4444;
+  --color-btn-traza: #a855f7;
+
+  /* Typography */
+  --font-family-base: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
+  --font-size-base: 14px;
+  --font-size-lg: 16px;
+  --line-height-base: 1.5;
+  
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  
+  /* Borders */
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  --border-radius-full: 9999px;
+  --border-color: #e5e7eb;
+  --border-width: 1px;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* -----------------------------
+   2. BASE ELEMENTS
+   ----------------------------- */
+
+body {
+  background: var(--color-bg-body);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  margin: 0;
+}
+
+/* -----------------------------
+   3. COMPONENT CLASSES
+   ----------------------------- */
+
+/* Header */
+.app-header {
+    background: var(--color-bg-surface);
+    border-bottom: var(--border-width) solid var(--border-color);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--shadow-sm);
+}
+
+.user-profile-badge {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.role-badge {
+    background: #f3f4f6;
+    color: var(--color-text-secondary);
+    padding: 2px 8px;
+    border-radius: var(--border-radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+}
+
+/* Navigation Tabs */
+.nav-tabs {
+    display: flex;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) 0;
+}
+
+.nav-tab {
+    padding: 6px 16px;
+    border-radius: var(--border-radius-full);
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.nav-tab--primary { background: var(--color-module-resumen-bg); color: var(--color-module-resumen-text); }
+.nav-tab--orange { background: var(--color-module-operaciones-bg); color: var(--color-module-operaciones-text); } /* Active in screenshot */
+.nav-tab--green { background: var(--color-module-personas-bg); color: var(--color-module-personas-text); }
+.nav-tab--purple { background: var(--color-module-config-bg); color: var(--color-module-config-text); }
+.nav-tab--red { background: var(--color-module-security-bg); color: var(--color-module-security-text); }
+
+/* Filters Bar */
+.filters-bar {
+    background: var(--color-bg-surface);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+    align-items: flex-end;
+    margin-bottom: var(--spacing-md);
+}
+
+.form-group label {
+    display: block;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+
+.form-control {
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    padding: 8px 12px;
+    font-size: var(--font-size-sm);
+    width: 100%;
+}
+
+/* Data Table */
+.data-table {
+    width: 100%;
+    background: var(--color-bg-surface);
+    border-radius: var(--border-radius-md);
+    box-shadow: var(--shadow-sm);
+    border-collapse: collapse;
+    overflow: hidden;
+}
+
+.data-table th {
+    background: var(--color-bg-surface);
+    color: var(--color-text-secondary);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: var(--spacing-md);
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+}
+
+.data-table td {
+    padding: var(--spacing-md);
+    font-size: var(--font-size-sm);
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+}
+
+/* Status Badges within Table */
+.badge-percent-danger {
+    background: var(--color-status-danger-bg);
+    color: var(--color-status-danger-text);
+    padding: 2px 8px;
+    border-radius: var(--border-radius-md);
+    font-weight: 700;
+    font-size: var(--font-size-xs);
+}
+
+.badge-status-pending {
+    background: var(--color-status-warning-bg);
+    color: var(--color-status-warning-text);
+    padding: 4px 12px;
+    border-radius: var(--border-radius-full);
+    font-weight: 500;
+    font-size: var(--font-size-xs);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Action Buttons */
+.btn-icon-group {
+    display: flex;
+    gap: 4px;
+}
+
+.btn-action {
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    color: white;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-auditar { background-color: var(--color-btn-auditar); }
+.btn-pdf { background-color: var(--color-btn-pdf); }
+.btn-traza { background-color: var(--color-btn-traza); }
+

@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Skill Definition Schema",
+  "description": "Schema for validating skill metadata in the registry",
+  "type": "object",
+  "required": ["id", "version", "path", "inputs", "outputs", "dependencies", "tags"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]+$",
+      "description": "Unique identifier for the skill (kebab-case)"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version (MAJOR.MINOR.PATCH)"
+    },
+    "path": {
+      "type": "string",
+      "description": "Relative path to SKILL.md from project root"
+    },
+    "inputs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Glob patterns for input files/directories"
+    },
+    "outputs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Expected output paths"
+    },
+    "dependencies": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "IDs of skills that must run before this one"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Categorization tags"
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "total_executions": { "type": "integer", "minimum": 0 },
+        "success_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "avg_execution_time_ms": { "type": "integer", "minimum": 0 },
+        "last_execution": { "type": "string", "format": "date-time" },
+        "last_status": { "type": "string", "enum": ["success", "failure", "partial"] }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "author": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    }
+  }
+}

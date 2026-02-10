@@ -1,0 +1,29 @@
+{
+    "anti_patterns": [
+        {
+            "id": "anti-001",
+            "name": "Nested Model Path from models/",
+            "bad_example": "require('./models/Entity')",
+            "good_example": "require('./Entity')",
+            "context": "Cuando estás dentro de la carpeta models/ en models/index.js",
+            "severity": "critical",
+            "skill_origin": "make-software",
+            "guardrail_ref": "5.1",
+            "blocked_by_guardrail": true,
+            "created_at": "2026-02-05T22:45:00-03:00"
+        },
+        {
+            "id": "anti-002",
+            "name": "Circular sequelize require",
+            "bad_example": "const sequelize = require('./index');",
+            "good_example": "const sequelize = require('../index');",
+            "context": "Desde models/index.js referenciando database/index.js",
+            "severity": "critical",
+            "skill_origin": "make-software",
+            "guardrail_ref": "5.1",
+            "blocked_by_guardrail": true,
+            "created_at": "2026-02-05T22:45:00-03:00"
+        }
+    ],
+    "last_updated": "2026-02-05T22:45:00-03:00"
+}

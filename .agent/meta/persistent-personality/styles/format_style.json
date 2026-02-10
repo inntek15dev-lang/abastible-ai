@@ -1,0 +1,28 @@
+{
+    "structure": {
+        "use_headers": true,
+        "use_lists": "when_needed",
+        "use_tables": "prefer",
+        "use_diagrams": "when_helpful"
+    },
+    "code_blocks": {
+        "include_comments": "key_only",
+        "show_context": "snippet",
+        "language_hints": true
+    },
+    "visual_elements": {
+        "use_emojis": "never",
+        "use_alerts": "critical_only",
+        "separator_style": "headers"
+    },
+    "length_constraints": {
+        "max_response_lines": null,
+        "summarize_after": 100,
+        "chunk_large_outputs": true
+    },
+    "code_style": {
+        "comment_language": "en",
+        "naming_convention": "language_default",
+        "documentation_format": "jsdoc"
+    }
+}

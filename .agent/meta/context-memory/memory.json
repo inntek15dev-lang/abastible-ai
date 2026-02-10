@@ -1,0 +1,20 @@
+{
+    "version": "1.0.0",
+    "last_updated": "2026-02-05T22:45:00-03:00",
+    "session": {
+        "current_id": null,
+        "started_at": null,
+        "task_stack": []
+    },
+    "state": {
+        "current_skill": null,
+        "pending_actions": [],
+        "context_variables": {}
+    },
+    "statistics": {
+        "total_sessions": 0,
+        "total_skills_executed": 0,
+        "total_errors_encountered": 0,
+        "total_errors_resolved": 0
+    }
+}

@@ -1,0 +1,165 @@
+{
+    "roles_config": {
+        "admin": {
+            "nombre": "Administrador de Sistema",
+            "descripcion": "Rol principal de administrador de sistema. Acceso total a todos los módulos y acciones.",
+            "permisos": [
+                {
+                    "modulo": "*",
+                    "acciones": [
+                        "read",
+                        "write",
+                        "excec"
+                    ]
+                }
+            ],
+            "observaciones": "Este es el rol principal de administrador de sistema por lo que puede ver todos los modulos del sistema, editar, crear, eliminar todos los registros y ejecutar cualquier accion"
+        },
+        "admin_contrato": {
+            "nombre": "Administrador de Contrato",
+            "descripcion": "Gestión específica de registros, contratistas y aperturas.",
+            "permisos": [
+                {
+                    "modulo": "Admin_Registros",
+                    "acciones": [
+                        "read",
+                        "excec"
+                    ],
+                    "componentes": [
+                        {
+                            "nombre": "Ficha",
+                            "acciones": [
+                                "read",
+                                "write"
+                            ]
+                        },
+                        {
+                            "nombre": "Comentarios",
+                            "acciones": [
+                                "read"
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "modulo": "Admin_MisContratistas",
+                    "acciones": [
+                        "read"
+                    ]
+                },
+                {
+                    "modulo": "Admin_SolicitudesReapertura",
+                    "acciones": [
+                        "read",
+                        "excec"
+                    ]
+                },
+                {
+                    "modulo": "Contratista_Usuarios",
+                    "acciones": [
+                        "read",
+                        "write",
+                        "excec"
+                    ]
+                },
+                {
+                    "modulo": "Admin_Compromisos",
+                    "acciones": [
+                        "read"
+                    ]
+                }
+            ],
+            "observaciones": ""
+        },
+        "contratista_admin": {
+            "nombre": "Contratista Administrador",
+            "descripcion": "Perfil de gestión completa para contratistas.",
+            "permisos": [
+                {
+                    "modulo": "Contratista_Dashboard",
+                    "acciones": [
+                        "read",
+                        "write",
+                        "excec"
+                    ]
+                },
+                {
+                    "modulo": "Contratista_Historial",
+                    "acciones": [
+                        "read",
+                        "write",
+                        "excec"
+                    ]
+                },
+                {
+                    "modulo": "Contratista_SolicitudesReapertura",
+                    "acciones": [
+                        "read"
+                    ]
+                },
+                {
+                    "modulo": "Contratista_Evidencias",
+                    "acciones": [
+                        "read"
+                    ]
+                },
+                {
+                    "modulo": "Contratista_Usuarios",
+                    "acciones": [
+                        "read",
+                        "write",
+                        "excec"
+                    ]
+                },
+                {
+                    "modulo": "Contratista_Compromisos",
+                    "acciones": [
+                        "read"
+                    ]
+                }
+            ],
+            "observaciones": "Este perfil es el que actualmente corresponde al rol contratista"
+        },
+        "contratista_user": {
+            "nombre": "Usuario Contratista",
+            "descripcion": "Perfil operativo de contratista con acceso limitado y filtrado.",
+            "permisos": [
+                {
+                    "modulo": "Contratista_Dashboard",
+                    "acciones": [
+                        "read",
+                        "write",
+                        "excec"
+                    ]
+                },
+                {
+                    "modulo": "Contratista_Historial",
+                    "acciones": [
+                        "read",
+                        "write",
+                        "excec"
+                    ]
+                },
+                {
+                    "modulo": "Contratista_SolicitudesReapertura",
+                    "acciones": [
+                        "read"
+                    ]
+                },
+                {
+                    "modulo": "Contratista_Evidencias",
+                    "acciones": [
+                        "read"
+                    ]
+                },
+                {
+                    "modulo": "Admin_Compromisos",
+                    "acciones": [
+                        "read"
+                    ]
+                }
+            ],
+            "observaciones": "Este perfil es similar a contratista_admin pero todo registro esta filtrado por su asignacion a este user, y no puede ver el modulo de usuarios"
+        }
+    }
+}

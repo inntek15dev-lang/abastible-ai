@@ -1,0 +1,15 @@
+{
+    "entries": [
+        {
+            "timestamp": "2026-02-06T00:01:39-03:00",
+            "trigger": "initial_configuration",
+            "changes": [
+                {
+                    "dimension": "identity",
+                    "description": "Configuración inicial de personalidad Parko"
+                }
+            ],
+            "configured_by": "user"
+        }
+    ]
+}

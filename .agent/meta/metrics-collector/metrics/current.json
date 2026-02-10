@@ -1,0 +1,14 @@
+{
+    "timestamp": "2026-02-05T22:47:00-03:00",
+    "period": "24h",
+    "global": {
+        "total_executions": 0,
+        "success_rate": 0.0,
+        "avg_duration_ms": 0,
+        "total_errors": 0,
+        "active_skills": 3
+    },
+    "by_skill": {},
+    "by_error_type": {},
+    "alerts": []
+}

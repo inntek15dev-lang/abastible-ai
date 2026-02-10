@@ -1,0 +1,191 @@
+/* ============================================
+   Theme: traceability-theme
+   Generated: 2026-02-06
+   Source: info/trazabilidad-abastible.png
+   ============================================ */
+
+/* -----------------------------
+   1. CSS VARIABLES
+   Specific tokens for the Traceability Module
+   ----------------------------- */
+:root {
+    /* Timeline Colors */
+    --trace-line-color: #E2E8F0;
+    /* Slate-200 */
+    --trace-bg-hover: #F8FAFC;
+    /* Slate-50 */
+    --trace-card-bg: #FFFFFF;
+    --trace-card-border: #F1F5F9;
+    /* Slate-100 */
+
+    /* Action Colors (Semantic) */
+    --trace-action-create: #22C55E;
+    /* Green-500 */
+    --trace-action-edit: #3B82F6;
+    /* Blue-500 */
+    --trace-action-audit: #F97316;
+    /* Orange-500 */
+    --trace-action-default: #94A3B8;
+    /* Slate-400 */
+
+    /* Diff View Colors */
+    --diff-added-bg: #DCFCE7;
+    /* Green-100 */
+    --diff-added-text: #166534;
+    /* Green-800 */
+    --diff-removed-bg: #FEE2E2;
+    /* Red-100 */
+    --diff-removed-text: #991B1B;
+    /* Red-800 */
+    --diff-arrow: #CBD5E1;
+    /* Slate-300 */
+
+    /* Layout Dimensions */
+    --drawer-width: 480px;
+    --timeline-dot-size: 12px;
+    --timeline-spacing: 2rem;
+}
+
+/* -----------------------------
+   2. COMPONENT CLASSES
+   Specific styles for the Traceability Panel
+   ----------------------------- */
+
+/* .trace-drawer: The slide-over panel container
+   Usage: <div class="trace-drawer">...</div>
+   Parent: Transition.Child */
+.trace-drawer {
+    width: 100%;
+    max-width: var(--drawer-width);
+    background: white;
+    box-shadow: -4px 0 15px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* .trace-header: Sticky header of the drawer
+   Usage: <div class="trace-header">...</div> */
+.trace-header {
+    background: linear-gradient(to right, #f8f9fa, #ffffff);
+    border-bottom: 1px solid var(--trace-line-color);
+    padding: 1.25rem;
+}
+
+/* .trace-title: Main title typography */
+.trace-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--color-brand-primary, #1e293b);
+    letter-spacing: -0.025em;
+}
+
+/* .timeline-track: Vertical line container */
+.timeline-track {
+    position: relative;
+    border-left: 2px solid var(--trace-line-color);
+    margin-left: 1.5rem;
+    padding-left: 1.5rem;
+    padding-bottom: 2rem;
+}
+
+/* .timeline-item: Individual event container
+   Usage: <div class="timeline-item">...</div> */
+.timeline-item {
+    position: relative;
+    margin-bottom: 2rem;
+}
+
+/* .timeline-dot: The circular marker on the track */
+.timeline-dot {
+    position: absolute;
+    left: -2.05rem;
+    /* Aligns with track center */
+    top: 0.25rem;
+    width: 1.2rem;
+    height: 1.2rem;
+    background: white;
+    border: 2px solid var(--trace-action-default);
+    /* Default color */
+    border-radius: 50%;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Variants for actions */
+.timeline-dot--green {
+    border-color: var(--trace-action-create);
+    color: var(--trace-action-create);
+}
+
+.timeline-dot--blue {
+    border-color: var(--trace-action-edit);
+    color: var(--trace-action-edit);
+}
+
+.timeline-dot--orange {
+    border-color: var(--trace-action-audit);
+    color: var(--trace-action-audit);
+}
+
+/* .trace-card: The content box for the event */
+.trace-card {
+    background: var(--trace-card-bg);
+    border: 1px solid var(--trace-card-border);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    transition: all 0.2s ease;
+}
+
+.trace-card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    border-color: var(--color-brand-secondary, #e2e8f0);
+}
+
+/* .diff-block: Container for field changes */
+.diff-block {
+    background: #F8FAFC;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    margin-top: 0.75rem;
+    font-family: 'Consolas', 'Monaco', monospace;
+    /* Monospace for data */
+    font-size: 0.75rem;
+}
+
+/* .diff-row: Single field change line */
+.diff-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.diff-label {
+    font-weight: 600;
+    color: #64748B;
+    text-transform: uppercase;
+    min-width: 80px;
+}
+
+.diff-old {
+    text-decoration: line-through;
+    color: var(--diff-removed-text);
+    background: var(--diff-removed-bg);
+    padding: 0 4px;
+    border-radius: 2px;
+}
+
+.diff-arrow {
+    color: var(--diff-arrow);
+}
+
+.diff-new {
+    font-weight: 700;
+    color: var(--diff-added-text);
+    background: var(--diff-added-bg);
+    padding: 0 4px;
+    border-radius: 2px;
+}

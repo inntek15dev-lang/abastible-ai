@@ -1,0 +1,123 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Execution Log Schema",
+    "description": "Schema for validating execution log entries",
+    "type": "object",
+    "required": [
+        "execution_id",
+        "skill_id",
+        "timestamp_start",
+        "status"
+    ],
+    "properties": {
+        "execution_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique identifier for this execution"
+        },
+        "skill_id": {
+            "type": "string",
+            "description": "ID of the skill that was executed"
+        },
+        "timestamp_start": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "timestamp_end": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "status": {
+            "type": "string",
+            "enum": [
+                "running",
+                "success",
+                "failure",
+                "partial",
+                "aborted"
+            ]
+        },
+        "inputs": {
+            "type": "object",
+            "description": "Input parameters and file references"
+        },
+        "outputs": {
+            "type": "object",
+            "properties": {
+                "files_created": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "files_modified": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "artifacts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "errors": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "stack": {
+                        "type": "string"
+                    },
+                    "timestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            }
+        },
+        "metrics": {
+            "type": "object",
+            "properties": {
+                "duration_ms": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "tool_calls": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "files_created": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "files_modified": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "lines_of_code": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "context": {
+            "type": "object",
+            "description": "Snapshot of relevant context at execution time"
+        },
+        "parent_execution_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID of parent execution if this is a sub-task"
+        }
+    }
+}

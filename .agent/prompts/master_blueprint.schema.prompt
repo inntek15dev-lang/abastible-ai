@@ -1,0 +1,121 @@
+A continuación se presenta la versión actualizada del Estándar Maestro de Ingeniería de Software (STRICT MODE), modificada para exigir exclusivamente el uso de MySQL bajo los parámetros de configuración y seguridad solicitados para garantizar la compatibilidad con el motor de ejecución make-software.
+
+ESTÁNDAR MAESTRO DE INGENIERÍA DE SOFTWARE (STRICT MODE - MYSQL EDITION)
+Este documento es el meta-esquema obligatorio para la skill ieee-gen. Cualquier salida que no valide contra estas reglas o que intente utilizar un motor de base de datos distinto a MySQL será rechazada por el motor de ejecución make-software.
+
+I. PROTOCOLO DE IDENTIDAD Y GOBERNANZA (IEEE 1058)
+Toda salida debe comenzar con un encabezado de gobernanza que establezca el contexto legal y administrativo del software.
+
+
+Metadata: UUID del proyecto, versión del estándar (IEEE 12207:2017) y nivel de criticidad.
+
+
+Matriz RACI: Definición explícita de roles (Responsable, Aprobador, Consultado, Informado).
+
+Restricción de Base de Datos: Se establece MySQL (Motor InnoDB) como el único estándar de persistencia permitido.
+
+
+Restricción: No se permite la definición de módulos técnicos sin un Stakeholder responsable asignado.
+
+II. EL "JSON DE LA VERDAD" (ESTRUCTURA DE DATOS MAESTRA)
+El bloque de código JSON central debe seguir esta arquitectura para garantizar la integridad referencial y el éxito de los seeders.
+
+JSON
+{
+  "system_blueprint": {
+    "compliance": "IEEE 29148 / IEEE 1016",
+    "requirements_catalog": [
+      {
+        "id": "REQ-XXX",
+        "type": "Functional|Non-Functional|Security|Privacy",
+        "statement": "Descripción técnica inequívoca",
+        "priority": "1-5",
+        "verification_method": "Test|Inspection|Analysis|Demonstration"
+      }
+    ],
+    "agile_layer": {
+      "user_stories": [
+        {
+          "id": "US-XXX",
+          "parent_req_id": "REQ-XXX",
+          "role": "Como...",
+          "action": "Quiero...",
+          "benefit": "Para...",
+          "acceptance_criteria": ["AC-01 (Positivo)", "AC-02 (Negativo/Seguridad)"],
+          "security_tag": "Public|Internal|Confidential"
+        }
+      ]
+    ],
+    "persistence_architecture": {
+      "database_engine": "MySQL_8.0+_InnoDB",
+      "sql_mode": "STRICT_TRANS_TABLES",
+      "seeding_strategy": "Hierarchical_Dependency_Injection",
+      "entities": [
+        {
+          "table_name": "string",
+          "execution_order_index": "int (0 para tablas independientes)",
+          "depends_on": ["list_of_parent_tables"],
+          "schema": [
+            { 
+              "name": "string", 
+              "type": "MYSQL_TYPE", 
+              "is_pii": "boolean", 
+              "constraints": ["PK", "FK", "NN"],
+              "encryption": "AES_ENCRYPT|NONE" 
+            }
+          ]
+        }
+      ]
+    },
+    "security_hardening": {
+      "standard": "IEEE 7000 (Privacy by Design)",
+      "auth_policy": "OIDC|JWT_RS256",
+      "encryption_targets": ["table.field_name"],
+      "audit_logic": "Global_Event_Sourcing"
+    }
+  }
+}
+III. REGLAS DE ORO Y CONFIGURACIÓN CRÍTICA (GUARDRAILS)
+
+Ley de Precedencia (Seeders): En el JSON, ninguna entidad en persistence_architecture puede tener un execution_order_index menor que sus tablas listadas en depends_on.
+
+Configuración de Integridad MySQL:
+
+Motor InnoDB Obligatorio: Se prohíbe cualquier otro motor (como MyISAM). Las Foreign Keys deben estar activas (FOREIGN_KEY_CHECKS=1).
+
+
+Strict Mode: Es obligatoria la activación de STRICT_TRANS_TABLES para evitar truncamiento de datos y garantizar la Ley de Trazabilidad Total.
+
+Ley de Blindaje (IEEE 7000 / PII): Si una entidad se marca como is_pii: true, make-software debe:
+
+Procesar hashing (bcrypt) en la capa de aplicación antes del INSERT.
+
+Utilizar funciones nativas AES_ENCRYPT() y AES_DECRYPT() en la capa de datos.
+
+
+Ley de Atomicidad: No se permiten Historias de Usuario sin al menos un criterio de aceptación de seguridad. Las operaciones de carga de datos deben estar envueltas en bloques START TRANSACTION y COMMIT.
+
+IV. VISTAS DE ARQUITECTURA (IEEE 1016)
+El documento debe detallar en Markdown:
+
+
+Vista de Datos (ERD Conceptual): Relaciones 1:N, N:N representadas para MySQL.
+
+
+Vista de Integración: Definición de endpoints API y contratos de datos.
+
+
+Flujo de Valor: Trazabilidad desde el input hasta la persistencia en InnoDB.
+
+V. VALIDACIÓN DE CALIDAD (IEEE 1012)
+Matriz final de validación que debe incluir:
+
+
+ID_Prueba: Vinculado a US-XXX.
+
+
+Input_Data: Datos de ejemplo para el seeder (respetando el execution_order_index).
+
+Expected_Outcome: Comportamiento esperado en un entorno MySQL Strict.
+
+Instrucciones para ieee-gen: Al ejecutar el análisis, utiliza este esquema como plantilla de salida. Si detectas información faltante, infiere la solución técnica más robusta para MySQL y márcala con el prefijo [INFERRED]. El objetivo es la ejecución autónoma por make-software.
