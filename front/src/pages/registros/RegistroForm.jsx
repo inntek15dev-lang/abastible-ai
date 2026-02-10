@@ -484,6 +484,7 @@ export default function RegistroForm() {
                                                     ) : null}
 
                                                     <button
+                                                        id="btn-add-hallazgo"
                                                         type="button"
                                                         className="btn-text"
                                                         style={{ color: '#ef4444', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4, marginTop: '0.5rem' }}
@@ -505,7 +506,7 @@ export default function RegistroForm() {
                     <button type="button" onClick={() => navigate(-1)} className="btn-secondary">
                         Cancelar
                     </button>
-                    <button type="submit" className="btn-primary" disabled={loading}>
+                    <button id="btn-save-registro" type="submit" className="btn-primary" disabled={loading}>
                         <Save size={18} />
                         {loading ? 'Guardando...' : 'Guardar Registro'}
                     </button>

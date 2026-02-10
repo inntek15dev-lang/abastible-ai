@@ -446,6 +446,209 @@ a {
   font-size: 0.95rem;
 }
 
+/* Modals */
+.modal-panel {
+  width: 100%;
+  background-color: var(--color-bg-surface);
+  border-radius: 1rem;
+  /* rounded-2xl */
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  /* shadow-xl */
+  overflow: hidden;
+  transform: translate(0, 0);
+  transition: all 0.3s ease;
+  text-align: left;
+  vertical-align: middle;
+  outline: none;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background-color: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
+  display: flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  /* Animation states for React Aria */
+  opacity: 1;
+}
+
+.modal-overlay[data-entering] {
+  animation: fade-in 0.3s ease-out;
+}
+
+.modal-overlay[data-exiting] {
+  animation: fade-out 0.2s ease-in;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+.modal-panel[data-entering] {
+  transform: scale(0.95);
+  opacity: 0;
+  animation: modal-enter 0.3s ease-out forwards;
+}
+
+.modal-panel[data-exiting] {
+  animation: modal-exit 0.2s ease-in forwards;
+}
+
+@keyframes modal-enter {
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes modal-exit {
+  to {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.modal-title {
+  font-size: 1.125rem;
+  /* text-lg */
+  font-weight: 500;
+  line-height: 1.5rem;
+  color: #111827;
+  /* text-gray-900 */
+  margin: 0;
+}
+
+.modal-close-btn {
+  border-radius: 9999px;
+  padding: 0.25rem;
+  color: #9ca3af;
+  /* text-gray-400 */
+  transition: background-color 0.2s;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close-btn:hover {
+  background-color: #f3f4f6;
+  /* bg-gray-100 */
+  color: #111827;
+}
+
+.modal-footer {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.modal-dialog {
+  position: relative;
+  height: 100%;
+  outline: none;
+}
+
+/* Helper classes to replace missing Tailwind utilities */
+.max-w-sm {
+  max-width: 24rem;
+}
+
+.max-w-md {
+  max-width: 28rem;
+}
+
+.max-w-lg {
+  max-width: 32rem;
+}
+
+.max-w-xl {
+  max-width: 36rem;
+}
+
+.max-w-2xl {
+  max-width: 42rem;
+}
+
+.max-w-3xl {
+  max-width: 48rem;
+}
+
+.max-w-4xl {
+  max-width: 56rem;
+}
+
+.max-w-5xl {
+  max-width: 64rem;
+}
+
+.max-w-full {
+  max-width: 100%;
+}
+
+.p-0 {
+  padding: 0;
+}
+
+.p-4 {
+  padding: 1rem;
+}
+
+.p-6 {
+  padding: 1.5rem;
+}
+
+.p-8 {
+  padding: 2rem;
+}
+
+/* Navbar specific utils */
+.ml-1 {
+  margin-left: 0.25rem;
+}
+
+.outline-none {
+  outline: none;
+}
+
+.text-red-600 {
+  color: #dc2626;
+}
+
+.bg-red-50 {
+  background-color: #fef2f2;
+}
+
 .form-group label {
   display: block;
   margin-bottom: 6px;

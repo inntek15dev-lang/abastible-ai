@@ -1,9 +1,8 @@
-// IEEE Trace: REQ-007 | US-051 | components/NavbarModule.jsx
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getVisibleModules } from '../config/navigation';
 import { LogOut, ChevronDown, UserCircle, Menu as MenuIcon } from 'lucide-react';
-import { Menu, Transition } from '@headlessui/react';
+import { Menu, MenuTrigger, Popover, Button, MenuItem } from 'react-aria-components';
 import { Fragment } from 'react';
 import './NavbarModule.css';
 
@@ -41,9 +40,9 @@ export default function NavbarModule() {
                     {modules.map((module) => (
                         <div key={module.id} className="module-item">
                             {module.items ? (
-                                <Menu as="div" className="relative">
-                                    <Menu.Button
-                                        className={`module-link ${isModuleActive(module) ? 'active' : ''}`}
+                                <MenuTrigger>
+                                    <Button
+                                        className={`module-link ${isModuleActive(module) ? 'active' : ''} outline-none`}
                                         style={{
                                             '--module-color': module.color
                                         }}
@@ -51,33 +50,23 @@ export default function NavbarModule() {
                                         <module.icon size={18} />
                                         <span>{module.label}</span>
                                         <ChevronDown size={14} className="ml-1" />
-                                    </Menu.Button>
-                                    <Transition
-                                        as={Fragment}
-                                        enter="transition ease-out duration-100"
-                                        enterFrom="transform opacity-0 scale-95"
-                                        enterTo="transform opacity-100 scale-100"
-                                        leave="transition ease-in duration-75"
-                                        leaveFrom="transform opacity-100 scale-100"
-                                        leaveTo="transform opacity-0 scale-95"
-                                    >
-                                        <Menu.Items className="dropdown-menu">
+                                    </Button>
+                                    <Popover placement="bottom start" className="dropdown-menu">
+                                        <Menu className="outline-none p-0">
                                             {module.items.map((item) => (
-                                                <Menu.Item key={item.path}>
-                                                    {({ active }) => (
-                                                        <NavLink
-                                                            to={item.path}
-                                                            className={`dropdown-item ${active ? 'active' : ''}`}
-                                                        >
-                                                            <item.icon size={16} />
-                                                            {item.label}
-                                                        </NavLink>
-                                                    )}
-                                                </Menu.Item>
+                                                <MenuItem key={item.path} className="outline-none" textValue={item.label}>
+                                                    <NavLink
+                                                        to={item.path}
+                                                        className={({ isActive }) => `dropdown-item ${isActive ? 'active' : ''}`}
+                                                    >
+                                                        <item.icon size={16} />
+                                                        {item.label}
+                                                    </NavLink>
+                                                </MenuItem>
                                             ))}
-                                        </Menu.Items>
-                                    </Transition>
-                                </Menu>
+                                        </Menu>
+                                    </Popover>
+                                </MenuTrigger>
                             ) : (
                                 <NavLink
                                     to={module.path}
@@ -96,8 +85,8 @@ export default function NavbarModule() {
 
                 {/* User Profile */}
                 <div className="navbar-user">
-                    <Menu as="div" className="relative">
-                        <Menu.Button className="user-btn">
+                    <MenuTrigger>
+                        <Button className="user-btn outline-none">
                             <div className="user-avatar">
                                 <UserCircle size={20} />
                             </div>
@@ -106,31 +95,22 @@ export default function NavbarModule() {
                                 <span className="role">{user?.role}</span>
                             </div>
                             <ChevronDown size={14} />
-                        </Menu.Button>
-                        <Transition
-                            as={Fragment}
-                            enter="transition ease-out duration-100"
-                            enterFrom="transform opacity-0 scale-95"
-                            enterTo="transform opacity-100 scale-100"
-                            leave="transition ease-in duration-75"
-                            leaveFrom="transform opacity-100 scale-100"
-                            leaveTo="transform opacity-0 scale-95"
-                        >
-                            <Menu.Items className="dropdown-menu right">
-                                <Menu.Item>
-                                    {({ active }) => (
-                                        <button
-                                            onClick={handleLogout}
-                                            className={`dropdown-item text-red-600 ${active ? 'bg-red-50' : ''}`}
-                                        >
+                        </Button>
+                        <Popover placement="bottom end" className="dropdown-menu right">
+                            <Menu className="outline-none p-0" onAction={(key) => {
+                                if (key === 'logout') handleLogout();
+                            }}>
+                                <MenuItem id="logout" className="outline-none" textValue="Cerrar Sesión">
+                                    {({ isFocused }) => (
+                                        <div className={`dropdown-item text-red-600 ${isFocused ? 'bg-red-50' : ''}`}>
                                             <LogOut size={16} />
                                             Cerrar Sesión
-                                        </button>
+                                        </div>
                                     )}
-                                </Menu.Item>
-                            </Menu.Items>
-                        </Transition>
-                    </Menu>
+                                </MenuItem>
+                            </Menu>
+                        </Popover>
+                    </MenuTrigger>
                 </div>
             </div>
         </header>

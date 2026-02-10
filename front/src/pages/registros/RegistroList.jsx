@@ -187,7 +187,7 @@ export default function RegistroList() {
                         </p>
                     </div>
                     {canWrite('Registros') && (
-                        <Link to="/registros/new" className="btn-primary">
+                        <Link to="/registros/new" id="btn-nuevo-registro" className="btn-primary">
                             <Plus size={18} /> Nuevo Registro
                         </Link>
                     )}
@@ -271,7 +271,7 @@ export default function RegistroList() {
                             </tr>
                         ) : (
                             sortedRegistros.map((registro) => (
-                                <tr key={registro.id}>
+                                <tr key={registro.id} data-status={registro.estado_auditoria}>
                                     <td>
                                         <div style={{ fontWeight: 500 }}>
                                             {new Date(registro.periodo).toLocaleDateString('es-CL', { year: 'numeric', month: 'long' })}

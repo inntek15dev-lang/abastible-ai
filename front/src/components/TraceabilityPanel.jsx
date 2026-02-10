@@ -80,38 +80,37 @@ export default function TraceabilityPanel({ isOpen, onClose, registroId }) {
         }).format(date);
     };
 
+    const title = logs.length > 0 && logs[0].created_at ?
+        `Trazabilidad - ${new Date(logs[0].created_at).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}` :
+        'Trazabilidad';
+
+    const footerButtons = (
+        <>
+            <button className="bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+                <span className="text-lg">📄</span> Exportar PDF
+            </button>
+            <button
+                onClick={onClose}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+                Cerrar
+            </button>
+        </>
+    );
+
     return (
         <Modal
             isOpen={isOpen}
             onClose={onClose}
             maxWidth="max-w-2xl"
-            padding="p-0"
-            noHeader={true}
+            title={title}
+            footer={footerButtons}
         >
-            {/* Header Purple */}
-            <div className="bg-purple-600 px-6 py-4 flex justify-between items-center">
-                <div className="flex items-center gap-2 text-white">
-                    <div className="bg-white/20 p-1 rounded">
-                        <Clock size={18} className="text-white" />
-                    </div>
-                    <h3 className="text-lg font-semibold">
-                        Trazabilidad - {logs.length > 0 && logs[0].created_at ?
-                            new Date(logs[0].created_at).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' }) :
-                            'Registro'}
-                    </h3>
-                </div>
-                <button
-                    onClick={onClose}
-                    className="text-white/80 hover:text-white hover:bg-white/10 rounded-full p-1 transition-colors"
-                >
-                    <X size={20} />
-                </button>
-            </div>
-
-            {/* Content */}
-            <div className="p-6 bg-gray-50 max-h-[60vh] overflow-y-auto custom-scrollbar">
+            <div className="max-h-[60vh] overflow-y-auto custom-scrollbar -mr-4 pr-4">
                 {loading ? (
-                    <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div></div>
+                    <div className="flex justify-center py-10">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
+                    </div>
                 ) : logs.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-10 text-gray-500 gap-2">
                         <Info size={40} className="text-gray-300" />
@@ -124,18 +123,18 @@ export default function TraceabilityPanel({ isOpen, onClose, registroId }) {
                                 {/* Icon Column */}
                                 <div className="flex-shrink-0 pt-1">
                                     {log.accion === 'CREAR' && (
-                                        <div className="bg-orange-50 text-orange-600 px-2 py-1 rounded text-[10px] font-bold border border-orange-100 flex items-center gap-1 uppercase">
+                                        <div className="badge success flex items-center gap-1">
                                             <Edit size={12} /> CREAR
                                         </div>
                                     )}
                                     {log.accion === 'EDITAR' && (
-                                        <div className="bg-green-50 text-green-600 px-2 py-1 rounded text-[10px] font-bold border border-green-100 flex items-center gap-1 uppercase">
+                                        <div className="badge warning flex items-center gap-1">
                                             <Edit size={12} /> EDITAR
                                         </div>
                                     )}
                                     {/* Fallback for others */}
                                     {!['CREAR', 'EDITAR'].includes(log.accion) && (
-                                        <div className="bg-blue-50 text-blue-600 px-2 py-1 rounded text-[10px] font-bold border border-blue-100 flex items-center gap-1 uppercase">
+                                        <div className="badge info flex items-center gap-1">
                                             <Info size={12} /> {log.accion}
                                         </div>
                                     )}
@@ -165,19 +164,6 @@ export default function TraceabilityPanel({ isOpen, onClose, registroId }) {
                         ))}
                     </div>
                 )}
-            </div>
-
-            {/* Footer */}
-            <div className="p-4 border-t border-gray-100 bg-white flex justify-between items-center rounded-b-2xl">
-                <button className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
-                    <span className="text-lg">📄</span> Exportar PDF
-                </button>
-                <button
-                    onClick={onClose}
-                    className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                    Cerrar
-                </button>
             </div>
         </Modal>
     );

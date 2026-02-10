@@ -37,6 +37,7 @@ export function AuthProvider({ children }) {
 
     // Privilege check methods (privilegios-engine integration)
     const checkPrivilege = useCallback((module, action) => {
+        if (user?.role === 'admin') return true;
         if (!user?.privileges) return false;
 
         // Check for wildcard (admin)

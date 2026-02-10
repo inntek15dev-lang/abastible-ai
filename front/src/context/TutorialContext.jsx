@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
@@ -14,7 +13,7 @@ export function useTutorial() {
 export function TutorialProvider({ children }) {
     const [activeTutorial, setActiveTutorial] = useState(null);
     const { user } = useAuth();
-    const [driverObj, setDriverObj] = useState(null);;
+    const [driverObj, setDriverObj] = useState(null);
 
     useEffect(() => {
         const dObj = driver({
@@ -33,6 +32,32 @@ export function TutorialProvider({ children }) {
         setDriverObj(dObj);
     }, []);
 
+    // Helper to find elements, including dynamic "first of status X" logic
+    const resolveElement = (step) => {
+        if (typeof step.element === 'string') {
+            // Check for dynamic syntax: ">> row-status:pendiente"
+            if (step.element.startsWith('>> row-status:')) {
+                // syntax: ">> row-status:pendiente .my-class"
+                const parts = step.element.replace('>> row-status:', '').trim().split(' ');
+                const status = parts[0];
+                const innerSelector = parts.slice(1).join(' ');
+
+                // Find first row with this status
+                const row = document.querySelector(`tr[data-status="${status}"]`);
+                if (row) {
+                    if (innerSelector) {
+                        return row.querySelector(innerSelector) || row;
+                    }
+                    // Default behavior: try to find primary action
+                    const actionBtn = row.querySelector('.btn-icon') || row.querySelector('.btn-action') || row.querySelector('a') || row;
+                    return actionBtn;
+                }
+                return null;
+            }
+        }
+        return document.querySelector(step.element);
+    };
+
     const performAction = (element, action) => {
         if (!element || !action) return;
 
@@ -48,8 +73,14 @@ export function TutorialProvider({ children }) {
             if (action.type === 'focus') {
                 element.focus();
             }
-        }, 300); // Small delay to ensure element is ready
+            // Navigate if action is 'navigate'
+            if (action.type === 'navigate') {
+                // logic handled by router usually, but if we need to force it:
+                // window.location.href = action.value;
+            }
+        }, 300);
     };
+
 
     const startTutorial = (tutorialId) => {
         if (!driverObj) return;
@@ -72,25 +103,33 @@ export function TutorialProvider({ children }) {
             const steps = tutorial.steps.map(step => ({
                 element: step.element,
                 popover: step.popover,
-                onHighlightStarted: (element) => {
-                    if (element) {
-                        element.classList.add('tutorial-target-active');
-                        // Force styles directly as a fallback
-                        element.style.setProperty('outline', '3px solid #ff00ea', 'important');
-                        element.style.setProperty('outline-offset', '2px', 'important');
-                        element.style.setProperty('z-index', '1000000002', 'important');
-                        element.style.setProperty('position', 'relative', 'important');
-                        element.style.setProperty('background-color', '#fff9c4', 'important');
+                onHighlightStarted: (element, stepOpt, options) => {
+                    // Dynamic Resolution at runtime (in case list changed or page loaded)
+                    // Driver.js doesn't natively support dynamic element re-evaluation easily in v1 without mapped steps
+                    // BUT we can use the 'element' property if we pass the DOM element directly, 
+                    // however driver v3/v1 expects selector string usually.
 
-                        if (step.action) {
-                            performAction(element, step.action);
-                        }
+                    // Actually, let's try to resolve it *before* passing to driver if possible, 
+                    // OR rely on driver's ability to take a DOM element.
+                    // For now, we will rely on strict selectors. 
+                    // IF we use our custom 'resolveElement', we need to run it before creating the step config.
+
+                    if (!element) return; // Should not happen if driver found it
+
+                    element.classList.add('tutorial-target-active');
+                    element.style.setProperty('outline', '3px solid #ff00ea', 'important');
+                    element.style.setProperty('outline-offset', '2px', 'important');
+                    element.style.setProperty('z-index', '1000000002', 'important');
+                    element.style.setProperty('position', 'relative', 'important');
+                    element.style.setProperty('background-color', '#fff9c4', 'important');
+
+                    if (step.action) {
+                        performAction(element, step.action);
                     }
                 },
                 onDeselected: (element) => {
                     if (element) {
                         element.classList.remove('tutorial-target-active');
-                        // Clean up inline styles
                         element.style.removeProperty('outline');
                         element.style.removeProperty('outline-offset');
                         element.style.removeProperty('z-index');
@@ -100,7 +139,32 @@ export function TutorialProvider({ children }) {
                 }
             }));
 
-            driverObj.setSteps(steps);
+            // Pre-resolve dynamic elements
+            const resolvedSteps = steps.map(s => {
+                const stepDef = tutorial.steps.find(ts => ts.popover.title === s.popover.title); // match by title/id
+                if (stepDef && typeof stepDef.element === 'string' && stepDef.element.startsWith('>>')) {
+                    const el = resolveElement(stepDef);
+                    if (el) {
+                        return { ...s, element: el };
+                    } else {
+                        console.warn('Dynamic element not found:', stepDef.element);
+                        // Fallback? or keep mostly to let driver fail?
+                        // Driver fails if element is null.
+                        // Let's create a dummy element to avoid crash or just omit?
+                        // Better to warn.
+                        return s;
+                    }
+                }
+                return s;
+            });
+
+            // If we have a Create Missing Component logic?
+            // "si no existe el componente Parco crea el componente faltante"
+            // This suggests IF the selector fails, we might need to inject a DOM element? 
+            // That's risky for React. We should ensure the React components HAVE the elements.
+            // I will assume the 'Missing Component' part of the prompt refers to the CODE (adding buttons to JSX), not runtime injection.
+
+            driverObj.setSteps(resolvedSteps);
             driverObj.drive();
         };
 

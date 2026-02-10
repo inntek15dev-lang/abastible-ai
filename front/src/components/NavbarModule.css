@@ -102,9 +102,9 @@
 
 /* Dropdown Menu */
 .dropdown-menu {
-    position: absolute;
-    top: 100%;
-    left: 0;
+    /* position: absolute;  Managed by RAC Popover */
+    /* top: 100%;           Managed by RAC Popover */
+    /* left: 0;             Managed by RAC Popover */
     margin-top: 0.5rem;
     width: 250px;
     background-color: white;
@@ -196,11 +196,11 @@
     color: #6b7280;
 }
 
-.dropdown-menu.right {
+/* .dropdown-menu.right {
     right: 0;
     left: auto;
     transform-origin: top right;
-}
+} */
 
 /* Responsive */
 @media (max-width: 1024px) {

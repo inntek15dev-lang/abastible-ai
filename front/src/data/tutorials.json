@@ -61,7 +61,7 @@
                 }
             },
             {
-                "element": "#btn-reabrir-registro",
+                "element": ">> row-status:auditada_sistema .tutorial-btn-reabrir",
                 "popover": {
                     "title": "Botón de Reapertura",
                     "description": "Este botón solo es visible para administradores. Permite reabrir el registro inmediatamente."
@@ -96,7 +96,7 @@
         "description": "Flujo completo para validar el cumplimiento de un contratista.",
         "steps": [
             {
-                "element": "a.btn-auditar",
+                "element": ">> row-status:pendiente .tutorial-btn-editar",
                 "popover": {
                     "title": "Iniciar Auditoría",
                     "description": "Seleccione un registro en estado 'Pendiente' para comenzar la revisión."
@@ -180,7 +180,7 @@
         "description": "Cómo levantar y gestionar hallazgos durante una auditoría.",
         "steps": [
             {
-                "element": "a.btn-auditar",
+                "element": ">> row-status:auditando .tutorial-btn-editar",
                 "popover": {
                     "title": "Ingresar a Auditoría",
                     "description": "Seleccione un registro pendiente o en proceso para gestionar sus hallazgos."
@@ -204,7 +204,7 @@
         "description": "Cómo subir documentos obligatorios para validar sus actividades.",
         "steps": [
             {
-                "element": ".tutorial-btn-editar",
+                "element": ">> row-status:pendiente .tutorial-btn-editar",
                 "popover": {
                     "title": "Editar Registro",
                     "description": "Seleccione un registro pendiente para ingresar y cargar evidencias."
@@ -242,7 +242,7 @@
                 }
             },
             {
-                "element": ".tutorial-btn-reabrir",
+                "element": ">> row-status:auditada_sistema .tutorial-btn-reabrir",
                 "popover": {
                     "title": "Solicitar Reapertura",
                     "description": "Este botón permite enviar una solicitud al administrador para volver a editar el registro."
@@ -301,7 +301,7 @@
         "description": "Cómo subir documentos obligatorios para validar sus actividades.",
         "steps": [
             {
-                "element": ".tutorial-btn-editar",
+                "element": ">> row-status:pendiente .tutorial-btn-editar",
                 "popover": {
                     "title": "Editar Registro",
                     "description": "Seleccione un registro pendiente para ingresar y cargar evidencias."
