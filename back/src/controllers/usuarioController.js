@@ -1,6 +1,6 @@
 // IEEE Trace: REQ-007 | US-006, US-007 | usuarioController.js
 const bcrypt = require('bcryptjs');
-const { User, TipoContratista, Dependencia, ContratistaAsignacion } = require('../database/models');
+const { User, TipoContratista, Dependencia, ContratistaAsignacion, Contratista, Vinculacion } = require('../database/models');
 
 const usuarioController = {
     // GET /api/usuarios
@@ -21,17 +21,65 @@ const usuarioController = {
             }
             // If req.query.active is not set, we return ALL (for admins to see inactive ones)
 
-            // Filter by role access (RN-001)
-            if (req.user.role === 'contratista_admin') {
-                // Contratista admin only sees their operativos
-                where.parent_id = req.user.id;
-            } else if (req.user.role === 'administrador_contrato') {
-                // Admin contrato sees assigned contractors
-                const asignaciones = await ContratistaAsignacion.findAll({
-                    where: { administrador_contrato_id: req.user.id },
-                    attributes: ['user_id']
+            if (req.user.role === 'contratista_admin' || req.user.role === 'contratista_user') {
+                // Contratistas only see admins assigned to THEIR vinculations
+                const { Vinculacion, Administracion } = require('../database/models');
+                const cId = req.user.contratista_id;
+                const isUser = req.user.role === 'contratista_user';
+
+                const adminsSearchWhere = { activo: 1 };
+                const vincSearchWhere = { contratista_id: cId, activo: 1 };
+
+                if (isUser) {
+                    vincSearchWhere.servicio_id = req.user.tipo_contratista_id;
+                    vincSearchWhere.dependencia_id = req.user.dependencia_id;
+                }
+
+                const admins = await Administracion.findAll({
+                    include: [{
+                        model: Vinculacion,
+                        as: 'vinculacion',
+                        where: vincSearchWhere,
+                        required: true
+                    }],
+                    where: adminsSearchWhere,
+                    attributes: ['administrador_contrato_id']
                 });
-                where.id = asignaciones.map(a => a.user_id);
+                const adminIds = [...new Set(admins.map(a => a.administrador_contrato_id))];
+
+                if (req.query.role === 'administrador_contrato') {
+                    if (adminIds.length === 0) return res.json({ success: true, data: [] });
+                    where.id = adminIds;
+                } else {
+                    // Standard contractor limits: only sees their own operatives
+                    where.parent_id = req.user.id;
+                }
+            } else if (req.user.role === 'administrador_contrato') {
+                // Admin contrato usually only sees themselves in this filter, 
+                // but let's allow them to see others who share the same vinculations
+
+                const myVincs = await Administracion.findAll({
+                    where: { administrador_contrato_id: req.user.id, activo: 1 },
+                    attributes: ['vinculacion_id']
+                });
+                const vincIds = myVincs.map(v => v.vinculacion_id);
+
+                const peerAdmins = await Administracion.findAll({
+                    where: { vinculacion_id: vincIds, activo: 1 },
+                    attributes: ['administrador_contrato_id']
+                });
+                const adminIds = [...new Set(peerAdmins.map(a => a.administrador_contrato_id))];
+
+                if (req.query.role === 'administrador_contrato') {
+                    where.id = adminIds;
+                } else {
+                    // For general user listing, they see users assigned to them
+                    const asignaciones = await ContratistaAsignacion.findAll({
+                        where: { administrador_contrato_id: req.user.id },
+                        attributes: ['user_id']
+                    });
+                    where.id = asignaciones.map(a => a.user_id);
+                }
             }
             // Admin sees all
 
@@ -60,7 +108,25 @@ const usuarioController = {
                 include: [
                     { model: TipoContratista, as: 'tipoContratista' },
                     { model: Dependencia, as: 'dependencia' },
-                    { model: User, as: 'operativos', attributes: ['id', 'name', 'email', 'role'] }
+                    { model: User, as: 'operativos', attributes: ['id', 'name', 'email', 'role'] },
+                    {
+                        model: Contratista,
+                        as: 'contratistaEntidad',
+                        include: [
+                            {
+                                model: Vinculacion,
+                                as: 'vinculaciones',
+                                include: [
+                                    {
+                                        model: TipoContratista,
+                                        as: 'servicio',
+                                        include: [{ model: require('../database/models/Programa'), as: 'programa' }]
+                                    },
+                                    { model: Dependencia, as: 'dependencia' }
+                                ]
+                            }
+                        ]
+                    }
                 ]
             });
 
@@ -82,6 +148,7 @@ const usuarioController = {
                 name, email, password, role,
                 tipo_contratista_id, dependencia_id,
                 eecc_nombre, rut, telefono, parent_id,
+                contratista_id, // Add this
                 asignacion_inicial // New object { dependencia_id, servicio_id, administrador_contrato_id }
             } = req.body;
 
@@ -123,6 +190,7 @@ const usuarioController = {
                 password: hashedPassword,
                 role: finalRole,
                 parent_id: finalParentId,
+                contratista_id, // Add this
                 tipo_contratista_id, // Backward compatibility or simple linking
                 dependencia_id, // Backward compatibility
                 eecc_nombre,
@@ -131,21 +199,22 @@ const usuarioController = {
                 activo: 1
             });
 
-            // Create Initial Assignment if Contratista Admin and data provided
-            if (finalRole === 'contratista_admin' && asignacion_inicial) {
+            // Create Initial Assignment if Contractor role and data provided
+            if (['contratista_admin', 'contratista_user'].includes(finalRole) && asignacion_inicial) {
                 const { dependencia_id: depId, servicio_id: servId, administrador_contrato_id: adcId } = asignacion_inicial;
 
                 if (depId && servId) {
-                    await ContratistaAsignacion.create({
-                        user_id: usuario.id,
-                        dependencia_id: depId,
-                        tipo_contratista_id: servId,
-                        administrador_contrato_id: adcId || null, // Optional ADC
-                        periodo_inicio: new Date()
-                    });
+                    if (finalRole === 'contratista_admin') {
+                        await ContratistaAsignacion.create({
+                            user_id: usuario.id,
+                            dependencia_id: depId,
+                            tipo_contratista_id: servId,
+                            administrador_contrato_id: adcId || null, // Optional ADC
+                            periodo_inicio: new Date()
+                        });
+                    }
 
-                    // Also update the User's direct fields for quick access (denormalization preference pending)
-                    // For now, let's keep them in sync if possible
+                    // Always update the User's direct fields for scoping
                     await usuario.update({
                         dependencia_id: depId,
                         tipo_contratista_id: servId
@@ -238,6 +307,23 @@ const usuarioController = {
         } catch (error) {
             console.error('Usuario destroy error:', error);
             res.status(500).json({ success: false, message: 'Error al desactivar usuario' });
+        }
+    },
+
+    // GET /api/usuarios/:id/asignaciones
+    async asignaciones(req, res) {
+        try {
+            const asignaciones = await ContratistaAsignacion.findAll({
+                where: { user_id: req.params.id },
+                include: [
+                    { model: TipoContratista, as: 'tipoContratista' },
+                    { model: Dependencia, as: 'dependencia' }
+                ]
+            });
+            res.json({ success: true, data: asignaciones });
+        } catch (error) {
+            console.error('Usuario asignaciones error:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener asignaciones' });
         }
     }
 };

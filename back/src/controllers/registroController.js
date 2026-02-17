@@ -13,7 +13,10 @@ const {
 
     Dependencia,
     Evidencia,
-    Hallazgo // Import Hallazgo model
+    Hallazgo, // Import Hallazgo model
+    Contratista,
+    Vinculacion,
+    Administracion
 } = require('../database/models');
 const emailService = require('../services/emailService'); // Import emailService
 
@@ -59,9 +62,17 @@ const registroController = {
                         ]
                     },
                     {
-                        model: RegistroActividad,
-                        as: 'actividades',
-                        include: [{ model: Actividad, as: 'actividad' }]
+                        model: Vinculacion,
+                        as: 'vinculacionEntidad',
+                        include: [
+                            { model: TipoContratista, as: 'servicio' },
+                            { model: Dependencia, as: 'dependencia' },
+                            {
+                                model: Administracion,
+                                as: 'administraciones',
+                                include: [{ model: User, as: 'administradorContrato', attributes: ['id', 'name'] }]
+                            },
+                        ]
                     }
                 ],
                 order: [['periodo', 'DESC'], ['id', 'DESC']]
@@ -83,6 +94,7 @@ const registroController = {
                     { model: RegistroLog, as: 'logs', include: [{ model: User, as: 'usuario', attributes: ['name', 'role'] }] },
                     { model: User, as: 'auditor', attributes: ['id', 'name'] },
                     { model: Programa, as: 'programa', attributes: ['id', 'nombre'] },
+                    { model: Vinculacion, as: 'vinculacionEntidad' },
                     {
                         model: ContratistaAsignacion,
                         as: 'asignacion',
@@ -144,19 +156,64 @@ const registroController = {
                 return res.status(400).json({ success: false, message: 'El periodo es requerido' });
             }
 
-            // Get user info for denormalized fields
-            const user = await User.findByPk(req.user.id, {
-                include: [{ model: Dependencia, as: 'dependencia' }]
-            });
+            let targetUserId = req.user.id;
+            let eeccNombre = null;
+            let depNombre = null;
+            let depId = null;
+
+            // Accept contratista_id (company entity) from the form
+            const contratistaId = req.body.contratista_id;
+
+            if (contratistaId) {
+                // Look up Contratista company
+                const empresa = await Contratista.findByPk(contratistaId);
+                if (!empresa) {
+                    return res.status(404).json({ success: false, message: 'Empresa contratista no encontrada' });
+                }
+                eeccNombre = empresa.nombre;
+            }
+
+            // Validate vinculacion (stored as contratista_asignacion_id)
+            if (contratista_asignacion_id) {
+                const vinculacion = await Vinculacion.findOne({
+                    where: { id: contratista_asignacion_id, ...(contratistaId ? { contratista_id: contratistaId } : {}) },
+                    include: [
+                        { model: Dependencia, as: 'dependencia' },
+                        { model: TipoContratista, as: 'servicio' }
+                    ]
+                });
+                if (!vinculacion) {
+                    return res.status(400).json({ success: false, message: 'La vinculación seleccionada no pertenece al contratista' });
+                }
+                depNombre = vinculacion.dependencia?.nombre || null;
+                depId = vinculacion.dependencia_id || null;
+                if (!eeccNombre && vinculacion.contratista_id) {
+                    const emp = await Contratista.findByPk(vinculacion.contratista_id);
+                    eeccNombre = emp?.nombre || null;
+                }
+            }
+
+            // Prevent duplicate: same vinculacion + periodo
+            if (contratista_asignacion_id && periodo) {
+                const existing = await Registro.findOne({
+                    where: { contratista_asignacion_id, periodo }
+                });
+                if (existing) {
+                    return res.status(409).json({
+                        success: false,
+                        message: 'Ya existe un registro para esta vinculación en el periodo seleccionado'
+                    });
+                }
+            }
 
             const registro = await Registro.create({
-                user_id: req.user.id,
+                user_id: targetUserId,
                 contratista_asignacion_id,
                 programa_id: req.body.programa_id || null,
-                dependencia_id: req.body.dependencia_id || user.dependencia_id || null,
+                dependencia_id: depId || req.body.dependencia_id || null,
                 periodo,
-                eecc_nombre: user.eecc_nombre,
-                dependencia: user.dependencia?.nombre,
+                eecc_nombre: eeccNombre, // Company name from Contratista entity
+                dependencia: depNombre, // From Vinculacion's Dependencia
                 personas_nuevas,
                 supervisores,
                 prevencionistas,
@@ -200,7 +257,7 @@ const registroController = {
             // const admins = await User.findAll({ where: { role: 'admin' } });
             // emails = admins.map(u => u.email);
             // await emailService.send(emails, 'Nuevo Registro Creado', `Registro del periodo ${periodo} creado por ${user.name}`);
-            console.log(`[MOCK EMAIL] Nuevo Registro Creado: ${registro.periodo} - ${user.name}`);
+            console.log(`[MOCK EMAIL] Nuevo Registro Creado: ${registro.periodo} - ${req.user.name}`);
 
             res.status(201).json({ success: true, data: registro });
         } catch (error) {

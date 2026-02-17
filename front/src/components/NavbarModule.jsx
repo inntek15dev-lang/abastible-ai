@@ -31,8 +31,7 @@ export default function NavbarModule() {
             <div className="navbar-container">
                 {/* Brand */}
                 <div className="navbar-brand">
-                    <div className="logo-circle">A</div>
-                    <span className="logo-text">OIEM <span style={{ fontWeight: 300 }}>Abastible</span></span>
+                    <img src="/logo.svg" alt="Abastible" className="navbar-logo" />
                 </div>
 
                 {/* Module Tabs (Desktop) */}

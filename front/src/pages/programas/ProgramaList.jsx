@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
-import { Plus, Edit, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Edit, Trash2, ChevronDown, ChevronRight, FileText, List } from 'lucide-react';
+import './ProgramaList.css';
 
 export default function ProgramaList() {
     const [programas, setProgramas] = useState([]);
@@ -44,9 +45,11 @@ export default function ProgramaList() {
     // State for Element/Activity management
     const [showElemModal, setShowElemModal] = useState(false);
     const [showActModal, setShowActModal] = useState(false);
+    const [isEditActivity, setIsEditActivity] = useState(false);
     const [currentProgramId, setCurrentProgramId] = useState(null);
     const [currentElementId, setCurrentElementId] = useState(null);
-    const [newItem, setNewItem] = useState({ nombre: '', numero: '', codigo: '', descripcion: '', frecuencia: '' });
+    const [currentActivityId, setCurrentActivityId] = useState(null);
+    const [newItem, setNewItem] = useState({ nombre: '', numero: '', codigo: '', descripcion: '', frecuencia: '', criterio: '', template: null, actividad: '' });
 
     const openElemModal = (progId) => {
         setCurrentProgramId(progId);
@@ -56,7 +59,22 @@ export default function ProgramaList() {
 
     const openActModal = (elemId) => {
         setCurrentElementId(elemId);
-        setNewItem({ codigo: '', descripcion: '', frecuencia: '' });
+        setIsEditActivity(false);
+        setNewItem({ codigo: '', descripcion: '', frecuencia: '', template: null, actividad: '' });
+        setShowActModal(true);
+    };
+
+    const openEditActModal = (act) => {
+        setCurrentActivityId(act.id);
+        setIsEditActivity(true);
+        setNewItem({
+            codigo: act.codigo,
+            descripcion: act.descripcion,
+            frecuencia: act.frecuencia,
+            criterios: act.criterios,
+            actividad: act.actividad,
+            template: null
+        });
         setShowActModal(true);
     };
 
@@ -71,14 +89,34 @@ export default function ProgramaList() {
         }
     };
 
-    const handleCreateActivity = async (e) => {
+    const handleSaveActivity = async (e) => {
         e.preventDefault();
         try {
-            await api.post('/actividades', { ...newItem, elemento_id: currentElementId });
+            const formData = new FormData();
+            formData.append('codigo', newItem.codigo);
+            formData.append('descripcion', newItem.descripcion);
+            formData.append('frecuencia', newItem.frecuencia);
+            if (newItem.criterios) formData.append('criterios', newItem.criterios);
+            if (newItem.template) formData.append('template', newItem.template);
+
+            // Ensure actividad is sent
+            formData.append('actividad', newItem.actividad || newItem.descripcion.substring(0, 50));
+
+            if (isEditActivity) {
+                await api.put(`/actividades/${currentActivityId}`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+            } else {
+                formData.append('elemento_id', currentElementId);
+                await api.post('/actividades', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+            }
             setShowActModal(false);
             fetchProgramas();
         } catch (err) {
-            alert('Error al crear actividad');
+            alert('Error al guardar actividad');
+            console.error(err);
         }
     };
 
@@ -97,9 +135,11 @@ export default function ProgramaList() {
     return (
         <div className="page-container">
             <header className="page-header">
-                <h1>Programas</h1>
+                <h1 className="page-title">
+                    <span role="img" aria-label="programs">📋</span> Gestión de Programas
+                </h1>
                 {canWrite('Programas') && (
-                    <Link to="/programas/new" className="btn-primary">
+                    <Link to="/programas/new" id="btn-new-program" className="btn-primary-add">
                         <Plus size={18} /> Nuevo Programa
                     </Link>
                 )}
@@ -107,78 +147,105 @@ export default function ProgramaList() {
 
             {error && <div className="error-message">{error}</div>}
 
-            <div className="programa-list">
+            <div className="programs-grid">
                 {programas.map((programa) => (
-                    <div key={programa.id} className="programa-card">
-                        <div className="programa-header" onClick={() => toggleExpand(programa.id)}>
-                            <div className="programa-title">
-                                {expanded[programa.id] ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-                                <h3>{programa.nombre}</h3>
-                                <span className={`badge ${programa.activo ? 'active' : 'inactive'}`}>
-                                    {programa.activo ? 'Activo' : 'Inactivo'}
+                    <div key={programa.id} id={`program-card-${programa.id}`} className="program-card">
+                        {/* Header: Code/Badge and Percentage */}
+                        <div className="card-header-row">
+                            <span className="program-code-badge">
+                                {programa.codigo || `PROG-${programa.id}`}
+                            </span>
+                            <div className="program-meta-container">
+                                <span className="meta-label">Meta de Cumplimiento</span>
+                                <span className="program-goal-large">
+                                    {programa.meta_cumplimiento || '100'}%
                                 </span>
-                            </div>
-                            <div className="programa-actions">
-                                {canWrite('Programas') && (
-                                    <Link to={`/programas/${programa.id}/edit`} className="btn-icon" onClick={e => e.stopPropagation()}>
-                                        <Edit size={18} />
-                                    </Link>
-                                )}
-                                {canExec('Programas') && (
-                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(programa.id); }} className="btn-icon danger">
-                                        <Trash2 size={18} />
-                                    </button>
-                                )}
                             </div>
                         </div>
 
-                        {expanded[programa.id] && (
-                            <div className="programa-content">
-                                <p>{programa.descripcion || 'Sin descripción'}</p>
+                        {/* Content: Title and Description */}
+                        <h3 className="program-name">{programa.nombre}</h3>
+                        <p className="program-description">
+                            {programa.descripcion || 'Sin descripción disponible para este programa.'}
+                        </p>
 
-                                {/* Elements Header */}
+                        {/* Stats Row */}
+                        <div className="program-stats-row">
+                            <div className="stat-item">
+                                <FileText size={16} />
+                                <span className="text-gray-600">{programa.elementos?.length || 0} elementos</span>
+                            </div>
+                            <div className="stat-item">
+                                <List size={16} />
+                                <span className="text-gray-600">0 registros</span>
+                            </div>
+                        </div>
+
+                        {/* Footer Actions */}
+                        <div className="card-actions">
+                            <Link
+                                to={`/elementos?programa_id=${programa.id}`}
+                                className="btn-card-action btn-view btn-view-elements"
+                                style={{ textDecoration: 'none' }}
+                            >
+                                Ver Elementos
+                            </Link>
+
+                            {canWrite('Programas') && (
+                                <Link to={`/programas/${programa.id}/edit`} className="btn-card-action btn-edit" style={{ textDecoration: 'none' }}>
+                                    Editar
+                                </Link>
+                            )}
+
+                            {canExec('Programas') && (
+                                <button
+                                    className="btn-card-action btn-delete-icon"
+                                    onClick={(e) => { e.stopPropagation(); handleDelete(programa.id); }}
+                                    title="Eliminar"
+                                >
+                                    <Trash2 size={18} />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Expanded Content (Details) */}
+                        {expanded[programa.id] && (
+                            <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '10px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                                    <h4>Elementos</h4>
+                                    <h4 style={{ fontSize: '0.9rem' }}>Elementos</h4>
                                     {canWrite('Programas') && (
-                                        <button className="btn-secondary sm" onClick={() => openElemModal(programa.id)}>
-                                            <Plus size={14} /> Agregar Elemento
+                                        <button className="btn-link sm" onClick={() => openElemModal(programa.id)}>
+                                            + Agregar
                                         </button>
                                     )}
                                 </div>
-
-                                {programa.elementos?.map((elemento) => (
-                                    <div key={elemento.id} className="elemento-card">
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <h4>{elemento.numero}. {elemento.nombre}</h4>
-                                            {canExec('Programas') && (
-                                                <button onClick={() => handleDeleteElement(elemento.id)} className="text-danger">
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            )}
+                                {programa.elementos?.map((el) => (
+                                    <div key={el.id} style={{ marginBottom: '8px' }}>
+                                        <div style={{ fontSize: '0.85rem', fontWeight: 600, display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>{el.numero}. {el.nombre}</span>
+                                            {canExec('Programas') && <Trash2 size={12} className="text-danger cursor-pointer" onClick={() => handleDeleteElement(el.id)} />}
                                         </div>
-
-                                        <ul className="actividad-list">
-                                            {elemento.actividades?.map((act) => (
-                                                <li key={act.id}>
-                                                    <div>
-                                                        <code>{act.codigo}</code> - {act.descripcion}
-                                                        <span className="frecuencia">{act.frecuencia}</span>
-                                                    </div>
-                                                    {canExec('Programas') && (
-                                                        <button onClick={() => handleDeleteActivity(act.id)} className="text-danger icon-btn">
-                                                            <Trash2 size={12} />
-                                                        </button>
-                                                    )}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                        {canWrite('Programas') && (
-                                            <div style={{ marginTop: 5 }}>
-                                                <button className="btn-link sm" onClick={() => openActModal(elemento.id)}>
-                                                    + Agregar Actividad
-                                                </button>
+                                        {/* Activities List under Element */}
+                                        <div style={{ paddingLeft: '1rem', marginTop: '4px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                <small style={{ color: '#666' }}>Actividades</small>
+                                                {canWrite('Programas') && (
+                                                    <button className="btn-link sm" style={{ fontSize: '0.7em' }} onClick={() => openActModal(el.id)}>
+                                                        + Actividad
+                                                    </button>
+                                                )}
                                             </div>
-                                        )}
+                                            {el.actividades?.map(act => (
+                                                <div key={act.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '2px', padding: '2px 0', borderBottom: '1px dashed #eee' }}>
+                                                    <span title={act.descripcion}>{act.codigo} - {act.actividad || act.descripcion?.substring(0, 30)}</span>
+                                                    <div style={{ display: 'flex', gap: '5px' }}>
+                                                        {act.template_url && <span title="Plantilla disponible">📎</span>}
+                                                        {canWrite('Programas') && <Edit size={12} className="text-primary cursor-pointer" onClick={() => openEditActModal(act)} />}
+                                                        {canExec('Programas') && <Trash2 size={12} className="text-danger cursor-pointer" onClick={() => handleDeleteActivity(act.id)} />}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -214,19 +281,57 @@ export default function ProgramaList() {
             {showActModal && (
                 <div className="modal-overlay">
                     <div className="form-card modal-content">
-                        <h2>Nueva Actividad</h2>
-                        <form onSubmit={handleCreateActivity}>
+                        <h2>{isEditActivity ? 'Editar Actividad' : 'Nueva Actividad'}</h2>
+                        <form onSubmit={handleSaveActivity}>
                             <div className="form-group">
                                 <label>Código</label>
                                 <input type="text" required value={newItem.codigo} onChange={e => setNewItem({ ...newItem, codigo: e.target.value })} />
                             </div>
                             <div className="form-group">
-                                <label>Descripción</label>
+                                <label>Actividad (Nombre Corto)</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={newItem.actividad || ''}
+                                    onChange={e => setNewItem({ ...newItem, actividad: e.target.value })}
+                                    placeholder="Ej: Revisión Extintores"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>Descripción Detallada</label>
                                 <textarea required value={newItem.descripcion} onChange={e => setNewItem({ ...newItem, descripcion: e.target.value })} />
                             </div>
                             <div className="form-group">
+                                <label>Criterios de Aceptación</label>
+                                <textarea value={newItem.criterios || ''} onChange={e => setNewItem({ ...newItem, criterios: e.target.value })} />
+                            </div>
+                            <div className="form-group">
                                 <label>Frecuencia</label>
-                                <input type="text" value={newItem.frecuencia} onChange={e => setNewItem({ ...newItem, frecuencia: e.target.value })} />
+                                <select
+                                    value={newItem.frecuencia}
+                                    onChange={e => setNewItem({ ...newItem, frecuencia: e.target.value })}
+                                    className="form-control"
+                                >
+                                    <option value="">Seleccione...</option>
+                                    <option value="mensual">Mensual</option>
+                                    <option value="trimestral">Trimestral</option>
+                                    <option value="semestral">Semestral</option>
+                                    <option value="anual">Anual</option>
+                                    <option value="cuando_aplique">Cuando Aplique</option>
+                                </select>
+                            </div>
+                            <div className="form-group">
+                                <label>Plantilla de Evidencia (Opcional)</label>
+                                <input
+                                    type="file"
+                                    accept=".pdf,.doc,.docx,.xls,.xlsx"
+                                    onChange={e => setNewItem({ ...newItem, template: e.target.files[0] })}
+                                />
+                                {isEditActivity && !newItem.template && (
+                                    <small className="text-gray-500" style={{ display: 'block', marginTop: '5px' }}>
+                                        Deja vacío para mantener la plantilla actual.
+                                    </small>
+                                )}
                             </div>
                             <div className="form-actions">
                                 <button type="button" className="btn-secondary" onClick={() => setShowActModal(false)}>Cancelar</button>

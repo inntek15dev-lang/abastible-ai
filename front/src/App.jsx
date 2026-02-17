@@ -31,13 +31,15 @@ import ReaperturaList from './pages/reaperturas/ReaperturaList';
 import ReporteList from './pages/reportes/ReporteList';
 
 // Sprint 5 Pages
-import LicitacionList from './pages/licitaciones/LicitacionList';
-import PostulacionList from './pages/licitaciones/PostulacionList';
+// Removed Licitacion/Postulacion lists
 import UsuarioForm from './pages/usuarios/UsuarioForm';
 
 // Sprint 8 Pages (US-051)
 import EvidenciaList from './pages/registros/EvidenciaList';
 import ContratistaList from './pages/contratistas/ContratistaList';
+import ContratistaForm from './pages/contratistas/ContratistaForm';
+import VinculacionList from './pages/vinculaciones/VinculacionList';
+import VinculacionForm from './pages/vinculaciones/VinculacionForm';
 
 // Sprint 7 Pages (Role Management)
 import RoleList from './pages/admin/RoleList';
@@ -124,6 +126,7 @@ function AppRoutes() {
         <Route path="/registros" element={<RegistroList />} />
         <Route path="/registros/new" element={<RegistroForm />} />
         <Route path="/registros/:id/edit" element={<RegistroForm />} />
+        <Route path="/registros/:id" element={<RegistroForm />} />
         <Route path="/registros/:id/auditar" element={<RegistroAudit />} />
 
         {/* Compromisos */}
@@ -138,15 +141,19 @@ function AppRoutes() {
         {/* Reportes (Sprint 4 Gap) */}
         <Route path="/reportes" element={<ReporteList />} />
 
-        {/* Sprint 5: Licitaciones */}
-        <Route path="/licitaciones" element={<LicitacionList />} />
-        <Route path="/mis-postulaciones" element={<PostulacionList />} />
+        {/* Sprint 5: Licitaciones (REMOVED) */}
+        {/* <Route path="/licitaciones" element={<LicitacionList />} /> */}
+        {/* <Route path="/mis-postulaciones" element={<PostulacionList />} /> */}
 
         {/* Sprint 8: Nuevos Módulos US-051 */}
         <Route path="/evidencias" element={<EvidenciaList />} />
         <Route path="/contratistas" element={<ContratistaList />} />
-        {/* <Route path="/contratistas/new" element={<ContratistaForm />} />  TODO: Add Form logic */}
-        {/* <Route path="/contratistas/:id" element={<ContratistaForm />} /> */}
+        <Route path="/contratistas/new" element={<ContratistaForm />} />
+        <Route path="/contratistas/:id" element={<ContratistaForm />} />
+
+        {/* <Route path="/vinculaciones" element={<VinculacionList />} /> */}
+        {/* <Route path="/vinculaciones/new" element={<VinculacionForm />} /> */}
+        {/* <Route path="/vinculaciones/:id" element={<VinculacionForm />} /> */}
 
         {/* Sprint 7: Roles & Privileges */}
         <Route path="/roles" element={<RoleList />} />

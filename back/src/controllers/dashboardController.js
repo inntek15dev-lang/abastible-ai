@@ -8,7 +8,13 @@ const {
     Compromiso,
     SolicitudReapertura,
     Hallazgo,
-    ContratistaAsignacion
+    ContratistaAsignacion,
+    Evidencia,
+    Vinculacion,
+    Contratista,
+    TipoContratista,
+    Dependencia,
+    sequelize
 } = require('../database/models');
 
 const dashboardController = {
@@ -24,11 +30,71 @@ const dashboardController = {
 
             // Filter by Company for contractors
             if (isContractor) {
-                if (!user.eecc_nombre) {
+                if (user.eecc_nombre) {
+                    whereRegistro.eecc_nombre = user.eecc_nombre;
+                } else if (user.contratista_id) {
+                    const contratista = await Contratista.findByPk(user.contratista_id);
+                    if (contratista) {
+                        whereRegistro.eecc_nombre = contratista.nombre;
+                    } else {
+                        return res.status(400).json({ success: false, message: 'Usuario contratista sin empresa asignada (ID inválido)' });
+                    }
+                } else {
                     return res.status(400).json({ success: false, message: 'Usuario contratista sin empresa asignada' });
                 }
-                whereRegistro.eecc_nombre = user.eecc_nombre;
             }
+
+            const { fecha_inicio, fecha_fin, programa_id, servicio_id, dependencia_id, search, estado } = req.query;
+
+            // Date Filter
+            if (fecha_inicio || fecha_fin) {
+                const dateFilter = {};
+                if (fecha_inicio) {
+                    const startDate = new Date(fecha_inicio + '-01'); // Assuming YYYY-MM
+                    dateFilter[Op.gte] = startDate;
+                }
+                if (fecha_fin) {
+                    const endDate = new Date(fecha_fin + '-01');
+                    // End of month? Or just start of next?
+                    // Let's assume user picks Month, we want up to end of that month.
+                    const d = new Date(fecha_fin + '-01');
+                    d.setMonth(d.getMonth() + 1);
+                    dateFilter[Op.lt] = d;
+                }
+                whereRegistro.periodo = dateFilter;
+            }
+
+            // Program Filter
+            if (programa_id && programa_id !== 'todos') {
+                whereRegistro.programa_id = programa_id;
+            }
+
+            // Dependencia Filter
+            if (dependencia_id && dependencia_id !== 'todas') {
+                whereRegistro.dependencia_id = dependencia_id;
+            }
+
+            // Search Filter (Company Name)
+            if (search) {
+                whereRegistro.eecc_nombre = { [Op.like]: `%${search}%` };
+            }
+
+            // Service Filter (logic to find Assignments first)
+            let assignmentIdsFromService = [];
+            const hasServiceFilter = servicio_id && servicio_id !== 'todos';
+
+            if (hasServiceFilter) {
+                const serviceAssignments = await ContratistaAsignacion.findAll({
+                    where: { tipo_contratista_id: servicio_id },
+                    attributes: ['id']
+                });
+                assignmentIdsFromService = serviceAssignments.map(a => a.id);
+                // If service selected but no assignments found, result should be empty
+                if (assignmentIdsFromService.length === 0) {
+                    whereRegistro.id = -1; // Force empty
+                }
+            }
+
 
             // Filter for Contract Managers (Admin Contrato)
             const isContractManager = user.role === 'administrador_contrato';
@@ -38,15 +104,21 @@ const dashboardController = {
                     where: { administrador_contrato_id: user.id },
                     attributes: ['id']
                 });
-                const assignmentIds = assignments.map(a => a.id);
+                let assignmentIds = assignments.map(a => a.id);
 
-                // If no assignments, they see nothing (or empty)
+                // Intersect with Service Filter if present
+                if (hasServiceFilter) {
+                    assignmentIds = assignmentIds.filter(id => assignmentIdsFromService.includes(id));
+                }
+
                 if (assignmentIds.length === 0) {
-                    // Force empty result by impossible condition
                     whereRegistro.id = -1;
                 } else {
                     whereRegistro.contratista_asignacion_id = { [Op.in]: assignmentIds };
                 }
+            } else if (hasServiceFilter && !whereRegistro.id) {
+                // If not Admin Contrato, but has Service Filter, apply it
+                whereRegistro.contratista_asignacion_id = { [Op.in]: assignmentIdsFromService };
             }
 
             // Total registros
@@ -57,12 +129,21 @@ const dashboardController = {
                 where: { ...whereRegistro, estado_auditoria: 'pendiente' }
             });
 
-            // Registros auditados
+            // Registros auditados (Total)
             const auditados = await Registro.count({
                 where: {
                     ...whereRegistro,
                     estado_auditoria: { [Op.in]: ['auditada_sistema', 'auditada_terreno'] }
                 }
+            });
+
+            // Auditados Breakdown
+            const auditadosTerreno = await Registro.count({
+                where: { ...whereRegistro, estado_auditoria: 'auditada_terreno' }
+            });
+
+            const auditadosSistema = await Registro.count({
+                where: { ...whereRegistro, estado_auditoria: 'auditada_sistema' }
             });
 
             // Promedio cumplimiento general
@@ -72,6 +153,21 @@ const dashboardController = {
                     [sequelize.fn('AVG', sequelize.col('porcentaje_cumplimiento')), 'promedio']
                 ],
                 raw: true
+            });
+
+            // Total Evidencias (Joined via RegistroActividad -> Registro)
+            const totalEvidencias = await Evidencia.count({
+                include: [{
+                    model: RegistroActividad,
+                    as: 'registroActividad',
+                    required: true,
+                    include: [{
+                        model: Registro,
+                        as: 'registro',
+                        where: whereRegistro,
+                        required: true
+                    }]
+                }]
             });
 
             // Compromisos vencidos (Filter by Register's Company)
@@ -113,7 +209,7 @@ const dashboardController = {
             // Usuarios activos (Global for Admins, nothing for Contractors usually, or maybe their own users?)
             // For now, let's show global for Admins and 0 or specific for contractors.
             // Contractors don't really manage users in this MVP scope except maybe their operatives.
-            const usuariosActivos = isContractor ? 0 : await User.count({ where: { is_active: true } });
+            const usuariosActivos = isContractor ? 0 : await User.count({ where: { activo: true } });
 
             res.json({
                 success: true,
@@ -121,6 +217,9 @@ const dashboardController = {
                     totalRegistros,
                     pendientesAuditoria,
                     auditados,
+                    auditadosTerreno,
+                    auditadosSistema,
+                    totalEvidencias,
                     promedioCumplimiento: parseFloat(avgCumplimiento?.promedio || 0).toFixed(1),
                     compromisosVencidos,
                     hallazgosAbiertos,
@@ -309,6 +408,114 @@ const dashboardController = {
         } catch (error) {
             console.error('Dashboard historico error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener historico' });
+        }
+    },
+
+    // GET /api/dashboard/matrix
+    async matrix(req, res) {
+        try {
+            const user = req.user;
+            const whereRegistro = {};
+
+            // 1. Apply Scope Filters
+            if (['contratista_admin', 'contratista_user'].includes(user.role)) {
+                if (user.eecc_nombre) whereRegistro.eecc_nombre = user.eecc_nombre;
+            }
+
+            // 2. Date Range: Last 6 months (including current)
+            const today = new Date();
+            const startMonth = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+            const endMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+            whereRegistro.periodo = {
+                [Op.between]: [startMonth, endMonth]
+            };
+
+            // 3. Fetch Data with Vinculacion associations
+            const registros = await Registro.findAll({
+                where: whereRegistro,
+                include: [
+                    {
+                        model: Programa,
+                        as: 'programa',
+                        attributes: ['id', 'nombre']
+                    },
+                    {
+                        model: Vinculacion,
+                        as: 'vinculacionEntidad',
+                        required: false,
+                        include: [
+                            { model: Contratista, as: 'contratista', attributes: ['id', 'nombre', 'rut'] },
+                            { model: TipoContratista, as: 'servicio', attributes: ['id', 'nombre'] },
+                            { model: Dependencia, as: 'dependencia', attributes: ['id', 'nombre'] }
+                        ]
+                    }
+                ],
+                order: [['periodo', 'ASC']]
+            });
+
+            // 4. Group by Unique Row Key (contratista + programa + servicio + dependencia)
+            const rowsMap = new Map();
+
+            registros.forEach(reg => {
+                const vinc = reg.vinculacionEntidad || {};
+                const empresa = vinc.contratista || {};
+                const servicio = vinc.servicio || {};
+                const dependencia = vinc.dependencia || {};
+                const programa = reg.programa || {};
+
+                const contratistaId = empresa.id || 'N/A';
+                const programaId = programa.id || 'N/A';
+                const servicioId = servicio.id || 'N/A';
+                const dependenciaId = dependencia.id || 'N/A';
+
+                const key = `${contratistaId}-${programaId}-${servicioId}-${dependenciaId}`;
+
+                if (!rowsMap.has(key)) {
+                    rowsMap.set(key, {
+                        id: key,
+                        contratista: empresa.nombre || reg.eecc_nombre || 'Desconocido',
+                        rut: empresa.rut || '-',
+                        programa: programa.nombre || 'Sin Programa',
+                        servicio: servicio.nombre || '-',
+                        dependencia: dependencia.nombre || reg.dependencia || '-',
+                        data: {}
+                    });
+                }
+
+                const row = rowsMap.get(key);
+                const periodoStr = reg.periodo instanceof Date
+                    ? reg.periodo.toISOString().substring(0, 7)
+                    : String(reg.periodo).substring(0, 7);
+
+                row.data[periodoStr] = {
+                    declarado: parseFloat(reg.porcentaje_cumplimiento || 0).toFixed(1),
+                    auditado: reg.porcentaje_cumplimiento_auditor ? parseFloat(reg.porcentaje_cumplimiento_auditor).toFixed(1) : null,
+                    registroId: reg.id,
+                    estado: reg.estado_auditoria
+                };
+            });
+
+            // 5. Generate Columns (Last 6 Months)
+            const columns = [];
+            for (let i = 5; i >= 0; i--) {
+                const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+                const iso = d.toISOString().slice(0, 7);
+                const label = d.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }).toUpperCase();
+                columns.push({ key: iso, label });
+            }
+
+            res.json({
+                success: true,
+                data: {
+                    columns,
+                    rows: Array.from(rowsMap.values())
+                }
+            });
+
+        } catch (error) {
+            console.error('Dashboard matrix error:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener matriz' });
         }
     }
 };

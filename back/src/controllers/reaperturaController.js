@@ -84,8 +84,12 @@ const reaperturaController = {
                 registro_id,
                 solicitante_id: req.user.id,
                 motivo,
-                estado: 'pendiente'
+                estado: 'pendiente',
+                estado_previo: registro.estado_auditoria
             });
+
+            // Mark registro as reapertura_pendiente
+            await registro.update({ estado_auditoria: 'reapertura_pendiente' });
 
             // Log
             await RegistroLog.create({
@@ -133,7 +137,8 @@ const reaperturaController = {
 
             // Reopen the registro
             await solicitud.registro.update({
-                estado_auditoria: 'pendiente'
+                estado_auditoria: 'reabierto',
+                cerrado: 0
             });
 
             // Log
@@ -185,6 +190,14 @@ const reaperturaController = {
                 fecha_respuesta: new Date()
             });
 
+            // Revert registro estado to previous state
+            const registro = await Registro.findByPk(solicitud.registro_id);
+            if (registro && registro.estado_auditoria === 'reapertura_pendiente') {
+                await registro.update({
+                    estado_auditoria: solicitud.estado_previo || 'auditada_sistema'
+                });
+            }
+
             // Log
             await RegistroLog.create({
                 registro_id: solicitud.registro_id,
@@ -216,7 +229,7 @@ const reaperturaController = {
             }
 
             // Verify state
-            if (!['auditado', 'auditada_sistema', 'auditada_terreno', 'cerrado'].includes(registro.estado_auditoria)) {
+            if (!['auditado', 'auditada_sistema', 'auditada_terreno', 'cerrado', 'reapertura_pendiente'].includes(registro.estado_auditoria)) {
                 return res.status(400).json({
                     success: false,
                     message: 'El registro no está en un estado que permita reapertura'

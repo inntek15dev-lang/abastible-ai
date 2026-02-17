@@ -5,7 +5,90 @@ const programaController = {
     // GET /api/programas
     async index(req, res) {
         try {
+            const { role, id, contratista_id } = req.user;
+
+            // Initial scoping includes (Step 1 - minimal)
+            let includeScoping = [];
+
+            if (role === 'administrador_contrato') {
+                const { TipoContratista, Vinculacion, Administracion } = require('../database/models');
+                includeScoping.push({
+                    model: TipoContratista,
+                    as: 'tiposContratista',
+                    attributes: [],
+                    required: true,
+                    include: [{
+                        model: Vinculacion,
+                        as: 'vinculaciones',
+                        attributes: [],
+                        required: true,
+                        include: [{
+                            model: Administracion,
+                            as: 'administraciones',
+                            attributes: [],
+                            where: { administrador_contrato_id: id, activo: 1 },
+                            required: true
+                        }]
+                    }]
+                });
+            } else if (role === 'contratista_admin') {
+                const { TipoContratista, Vinculacion } = require('../database/models');
+                const cId = contratista_id || req.user.contratista_id;
+                includeScoping.push({
+                    model: TipoContratista,
+                    as: 'tiposContratista',
+                    attributes: [],
+                    required: true,
+                    include: [{
+                        model: Vinculacion,
+                        as: 'vinculaciones',
+                        attributes: [],
+                        where: { contratista_id: cId, activo: 1 },
+                        required: true
+                    }]
+                });
+            } else if (role === 'contratista_user') {
+                const { TipoContratista, Vinculacion } = require('../database/models');
+                // Get the contractor company associated with the user
+                // req.user is a POJO from auth middleware, so we access properties directly
+                const contratistaId = req.user.contratista_id;
+
+                if (contratistaId) {
+                    includeScoping.push({
+                        model: TipoContratista,
+                        as: 'tiposContratista',
+                        attributes: [],
+                        required: true,
+                        include: [{
+                            model: Vinculacion,
+                            as: 'vinculaciones',
+                            attributes: [],
+                            where: { contratista_id: contratistaId, activo: 1 },
+                            required: true
+                        }]
+                    });
+                } else {
+                    // Fallback if no company associated (shouldn't happen for valid users)
+                    return res.json({ success: true, data: [] });
+                }
+            }
+
+            // Step 1: Get scoped program IDs
+            const scopedProgramas = await Programa.findAll({
+                attributes: ['id'],
+                include: includeScoping,
+                group: ['Programa.id']
+            });
+
+            const programIds = scopedProgramas.map(p => p.id);
+
+            if (programIds.length === 0) {
+                return res.json({ success: true, data: [] });
+            }
+
+            // Step 2: Get full data for those IDs
             const programas = await Programa.findAll({
+                where: { id: programIds },
                 include: [{
                     model: Elemento,
                     as: 'elementos',
@@ -67,7 +150,7 @@ const programaController = {
     // POST /api/programas
     async store(req, res) {
         try {
-            const { nombre, descripcion, activo = 1 } = req.body;
+            const { nombre, descripcion, meta_cumplimiento = 100, activo = 1 } = req.body;
 
             if (!nombre) {
                 return res.status(400).json({
@@ -79,6 +162,7 @@ const programaController = {
             const programa = await Programa.create({
                 nombre,
                 descripcion,
+                meta_cumplimiento,
                 activo
             });
 
@@ -108,11 +192,12 @@ const programaController = {
                 });
             }
 
-            const { nombre, descripcion, activo } = req.body;
+            const { nombre, descripcion, meta_cumplimiento, activo } = req.body;
 
             await programa.update({
                 nombre: nombre ?? programa.nombre,
                 descripcion: descripcion ?? programa.descripcion,
+                meta_cumplimiento: meta_cumplimiento ?? programa.meta_cumplimiento,
                 activo: activo ?? programa.activo
             });
 

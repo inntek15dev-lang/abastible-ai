@@ -16,6 +16,11 @@ const Programa = sequelize.define('Programa', {
         type: DataTypes.TEXT,
         allowNull: true
     },
+    meta_cumplimiento: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 100
+    },
     activo: {
         type: DataTypes.TINYINT(1),
         allowNull: false,

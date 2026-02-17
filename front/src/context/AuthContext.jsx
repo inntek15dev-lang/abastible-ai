@@ -44,6 +44,9 @@ export function AuthProvider({ children }) {
         const hasWildcard = user.privileges.some(p => p.module === '*' && p[action]);
         if (hasWildcard) return true;
 
+        // Hardcode: Contratista Admin has access to Usuarios
+        if (user.role === 'contratista_admin' && module === 'Usuarios') return true;
+
         // Check specific module
         return user.privileges.some(p => p.module === module && p[action]);
     }, [user]);

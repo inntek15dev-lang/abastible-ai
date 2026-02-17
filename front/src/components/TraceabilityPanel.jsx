@@ -1,6 +1,6 @@
 // IEEE Trace: REQ-012 | US-052 | components/TraceabilityPanel.jsx
 import { useEffect, useState } from 'react';
-import { Clock, User, Shield, Info, Edit, CheckCircle, X } from 'lucide-react';
+import { Clock, User, Shield, Info, Edit, CheckCircle, X, FileText, Send, Lock } from 'lucide-react';
 import api from '../api';
 import Modal from './ui/Modal';
 
@@ -28,44 +28,26 @@ export default function TraceabilityPanel({ isOpen, onClose, registroId }) {
         }
     };
 
-    const getActionIcon = (action) => {
+    const getIconForAction = (action) => {
         switch (action) {
-            case 'CREAR': return <CheckCircle size={16} className="text-green-600" />;
-            case 'EDITAR': return <Edit size={16} className="text-blue-600" />;
-            case 'AUDITAR': return <Shield size={16} className="text-orange-600" />;
-            default: return <Info size={16} className="text-gray-600" />;
+            case 'CREAR': return <Edit size={14} className="text-green-600" />;
+            case 'EDITAR': return <Edit size={14} className="text-blue-600" />;
+            case 'AUDITAR': return <Shield size={14} className="text-orange-600" />;
+            case 'FINALIZAR_AUDITORIA': return <CheckCircle size={14} className="text-green-600" />;
+            case 'REABRIR': return <Lock size={14} className="text-yellow-600" />;
+            default: return <Info size={14} className="text-gray-600" />;
         }
     };
 
-    const getDiffView = (log) => {
-        if (!log.datos_anteriores || !log.datos_nuevos) return null;
-
-        const changes = [];
-        Object.keys(log.datos_nuevos).forEach(key => {
-            if (['updated_at', 'created_at', 'id'].includes(key)) return;
-            const oldVal = log.datos_anteriores[key];
-            const newVal = log.datos_nuevos[key];
-            if (oldVal != newVal) {
-                changes.push({ key, oldVal, newVal });
-            }
-        });
-
-        if (changes.length === 0) return null;
-
-        return (
-            <div className="mt-2 bg-gray-50 p-2 rounded text-xs border border-gray-200">
-                {changes.map((change, idx) => (
-                    <div key={idx} className="flex flex-col mb-1 last:mb-0">
-                        <span className="font-semibold text-gray-500 uppercase" style={{ fontSize: '0.65rem' }}>{change.key.replace('_', ' ')}</span>
-                        <div className="flex items-center gap-2">
-                            <span className="line-through text-red-400">{String(change.oldVal || '-')}</span>
-                            <span className="text-gray-400">→</span>
-                            <span className="font-bold text-green-600">{String(change.newVal)}</span>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        );
+    const getBgColorForAction = (action) => {
+        switch (action) {
+            case 'CREAR': return '#dcfce7'; // green-100
+            case 'EDITAR': return '#dbeafe'; // blue-100
+            case 'AUDITAR': return '#ffedd5'; // orange-100
+            case 'FINALIZAR_AUDITORIA': return '#dcfce7';
+            case 'REABRIR': return '#fef9c3'; // yellow-100
+            default: return '#f3f4f6'; // gray-100
+        }
     };
 
     const formatDate = (dateString) => {
@@ -80,18 +62,16 @@ export default function TraceabilityPanel({ isOpen, onClose, registroId }) {
         }).format(date);
     };
 
-    const title = logs.length > 0 && logs[0].created_at ?
-        `Trazabilidad - ${new Date(logs[0].created_at).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}` :
-        'Trazabilidad';
+    const title = 'Trazabilidad del Registro';
 
     const footerButtons = (
         <>
-            <button className="bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
-                <span className="text-lg">📄</span> Exportar PDF
+            <button className="btn-secondary" style={{ color: '#ef4444', borderColor: '#fee2e2', background: '#fef2f2' }}>
+                <FileText size={16} /> Exportar PDF
             </button>
             <button
                 onClick={onClose}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-2 rounded-lg text-sm font-medium transition-colors"
+                className="btn-secondary"
             >
                 Cerrar
             </button>
@@ -102,11 +82,11 @@ export default function TraceabilityPanel({ isOpen, onClose, registroId }) {
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            maxWidth="max-w-2xl"
+            maxWidth="max-w-xl"
             title={title}
             footer={footerButtons}
         >
-            <div className="max-h-[60vh] overflow-y-auto custom-scrollbar -mr-4 pr-4">
+            <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
                 {loading ? (
                     <div className="flex justify-center py-10">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
@@ -117,48 +97,49 @@ export default function TraceabilityPanel({ isOpen, onClose, registroId }) {
                         <p>No hay historial de trazabilidad disponible.</p>
                     </div>
                 ) : (
-                    <div className="space-y-3">
+                    <div className="timeline-container" style={{ marginTop: '10px' }}>
                         {logs.map((log) => (
-                            <div key={log.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 flex gap-4">
-                                {/* Icon Column */}
-                                <div className="flex-shrink-0 pt-1">
-                                    {log.accion === 'CREAR' && (
-                                        <div className="badge success flex items-center gap-1">
-                                            <Edit size={12} /> CREAR
-                                        </div>
-                                    )}
-                                    {log.accion === 'EDITAR' && (
-                                        <div className="badge warning flex items-center gap-1">
-                                            <Edit size={12} /> EDITAR
-                                        </div>
-                                    )}
-                                    {/* Fallback for others */}
-                                    {!['CREAR', 'EDITAR'].includes(log.accion) && (
-                                        <div className="badge info flex items-center gap-1">
-                                            <Info size={12} /> {log.accion}
-                                        </div>
-                                    )}
+                            <div key={log.id} className="timeline-item">
+                                <div className="timeline-icon" style={{ background: getBgColorForAction(log.accion) }}>
+                                    {getIconForAction(log.accion)}
                                 </div>
 
-                                {/* Content Column */}
-                                <div className="flex-1">
-                                    <h4 className="font-medium text-gray-900 text-sm mb-1">
-                                        {log.descripcion || `Registro ${log.accion.toLowerCase()}`}
-                                    </h4>
-
-                                    <div className="flex items-center gap-4 text-xs text-gray-500 mb-2">
-                                        <div className="flex items-center gap-1">
-                                            <User size={12} />
-                                            {log.usuario?.name || 'Sistema'}
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <Clock size={12} />
-                                            {formatDate(log.created_at)}
-                                        </div>
+                                <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                                    <div className="flex justify-between items-start mb-1">
+                                        <h4 className="font-semibold text-gray-800 text-sm">
+                                            {log.accion === 'CREAR' ? 'Registro Creado' :
+                                                log.accion === 'FINALIZAR_AUDITORIA' ? 'Auditoría Completada' :
+                                                    log.accion === 'REABRIR' ? 'Solicitud de Reapertura' :
+                                                        log.accion}
+                                        </h4>
+                                        <span className="text-xs text-gray-400 flex items-center gap-1">
+                                            <Clock size={12} /> {formatDate(log.created_at)}
+                                        </span>
                                     </div>
 
-                                    {/* Diff View */}
-                                    {log.accion === 'EDITAR' && getDiffView(log)}
+                                    <p className="text-sm text-gray-600 mb-2">
+                                        {log.descripcion || 'Sin descripción'}
+                                    </p>
+
+                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                        <User size={12} />
+                                        <span className="font-medium">{log.usuario?.name || 'Sistema'}</span>
+                                    </div>
+
+                                    {/* Diff View for Edits */}
+                                    {log.accion === 'EDITAR' && log.datos_anteriores && (
+                                        <div className="mt-2 text-xs bg-gray-50 p-2 rounded">
+                                            <div className="font-semibold text-gray-500 mb-1">Cambios realizados:</div>
+                                            {Object.keys(log.datos_nuevos).filter(k => !['updated_at', 'id'].includes(k) && log.datos_anteriores[k] != log.datos_nuevos[k]).map(key => (
+                                                <div key={key} className="flex gap-2">
+                                                    <span className="text-gray-400">{key}:</span>
+                                                    <span className="line-through text-red-400">{String(log.datos_anteriores[key])}</span>
+                                                    <span>→</span>
+                                                    <span className="text-green-600 font-bold">{String(log.datos_nuevos[key])}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}

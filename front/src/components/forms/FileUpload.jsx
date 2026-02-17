@@ -7,7 +7,9 @@ export default function FileUpload({
     registroActividadId,
     onUploadComplete,
     maxFiles = 4,
-    existingCount = 0
+    existingCount = 0,
+    templateUrl = null, // New prop for template
+    onFileSelect = null // New prop for pending uploads
 }) {
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState('');
@@ -35,6 +37,16 @@ export default function FileUpload({
             reader.readAsDataURL(file);
         } else {
             setPreview(null);
+        }
+
+        // If onFileSelect is provided, we just pass the file up and don't upload immediately
+        if (onFileSelect) {
+            onFileSelect(file);
+            // Clear input so same file can be selected again if needed (or not)
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+            return;
         }
 
         // Upload
@@ -91,15 +103,55 @@ export default function FileUpload({
                     style={{ display: 'none' }}
                 />
 
-                <button
-                    type="button"
-                    className="upload-btn"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={!canUpload || uploading}
-                >
-                    <Upload size={18} />
-                    {uploading ? 'Subiendo...' : 'Subir Evidencia'}
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.5rem', width: '100%', flexWrap: 'wrap' }}>
+                    {/* Template Download Button */}
+                    <a
+                        href={templateUrl || '#'}
+                        target={templateUrl ? "_blank" : undefined}
+                        rel={templateUrl ? "noopener noreferrer" : undefined}
+                        className={`template-download-btn ${!templateUrl ? 'disabled' : ''}`}
+                        onClick={(e) => !templateUrl && e.preventDefault()}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.5rem',
+                            fontSize: '0.75rem',
+                            color: templateUrl ? '#2563eb' : '#9ca3af',
+                            textDecoration: 'none',
+                            padding: '0.5rem',
+                            border: `1px dashed ${templateUrl ? '#2563eb' : '#d1d5db'}`,
+                            borderRadius: '4px',
+                            backgroundColor: templateUrl ? '#eff6ff' : '#f3f4f6',
+                            transition: 'all 0.2s',
+                            flex: 1,
+                            cursor: templateUrl ? 'pointer' : 'not-allowed',
+                            height: '38px', // Match standard button height
+                            whiteSpace: 'nowrap'
+                        }}
+                        onMouseEnter={(e) => {
+                            if (templateUrl) e.currentTarget.style.backgroundColor = '#dbeafe';
+                        }}
+                        onMouseLeave={(e) => {
+                            if (templateUrl) e.currentTarget.style.backgroundColor = '#eff6ff';
+                        }}
+                        title={!templateUrl ? "Sin plantilla disponible" : "Descargar Plantilla"}
+                    >
+                        <FileText size={14} />
+                        {templateUrl ? 'Descargar Plantilla' : 'Sin Plantilla'}
+                    </a>
+
+                    <button
+                        type="button"
+                        className="upload-btn"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={!canUpload || uploading}
+                        style={{ flex: 1, height: '38px' }}
+                    >
+                        <Upload size={18} />
+                        {uploading ? 'Subiendo...' : 'Subir Evidencia'}
+                    </button>
+                </div>
 
                 <span className="upload-info">
                     {existingCount}/{maxFiles} archivos

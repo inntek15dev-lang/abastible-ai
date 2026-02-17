@@ -76,7 +76,7 @@ const Registro = sequelize.define('Registro', {
         defaultValue: 0
     },
     estado_auditoria: {
-        type: DataTypes.ENUM('pendiente', 'auditando', 'auditada_terreno', 'auditada_sistema', 'reabierto'),
+        type: DataTypes.ENUM('pendiente', 'auditando', 'auditada_terreno', 'auditada_sistema', 'reabierto', 'reapertura_pendiente'),
         allowNull: false,
         defaultValue: 'pendiente'
     },

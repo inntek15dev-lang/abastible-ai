@@ -1,0 +1,223 @@
+/* ============================================
+   Theme: ProgramForm (Edit View)
+   Source: info/medias/vista-editar-programa.png
+   ============================================ */
+
+/* -----------------------------
+   1. LAYOUT & BACKGROUND
+   ----------------------------- */
+.page-container-edit {
+    background-color: #F4F6F8;
+    /* Light gray background */
+    min-height: 100vh;
+    padding: 24px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* Center content horizontally if needed, or just standard flow */
+}
+
+/* -----------------------------
+   2. HEADER
+   ----------------------------- */
+.edit-header {
+    width: 100%;
+    max-width: 800px;
+    /* Limit width to align with form */
+    margin: 0 auto 24px auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.btn-back-arrow {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #5F6368;
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.btn-back-arrow:hover {
+    background-color: #E8EAED;
+}
+
+.edit-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #202124;
+}
+
+.icon-pencil-header {
+    color: #F97316;
+    /* Orange accent matching the image icon */
+}
+
+/* -----------------------------
+   3. FORM CARD
+   ----------------------------- */
+.program-edit-card {
+    background: #FFFFFF;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 40px;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* -----------------------------
+   4. FORM FIELDS
+   ----------------------------- */
+.form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.input-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #5F6368;
+}
+
+.input-label span.required {
+    color: #D93025;
+    /* Red asterisk */
+}
+
+.input-field {
+    height: 48px;
+    padding: 0 16px;
+    border: 1px solid #DADCE0;
+    border-radius: 4px;
+    font-size: 1rem;
+    color: #202124;
+    transition: border 0.2s;
+}
+
+.input-field:focus {
+    outline: none;
+    border-color: #1A73E8;
+    border-width: 2px;
+    padding-left: 15px;
+    /* Adjust for border width change */
+}
+
+.textarea-field {
+    padding: 12px 16px;
+    border: 1px solid #DADCE0;
+    border-radius: 4px;
+    font-size: 1rem;
+    color: #202124;
+    min-height: 100px;
+    resize: vertical;
+}
+
+.textarea-field:focus {
+    outline: none;
+    border-color: #1A73E8;
+    border-width: 2px;
+    padding: 11px 15px;
+}
+
+.helper-text {
+    font-size: 0.75rem;
+    color: #70757A;
+    margin-top: 4px;
+}
+
+/* -----------------------------
+   5. PERCENTAGE INPUT & CHECKBOX
+   ----------------------------- */
+.input-wrapper-percent {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.percent-suffix {
+    position: absolute;
+    right: 16px;
+    color: #5F6368;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+    margin-bottom: 32px;
+}
+
+.checkbox-input {
+    width: 18px;
+    height: 18px;
+    accent-color: #1A73E8;
+    cursor: pointer;
+}
+
+.checkbox-label {
+    font-size: 0.95rem;
+    color: #202124;
+    cursor: pointer;
+}
+
+/* -----------------------------
+   6. ACTIONS BUTTONS
+   ----------------------------- */
+.form-actions-row {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.btn-save-changes {
+    flex: 1;
+    /* Grow to fill space or specific width */
+    background-color: #1A73E8;
+    color: white;
+    height: 48px;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.btn-save-changes:hover {
+    background-color: #1557B0;
+}
+
+.btn-cancel-edit {
+    padding: 0 24px;
+    height: 48px;
+    background-color: #FFFFFF;
+    border: 1px solid #DADCE0;
+    border-radius: 4px;
+    color: #202124;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.btn-cancel-edit:hover {
+    background-color: #F8F9FA;
+    border-color: #C6C6C6;
+}

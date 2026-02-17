@@ -54,6 +54,7 @@
 
   /* Typography */
   --font-family-base: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-family-heading: 'Ubuntu', sans-serif;
   --font-size-xs: 12px;
   --font-size-sm: 14px;
   --font-size-base: 16px;
@@ -107,7 +108,21 @@ h4,
 h5,
 h6 {
   color: var(--color-text-primary);
+  font-family: var(--font-family-heading);
   margin-top: 0;
+}
+
+/* Menu & Titles / Subtitles */
+.main-navbar,
+.navbar-brand,
+.module-link,
+.dropdown-item,
+.modal-title,
+.card-title,
+.page-title,
+.section-title,
+.subtitle {
+  font-family: var(--font-family-heading) !important;
 }
 
 a {
@@ -154,16 +169,19 @@ a {
 }
 
 .logo-circle {
-  width: 36px;
-  height: 36px;
-  background: var(--color-brand-primary);
+  width: 51px;
+  height: 54px;
+  background-color: var(--color-brand-primary);
   color: white;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 900;
-  font-style: italic;
+  font-weight: bold;
+  font-size: 4em;
+  font-style: unset;
+  text-align: right;
+  padding-left: 18px;
 }
 
 /* Module Tabs (Pill Style) */
@@ -431,9 +449,25 @@ a {
   color: #1E40AF;
 }
 
-.badge.secondary {
+.badge.secondary,
+.badge--gray {
   background: #F3F4F6;
   color: #4B5563;
+}
+
+.badge--blue {
+  background: #DBEAFE;
+  color: #1E40AF;
+}
+
+.badge--green {
+  background: #DCFCE7;
+  color: #166534;
+}
+
+.badge--error {
+  background: #FEE2E2;
+  color: #991B1B;
 }
 
 /* Forms */
@@ -705,4 +739,156 @@ a {
 
 .btn-traza:hover {
   background: #eff6ff;
+}
+
+/* --- UI Overhaul Additions (2026-02-11) --- */
+
+/* Timeline (Traceability) */
+.timeline-container {
+  position: relative;
+  padding-left: 1rem;
+}
+
+.timeline-item {
+  position: relative;
+  padding-left: 2rem;
+  padding-bottom: 1.5rem;
+  border-left: 2px solid #e5e7eb;
+}
+
+.timeline-item:last-child {
+  border-left: 2px solid transparent;
+}
+
+.timeline-icon {
+  position: absolute;
+  left: -0.75rem;
+  /* Center on border (w-6 / 2) */
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+/* Specific Badge Styles for Audit */
+.badge--audit-sistema {
+  background-color: #ecfeff;
+  /* cyan-50 */
+  color: #0e7490;
+  /* cyan-700 */
+  border: 1px solid #cffafe;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge--audit-terreno {
+  background-color: #f0fdf4;
+  /* green-50 */
+  color: #15803d;
+  /* green-700 */
+  border: 1px solid #bbf7d0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Percentage Badges */
+.badge--percent-high {
+  background-color: #dcfce7;
+  color: #166534;
+  font-weight: 700;
+}
+
+.badge--percent-mid {
+  background-color: #fef9c3;
+  color: #854d0e;
+  font-weight: 700;
+}
+
+.badge--percent-low {
+  background-color: #fee2e2;
+  color: #991b1b;
+  font-weight: 700;
+}
+
+.badge--percent-audit {
+  background-color: #2563eb;
+  color: white;
+  font-weight: 700;
+}
+
+.badge--percent-avg {
+  background-color: #fee2e2;
+  color: #ef4444;
+  font-weight: 700;
+}
+
+/* Summary Cards (Audit View) */
+.summary-card {
+  background: white;
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  padding: 1.5rem;
+}
+
+.summary-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.summary-value {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.summary-value.highlight {
+  color: var(--color-status-success-text);
+  font-size: 1.5rem;
+}
+
+/* Audit Table Specifics */
+.audit-table-row {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.audit-table-row:last-child {
+  border-bottom: none;
+}
+
+.audit-group-cell {
+  background-color: #f9fafb;
+  width: 50px;
+  text-align: center;
+  font-weight: bold;
+  color: var(--color-brand-secondary);
+  vertical-align: top;
+  padding-top: 1rem;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }

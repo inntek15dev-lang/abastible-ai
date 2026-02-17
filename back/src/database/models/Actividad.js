@@ -28,6 +28,10 @@ const Actividad = sequelize.define('Actividad', {
         type: DataTypes.TEXT,
         allowNull: true
     },
+    template_url: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
     frecuencia: {
         type: DataTypes.ENUM('mensual', 'trimestral', 'semestral', 'anual', 'cuando_aplique'),
         allowNull: false,

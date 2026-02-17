@@ -18,9 +18,6 @@ const SYSTEM_MODULES = [
     'Hallazgos',
     'Compromisos',
     'Reaperturas',
-    'Licitaciones',
-    'Licitaciones_Crear', // Granular
-    'Licitaciones_Postular', // Granular
     'Usuarios',
     'Admin_Usuarios' // Meta-privilege for managing roles
 ];
