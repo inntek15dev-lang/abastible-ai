@@ -15,7 +15,12 @@ import {
     Building,
     Shield,
     Plus,
-    Trash
+    Trash,
+    FileImage,
+    FileSpreadsheet,
+    FileVideo,
+    FileAudio,
+    FileBox
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -343,8 +348,9 @@ export default function RegistroAudit() {
                             <tr>
                                 <th style={{ width: '150px' }}>ELEMENTO</th>
                                 <th style={{ width: '80px' }}>CÓDIGO</th>
-                                <th>ACTIVIDAD / DESCRIPCIÓN</th>
+                                <th style={{ width: '30%' }}>ACTIVIDAD / DESCRIPCIÓN</th>
                                 <th style={{ width: '150px' }}>CONTRATISTA</th>
+                                <th style={{ width: '200px' }}>EVIDENCIA</th>
                                 <th style={{ width: '100px', textAlign: 'center' }}>AUDITADO?</th>
                                 <th style={{ width: '200px' }}>VEREDICTO AUDITOR</th>
                                 <th style={{ width: '250px' }}>OBSERVACIÓN / CAUSA RAÍZ</th>
@@ -380,23 +386,7 @@ export default function RegistroAudit() {
                                                 {act.actividad?.verificadores}
                                             </div>
 
-                                            {/* Evidencias inline */}
-                                            {act.evidencias?.length > 0 ? (
-                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                                    {act.evidencias.map(ev => (
-                                                        <button
-                                                            key={ev.id}
-                                                            onClick={() => downloadEvidencia(ev.id, ev.nombre_original)}
-                                                            className="btn-action"
-                                                            style={{ fontSize: '0.75rem', background: '#f3f4f6' }}
-                                                        >
-                                                            <Download size={12} /> {ev.nombre_original.substring(0, 15)}...
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <span style={{ fontSize: '0.8rem', color: '#9ca3af', fontStyle: 'italic' }}>Sin evidencias adjuntas</span>
-                                            )}
+                                            {/* Evidence Logic was here, removing it */}
                                         </td>
 
                                         {/* Contratista Status */}
@@ -404,6 +394,106 @@ export default function RegistroAudit() {
                                             <div className={`badge ${act.cumple ? 'success' : 'danger'}`} style={{ width: '100%', justifyContent: 'center' }}>
                                                 {act.cumple ? '✓ CUMPLE' : 'X NO CUMPLE'}
                                             </div>
+                                        </td>
+
+                                        {/* New Evidence Column */}
+                                        <td style={{ verticalAlign: 'top' }}>
+                                            {act.evidencias?.length > 0 ? (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    {act.evidencias.map((ev, index) => {
+                                                        const fileName = ev.nombre_original || ev.nombre_archivo || 'archivo.dat';
+                                                        const ext = fileName.split('.').pop().toLowerCase();
+
+                                                        // Icon Selection
+                                                        let IconComp = FileText;
+                                                        let iconColor = '#6b7280'; // gray
+
+                                                        if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) {
+                                                            IconComp = FileImage;
+                                                            iconColor = '#3b82f6'; // blue
+                                                        } else if (['pdf'].includes(ext)) {
+                                                            IconComp = FileText; // specific pdf icon usually red
+                                                            iconColor = '#ef4444'; // red
+                                                        } else if (['doc', 'docx', 'txt', 'rtf'].includes(ext)) {
+                                                            IconComp = FileText;
+                                                            iconColor = '#2563eb'; // blue-dark
+                                                        } else if (['xls', 'xlsx', 'csv'].includes(ext)) {
+                                                            IconComp = FileSpreadsheet;
+                                                            iconColor = '#10b981'; // green
+                                                        } else if (['mp3', 'wav', 'ogg'].includes(ext)) {
+                                                            IconComp = FileAudio;
+                                                            iconColor = '#8b5cf6'; // purple
+                                                        } else if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) {
+                                                            IconComp = FileVideo;
+                                                            iconColor = '#f59e0b'; // amber
+                                                        } else if (['zip', 'rar', '7z'].includes(ext)) {
+                                                            IconComp = FileBox;
+                                                            iconColor = '#d97706'; // orange
+                                                        }
+
+                                                        // Thumbnail Component
+                                                        const FileThumbnail = () => (
+                                                            <div style={{
+                                                                width: '36px', height: '42px',
+                                                                border: '1px solid #e5e7eb', borderRadius: '4px',
+                                                                background: '#fff',
+                                                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                                                position: 'relative', overflow: 'hidden'
+                                                            }}>
+                                                                <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+                                                                    <IconComp size={18} color={iconColor} strokeWidth={1.5} />
+                                                                </div>
+                                                                <div style={{
+                                                                    width: '100%',
+                                                                    background: iconColor,
+                                                                    color: '#fff',
+                                                                    fontSize: '0.55rem',
+                                                                    fontWeight: 700,
+                                                                    textAlign: 'center',
+                                                                    textTransform: 'uppercase',
+                                                                    lineHeight: '1',
+                                                                    padding: '2px 0'
+                                                                }}>
+                                                                    {ext.substring(0, 4)}
+                                                                </div>
+                                                            </div>
+                                                        );
+
+                                                        return (
+                                                            <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '4px 0' }}>
+                                                                <span style={{ fontWeight: 600, color: '#94a3b8', fontSize: '0.8rem', minWidth: '15px' }}>{index + 1}.</span>
+
+                                                                <FileThumbnail />
+
+                                                                <button
+                                                                    onClick={() => downloadEvidencia(ev.id, fileName)}
+                                                                    className="btn-action"
+                                                                    style={{
+                                                                        fontSize: '0.75rem',
+                                                                        background: '#fff',
+                                                                        color: '#334155',
+                                                                        border: '1px solid #cbd5e1',
+                                                                        padding: '4px 12px',
+                                                                        borderRadius: '20px',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        gap: '6px',
+                                                                        cursor: 'pointer',
+                                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                                                        transition: 'all 0.2s'
+                                                                    }}
+                                                                    onMouseOver={(e) => e.currentTarget.style.borderColor = '#94a3b8'}
+                                                                    onMouseOut={(e) => e.currentTarget.style.borderColor = '#cbd5e1'}
+                                                                >
+                                                                    <Download size={12} /> Ver Evidencia
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <span style={{ fontSize: '0.75rem', color: '#9ca3af', fontStyle: 'italic' }}>-</span>
+                                            )}
                                         </td>
 
                                         {/* Auditado Check */}

@@ -230,6 +230,7 @@ export default function RegistroForm() {
                 criterios: a.criterios,
                 frecuencia: a.frecuencia,
                 requiere_evidencia: a.requiere_evidencia,
+                template_url: a.template_url, // Include template_url
                 elemento: a.elemento, // Include entire elemento object
                 cumple: false,
                 responsable: '',
@@ -246,7 +247,7 @@ export default function RegistroForm() {
             const response = await api.get(`/registros/${id}`);
             const data = response.data.data;
             setForm({
-                periodo: data.periodo,
+                periodo: data.periodo ? data.periodo.substring(0, 7) : '',
                 personas_nuevas: data.personas_nuevas,
                 supervisores: data.supervisores,
                 prevencionistas: data.prevencionistas,
@@ -270,6 +271,7 @@ export default function RegistroForm() {
                     descripcion: ra.actividad?.descripcion,
                     criterios: ra.actividad?.criterios,
                     frecuencia: ra.actividad?.frecuencia,
+                    template_url: ra.actividad?.template_url, // Include template_url
                     elemento: ra.actividad?.elemento, // Include elemento
                     requiere_evidencia: ra.actividad?.requiere_evidencia === 1 || ra.actividad?.requiere_evidencia === true,
                     cumple: ra.cumple,
@@ -679,7 +681,13 @@ export default function RegistroForm() {
                                                         {act.evidencias?.length > 0 && (
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                                                 {act.evidencias.map(e => (
-                                                                    <a key={e.id} href="#" style={{ fontSize: '0.7rem', color: '#3b82f6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                    <a
+                                                                        key={e.id}
+                                                                        href={`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/${e.ruta}`}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        style={{ fontSize: '0.7rem', color: '#3b82f6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                                    >
                                                                         📄 {e.nombre_archivo.substring(0, 15)}...
                                                                     </a>
                                                                 ))}

@@ -229,10 +229,26 @@ export default function ElementoList() {
                                                     <td>{act.criterios || '-'}</td>
                                                     <td>{act.frecuencia}</td>
                                                     <td style={{ textAlign: 'center' }}>
-                                                        {act.template_url ?
-                                                            <span title="Plantilla disponible">📎</span> :
-                                                            (act.requiere_evidencia ? <span title="Requiere evidencia, sin plantilla">⚠️</span> : '-')
-                                                        }
+                                                        {act.template_url ? (
+                                                            <a
+                                                                href={`${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/${act.template_url}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="btn-icon-only"
+                                                                title="Descargar plantilla"
+                                                                style={{
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    color: '#2563eb',
+                                                                    textDecoration: 'none'
+                                                                }}
+                                                            >
+                                                                <Paperclip size={16} />
+                                                            </a>
+                                                        ) : (
+                                                            (act.requiere_evidencia ? <span title="Requiere evidencia, sin plantilla" style={{ color: '#d1d5db' }}>-</span> : <span style={{ color: '#9ca3af' }}>-</span>)
+                                                        )}
                                                     </td>
                                                     <td>
                                                         {canWrite('Programas') && (

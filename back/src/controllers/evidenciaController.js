@@ -105,7 +105,7 @@ const evidenciaController = {
                 `actividad_${sanitize(String(actCod))}`
             );
 
-            const storageRoot = path.join(__dirname, '../../storage');
+            const storageRoot = path.join(__dirname, '../../../storage');
             const targetDir = path.join(storageRoot, storageRelativePath);
 
             // Create recursive directory

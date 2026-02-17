@@ -1,6 +1,6 @@
 // IEEE Trace: REQ-007 | US-006, US-007 | usuarioController.js
 const bcrypt = require('bcryptjs');
-const { User, TipoContratista, Dependencia, ContratistaAsignacion, Contratista, Vinculacion } = require('../database/models');
+const { User, TipoContratista, Dependencia, ContratistaAsignacion, Contratista, Vinculacion, Administracion } = require('../database/models');
 
 const usuarioController = {
     // GET /api/usuarios
@@ -23,7 +23,7 @@ const usuarioController = {
 
             if (req.user.role === 'contratista_admin' || req.user.role === 'contratista_user') {
                 // Contratistas only see admins assigned to THEIR vinculations
-                const { Vinculacion, Administracion } = require('../database/models');
+                // const { Vinculacion, Administracion } = require('../database/models'); // Imported at top
                 const cId = req.user.contratista_id;
                 const isUser = req.user.role === 'contratista_user';
 

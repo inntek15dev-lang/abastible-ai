@@ -62,7 +62,7 @@ const actividadController = {
                     `actividad_${sanitize(String(codigo))}`
                 );
 
-                const storageRoot = path.join(__dirname, '../../storage');
+                const storageRoot = path.join(__dirname, '../../../storage');
                 const targetDir = path.join(storageRoot, storageRelativePath);
 
                 if (!fs.existsSync(targetDir)) {
@@ -131,7 +131,7 @@ const actividadController = {
                     `actividad_${sanitize(String(actCod))}`
                 );
 
-                const storageRoot = path.join(__dirname, '../../storage');
+                const storageRoot = path.join(__dirname, '../../../storage');
                 const targetDir = path.join(storageRoot, storageRelativePath);
 
                 if (!fs.existsSync(targetDir)) {

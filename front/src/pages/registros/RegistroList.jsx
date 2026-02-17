@@ -227,6 +227,17 @@ export default function RegistroList() {
         }
     };
 
+    const handleDelete = async (registroId) => {
+        if (!window.confirm('ADVERTENCIA: ¿Está seguro de eliminar este registro permanentemente?\n\nEsta acción no se puede deshacer.')) return;
+        try {
+            await api.delete(`/registros/${registroId}`);
+            alert('Registro eliminado exitosamente');
+            fetchRegistros();
+        } catch (err) {
+            alert(err.response?.data?.message || 'Error al eliminar el registro');
+        }
+    };
+
     const generatePDF = (registro) => {
         const doc = new jsPDF();
         doc.text('Reporte de Cumplimiento', 14, 15);
@@ -529,6 +540,18 @@ export default function RegistroList() {
                                                     style={{ color: '#10b981' }}
                                                 >
                                                     <RefreshCw size={16} />
+                                                </button>
+                                            )}
+
+                                            {/* Action: Delete (Admin/Exec) */}
+                                            {canExec('Registros') && (
+                                                <button
+                                                    onClick={() => handleDelete(registro.id)}
+                                                    className="btn-icon"
+                                                    title="Eliminar Registro"
+                                                    style={{ color: '#ef4444' }}
+                                                >
+                                                    <Trash2 size={16} />
                                                 </button>
                                             )}
                                         </div>

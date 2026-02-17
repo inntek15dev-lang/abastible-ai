@@ -37,13 +37,47 @@ const registroController = {
                     where.user_id = { [Op.in]: [req.user.id, req.user.parent_id] };
                 }
             } else if (req.user.role === 'administrador_contrato') {
-                // Admin contrato sees only assigned contractors
+                // Admin contrato sees records for contractors they are assigned to
+                // OPTION A: Direct Assignment (ContratistaAsignacion)
+                // OPTION B: Linked via Vinculacion (Administracion)
+
+                // 1. Get assignments via ContratistaAsignacion
                 const asignaciones = await ContratistaAsignacion.findAll({
                     where: { administrador_contrato_id: req.user.id },
                     attributes: ['user_id']
                 });
-                const userIds = asignaciones.map(a => a.user_id);
-                where.user_id = { [Op.in]: userIds };
+                let userIds = asignaciones.map(a => a.user_id);
+
+                // 2. Get assignments via Vinculacion -> Administracion
+                // Find Vinculaciones where I am the ADC
+                const misAdmins = await Administracion.findAll({
+                    where: { administrador_contrato_id: req.user.id, activo: 1 },
+                    attributes: ['vinculacion_id']
+                });
+                const vincIds = misAdmins.map(a => a.vinculacion_id);
+
+                if (vincIds.length > 0) {
+                    // Find Records that belong to these vinculaciones
+                    // There is no direct 'vinculacion_id' on Registro? Yes there is: 'contratista_asignacion_id' pointing to Vinculacion table (renamed logically?)
+                    // Wait, schema says 'contratista_asignacion_id' refers to 'vinculaciones' OR 'contratista_asignaciones'?
+                    // The model definition for Registro says: 
+                    // Registro.belongsTo(Vinculacion, { foreignKey: 'contratista_asignacion_id', as: 'vinculacionEntidad' });
+                    // Registro.belongsTo(ContratistaAsignacion, { foreignKey: 'contratista_asignacion_id', as: 'asignacion' });
+                    // It seems it's the SAME FK being used for both concepts depending on context? That's messy but let's assume 'vinculacionEntidad' usage.
+
+                    // If we want records linked to my Vinculaciones:
+                    // where.contratista_asignacion_id = { [Op.in]: vincIds }; 
+
+                    // BUT, we also want records from direct users.
+                    // So it's OR condition.
+
+                    where[Op.or] = [
+                        { user_id: { [Op.in]: userIds } },
+                        { contratista_asignacion_id: { [Op.in]: vincIds } } // Assuming this ID matches Vinculacion.ID
+                    ];
+                } else {
+                    where.user_id = { [Op.in]: userIds };
+                }
             }
             // Admin sees all (no filter)
 
@@ -115,7 +149,7 @@ const registroController = {
                             {
                                 model: Evidencia,
                                 as: 'evidencias',
-                                attributes: ['id', 'ruta', 'nombre_archivo']
+                                attributes: ['id', 'ruta', 'nombre_archivo', 'nombre_original']
                             },
                             {
                                 model: Hallazgo,
@@ -396,20 +430,58 @@ const registroController = {
     },
 
     // DELETE /api/registros/:id (Solo Admin - RN-001)
+    // DELETE /api/registros/:id (Solo Admin - RN-001)
     async destroy(req, res) {
+        const t = await Registro.sequelize.transaction();
         try {
             const registro = await Registro.findByPk(req.params.id);
 
             if (!registro) {
+                await t.rollback();
                 return res.status(404).json({ success: false, message: 'Registro no encontrado' });
             }
 
-            await registro.destroy();
+            // 1. Delete Dependencies (Reverse topological order of dependencies)
 
-            res.json({ success: true, message: 'Registro eliminado' });
+            // A. Evidencias (Depends on RegistroActividad)
+            const actividades = await RegistroActividad.findAll({
+                where: { registro_id: registro.id },
+                attributes: ['id'],
+                transaction: t
+            });
+            const actividadIds = actividades.map(a => a.id);
+
+            if (actividadIds.length > 0) {
+                await Evidencia.destroy({
+                    where: { registro_actividad_id: { [Op.in]: actividadIds } },
+                    transaction: t
+                });
+            }
+
+            // B. Compromisos (Depends on Hallazgo and Registro)
+            const Compromiso = require('../database/models').Compromiso;
+            if (Compromiso) {
+                await Compromiso.destroy({ where: { registro_id: registro.id }, transaction: t });
+            }
+
+            // C. Hallazgos (Depends on RegistroActividad and Registro)
+            await Hallazgo.destroy({ where: { registro_id: registro.id }, transaction: t });
+
+            // D. RegistroActividades (Depends on Registro)
+            await RegistroActividad.destroy({ where: { registro_id: registro.id }, transaction: t });
+
+            // E. Logs (Depends on Registro)
+            await RegistroLog.destroy({ where: { registro_id: registro.id }, transaction: t });
+
+            // 2. Delete Parent
+            await registro.destroy({ transaction: t });
+
+            await t.commit();
+            res.json({ success: true, message: 'Registro eliminado correctamente' });
         } catch (error) {
+            await t.rollback();
             console.error('Registro destroy error:', error);
-            res.status(500).json({ success: false, message: 'Error al eliminar registro' });
+            res.status(500).json({ success: false, message: 'Error al eliminar registro: ' + error.message });
         }
     }
 };
