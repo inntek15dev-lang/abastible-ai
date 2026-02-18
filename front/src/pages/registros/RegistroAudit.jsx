@@ -20,7 +20,8 @@ import {
     FileSpreadsheet,
     FileVideo,
     FileAudio,
-    FileBox
+    FileBox,
+    Calendar
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';

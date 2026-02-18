@@ -51,7 +51,7 @@ export default function RecordsSummaryWidget({ period }) {
                                     <td>{record.eecc}</td>
                                     <td>
                                         <span className={`badge-compliance ${record.cumplimiento >= 85 ? 'high' : 'low'}`}>
-                                            {record.cumplimiento.toFixed(2)}%
+                                            {Number(record.cumplimiento).toFixed(1)}%
                                         </span>
                                     </td>
                                     <td>

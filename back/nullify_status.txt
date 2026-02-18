@@ -1,0 +1,4 @@
+--- NULLIFY AND FIX START ---
+Attempting to set to NULL...
+After Nullify: null
+Error: Unknown column 'activo' in 'where clause'

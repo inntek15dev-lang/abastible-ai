@@ -46,17 +46,7 @@ export const MODULES = [
             { path: '/hallazgos', label: 'Hallazgos (Directo)', icon: Search, module: 'Registros' } // Sprint 2 Gap
         ]
     },
-    {
-        id: 'personas',
-        label: 'Personas',
-        icon: Users,
-        color: '#10B981', // Green (Tailwind emerald-500)
-        module: 'Dashboard', // Using Dashboard for now as placeholder
-        items: [
-            { path: '#dotacion', label: 'Dotación (Proximamente)', icon: Users, module: 'Dashboard' },
-            { path: '#turnos', label: 'Turnos (Proximamente)', icon: UserCircle, module: 'Dashboard' }
-        ]
-    },
+
     {
         id: 'mi-programa',
         label: 'Mi Programa',

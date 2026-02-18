@@ -1,0 +1,4 @@
+Bad IDs: 16
+Attempting DELETE...
+DELETE Failed: Cannot delete or update a parent row: a foreign key constraint fails (`abastible_ai`.`registro_actividades`, CONSTRAINT `registro_actividades_ibfk_1` FOREIGN KEY (`registro_id`) REFERENCES `registros` (`id`) ON UPDATE CASCADE)
+Final Check: 1

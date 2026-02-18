@@ -47,6 +47,7 @@ export default function RegistroForm() {
     const [assignments, setAssignments] = useState([]);
     const [selectedContractor, setSelectedContractor] = useState(null);
     const [searchNombre, setSearchNombre] = useState('');
+    const [searchRut, setSearchRut] = useState('');
 
 
     // Auditor/Review Data
@@ -700,6 +701,10 @@ export default function RegistroForm() {
                                                                         const updated = [...actividades];
                                                                         if (!updated[globalIndex].evidencias) updated[globalIndex].evidencias = [];
                                                                         updated[globalIndex].evidencias.push(evidencia);
+                                                                        // Parko: Auto-select "Cumple" if evidence is required/uploaded
+                                                                        if (act.requiere_evidencia) {
+                                                                            updated[globalIndex].cumple = true;
+                                                                        }
                                                                         setActividades(updated);
                                                                     }}
                                                                 />
@@ -714,6 +719,10 @@ export default function RegistroForm() {
                                                                         const updated = [...actividades];
                                                                         if (!updated[globalIndex].pendingFiles) updated[globalIndex].pendingFiles = [];
                                                                         updated[globalIndex].pendingFiles.push(file);
+                                                                        // Parko: Auto-select "Cumple" if evidence is required/selected
+                                                                        if (act.requiere_evidencia) {
+                                                                            updated[globalIndex].cumple = true;
+                                                                        }
                                                                         setActividades(updated);
                                                                     }}
                                                                 />

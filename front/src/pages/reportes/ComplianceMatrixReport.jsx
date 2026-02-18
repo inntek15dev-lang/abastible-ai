@@ -104,7 +104,7 @@ export default function ComplianceMatrixReport() {
                                     </div>
                                 </th>
                             ))}
-                            <th style={{ ...thStyle, textAlign: 'center', ...cellBorder, width: '44px' }}></th>
+
                         </tr>
                     </thead>
                     <tbody>
@@ -162,11 +162,7 @@ export default function ComplianceMatrixReport() {
                                     );
                                 })}
 
-                                <td style={{ ...tdStyle, textAlign: 'center', ...cellBorder }}>
-                                    <Link to={`/contratistas`} style={{ color: '#9ca3af' }} title="Ver detalle">
-                                        <MessageSquare size={16} />
-                                    </Link>
-                                </td>
+
                             </tr>
                         ))}
                     </tbody>

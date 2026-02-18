@@ -1,4 +1,4 @@
-const { Compromiso, Hallazgo, Registro, User, ContratistaAsignacion } = require('../database/models');
+const { Compromiso, Hallazgo, Registro, User, ContratistaAsignacion, Vinculacion } = require('../database/models');
 const { Op } = require('sequelize');
 
 const compromisoController = {
@@ -39,14 +39,14 @@ const compromisoController = {
     },
 
     // POST /api/compromisos
+    // POST /api/compromisos
     async store(req, res) {
         try {
             const {
                 registro_id,
                 hallazgo_id,
                 descripcion,
-                fecha_compromiso,
-                contratista_asignacion_id
+                fecha_compromiso
             } = req.body;
 
             if (!registro_id || !descripcion || !fecha_compromiso) {
@@ -57,32 +57,27 @@ const compromisoController = {
             }
 
             // Determine responsable (usually the logged in user or the assigned contractor)
-            // For now, assign to creator
             const responsable_id = req.user.id;
             const creado_por_id = req.user.id;
 
-            // Validate assignment exists? 
-            // If contratista_asignacion_id not provided, try to infer? 
-            // For MVP, user must send it or we find it from Registro.
+            let numeroContrato = null;
 
-            let finalAsignacionId = contratista_asignacion_id;
-            if (!finalAsignacionId) {
-                const registro = await Registro.findByPk(registro_id);
-                if (registro) {
-                    finalAsignacionId = registro.contratista_asignacion_id;
+            // Fetch numero_contrato from Vinculacion linked to Registro
+            const registro = await Registro.findByPk(registro_id);
+            if (registro && registro.contratista_asignacion_id) {
+                // registro.contratista_asignacion_id points to Vinculacion table ID
+                const vinculacion = await Vinculacion.findByPk(registro.contratista_asignacion_id);
+                if (vinculacion) {
+                    numeroContrato = vinculacion.numero_contrato;
                 }
-            }
-
-            if (!finalAsignacionId) {
-                return res.status(400).json({ success: false, message: 'No se pudo determinar la asignación del contratista' });
             }
 
             const compromiso = await Compromiso.create({
                 registro_id,
-                hallazgo_id: hallazgo_id || null, // Optional if general commitment
+                hallazgo_id: hallazgo_id || null,
                 responsable_id,
                 creado_por_id,
-                contratista_asignacion_id: finalAsignacionId,
+                numero_contrato: numeroContrato,
                 descripcion,
                 fecha_compromiso,
                 estado: 'pendiente'
