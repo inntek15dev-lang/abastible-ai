@@ -6,7 +6,8 @@ const {
     RegistroLog,
     Hallazgo,
     Compromiso,
-    Actividad
+    Actividad,
+    AuditoriaComentario
 } = require('../database/models');
 const emailService = require('../services/emailService');
 
