@@ -25,11 +25,11 @@ export const MODULES = [
         color: '#3B82F6' // Blue (Tailwind blue-500)
     },
     {
-        id: 'reportes',
-        label: 'Reportes',
-        path: '/reportes',
-        icon: FileText,
-        module: 'Reportes',
+        id: 'matriz_cumplimiento',
+        label: 'Matriz de Cumplimiento',
+        path: '/reportes/cumplimiento',
+        icon: Building, // Using Building icon as before
+        module: 'Reportes', // Keep same permission module
         color: '#8B5CF6' // Purple
     },
     {
@@ -74,7 +74,7 @@ export const MODULES = [
         items: [
             { path: '/programas', label: 'Programas y Estándares', icon: FolderOpen, module: 'Gestion_Configuracion' },
             { path: '/contratistas', label: 'Empresas Contratistas', icon: Building, module: 'Gestion_Configuracion' },
-            { path: '/contratistas', label: 'Empresas Contratistas', icon: Building, module: 'Gestion_Configuracion' },
+
             // { path: '/vinculaciones', label: 'Vinculaciones', icon: Link, module: 'Vinculaciones' }, // REMOVED (Managed via Contratistas)
             { path: '/dependencias', label: 'Dependencias y Plantas', icon: Building, module: 'Gestion_Configuracion' },
             { path: '/servicios', label: 'Servicios y Tipos', icon: Settings, module: 'Gestion_Configuracion' },

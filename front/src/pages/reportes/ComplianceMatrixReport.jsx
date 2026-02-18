@@ -3,7 +3,7 @@ import { MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
 
-export default function ComplianceMatrix() {
+export default function ComplianceMatrixReport() {
     const [data, setData] = useState({ columns: [], rows: [] });
     const [loading, setLoading] = useState(true);
 
@@ -153,15 +153,7 @@ export default function ComplianceMatrix() {
                                                             <span style={{ color: '#9ca3af', fontWeight: 400 }}> | {cell.auditado}%</span>
                                                         )}
                                                     </div>
-                                                    <Link
-                                                        to={`/registros/${cell.registroId}`}
-                                                        style={{
-                                                            color: '#3b82f6', textDecoration: 'none',
-                                                            fontSize: '10px', fontWeight: 500
-                                                        }}
-                                                    >
-                                                        Ver Registro
-                                                    </Link>
+
                                                 </div>
                                             ) : (
                                                 <span style={{ color: '#d1d5db' }}>-</span>

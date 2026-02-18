@@ -9,6 +9,8 @@ import HallazgoModal from '../../components/forms/HallazgoModal';
 import HallazgoList from '../../components/forms/HallazgoList';
 import CompromisoModal from '../../components/forms/CompromisoModal';
 import SolicitudReaperturaModal from '../../components/forms/SolicitudReaperturaModal';
+import ConfirmationModal from '../../components/modals/ConfirmationModal';
+import { toast } from 'react-hot-toast';
 
 export default function RegistroForm() {
     const { id } = useParams();
@@ -33,15 +35,23 @@ export default function RegistroForm() {
     const [reaperturaModal, setReaperturaModal] = useState({ show: false });
     const [errorModal, setErrorModal] = useState({ show: false, message: '' });
     const [registroCerrado, setRegistroCerrado] = useState(false);
+    const [confirmModal, setConfirmModal] = useState({
+        isOpen: false,
+        action: null,
+        title: '',
+        message: ''
+    });
 
     // New State for Contractor Selection
     const [contractors, setContractors] = useState([]);
     const [assignments, setAssignments] = useState([]);
     const [selectedContractor, setSelectedContractor] = useState(null);
     const [searchNombre, setSearchNombre] = useState('');
-    const [searchRut, setSearchRut] = useState('');
-    const [showNombreDropdown, setShowNombreDropdown] = useState(false);
-    const [showRutDropdown, setShowRutDropdown] = useState(false);
+
+
+    // Auditor/Review Data
+    const [reviewComments, setReviewComments] = useState('');
+    const [generalCommitments, setGeneralCommitments] = useState([]);
 
     const handleContractorSelect = (contractor) => {
         setSelectedContractor(contractor.id);
@@ -257,6 +267,15 @@ export default function RegistroForm() {
                 contratista_asignacion_id: data.contratista_asignacion_id // existing assignment
             });
             setRegistroCerrado(data.cerrado === 1 || data.cerrado === true);
+            setReviewComments(data.comentario_general || '');
+
+            // Fetch General Commitments
+            try {
+                const compRes = await api.get('/compromisos', { params: { registro_id: id } });
+                setGeneralCommitments(compRes.data.data);
+            } catch (e) {
+                console.error("Error loading commitments", e);
+            }
 
             // If Admin/ADC, set selected contractor so dropdown populates
             if (user?.role === 'admin' || user?.role === 'administrador_contrato') {
@@ -393,15 +412,21 @@ export default function RegistroForm() {
     const isContractor = ['contratista_admin', 'contratista_user'].includes(user?.role);
     const isAdminOrADC = isAdmin || user?.role === 'administrador_contrato';
 
-    const handleReabrirDirecto = async () => {
-        if (!window.confirm('¿Está seguro de reabrir este registro?')) return;
-        try {
-            await api.post('/reaperturas/directa', { registro_id: id });
-            alert('Registro reabierto exitosamente');
-            fetchRegistro();
-        } catch (err) {
-            alert(err.response?.data?.message || 'Error al reabrir registro');
-        }
+    const handleReabrirDirecto = () => {
+        setConfirmModal({
+            isOpen: true,
+            title: 'Reabrir Registro',
+            message: '¿Está seguro de reabrir este registro? Pasará a estado "Pendiente" y podrá ser editado nuevamente.',
+            action: async () => {
+                try {
+                    await api.post('/reaperturas/directa', { registro_id: id });
+                    toast.success('Registro reabierto exitosamente');
+                    fetchRegistro();
+                } catch (err) {
+                    toast.error(err.response?.data?.message || 'Error al reabrir registro');
+                }
+            }
+        });
     };
 
     // Helper to get current assignment details
@@ -441,6 +466,8 @@ export default function RegistroForm() {
     const handleBack = () => navigate(-1);
 
     if (!user) return <div className="loading">Cargando...</div>;
+
+    const parsedCursor = (disabled) => disabled ? 'not-allowed' : 'pointer';
 
     const readOnlyStyle = {
         backgroundColor: '#f3f4f6',
@@ -582,6 +609,8 @@ export default function RegistroForm() {
                                         <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '15%' }}>Criterios de Aceptar</th>
                                         <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600, width: '80px' }}>Frecuencia</th>
                                         <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600, width: '140px' }}>Cumple</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600, width: '100px', backgroundColor: '#f0f9ff', color: '#0369a1' }}>Auditor</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '150px', backgroundColor: '#f0f9ff', color: '#0369a1' }}>Obs. Auditor</th>
                                         <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '150px' }}>Responsable</th>
                                         <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '150px' }}>Evidencia</th>
                                     </tr>
@@ -609,31 +638,42 @@ export default function RegistroForm() {
                                                     <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
                                                         <button
                                                             type="button"
-                                                            onClick={() => handleActividadChange(globalIndex, 'cumple', true)}
+                                                            onClick={() => !registroCerrado && handleActividadChange(globalIndex, 'cumple', true)}
                                                             style={{
-                                                                padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid', cursor: 'pointer',
+                                                                padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid', cursor: parsedCursor(registroCerrado),
                                                                 backgroundColor: act.cumple ? '#f0fdf4' : 'transparent',
                                                                 borderColor: act.cumple ? '#16a34a' : '#e5e7eb',
                                                                 color: act.cumple ? '#15803d' : '#9ca3af',
-                                                                fontWeight: act.cumple ? 600 : 400
+                                                                fontWeight: act.cumple ? 600 : 400,
+                                                                opacity: registroCerrado ? 0.6 : 1
                                                             }}
                                                         >
                                                             ✓ Cumple
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            onClick={() => handleActividadChange(globalIndex, 'cumple', false)}
+                                                            onClick={() => !registroCerrado && handleActividadChange(globalIndex, 'cumple', false)}
                                                             style={{
-                                                                padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid', cursor: 'pointer',
+                                                                padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid', cursor: parsedCursor(registroCerrado),
                                                                 backgroundColor: !act.cumple ? '#fef2f2' : 'transparent',
                                                                 borderColor: !act.cumple ? '#ef4444' : '#e5e7eb',
                                                                 color: !act.cumple ? '#b91c1c' : '#9ca3af',
-                                                                fontWeight: !act.cumple ? 600 : 400
+                                                                fontWeight: !act.cumple ? 600 : 400,
+                                                                opacity: registroCerrado ? 0.6 : 1
                                                             }}
                                                         >
                                                             ✕ No Cumple
                                                         </button>
                                                     </div>
+                                                </td>
+                                                {/* Auditor Columns */}
+                                                <td style={{ padding: '1rem', verticalAlign: 'top', textAlign: 'center', backgroundColor: '#f0f9ff' }}>
+                                                    {act.cumple_auditor === true && <span style={{ color: '#16a34a', fontWeight: 'bold' }}>✓</span>}
+                                                    {act.cumple_auditor === false && <span style={{ color: '#dc2626', fontWeight: 'bold' }}>✕</span>}
+                                                    {act.cumple_auditor === null && <span style={{ color: '#9ca3af' }}>-</span>}
+                                                </td>
+                                                <td style={{ padding: '1rem', verticalAlign: 'top', backgroundColor: '#f0f9ff', fontSize: '0.8rem', color: '#374151' }}>
+                                                    {act.observacion_auditor || '-'}
                                                 </td>
                                                 <td style={{ padding: '1rem', verticalAlign: 'top' }}>
                                                     <input
@@ -643,6 +683,7 @@ export default function RegistroForm() {
                                                         value={act.responsable}
                                                         onChange={(e) => handleActividadChange(globalIndex, 'responsable', e.target.value)}
                                                         style={{ fontSize: '0.8rem', padding: '0.4rem', height: 'auto' }}
+                                                        disabled={registroCerrado}
                                                     />
                                                 </td>
                                                 <td style={{ padding: '1rem', verticalAlign: 'top' }}>
@@ -654,6 +695,7 @@ export default function RegistroForm() {
                                                                     registroActividadId={act.id}
                                                                     existingCount={act.evidencias?.length || 0}
                                                                     templateUrl={act.template_url}
+                                                                    disabled={registroCerrado}
                                                                     onUploadComplete={(evidencia) => {
                                                                         const updated = [...actividades];
                                                                         if (!updated[globalIndex].evidencias) updated[globalIndex].evidencias = [];
@@ -667,6 +709,7 @@ export default function RegistroForm() {
                                                                 <FileUpload
                                                                     existingCount={(act.pendingFiles?.length || 0)}
                                                                     templateUrl={act.template_url}
+                                                                    disabled={registroCerrado}
                                                                     onFileSelect={(file) => {
                                                                         const updated = [...actividades];
                                                                         if (!updated[globalIndex].pendingFiles) updated[globalIndex].pendingFiles = [];
@@ -717,6 +760,43 @@ export default function RegistroForm() {
                 ))
                 }
 
+                {/* Audit Feedback Section */}
+                {(isEdit && (reviewComments || generalCommitments.length > 0)) && (
+                    <div style={{ marginTop: '2rem', marginBottom: '2rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+
+                        {/* Comments */}
+                        <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <FileText size={18} /> Comentarios Auditoría
+                            </h3>
+                            <div style={{ backgroundColor: '#f9fafb', padding: '1rem', borderRadius: '6px', fontSize: '0.9rem', color: '#4b5563', minHeight: '80px' }}>
+                                {reviewComments || 'Sin comentarios generales.'}
+                            </div>
+                        </div>
+
+                        {/* Commitments */}
+                        <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <ClipboardCheck size={18} /> Compromisos
+                            </h3>
+                            {generalCommitments.length === 0 ? (
+                                <div style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '0.9rem' }}>No hay compromisos registrados.</div>
+                            ) : (
+                                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    {generalCommitments.map(comp => (
+                                        <li key={comp.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f3f4f6', paddingBottom: '0.5rem' }}>
+                                            <span style={{ fontSize: '0.9rem', color: '#374151', fontWeight: 500 }}>{comp.descripcion}</span>
+                                            <span style={{ fontSize: '0.8rem', color: '#6b7280', backgroundColor: '#f3f4f6', padding: '2px 6px', borderRadius: '4px' }}>
+                                                {new Date(comp.fecha_compromiso).toLocaleDateString('es-CL')}
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {/* Footer */}
                 <div style={{
                     marginTop: '2rem',
@@ -739,17 +819,36 @@ export default function RegistroForm() {
                         style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
                         ← Volver
                     </button>
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        style={{
-                            backgroundColor: '#10b981', color: 'white', padding: '0.75rem 2rem', borderRadius: '6px', border: 'none', fontWeight: 600, cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                        }}
-                    >
-                        {loading ? <RefreshCw className="spin" size={20} /> : <Save size={20} />}
-                        {isEdit ? 'Actualizar' : 'Guardar Registro'}
-                    </button>
+
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                        {/* Reabrir Action for Admin/ADC */}
+                        {(isAdminOrADC && (registroCerrado || ['auditado', 'auditada', 'auditada_sistema', 'auditada_terreno'].includes(form.estado_auditoria))) && (
+                            <button
+                                type="button"
+                                onClick={handleReabrirDirecto}
+                                style={{
+                                    backgroundColor: '#f59e0b', color: 'white', padding: '0.75rem 2rem', borderRadius: '6px',
+                                    border: 'none', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem'
+                                }}
+                            >
+                                <RefreshCw size={20} /> Reabrir Registro
+                            </button>
+                        )}
+
+                        {!registroCerrado && (
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                style={{
+                                    backgroundColor: '#10b981', color: 'white', padding: '0.75rem 2rem', borderRadius: '6px', border: 'none', fontWeight: 600, cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                }}
+                            >
+                                {loading ? <RefreshCw className="spin" size={20} /> : <Save size={20} />}
+                                {isEdit ? 'Actualizar' : 'Guardar Registro'}
+                            </button>
+                        )}
+                    </div>
                 </div>
             </form >
 
@@ -800,6 +899,16 @@ export default function RegistroForm() {
                     </div>
                 )
             }
+
+            <ConfirmationModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                onConfirm={confirmModal.action}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                confirmText="Confirmar"
+                cancelText="Cancelar"
+            />
         </div >
     );
 };

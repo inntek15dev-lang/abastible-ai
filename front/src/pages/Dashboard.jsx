@@ -7,7 +7,9 @@ import {
     TrendingUp
 } from 'lucide-react';
 import ComplianceChart from '../components/charts/ComplianceChart';
-import ComplianceMatrix from '../components/dashboard/ComplianceMatrix';
+import ElementComplianceWidget from '../components/dashboard/ElementComplianceWidget';
+import RecordsSummaryWidget from '../components/dashboard/RecordsSummaryWidget';
+
 
 export default function Dashboard() {
     const { user, isAdmin } = useAuth();
@@ -338,9 +340,14 @@ export default function Dashboard() {
                 ]} />
             </div>
 
-            {/* US-X: Matriz de Cumplimiento */}
-            <ComplianceMatrix />
 
+
+
+            {/* US-X: Cumplimiento por Elemento */}
+            <ElementComplianceWidget period={filters.fecha_fin || new Date().toISOString().slice(0, 7)} />
+
+            {/* US-X: Resumen de Registros */}
+            <RecordsSummaryWidget period={filters.fecha_fin || new Date().toISOString().slice(0, 7)} />
 
         </div>
     );

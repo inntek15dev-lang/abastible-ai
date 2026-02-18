@@ -58,7 +58,7 @@ export default function RegistroAudit() {
             const initialAuditState = {};
             response.data.data.actividades?.forEach(act => {
                 initialAuditState[act.id] = {
-                    cumple: act.cumple_auditor,
+                    cumple: act.cumple_auditor === null ? null : (act.cumple_auditor === 1 || act.cumple_auditor === true || act.cumple_auditor === '1'),
                     observacion: act.observacion_auditor || ''
                 };
             });
@@ -218,7 +218,7 @@ export default function RegistroAudit() {
 
     const isAuditando = registro.estado_auditoria === 'auditando';
     const isPendiente = registro.estado_auditoria === 'pendiente' || registro.estado_auditoria === 'reabierto';
-    const isAuditado = ['auditada_terreno', 'auditada_sistema', 'cerrado'].includes(registro.estado_auditoria);
+    const isAuditado = ['auditada', 'cerrado'].includes(registro.estado_auditoria);
 
     // Mock Element Names (Ideally fetch from backend)
     const elementNames = {
@@ -507,15 +507,29 @@ export default function RegistroAudit() {
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                     <button
                                                         onClick={() => handleAuditarActividad(act.id, true)}
-                                                        className={`btn-action ${auditState[act.id]?.cumple === true ? 'btn-auditar' : ''}`}
-                                                        style={{ justifyContent: 'center', border: auditState[act.id]?.cumple === true ? '1px solid var(--success)' : '1px solid #e5e7eb' }}
+                                                        className={`btn-action`}
+                                                        style={{
+                                                            justifyContent: 'center',
+                                                            background: auditState[act.id]?.cumple === true ? '#22c55e' : '#f0fdf4', // Green-500 : Green-50
+                                                            color: auditState[act.id]?.cumple === true ? '#ffffff' : '#15803d', // White : Green-700
+                                                            border: '1px solid #22c55e',
+                                                            transition: 'all 0.2s',
+                                                            fontWeight: auditState[act.id]?.cumple === true ? 600 : 400
+                                                        }}
                                                     >
                                                         ✓ CUMPLE
                                                     </button>
                                                     <button
                                                         onClick={() => handleAuditarActividad(act.id, false)}
-                                                        className={`btn-action ${auditState[act.id]?.cumple === false ? 'danger' : ''}`}
-                                                        style={{ justifyContent: 'center', border: auditState[act.id]?.cumple === false ? '1px solid var(--danger)' : '1px solid #e5e7eb', color: auditState[act.id]?.cumple === false ? '#991b1b' : 'inherit' }}
+                                                        className={`btn-action`}
+                                                        style={{
+                                                            justifyContent: 'center',
+                                                            background: auditState[act.id]?.cumple === false ? '#ef4444' : '#fef2f2', // Red-500 : Red-50
+                                                            color: auditState[act.id]?.cumple === false ? '#ffffff' : '#b91c1c', // White : Red-700
+                                                            border: '1px solid #ef4444',
+                                                            transition: 'all 0.2s',
+                                                            fontWeight: auditState[act.id]?.cumple === false ? 600 : 400
+                                                        }}
                                                     >
                                                         X NO CUMPLE
                                                     </button>

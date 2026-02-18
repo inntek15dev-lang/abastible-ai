@@ -227,8 +227,8 @@ router.delete('/elementos/:id', auth, requirePrivilege('Programas', 'excec'), el
  *         description: Created
  */
 router.get('/actividades', auth, actividadController.index);
-router.post('/actividades', auth, requirePrivilege('Gestion_Configuracion', 'write'), upload.single('template'), actividadController.store);
-router.put('/actividades/:id', auth, requirePrivilege('Gestion_Configuracion', 'write'), upload.single('template'), actividadController.update);
+router.post('/actividades', auth, requirePrivilege('Gestion_Configuracion', 'write'), upload.single('plantilla'), actividadController.store);
+router.put('/actividades/:id', auth, requirePrivilege('Gestion_Configuracion', 'write'), upload.single('plantilla'), actividadController.update);
 router.delete('/actividades/:id', auth, requirePrivilege('Gestion_Configuracion', 'excec'), actividadController.destroy);
 
 // Registros (role-based filtering applied in controller)
@@ -457,7 +457,7 @@ router.put('/compromisos/:id', auth, requirePrivilege('Compromisos', 'write'), c
 router.patch('/compromisos/:id/cumplir', auth, compromisoController.cumplir);
 router.delete('/compromisos/:id', auth, requirePrivilege('Compromisos', 'excec'), compromisoController.destroy);
 
-// Vinculaciones
+
 
 
 // ============= SPRINT 3: REAPERTURAS =============
@@ -773,6 +773,8 @@ const resourceController = require('../controllers/resourceController');
  */
 router.get('/resources/dependencias', auth, resourceController.dependencias);
 router.get('/resources/tipos-contratista', auth, resourceController.tiposContratista);
+
+
 
 // ============= SPRINT 7: GESTIÓN DE ROLES =============
 const roleController = require('../controllers/roleController');

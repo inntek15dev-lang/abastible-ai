@@ -28,12 +28,32 @@ const registroController = {
             let where = {};
 
             // Apply role-based filtering (RN-002)
-            if (req.user.role === 'contratista_admin' || req.user.role === 'contratista_user') {
-                // Contractors only see their own records
+            // Apply role-based filtering (RN-002)
+            if (req.user.role === 'contratista_admin') {
+                // Contractor Admin sees ALL records for their Company (via Vinculacion)
+                if (req.user.contratista_id) {
+                    const vinculaciones = await Vinculacion.findAll({
+                        where: { contratista_id: req.user.contratista_id },
+                        attributes: ['id']
+                    });
+                    const vinculacionIds = vinculaciones.map(v => v.id);
+
+                    where = {
+                        [Op.or]: [
+                            { user_id: req.user.id }, // Created by me
+                            { contratista_asignacion_id: { [Op.in]: vinculacionIds } } // Belonging to my company
+                        ]
+                    };
+                } else {
+                    // Fallback if no contratista_id (should not happen for valid admin)
+                    where.user_id = req.user.id;
+                }
+            } else if (req.user.role === 'contratista_user') {
+                // Contractors User only sees their own records (or created by parent?)
                 where.user_id = req.user.id;
 
-                // If contratista_user, also check parent
-                if (req.user.role === 'contratista_user' && req.user.parent_id) {
+                // If contratista_user, also check parent (Legacy logic, keeping it)
+                if (req.user.parent_id) {
                     where.user_id = { [Op.in]: [req.user.id, req.user.parent_id] };
                 }
             } else if (req.user.role === 'administrador_contrato') {

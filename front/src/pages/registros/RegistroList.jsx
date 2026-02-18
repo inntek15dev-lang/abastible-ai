@@ -3,15 +3,16 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
-import {
-    Plus, Eye, Edit, Edit2, RefreshCw, Trash2, FileText,
-    Search, Filter, Calendar, Building, List, ClipboardCheck, Monitor, X, Lock
-} from 'lucide-react';
+import { Plus, Eye, Edit, Edit2, RefreshCw, Trash2, FileText, Search, Filter, Calendar, Building, List, ClipboardCheck, Monitor, X, Lock } from 'lucide-react';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
+import { toast } from 'react-hot-toast'; // Import toast
 import TraceabilityPanel from '../../components/TraceabilityPanel';
 import SolicitudReaperturaModal from '../../components/forms/SolicitudReaperturaModal';
 import PendingRegistersWidget from '../../components/widgets/PendingRegistersWidget';
+import CompromisosModal from '../../components/modals/CompromisosModal';
+import ConfirmationModal from '../../components/modals/ConfirmationModal';
+
 
 // --- Tab Navigation Component (from Skin) ---
 const TabNav = ({ activeTab, onTabChange }) => (
@@ -54,6 +55,15 @@ export default function RegistroList() {
 
     // Reapertura Modal State
     const [reaperturaModal, setReaperturaModal] = useState(false);
+    const [showCompromisos, setShowCompromisos] = useState(false);
+
+    // Confirmation Modal State
+    const [confirmModal, setConfirmModal] = useState({
+        isOpen: false,
+        action: null,
+        title: '',
+        message: ''
+    });
 
     // Resource States
     const [dependencies, setDependencies] = useState([]);
@@ -145,6 +155,40 @@ export default function RegistroList() {
         fetchMyVinculacion();
     }, [user]);
 
+    // Calculate Yearly Averages
+    const yearlyAverages = useMemo(() => {
+        const stats = {};
+        registros.forEach(reg => {
+            if (!reg.periodo) return;
+            const year = reg.periodo.substring(0, 4);
+            // key: contractorId (or EECC name if ID missing) + vinculacionId (or Service+Dep) + Year
+            // Using vinculacion_id is best if reliable. If not, fallback to Name+Service
+            const vincKey = reg.vinculacion_id || `${reg.eecc_nombre}-${reg.vinculacionEntidad?.servicio_id}-${reg.dependencia}`;
+            const key = `${vincKey}-${year}`;
+
+            if (!stats[key]) stats[key] = { sum: 0, count: 0 };
+
+            // Logic: Use Contractor Score
+            const score = parseFloat(reg.porcentaje_cumplimiento || 0);
+            stats[key].sum += score;
+            stats[key].count += 1;
+        });
+
+        const averages = {};
+        Object.keys(stats).forEach(k => {
+            averages[k] = (stats[k].sum / stats[k].count).toFixed(2);
+        });
+        return averages;
+    }, [registros]);
+
+    const getAnnualAverage = (reg) => {
+        if (!reg.periodo) return 0;
+        const year = reg.periodo.substring(0, 4);
+        const vincKey = reg.vinculacion_id || `${reg.eecc_nombre}-${reg.vinculacionEntidad?.servicio_id}-${reg.dependencia}`;
+        const key = `${vincKey}-${year}`;
+        return yearlyAverages[key] || 0;
+    };
+
     // --- Computed Filtered Data ---
     const filteredRegistros = useMemo(() => {
         return registros.filter(reg => {
@@ -216,15 +260,24 @@ export default function RegistroList() {
     const isContractor = ['contratista_admin', 'contratista_user'].includes(user?.role);
     const isAdminOrADC = isAdmin || user?.role === 'administrador_contrato';
 
-    const handleReabrirDirecto = async (registroId) => {
-        if (!window.confirm('¿Está seguro de reabrir este registro?')) return;
-        try {
-            await api.post('/reaperturas/directa', { registro_id: registroId });
-            alert('Registro reabierto exitosamente');
-            fetchRegistros();
-        } catch (err) {
-            alert(err.response?.data?.message || 'Error al reabrir registro');
-        }
+    const handleReabrirDirecto = (registroId) => {
+        setConfirmModal({
+            isOpen: true,
+            title: 'Reabrir Registro',
+            message: '¿Está seguro de reabrir este registro? Pasará a estado "Pendiente" y podrá ser editado nuevamente.',
+            action: async () => {
+                try {
+                    await api.post('/reaperturas/directa', {
+                        registro_id: registroId,
+                        motivo: 'Reapertura directa por administración'
+                    });
+                    toast.success('Registro reabierto exitosamente');
+                    fetchRegistros();
+                } catch (err) {
+                    toast.error(err.response?.data?.message || 'Error al reabrir registro');
+                }
+            }
+        });
     };
 
     const handleDelete = async (registroId) => {
@@ -238,21 +291,342 @@ export default function RegistroList() {
         }
     };
 
-    const generatePDF = (registro) => {
-        const doc = new jsPDF();
-        doc.text('Reporte de Cumplimiento', 14, 15);
-        autoTable(doc, {
-            head: [['Campo', 'Valor']],
-            body: [
-                ['Empresa', registro.eecc_nombre || registro.usuario?.eecc_nombre],
-                ['Dependencia', registro.dependencia],
-                ['Periodo', registro.periodo],
-                ['Cumplimiento', `${registro.porcentaje_cumplimiento}%`],
-                ['Estado', registro.estado_auditoria],
-            ],
-            startY: 25,
-        });
-        doc.save(`reporte_${registro.id}.pdf`);
+    const generatePDF = async (registroSummary) => {
+        const toastId = toast.loading('Generando reporte PDF...');
+        try {
+            // 1. Fetch Full Details
+            const response = await api.get(`/registros/${registroSummary.id}`);
+            const registro = response.data.data;
+
+            // 2. Setup Doc
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.width; // 210mm
+            const pageHeight = doc.internal.pageSize.height; // 297mm
+            const margin = 14;
+
+            // Brand Colors
+            const BRAND_ORANGE = [255, 102, 0]; // #FF6600
+            const TEXT_GRAY = [107, 114, 128]; // #6b7280
+            const TEXT_DARK = [17, 24, 39]; // #111827
+            const BG_LIGHT_GRAY = [249, 250, 251]; // #f9fafb
+
+            // Helper: Load Logo
+            const loadImage = (src) => new Promise((resolve) => {
+                const img = new Image();
+                img.src = src;
+                img.onload = () => resolve(img);
+                img.onerror = () => resolve(null);
+            });
+            const logo = await loadImage('/logo.png');
+
+            // --- PAGE 1: HEADER & SUMMARY ---
+
+            // Logo
+            if (logo) {
+                // Approximate aspect ratio preservation if needed, but fixed box is fine
+                doc.addImage(logo, 'PNG', margin, 10, 40, 15);
+            }
+
+            // Period Box (Top Right)
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.5);
+            doc.rect(pageWidth - 70 - margin, 10, 70, 20); // Box
+
+            doc.setFontSize(8);
+            doc.setTextColor(100, 100, 100);
+            doc.setFont('helvetica', 'normal');
+            doc.text('PERIODO REPORTADO', pageWidth - 35 - margin, 16, { align: 'center' });
+
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(0, 0, 0);
+            const spanishMonth = new Date(registro.periodo).toLocaleDateString('es-CL', { month: 'long', year: 'numeric', timeZone: 'UTC' }).toUpperCase();
+            doc.text(spanishMonth, pageWidth - 35 - margin, 24, { align: 'center' });
+
+            // Orange Line Separator
+            doc.setDrawColor(...BRAND_ORANGE);
+            doc.setLineWidth(1);
+            doc.line(margin, 35, pageWidth - margin, 35);
+
+            let yPos = 45;
+
+            // Summary Grid (Custom Implementation)
+            const gridData = [
+                { label: 'CONTRATISTA', value: registro.eecc_nombre || registro.usuario?.eecc_nombre || 'N/A' },
+                { label: 'SERVICIO', value: registro.vinculacionEntidad?.servicio?.nombre || 'N/A' },
+                { label: 'DEPENDENCIA', value: registro.dependencia || 'N/A' },
+                { label: 'PROGRAMA', value: registro.programa?.nombre || 'N/A' },
+                { label: 'ESTADO AUDITORÍA', value: registro.estado_auditoria?.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) },
+                { label: 'CUMPLIMIENTO DECLARADO', value: `${registro.porcentaje_cumplimiento}%`, isGreen: true }
+            ];
+
+            // Draw Grid
+            const boxWidth = (pageWidth - (margin * 2)) / 3;
+            const boxHeight = 14;
+
+            doc.setDrawColor(229, 231, 235); // Gray-200
+            doc.setLineWidth(0.1);
+
+            gridData.forEach((item, index) => {
+                const row = Math.floor(index / 3);
+                const col = index % 3;
+                const x = margin + (col * boxWidth);
+                const y = yPos + (row * boxHeight);
+
+                // Border
+                doc.rect(x, y, boxWidth, boxHeight);
+
+                // Label
+                doc.setFontSize(6);
+                doc.setTextColor(156, 163, 175); // Gray-400
+                doc.setFont('helvetica', 'bold');
+                doc.text(item.label, x + 2, y + 4);
+
+                // Value
+                doc.setFontSize(9);
+                if (item.isGreen) doc.setTextColor(22, 163, 74); // Green-600
+                else doc.setTextColor(0, 0, 0);
+                doc.setFont('helvetica', 'bold');
+                doc.text(String(item.value), x + 2, y + 10);
+            });
+
+            yPos += (boxHeight * 2) + 10;
+
+            // RESULTADO DE AUDITORIA Section
+            doc.setFontSize(11);
+            doc.setTextColor(...BRAND_ORANGE);
+            doc.setFont('helvetica', 'bold');
+            doc.text('RESULTADO DE AUDITORIA', margin, yPos);
+            yPos += 5;
+
+            // Green Result Box
+            const resBoxHeight = 18;
+            doc.setFillColor(240, 253, 244); // Green-50
+            doc.setDrawColor(187, 247, 208); // Green-200
+            doc.roundedRect(margin, yPos, pageWidth - (margin * 2), resBoxHeight, 2, 2, 'FD');
+
+            // Inside Result Box
+            const resY = yPos + 4;
+            // Headers
+            doc.setFontSize(6);
+            doc.setTextColor(156, 163, 175);
+            doc.text('AUDITOR RESPONSABLE', margin + 5, resY);
+            doc.text('FECHA REVISIÓN', margin + 60, resY);
+            doc.text('RESULTADO FINAL', margin + 110, resY);
+
+            // Values
+            const resValY = resY + 5;
+            doc.setFontSize(9);
+            doc.setTextColor(0, 0, 0);
+            doc.text(registro.auditor?.name?.toUpperCase() || 'NO ASIGNADO', margin + 5, resValY);
+
+            const fechaAudit = registro.fecha_auditoria
+                ? new Date(registro.fecha_auditoria).toLocaleDateString('es-CL')
+                : new Date().toLocaleDateString('es-CL'); // Fallback to now if not set
+            doc.text(fechaAudit, margin + 60, resValY);
+
+            const finalScore = registro.porcentaje_cumplimiento_auditor !== null
+                ? `${registro.porcentaje_cumplimiento_auditor}%`
+                : 'PENDIENTE';
+
+            doc.setFontSize(10);
+            doc.setTextColor(22, 163, 74); // Green
+            doc.text(finalScore, margin + 110, resValY);
+
+            // Auditado Badge (Right side of box)
+            if (registro.porcentaje_cumplimiento_auditor !== null) {
+                doc.setFillColor(220, 252, 231); // Green-100
+                doc.setDrawColor(220, 252, 231);
+                doc.roundedRect(pageWidth - margin - 30, yPos + 4, 25, 6, 1, 1, 'FD');
+                doc.setFontSize(7);
+                doc.setTextColor(22, 101, 52); // Green-800
+                doc.text('AUDITADO', pageWidth - margin - 17.5, yPos + 8, { align: 'center' });
+            }
+
+            yPos += resBoxHeight + 10;
+
+            // --- DETALLE DE AUDITORIA Table ---
+            doc.setFontSize(11);
+            doc.setTextColor(...BRAND_ORANGE);
+            doc.setFont('helvetica', 'bold');
+            doc.text('DETALLE DE AUDITORIA', margin, yPos);
+            yPos += 2;
+
+            // Prepare Table Data with Grouping
+            const tableBody = [];
+
+            if (registro.actividades) {
+                // Sort by Element ID
+                const sortedActs = [...registro.actividades].sort((a, b) => (a.elemento_id || 0) - (b.elemento_id || 0));
+
+                let lastElementId = -1;
+
+                sortedActs.forEach(act => {
+                    // Inject Group Header if new element
+                    if (act.elemento_id !== lastElementId) {
+                        const elemName = act.elemento?.nombre || 'General';
+                        // Add a special row for styling later
+                        tableBody.push([{ content: `ELEMENTO ${act.elemento_id}: ${elemName}`, colSpan: 6, styles: { fillColor: [229, 231, 235], fontStyle: 'bold', textColor: [0, 0, 0] } }]);
+                        lastElementId = act.elemento_id;
+                    }
+
+                    tableBody.push([
+                        act.actividad_id || '-', // ID
+                        act.actividad?.codigo || '-', // Código
+                        act.actividad?.nombre || act.descripcion_actividad, // Nombre
+                        act.cumple ? 'CUMPLE' : 'NO CUMPLE', // Estado Real
+                        act.cumple_auditor === true ? 'CUMPLE' : (act.cumple_auditor === false ? 'NO CUMPLE' : ''), // Auditor
+                        act.observacion_auditor || '' // Obs
+                    ]);
+                });
+            }
+
+            autoTable(doc, {
+                startY: yPos + 4,
+                head: [['ID', 'CÓDIGO', 'ELEMENTO / ACTIVIDAD', 'ESTADO', 'AUDITOR', 'OBS. AUDITOR']],
+                body: tableBody,
+                theme: 'plain',
+                styles: {
+                    fontSize: 7,
+                    cellPadding: 3,
+                    lineColor: [243, 244, 246],
+                    lineWidth: 0.1,
+                },
+                headStyles: {
+                    fillColor: [249, 250, 251],
+                    textColor: [107, 114, 128],
+                    fontSize: 6,
+                    fontStyle: 'bold'
+                },
+                columnStyles: {
+                    0: { width: 10, textColor: [156, 163, 175] }, // ID
+                    1: { width: 15, fontStyle: 'bold' }, // Codigo (Badge look?)
+                    2: { width: 80 }, // Nombre
+                    3: { width: 20, halign: 'center' }, // Estado
+                    4: { width: 20, halign: 'center' }, // Auditor
+                    5: { width: 35, fontStyle: 'italic', textColor: [107, 114, 128] } // Obs
+                },
+                didDrawCell: (data) => {
+                    // Custom Badges for State/Auditor columns (indices 3 and 4)
+                    if (data.section === 'body' && (data.column.index === 3 || data.column.index === 4)) {
+                        const text = data.cell.raw;
+                        if (!text) return;
+
+                        // Don't draw default text
+                        // We will draw it manually
+                    }
+                },
+                willDrawCell: (data) => {
+                    // Check if it's a Badge Cell
+                    if (data.section === 'body' && (data.column.index === 3 || data.column.index === 4) && data.cell.raw && typeof data.cell.raw === 'string' && !data.row.raw[0].colSpan) {
+                        const text = data.cell.raw;
+                        if (text === 'CUMPLE') {
+                            doc.setFillColor(220, 252, 231); // Green-100
+                            doc.setTextColor(22, 101, 52); // Green-800
+                        } else if (text === 'NO CUMPLE') {
+                            doc.setFillColor(254, 226, 226); // Red-100
+                            doc.setTextColor(153, 27, 27); // Red-800
+                        } else {
+                            return; // empty
+                        }
+
+                        // Draw Badge Rect
+                        const { x, y, width, height } = data.cell;
+                        const pad = 1;
+                        doc.roundedRect(x + pad, y + pad + 1, width - (pad * 2), height - (pad * 2) - 2, 1, 1, 'F');
+
+                        // Draw Text Centered
+                        doc.setFontSize(6);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text(text, x + width / 2, y + height / 2 + 1.5, { align: 'center' });
+
+                        // HACK: Prevent default text drawing by setting text color to transparent or empty? 
+                        // jspdf-autotable doesn't have an easy "cancel draw text" in willDrawCell for specific cells without hooks.
+                        // Actually, if we return false/undefined it proceeds. 
+                        // The didDrawCell hook is for AFTER. willDrawCell is BEFORE.
+                        // To hide original text, we can set cell text to empty string in willDrawCell or modify styles.
+                        data.cell.text = []; // Clear text so it doesn't draw over our badge
+                    }
+                }
+            });
+
+            // --- PAGE BREAK / TRACEABILITY ---
+            doc.addPage();
+
+            // Header Repeater (Logo + Period on Page 2?) - Design shows Logo + Period on Page 2 and 3 as well.
+            if (logo) doc.addImage(logo, 'PNG', margin, 10, 40, 15);
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.5);
+            doc.rect(pageWidth - 70 - margin, 10, 70, 20);
+            doc.setFontSize(8);
+            doc.setTextColor(100, 100, 100);
+            doc.text('PERIODO REPORTADO', pageWidth - 35 - margin, 16, { align: 'center' });
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(0, 0, 0);
+            doc.text(spanishMonth, pageWidth - 35 - margin, 24, { align: 'center' });
+
+            yPos = 45;
+
+            doc.setFontSize(11);
+            doc.setTextColor(...BRAND_ORANGE);
+            doc.setFont('helvetica', 'bold');
+            doc.text('HISTORIAL DE TRAZABILIDAD', margin, yPos);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(156, 163, 175);
+            doc.text('Registro cronológico de acciones realizadas sobre este documento.', margin, yPos + 4);
+            yPos += 8;
+
+            // Traceability Table
+            const logsData = registro.logs ? registro.logs.map(log => [
+                new Date(log.created_at).toLocaleString('es-CL'),
+                log.usuario?.name || 'Sistema',
+                (log.accion === 'FINALIZAR_AUDITORIA' ? 'Auditoría Completada' : log.accion).replace('_', ' '),
+                log.descripcion
+            ]) : [];
+
+            autoTable(doc, {
+                startY: yPos,
+                head: [['FECHA / HORA', 'USUARIO', 'ACCIÓN', 'DESCRIPCIÓN']],
+                body: logsData,
+                theme: 'striped',
+                headStyles: {
+                    fillColor: [243, 232, 255], // Light Purple from image
+                    textColor: [107, 33, 168], // Dark Purple
+                    fontSize: 7,
+                    fontStyle: 'bold'
+                },
+                styles: { fontSize: 7, cellPadding: 3 },
+                columnStyles: {
+                    0: { width: 30, textColor: [156, 163, 175] },
+                    1: { width: 40, fontStyle: 'bold' },
+                    2: { width: 40, textColor: [124, 58, 237], fontStyle: 'bold' }, // Purple Action
+                    3: { width: 'auto' }
+                }
+            });
+
+            // Footer
+            const pageCount = doc.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(7);
+                doc.setTextColor(150, 150, 150);
+                doc.setDrawColor(200, 200, 200);
+                doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
+
+                doc.text('Abastible S.A. - Control Operacional', margin, pageHeight - 8);
+                doc.text(`Pág. ${i} - Generado: ${new Date().toLocaleString('es-CL')}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
+            }
+
+            // Save
+            doc.save(`Reporte_Cumplimiento_${registro.id}_${new Date().toISOString().split('T')[0]}.pdf`);
+            toast.success('Reporte generado exitosamente', { id: toastId });
+
+        } catch (err) {
+            console.error('PDF Generation Error:', err);
+            toast.error('Error al generar el PDF', { id: toastId });
+        }
     };
 
     const getPorcentajeBadgeClass = (score) => {
@@ -335,8 +709,8 @@ export default function RegistroList() {
                     <select className="form-control" value={filters.status || 'all'} onChange={e => setFilters({ ...filters, status: e.target.value })}>
                         <option value="all">Todos</option>
                         <option value="pendiente">Pendiente</option>
-                        <option value="auditada_terreno">Auditada (Terreno)</option>
-                        <option value="auditada_sistema">Auditada (Sistema)</option>
+                        <option value="auditando">Auditando</option>
+                        <option value="auditada">Auditada</option>
                         <option value="reabierto">Reabierto</option>
                         <option value="reapertura_pendiente">Reapertura Pendiente</option>
                     </select>
@@ -398,111 +772,133 @@ export default function RegistroList() {
                             <th style={{ textAlign: 'center' }}>PERSONAS<br />NUEVAS</th>
                             <th style={{ textAlign: 'center' }}>%<br />CONTRATISTA</th>
                             <th style={{ textAlign: 'center' }}>%<br />AUDITORÍA</th>
-                            {/* <th style={{textAlign: 'center'}}>% PROMEDIO<br/>AÑO</th> */}
+                            <th style={{ textAlign: 'center' }}>% PROMEDIO<br />AÑO</th>
                             <th>FECHA ENVÍO</th>
                             <th>ADMIN<br />CONTRATO</th>
                             <th>AUDITORÍA</th>
+                            <th style={{ textAlign: 'center' }}>ESTADO</th>
                             <th style={{ textAlign: 'right' }}>ACCIONES</th>
                         </tr>
                     </thead>
                     <tbody>
                         {sortedRegistros.length === 0 ? (
                             <tr>
-                                <td colSpan={15} className="empty-row">No se encontraron registros coincidentes.</td>
+                                <td colSpan={16} className="empty-row">No se encontraron registros coincidentes.</td>
                             </tr>
                         ) : (
                             sortedRegistros.map((registro, idx) => (
                                 <tr key={registro.id}>
-                                    <td style={{ fontWeight: 500, color: '#6b7280' }}>
+                                    <td style={{ fontWeight: 500, color: '#6b7280', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {idx + 1}
                                     </td>
-                                    <td>
+                                    <td style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <div style={{ fontWeight: 500 }}>
                                             {new Date(registro.periodo).toLocaleDateString('es-CL', { month: 'long', year: 'numeric', timeZone: 'UTC' }).replace(/^\w/, c => c.toUpperCase())}
                                         </div>
                                     </td>
-                                    <td>
+                                    <td style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <div style={{ fontWeight: 600, color: '#111827' }}>
                                             {registro.eecc_nombre || registro.usuario?.eecc_nombre || '-'}
                                         </div>
                                     </td>
-                                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#6b7280' }}>
+                                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#6b7280', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {registro.usuario?.rut || '-'}
                                     </td>
-                                    <td style={{ fontSize: '0.85rem' }}>
+                                    <td style={{ fontSize: '0.85rem', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {registro.programa?.nombre || 'Sin Programa'}
                                     </td>
-                                    <td style={{ fontSize: '0.85rem' }}>
+                                    <td style={{ fontSize: '0.85rem', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {registro.vinculacionEntidad?.servicio?.nombre || 'N/A'}
                                     </td>
-                                    <td style={{ fontSize: '0.85rem' }}>{registro.dependencia || '-'}</td>
-                                    <td style={{ textAlign: 'center' }}>
+                                    <td style={{ fontSize: '0.85rem', borderBottom: '3px solid var(--color-brand-primary)' }}>{registro.dependencia || '-'}</td>
+                                    <td style={{ textAlign: 'center', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {registro.dotacion_total || 0}
                                     </td>
-                                    <td style={{ textAlign: 'center' }}>
+                                    <td style={{ textAlign: 'center', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {registro.personas_nuevas || 0}
                                     </td>
-                                    <td style={{ textAlign: 'center' }}>
+                                    <td style={{ textAlign: 'center', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <span className={`badge ${getPorcentajeBadgeClass(registro.porcentaje_cumplimiento)}`}>
                                             {registro.porcentaje_cumplimiento}%
                                         </span>
                                     </td>
-                                    <td style={{ textAlign: 'center' }}>
+                                    <td style={{ textAlign: 'center', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {/* Mockup shows distinct style for Audit % */}
                                         <span className="badge badge--percent-audit">
                                             {registro.porcentaje_cumplimiento_auditor !== null ? `${registro.porcentaje_cumplimiento_auditor}%` : '-'}
                                         </span>
                                     </td>
-                                    {/* <td style={{ textAlign: 'center' }}>
-                                        <span className="badge badge--percent-avg">43.75%</span>
-                                    </td> */}
-                                    <td style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                                    <td style={{ textAlign: 'center', borderBottom: '3px solid var(--color-brand-primary)' }}>
+                                        <span className="badge" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #dbeafe' }}>
+                                            {getAnnualAverage(registro)}%
+                                        </span>
+                                    </td>
+                                    <td style={{ fontSize: '0.8rem', color: '#6b7280', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {new Date(registro.created_at).toLocaleDateString('es-CL')} <br />
                                         {new Date(registro.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
                                     </td>
-                                    <td style={{ fontSize: '0.8rem' }}>
-                                        {registro.vinculacionEntidad?.administraciones?.map(a => a.administradorContrato?.name).filter(Boolean).join(', ') || '-'}
+                                    <td style={{ fontSize: '0.8rem', borderBottom: '3px solid var(--color-brand-primary)' }}>
+                                        <span style={{ color: '#6366f1', fontWeight: 500 }}>
+                                            {registro.vinculacionEntidad?.administraciones?.map(a => a.administradorContrato?.name).filter(Boolean).join(', ') || '-'}
+                                        </span>
                                     </td>
-                                    <td>
+                                    <td style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <span className={registro.tipo_auditoria === 'terreno' ? 'badge--audit-terreno' : 'badge--audit-sistema'}>
                                             {registro.tipo_auditoria === 'terreno' ? <Building size={12} /> : <Monitor size={12} />}
                                             {registro.tipo_auditoria === 'terreno' ? 'Terreno' : 'Sistema'}
                                         </span>
-                                        {registro.estado_auditoria === 'reapertura_pendiente' && (
-                                            <span style={{
-                                                display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                                background: '#fef3c7', color: '#92400e', fontSize: '0.7rem',
-                                                padding: '2px 8px', borderRadius: '10px', fontWeight: 600,
-                                                marginTop: '4px'
-                                            }}>
-                                                ⏳ Reapertura Pend.
-                                            </span>
-                                        )}
                                     </td>
-                                    <td className="actions-cell">
+                                    <td style={{ textAlign: 'center', borderBottom: '3px solid var(--color-brand-primary)' }}>
+                                        {(() => {
+                                            const status = registro.estado_auditoria;
+                                            let label = 'Pendiente';
+                                            let style = { background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb' }; // Gray
+
+                                            if (status === 'auditando') {
+                                                label = 'En Proceso';
+                                                style = { background: '#eff6ff', color: '#2563eb', border: '1px solid #dbeafe' }; // Blue
+                                            } else if (status === 'auditada') {
+                                                label = 'Auditada';
+                                                style = { background: '#f0fdf4', color: '#16a34a', border: '1px solid #dcfce7' }; // Green
+                                            } else if (status === 'reabierto') {
+                                                label = 'Reabierto';
+                                                style = { background: '#fff7ed', color: '#ea580c', border: '1px solid #ffedd5' }; // Orange
+                                            } else if (status === 'reapertura_pendiente') {
+                                                label = 'Solicitud Reapertura';
+                                                style = { background: '#fef2f2', color: '#dc2626', border: '1px solid #fee2e2' }; // Red
+                                            }
+
+                                            return (
+                                                <span className="badge" style={{ ...style, fontSize: '0.75rem', padding: '4px 8px' }}>
+                                                    {label}
+                                                </span>
+                                            );
+                                        })()}
+                                    </td>
+                                    <td className="actions-cell" style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <div className="flex flex-col gap-1 items-end">
                                             {/* Action: Audit/Edit */}
                                             {(registro.estado_auditoria === 'pendiente' || registro.estado_auditoria === 'reabierto') ? (
-                                                <Link to={`/registros/${registro.id}`} className="btn-icon" title="Editar Registro">
-                                                    <Edit2 size={16} />
+                                                <Link to={`/registros/${registro.id}`} className="btn-action" title="Editar Registro">
+                                                    <Edit2 size={14} /> <span>Editar</span>
                                                 </Link>
                                             ) : (
-                                                <Link to={`/registros/${registro.id}`} className="btn-icon" title="Ver Detalle">
-                                                    <Eye size={16} />
+                                                <Link to={`/registros/${registro.id}`} className="btn-action" title="Ver Detalle">
+                                                    <Eye size={14} /> <span>Ver</span>
                                                 </Link>
                                             )}
 
                                             {/* Action: Audit (US-003) */}
                                             {canWrite('Auditoria') && (
-                                                <Link to={`/registros/${registro.id}/auditar`} className="btn-icon" title="Auditar Registro" style={{ color: '#d97706' }}>
-                                                    <ClipboardCheck size={16} />
+                                                <Link to={`/registros/${registro.id}/auditar`} className="btn-action btn-auditar" title="Auditar Registro">
+                                                    <ClipboardCheck size={14} /> <span>Auditar</span>
                                                 </Link>
                                             )}
 
                                             {/* Action: PDF */}
                                             {canExec('Registros_Exportar') && (
-                                                <button onClick={() => generatePDF(registro)} className="btn-action btn-pdf" style={{ background: '#ef4444', color: 'white', border: 'none' }} title="Descargar PDF">
-                                                    <FileText size={12} /> PDF
+                                                <button onClick={() => generatePDF(registro)} className="btn-action btn-pdf" title="Descargar PDF">
+                                                    <FileText size={14} /> <span>PDF</span>
                                                 </button>
                                             )}
 
@@ -512,46 +908,58 @@ export default function RegistroList() {
                                                     setSelectedRegistroId(registro.id);
                                                     setTracePanelOpen(true);
                                                 }}
-                                                className="btn-icon"
+                                                className="btn-action btn-traza"
                                                 title="Ver Trazabilidad"
-                                                style={{ color: '#8b5cf6' }}
                                             >
-                                                <List size={16} />
+                                                <List size={14} /> <span>Trazabilidad</span>
                                             </button>
 
-                                            {/* Action: Solicitar Reapertura (Contractors) */}
-                                            {isContractor && registro.cerrado === 1 && registro.estado_auditoria !== 'reapertura_pendiente' && (
+                                            {/* Action: Solicitar Reapertura (Only Closed & Audited, only Contractors) */}
+                                            {(['contratista_user', 'contratista_admin'].includes(user?.role) && ['auditado', 'auditada', 'auditada_sistema', 'auditada_terreno'].includes(registro.estado_auditoria)) && (
                                                 <button
                                                     onClick={() => openReaperturaModal(registro.id)}
-                                                    className="btn-icon"
+                                                    className="btn-action"
                                                     title="Solicitar Reapertura"
-                                                    style={{ color: '#d97706' }}
+                                                    style={{ color: '#d97706', borderColor: '#d97706' }}
                                                 >
-                                                    <Lock size={16} />
+                                                    <Lock size={14} /> <span>Solicitar Reapertura</span>
                                                 </button>
                                             )}
 
                                             {/* Action: Reabrir Directo (Admin/ADC) */}
-                                            {isAdminOrADC && registro.cerrado === 1 && (
+                                            {isAdminOrADC && (registro.cerrado === 1 || ['auditado', 'auditada', 'auditada_sistema', 'auditada_terreno'].includes(registro.estado_auditoria)) && (
                                                 <button
                                                     onClick={() => handleReabrirDirecto(registro.id)}
-                                                    className="btn-icon"
+                                                    className="btn-action"
                                                     title="Reabrir Registro"
-                                                    style={{ color: '#10b981' }}
+                                                    style={{ color: '#10b981', borderColor: '#10b981' }}
                                                 >
-                                                    <RefreshCw size={16} />
+                                                    <RefreshCw size={14} /> <span>Reabrir</span>
                                                 </button>
                                             )}
+
+                                            {/* Action: Compromisos */}
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedRegistroId(registro.id);
+                                                    setShowCompromisos(true);
+                                                }}
+                                                className="btn-action"
+                                                title="Ver Compromisos"
+                                                style={{ color: '#0ea5e9', borderColor: '#0ea5e9' }}
+                                            >
+                                                <ClipboardCheck size={14} /> <span>Compromisos</span>
+                                            </button>
 
                                             {/* Action: Delete (Admin/Exec) */}
                                             {canExec('Registros') && (
                                                 <button
                                                     onClick={() => handleDelete(registro.id)}
-                                                    className="btn-icon"
+                                                    className="btn-action"
                                                     title="Eliminar Registro"
-                                                    style={{ color: '#ef4444' }}
+                                                    style={{ color: '#ef4444', borderColor: '#ef4444' }}
                                                 >
-                                                    <Trash2 size={16} />
+                                                    <Trash2 size={14} /> <span>Eliminar</span>
                                                 </button>
                                             )}
                                         </div>
@@ -585,6 +993,24 @@ export default function RegistroList() {
                     }}
                 />
             )}
+
+            {/* Modal Compromisos */}
+            {showCompromisos && (
+                <CompromisosModal
+                    registroId={selectedRegistroId}
+                    onClose={() => setShowCompromisos(false)}
+                />
+            )}
+
+            <ConfirmationModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                onConfirm={confirmModal.action}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                confirmText="Confirmar"
+                cancelText="Cancelar"
+            />
         </div>
     );
 }

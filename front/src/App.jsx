@@ -29,6 +29,7 @@ import ReaperturaList from './pages/reaperturas/ReaperturaList';
 
 // Sprint 4 Pages
 import ReporteList from './pages/reportes/ReporteList';
+import ComplianceMatrixReport from './pages/reportes/ComplianceMatrixReport';
 
 // Sprint 5 Pages
 // Removed Licitacion/Postulacion lists
@@ -140,6 +141,7 @@ function AppRoutes() {
 
         {/* Reportes (Sprint 4 Gap) */}
         <Route path="/reportes" element={<ReporteList />} />
+        <Route path="/reportes/cumplimiento" element={<ComplianceMatrixReport />} />
 
         {/* Sprint 5: Licitaciones (REMOVED) */}
         {/* <Route path="/licitaciones" element={<LicitacionList />} /> */}
