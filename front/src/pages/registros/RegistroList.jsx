@@ -877,23 +877,31 @@ export default function RegistroList() {
                                     </td>
                                     <td className="actions-cell" style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <div className="flex flex-col gap-1 items-end">
-                                            {/* Action: Audit/Edit */}
-                                            {(registro.estado_auditoria === 'pendiente' || registro.estado_auditoria === 'reabierto') ? (
-                                                <Link to={`/registros/${registro.id}`} className="btn-action" title="Editar Registro">
-                                                    <Edit2 size={14} /> <span>Editar</span>
-                                                </Link>
-                                            ) : (
-                                                <Link to={`/registros/${registro.id}`} className="btn-action" title="Ver Detalle">
-                                                    <Eye size={14} /> <span>Ver</span>
-                                                </Link>
-                                            )}
-
-                                            {/* Action: Audit (US-003) */}
-                                            {canWrite('Auditoria') && (
+                                            {/* Action: Audit (US-003) - Admin Contrato Only & Pending Status */}
+                                            {user?.role === 'administrador_contrato' && registro.estado_auditoria === 'pendiente' && (
                                                 <Link to={`/registros/${registro.id}/auditar`} className="btn-action btn-auditar" title="Auditar Registro">
                                                     <ClipboardCheck size={14} /> <span>Auditar</span>
                                                 </Link>
                                             )}
+
+                                            {/* Action: Edit - Contractor Only & Pending/Reopened Status */}
+                                            {['contratista_admin', 'contratista_user'].includes(user?.role) &&
+                                                (registro.estado_auditoria === 'pendiente' || registro.estado_auditoria === 'reabierto' || registro.estado_auditoria === 'reapertura_pendiente') && (
+                                                    <Link to={`/registros/${registro.id}`} className="btn-action" title="Editar Registro">
+                                                        <Edit2 size={14} /> <span>Editar</span>
+                                                    </Link>
+                                                )}
+
+                                            {/* Action: View (Read Only) - Available to ALL */}
+                                            <Link
+                                                to={`/registros/${registro.id}`}
+                                                state={{ readonly: true }}
+                                                className="btn-action"
+                                                title="Ver Detalle"
+                                                style={{ color: '#6b7280', borderColor: '#d1d5db' }}
+                                            >
+                                                <Eye size={14} /> <span>Ver</span>
+                                            </Link>
 
                                             {/* Action: PDF */}
                                             {canExec('Registros_Exportar') && (

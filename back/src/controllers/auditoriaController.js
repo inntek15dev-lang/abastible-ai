@@ -99,12 +99,15 @@ const auditoriaController = {
                 });
             }
 
-            // Calculate auditor percentage
-            const actividades = registro.actividades;
-            const auditadas = actividades.filter(a => a.cumple_auditor !== null);
-            const cumplidas = auditadas.filter(a => a.cumple_auditor === true);
-            const porcentaje = auditadas.length > 0
-                ? ((cumplidas.length / auditadas.length) * 100).toFixed(2)
+            // Calculate auditor percentage: Exclude N/A (2) and handle nulls
+            const actividades = registro.actividades || [];
+            // Filter only applicable and audited activities (not null and not 2)
+            const auditables = actividades.filter(a => a.cumple_auditor !== null && a.cumple_auditor !== 2);
+            // Numerator: count those that are true/1
+            const cumplidas = auditables.filter(a => a.cumple_auditor === true || a.cumple_auditor === 1).length;
+
+            const porcentaje = auditables.length > 0
+                ? ((cumplidas / auditables.length) * 100).toFixed(2)
                 : 0;
 
             const estadoFinal = 'auditada';

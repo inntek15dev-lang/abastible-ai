@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
-import { CheckCircle, Clock, AlertCircle, Calendar, User, Edit, X, Save, Shield } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, Calendar, User, Edit, X, Save, Shield, Trash2 } from 'lucide-react';
 
 export default function CompromisoList() {
     const [searchParams] = useSearchParams();
@@ -12,7 +12,8 @@ export default function CompromisoList() {
     const [error, setError] = useState('');
     const [filter, setFilter] = useState('all');
     const hallazgoId = searchParams.get('hallazgo');
-    const { user } = useAuth();
+    const { user, isAdmin } = useAuth();
+    const isAdminOrADC = isAdmin || user?.role === 'administrador_contrato';
 
     // Edit Modal State
     const [editingCompromiso, setEditingCompromiso] = useState(null);
@@ -72,6 +73,16 @@ export default function CompromisoList() {
         }
     };
 
+    const handleDelete = async (id) => {
+        if (!window.confirm('¿Está seguro de eliminar este compromiso?')) return;
+        try {
+            await api.delete(`/compromisos/${id}`);
+            fetchCompromisos();
+        } catch (err) {
+            setError('Error al eliminar compromiso');
+        }
+    };
+
     const getEstadoIcon = (estado) => {
         switch (estado) {
             case 'cumplido': return <CheckCircle className="text-success" size={20} />;
@@ -103,11 +114,10 @@ export default function CompromisoList() {
 
                 <div className="filter-tabs" style={{ background: '#f1f5f9', padding: '6px', borderRadius: '12px', display: 'inline-flex', gap: '4px', width: 'fit-content' }}>
                     {[
-                        { id: 'all', label: 'Todos', icon: null },
-                        { id: 'pendiente', label: 'Pendiente', color: '#f59e0b' },
-                        { id: 'en_proceso', label: 'En Proceso', color: '#3b82f6' },
-                        { id: 'cumplido', label: 'Cumplido', color: '#10b981' },
-                        { id: 'vencidos', label: 'Vencidos', color: '#ef4444' }
+                        { id: 'all', label: 'TODOS', icon: null },
+                        { id: 'pendiente', label: 'PENDIENTE', color: '#f59e0b' },
+                        { id: 'cumplido', label: 'CUMPLIDO', color: '#10b981' },
+                        { id: 'vencidos', label: 'VENCIDO', color: '#ef4444' }
                     ].map((f) => (
                         <button
                             key={f.id}
@@ -273,6 +283,31 @@ export default function CompromisoList() {
                                             <CheckCircle size={18} /> Marcar Cumplido
                                         </button>
                                     )}
+
+                                {isAdminOrADC && (
+                                    <button
+                                        className="btn-delete"
+                                        onClick={() => handleDelete(c.id)}
+                                        style={{
+                                            marginTop: '8px',
+                                            background: '#fef2f2',
+                                            color: '#ef4444',
+                                            border: '1px solid #fee2e2',
+                                            padding: '10px',
+                                            borderRadius: '10px',
+                                            fontWeight: 700,
+                                            fontSize: '0.9rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '8px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        <Trash2 size={18} /> Eliminar
+                                    </button>
+                                )}
                             </div>
                         );
                     })
@@ -280,49 +315,51 @@ export default function CompromisoList() {
             </div>
 
             {/* Edit Modal */}
-            {editingCompromiso && (
-                <div className="modal-overlay" style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-                }}>
-                    <div className="form-card" style={{ width: '500px', maxWidth: '90%' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-                            <h2>Editar Compromiso</h2>
-                            <button className="btn-icon" onClick={() => setEditingCompromiso(null)}>
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleUpdate}>
-                            <div className="form-group">
-                                <label>Descripción</label>
-                                <textarea
-                                    value={editForm.descripcion}
-                                    onChange={e => setEditForm({ ...editForm, descripcion: e.target.value })}
-                                    rows={3}
-                                    required
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Fecha Compromiso</label>
-                                <input
-                                    type="date"
-                                    value={editForm.fecha_compromiso}
-                                    onChange={e => setEditForm({ ...editForm, fecha_compromiso: e.target.value })}
-                                    required
-                                />
-                            </div>
-
-                            <div className="form-actions">
-                                <button type="button" className="btn-secondary" onClick={() => setEditingCompromiso(null)}>Cancelar</button>
-                                <button type="submit" className="btn-primary">
-                                    <Save size={16} /> Guardar Cambios
+            {
+                editingCompromiso && (
+                    <div className="modal-overlay" style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+                    }}>
+                        <div className="form-card" style={{ width: '500px', maxWidth: '90%' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+                                <h2>Editar Compromiso</h2>
+                                <button className="btn-icon" onClick={() => setEditingCompromiso(null)}>
+                                    <X size={20} />
                                 </button>
                             </div>
-                        </form>
+
+                            <form onSubmit={handleUpdate}>
+                                <div className="form-group">
+                                    <label>Descripción</label>
+                                    <textarea
+                                        value={editForm.descripcion}
+                                        onChange={e => setEditForm({ ...editForm, descripcion: e.target.value })}
+                                        rows={3}
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Fecha Compromiso</label>
+                                    <input
+                                        type="date"
+                                        value={editForm.fecha_compromiso}
+                                        onChange={e => setEditForm({ ...editForm, fecha_compromiso: e.target.value })}
+                                        required
+                                    />
+                                </div>
+
+                                <div className="form-actions">
+                                    <button type="button" className="btn-secondary" onClick={() => setEditingCompromiso(null)}>Cancelar</button>
+                                    <button type="submit" className="btn-primary">
+                                        <Save size={16} /> Guardar Cambios
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

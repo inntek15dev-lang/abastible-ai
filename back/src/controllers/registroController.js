@@ -290,9 +290,11 @@ const registroController = {
                     });
                 }
 
-                // Calculate percentage
-                const cumplidas = actividades.filter(a => a.cumple).length;
-                const porcentaje = (cumplidas / actividades.length) * 100;
+                // Calculate percentage (Contractor)
+                // Note: Currently contractors don't have N/A, but we future-proof it.
+                const applicableActsCount = actividades.filter(a => a.cumple !== 2).length;
+                const cumplidas = actividades.filter(a => a.cumple === 1 || a.cumple === true).length;
+                const porcentaje = applicableActsCount > 0 ? (cumplidas / applicableActsCount) * 100 : 0;
                 await registro.update({ porcentaje_cumplimiento: porcentaje.toFixed(2) });
             }
 
@@ -406,28 +408,21 @@ const registroController = {
 
                 // Recalculate percentage (Contractor)
                 const allActs = await RegistroActividad.findAll({ where: { registro_id: registro.id } });
-                const cumplidas = allActs.filter(a => a.cumple).length;
-                const porcentaje = (cumplidas / allActs.length) * 100;
+                const applicableActs = allActs.filter(a => a.cumple !== 2);
+                const cumplidasCount = applicableActs.filter(a => a.cumple === true || a.cumple === 1).length;
+                const porcentaje = applicableActs.length > 0 ? (cumplidasCount / applicableActs.length) * 100 : 0;
 
                 // Recalculate percentage (Auditor)
-                // Logic: 1 = Pass, 0 = Fail, 2 = N/A
-                const auditorActs = allActs.filter(a => a.cumple_auditor !== null); // Only counted if audited? Or assume all?
-                // Actually, if we use NA, we must filter them out from denominator.
-                // We consider "auditable" anything that is NOT NA (2).
+                // Standard: Only include activities that have been audited (not null) AND are not N/A (2).
+                const auditedApplicableActs = allActs.filter(a => a.cumple_auditor !== null && a.cumple_auditor !== 2);
+                const totalAuditedApplicable = auditedApplicableActs.length;
+                const cumplidasAuditor = auditedApplicableActs.filter(a => a.cumple_auditor === 1 || a.cumple_auditor === true).length;
 
-                // If cumple_auditor is null, we treat as 0 (Fail) or ignore? 
-                // Strict: If not audited, it's pending. But for calculation, maybe assume 0 until verified?
-                // For now, let's include everything except explicitly NA.
-
-                const validActs = allActs.filter(a => a.cumple_auditor !== 2);
-                const totalValid = validActs.length;
-                const cumplidasAuditor = validActs.filter(a => a.cumple_auditor === 1).length;
-
-                const porcentajeAuditor = totalValid > 0 ? (cumplidasAuditor / totalValid) * 100 : 0;
+                const porcentajeAuditor = totalAuditedApplicable > 0 ? (cumplidasAuditor / totalAuditedApplicable) * 100 : 0;
 
                 await registro.update({
                     porcentaje_cumplimiento: porcentaje.toFixed(2),
-                    porcentaje_cumplimiento_auditor: porcentajeAuditor.toFixed(2)
+                    porcentaje_cumplimiento_auditor: totalAuditedApplicable > 0 ? porcentajeAuditor.toFixed(2) : null
                 });
             }
 

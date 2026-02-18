@@ -1,6 +1,6 @@
 // IEEE Trace: REQ-002 | US-002 | pages/registros/RegistroForm.jsx
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock } from 'lucide-react';
@@ -17,7 +17,9 @@ export default function RegistroForm() {
     const [searchParams] = useSearchParams(); // NEW
     const { user, isAdmin, canWrite } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const isEdit = Boolean(id);
+    const isReadOnly = location.state?.readonly || false;
 
     const [form, setForm] = useState({
         periodo: new Date().toISOString().slice(0, 7), // YYYY-MM format
@@ -35,6 +37,7 @@ export default function RegistroForm() {
     const [reaperturaModal, setReaperturaModal] = useState({ show: false });
     const [errorModal, setErrorModal] = useState({ show: false, message: '' });
     const [registroCerrado, setRegistroCerrado] = useState(false);
+    const isLocked = registroCerrado || isReadOnly;
     const [confirmModal, setConfirmModal] = useState({
         isOpen: false,
         action: null,
@@ -483,7 +486,7 @@ export default function RegistroForm() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '1rem' }}>
                 <FileText size={24} color="#f97316" /> {/* Orange Icon */}
                 <h1 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#111827', margin: 0 }}>
-                    Registro Mensual de Cumplimiento
+                    Registro Mensual de Cumplimiento {isReadOnly && <span style={{ fontSize: '0.8rem', backgroundColor: '#f3f4f6', padding: '2px 8px', borderRadius: '4px', border: '1px solid #e5e7eb', color: '#6b7280', marginLeft: '10px' }}>VISTA SOLO LECTURA</span>}
                 </h1>
             </div>
 
@@ -546,6 +549,7 @@ export default function RegistroForm() {
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Dotación Total</label>
                             <input type="number" className="form-control"
                                 value={form.dotacion_total}
+                                disabled={isLocked}
                                 onChange={(e) => setForm({ ...form, dotacion_total: parseInt(e.target.value) || 0 })}
                             />
                         </div>
@@ -555,6 +559,7 @@ export default function RegistroForm() {
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Personas Nuevas</label>
                             <input type="number" className="form-control"
                                 value={form.personas_nuevas}
+                                disabled={isLocked}
                                 onChange={(e) => setForm({ ...form, personas_nuevas: parseInt(e.target.value) || 0 })}
                             />
                         </div>
@@ -562,6 +567,7 @@ export default function RegistroForm() {
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Supervisores</label>
                             <input type="number" className="form-control"
                                 value={form.supervisores}
+                                disabled={isLocked}
                                 onChange={(e) => setForm({ ...form, supervisores: parseInt(e.target.value) || 0 })}
                             />
                         </div>
@@ -569,6 +575,7 @@ export default function RegistroForm() {
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Prevencionistas</label>
                             <input type="number" className="form-control"
                                 value={form.prevencionistas}
+                                disabled={isLocked}
                                 onChange={(e) => setForm({ ...form, prevencionistas: parseInt(e.target.value) || 0 })}
                             />
                         </div>
@@ -639,28 +646,28 @@ export default function RegistroForm() {
                                                     <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
                                                         <button
                                                             type="button"
-                                                            onClick={() => !registroCerrado && handleActividadChange(globalIndex, 'cumple', true)}
+                                                            onClick={() => !isLocked && handleActividadChange(globalIndex, 'cumple', true)}
                                                             style={{
-                                                                padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid', cursor: parsedCursor(registroCerrado),
+                                                                padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid', cursor: parsedCursor(isLocked),
                                                                 backgroundColor: act.cumple ? '#f0fdf4' : 'transparent',
                                                                 borderColor: act.cumple ? '#16a34a' : '#e5e7eb',
                                                                 color: act.cumple ? '#15803d' : '#9ca3af',
                                                                 fontWeight: act.cumple ? 600 : 400,
-                                                                opacity: registroCerrado ? 0.6 : 1
+                                                                opacity: isLocked ? 0.6 : 1
                                                             }}
                                                         >
                                                             ✓ Cumple
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            onClick={() => !registroCerrado && handleActividadChange(globalIndex, 'cumple', false)}
+                                                            onClick={() => !isLocked && handleActividadChange(globalIndex, 'cumple', false)}
                                                             style={{
-                                                                padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid', cursor: parsedCursor(registroCerrado),
+                                                                padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid', cursor: parsedCursor(isLocked),
                                                                 backgroundColor: !act.cumple ? '#fef2f2' : 'transparent',
                                                                 borderColor: !act.cumple ? '#ef4444' : '#e5e7eb',
                                                                 color: !act.cumple ? '#b91c1c' : '#9ca3af',
                                                                 fontWeight: !act.cumple ? 600 : 400,
-                                                                opacity: registroCerrado ? 0.6 : 1
+                                                                opacity: isLocked ? 0.6 : 1
                                                             }}
                                                         >
                                                             ✕ No Cumple
@@ -684,7 +691,7 @@ export default function RegistroForm() {
                                                         value={act.responsable}
                                                         onChange={(e) => handleActividadChange(globalIndex, 'responsable', e.target.value)}
                                                         style={{ fontSize: '0.8rem', padding: '0.4rem', height: 'auto' }}
-                                                        disabled={registroCerrado}
+                                                        disabled={isLocked}
                                                     />
                                                 </td>
                                                 <td style={{ padding: '1rem', verticalAlign: 'top' }}>
@@ -696,7 +703,7 @@ export default function RegistroForm() {
                                                                     registroActividadId={act.id}
                                                                     existingCount={act.evidencias?.length || 0}
                                                                     templateUrl={act.template_url}
-                                                                    disabled={registroCerrado}
+                                                                    disabled={isLocked}
                                                                     onUploadComplete={(evidencia) => {
                                                                         const updated = [...actividades];
                                                                         if (!updated[globalIndex].evidencias) updated[globalIndex].evidencias = [];
@@ -714,7 +721,7 @@ export default function RegistroForm() {
                                                                 <FileUpload
                                                                     existingCount={(act.pendingFiles?.length || 0)}
                                                                     templateUrl={act.template_url}
-                                                                    disabled={registroCerrado}
+                                                                    disabled={isLocked}
                                                                     onFileSelect={(file) => {
                                                                         const updated = [...actividades];
                                                                         if (!updated[globalIndex].pendingFiles) updated[globalIndex].pendingFiles = [];
@@ -844,7 +851,7 @@ export default function RegistroForm() {
                             </button>
                         )}
 
-                        {!registroCerrado && (
+                        {!isLocked && (
                             <button
                                 type="submit"
                                 disabled={loading}

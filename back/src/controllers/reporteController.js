@@ -175,7 +175,9 @@ module.exports = {
                     attributes: [
                         [sequelize.col('actividad.elemento.id'), 'elemento_id'],
                         [sequelize.col('actividad.elemento.nombre'), 'elemento_nombre'],
-                        [sequelize.fn('COUNT', sequelize.col('RegistroActividad.id')), 'total'],
+                        // Denominator: count only those not NA (2)
+                        [sequelize.literal(`SUM(CASE WHEN cumple_auditor != 2 THEN 1 ELSE 0 END)`), 'total_valido'],
+                        // Numerator: count those that are 1 (audited) or 1 (contractor if not audited)
                         [sequelize.literal(`SUM(CASE WHEN cumple_auditor = 1 OR (cumple_auditor IS NULL AND cumple = 1) THEN 1 ELSE 0 END)`), 'cumplidas_count']
                     ],
                     include: [{
@@ -197,7 +199,7 @@ module.exports = {
                 elementosStats = elementosStats.map(e => ({
                     id: e.elemento_id,
                     name: e.elemento_nombre,
-                    value: e.total > 0 ? Math.round((parseInt(e.cumplidas_count) / parseInt(e.total)) * 100) : 0
+                    value: parseInt(e.total_valido) > 0 ? Math.round((parseInt(e.cumplidas_count) / parseInt(e.total_valido)) * 100) : 0
                 }));
             }
 
