@@ -65,7 +65,7 @@ The system uses JWT (Bearer Token).
             },
         ],
     },
-    apis: ['./src/routes/*.js', './src/database/models/*.js'], // Scan routes and models
+    apis: ['./src/routes/*.js', './src/database/models/*.js', './src/docs/*.js'], // Scan routes and models
 };
 
 const specs = swaggerJsdoc(options);

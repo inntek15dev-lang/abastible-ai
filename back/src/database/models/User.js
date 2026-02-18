@@ -34,6 +34,10 @@ const User = sequelize.define('User', {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: true
     },
+    contratista_id: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: true
+    },
     tipo_contratista_id: {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: true

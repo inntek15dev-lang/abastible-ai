@@ -106,9 +106,7 @@ const auditoriaController = {
                 ? ((cumplidas.length / auditadas.length) * 100).toFixed(2)
                 : 0;
 
-            const estadoFinal = registro.tipo_auditoria === 'terreno'
-                ? 'auditada_terreno'
-                : 'auditada_sistema';
+            const estadoFinal = 'auditada';
 
             await registro.update({
                 estado_auditoria: estadoFinal,

@@ -1,18 +1,21 @@
 // IEEE Trace: REQ-002 | US-002 | pages/registros/RegistroForm.jsx
-import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
-import { Save, ArrowLeft, ClipboardCheck, FileText } from 'lucide-react';
+import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock } from 'lucide-react';
 import FileUpload from '../../components/forms/FileUpload';
 import HallazgoModal from '../../components/forms/HallazgoModal';
 import HallazgoList from '../../components/forms/HallazgoList';
 import CompromisoModal from '../../components/forms/CompromisoModal';
 import SolicitudReaperturaModal from '../../components/forms/SolicitudReaperturaModal';
+import ConfirmationModal from '../../components/modals/ConfirmationModal';
+import { toast } from 'react-hot-toast';
 
 export default function RegistroForm() {
     const { id } = useParams();
-    const { user, canWrite } = useAuth();
+    const [searchParams] = useSearchParams(); // NEW
+    const { user, isAdmin, canWrite } = useAuth();
     const navigate = useNavigate();
     const isEdit = Boolean(id);
 
@@ -23,19 +26,141 @@ export default function RegistroForm() {
         prevencionistas: 0,
         dotacion_total: 0
     });
+    // ... (rest of state items are same)
     const [actividades, setActividades] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [hallazgoModal, setHallazgoModal] = useState({ show: false, actividad: null, hallazgo: null });
     const [compromisoModal, setCompromisoModal] = useState({ show: false, hallazgo: null });
     const [reaperturaModal, setReaperturaModal] = useState({ show: false });
+    const [errorModal, setErrorModal] = useState({ show: false, message: '' });
+    const [registroCerrado, setRegistroCerrado] = useState(false);
+    const [confirmModal, setConfirmModal] = useState({
+        isOpen: false,
+        action: null,
+        title: '',
+        message: ''
+    });
+
+    // New State for Contractor Selection
+    const [contractors, setContractors] = useState([]);
+    const [assignments, setAssignments] = useState([]);
+    const [selectedContractor, setSelectedContractor] = useState(null);
+    const [searchNombre, setSearchNombre] = useState('');
+
+
+    // Auditor/Review Data
+    const [reviewComments, setReviewComments] = useState('');
+    const [generalCommitments, setGeneralCommitments] = useState([]);
+
+    const handleContractorSelect = (contractor) => {
+        setSelectedContractor(contractor.id);
+        setSearchNombre(contractor.nombre);
+        setSearchRut(contractor.rut);
+        setShowNombreDropdown(false);
+        setShowRutDropdown(false);
+        // Reset assignment when contractor changes
+        setForm(prev => ({ ...prev, contratista_asignacion_id: '' }));
+    };
+
+    const clearContractor = () => {
+        setSelectedContractor(null);
+        setSearchNombre('');
+        setSearchRut('');
+        setAssignments([]);
+        setForm(prev => ({ ...prev, contratista_asignacion_id: '' }));
+    };
+
+    const filteredByNombre = contractors.filter(c =>
+        c.nombre.toLowerCase().includes(searchNombre.toLowerCase())
+    );
+    const filteredByRut = contractors.filter(c =>
+        c.rut.toLowerCase().includes(searchRut.toLowerCase())
+    );
 
     useEffect(() => {
+        if (!user) return;
+
+        const initData = async () => {
+            try {
+                if (user.role === 'admin' || user.role === 'administrador_contrato') {
+                    // Fetch contractor COMPANIES (Contratista entities, not individual users)
+                    const response = await api.get('/contratistas');
+                    setContractors(response.data.data);
+                } else {
+                    // Contractor user: fetch own profile to get associated company
+                    const response = await api.get(`/usuarios/${user.id}`);
+                    const userData = response.data.data;
+                    if (userData.contratistaEntidad) {
+                        setContractors([userData.contratistaEntidad]);
+                        setSelectedContractor(userData.contratistaEntidad.id);
+                        setSearchNombre(userData.contratistaEntidad.nombre);
+                        setSearchRut(userData.contratistaEntidad.rut);
+                    } else if (user.parent_id) {
+                        // Fallback: check parent user for company association
+                        const parentResp = await api.get(`/usuarios/${user.parent_id}`);
+                        if (parentResp.data.data.contratistaEntidad) {
+                            setContractors([parentResp.data.data.contratistaEntidad]);
+                            setSelectedContractor(parentResp.data.data.contratistaEntidad.id);
+                            setSearchNombre(parentResp.data.data.contratistaEntidad.nombre);
+                            setSearchRut(parentResp.data.data.contratistaEntidad.rut);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error initializing contractor data:', err);
+            }
+        };
+
+        if (!isEdit) {
+            initData();
+        }
+
         fetchActividades();
         if (isEdit) {
             fetchRegistro();
         }
-    }, [id]);
+    }, [id, user, isEdit]);
+
+    // Load vinculaciones (assignments) when a Contratista company is selected
+    useEffect(() => {
+        if (!selectedContractor) return;
+        const selected = contractors.find(c => String(c.id) === String(selectedContractor));
+        if (selected && selected.vinculaciones) {
+            setAssignments(selected.vinculaciones);
+
+            // PRE-FILL LOGIC from Query Params or Auto-select
+            const prePeriodo = searchParams.get('periodo');
+            const preVinculacionId = searchParams.get('vinculacion_id');
+
+            if (!isEdit && preVinculacionId) {
+                // Check if the pre-filled ID exists in the loaded assignments
+                const targetAssignment = selected.vinculaciones.find(v => String(v.id) === String(preVinculacionId));
+                if (targetAssignment) {
+                    setForm(prev => ({
+                        ...prev,
+                        contratista_asignacion_id: targetAssignment.id,
+                        periodo: prePeriodo || prev.periodo
+                    }));
+                }
+            } else if (selected.vinculaciones.length === 1 && !form.contratista_asignacion_id) {
+                setForm(prev => ({ ...prev, contratista_asignacion_id: selected.vinculaciones[0].id }));
+            }
+        } else {
+            setAssignments([]);
+        }
+    }, [selectedContractor, contractors, searchParams, isEdit]);
+
+    // Auto-set programa_id and reload actividades when assignment (vinculacion) changes
+    useEffect(() => {
+        if (!form.contratista_asignacion_id || assignments.length === 0) return;
+        const vinculacion = assignments.find(a => String(a.id) === String(form.contratista_asignacion_id));
+        if (vinculacion && vinculacion.servicio && vinculacion.servicio.programa_id) {
+            const programaId = vinculacion.servicio.programa_id;
+            setForm(prev => ({ ...prev, programa_id: programaId }));
+            fetchActividades(programaId);
+        }
+    }, [form.contratista_asignacion_id, assignments]);
 
     const handleCompromisoClick = (hallazgo) => {
         setCompromisoModal({ show: true, hallazgo });
@@ -47,10 +172,8 @@ export default function RegistroForm() {
             const hallazgoIndex = a.hallazgos ? a.hallazgos.findIndex(h => h.id === newCompromiso.hallazgo_id) : -1;
             if (hallazgoIndex !== -1) {
                 const newHallazgos = [...a.hallazgos];
-                // Simplify: just reload activities or hack it in?
-                // Proper way: add compromiso to the hallazgo's compromiso list
                 const hallazgo = newHallazgos[hallazgoIndex];
-                hallazgo.compromisos = [newCompromiso]; // Assuming 1 active commitment
+                hallazgo.compromisos = [newCompromiso];
                 newHallazgos[hallazgoIndex] = hallazgo;
                 return { ...a, hallazgos: newHallazgos };
             }
@@ -66,7 +189,6 @@ export default function RegistroForm() {
     const handleHallazgoSuccess = (newHallazgo) => {
         const updated = actividades.map(a => {
             if (a.id === newHallazgo.registro_actividad_id) {
-                // Check if update or create
                 const existingIndex = a.hallazgos.findIndex(h => h.id === newHallazgo.id);
                 let newHallazgos = [...(a.hallazgos || [])];
 
@@ -107,13 +229,19 @@ export default function RegistroForm() {
         }
     };
 
-    const fetchActividades = async () => {
+    const fetchActividades = async (programaId) => {
         try {
-            const response = await api.get('/actividades');
+            const url = programaId ? `/actividades?programa_id=${programaId}` : '/actividades';
+            const response = await api.get(url);
             const acts = response.data.data.map(a => ({
                 actividad_id: a.id,
                 codigo: a.codigo,
                 descripcion: a.descripcion,
+                criterios: a.criterios,
+                frecuencia: a.frecuencia,
+                requiere_evidencia: a.requiere_evidencia,
+                template_url: a.template_url, // Include template_url
+                elemento: a.elemento, // Include entire elemento object
                 cumple: false,
                 responsable: '',
                 descripcion_contratista: ''
@@ -129,28 +257,46 @@ export default function RegistroForm() {
             const response = await api.get(`/registros/${id}`);
             const data = response.data.data;
             setForm({
-                periodo: data.periodo,
+                periodo: data.periodo ? data.periodo.substring(0, 7) : '',
                 personas_nuevas: data.personas_nuevas,
                 supervisores: data.supervisores,
                 prevencionistas: data.prevencionistas,
                 dotacion_total: data.dotacion_total,
-                tipo_auditoria: data.tipo_auditoria || 'sistema', // Default to sistema
-                estado_auditoria: data.estado_auditoria
+                tipo_auditoria: data.tipo_auditoria || 'sistema',
+                estado_auditoria: data.estado_auditoria,
+                contratista_asignacion_id: data.contratista_asignacion_id // existing assignment
             });
+            setRegistroCerrado(data.cerrado === 1 || data.cerrado === true);
+            setReviewComments(data.comentario_general || '');
+
+            // Fetch General Commitments
+            try {
+                const compRes = await api.get('/compromisos', { params: { registro_id: id } });
+                setGeneralCommitments(compRes.data.data);
+            } catch (e) {
+                console.error("Error loading commitments", e);
+            }
+
+            // If Admin/ADC, set selected contractor so dropdown populates
+            if (user?.role === 'admin' || user?.role === 'administrador_contrato') {
+                setSelectedContractor(data.user_id);
+            }
+
             if (data.actividades) {
                 setActividades(data.actividades.map(ra => ({
                     id: ra.id,
                     actividad_id: ra.actividad_id,
                     codigo: ra.actividad?.codigo,
                     descripcion: ra.actividad?.descripcion,
+                    criterios: ra.actividad?.criterios,
+                    frecuencia: ra.actividad?.frecuencia,
+                    template_url: ra.actividad?.template_url, // Include template_url
+                    elemento: ra.actividad?.elemento, // Include elemento
                     requiere_evidencia: ra.actividad?.requiere_evidencia === 1 || ra.actividad?.requiere_evidencia === true,
                     cumple: ra.cumple,
                     responsable: ra.responsable || '',
                     descripcion_contratista: ra.descripcion_contratista || '',
                     evidencias: ra.evidencias || [],
-                    // Audit Fields: 0=Fail, 1=Pass, 2=NA. Default to null or 0? 
-                    // If backend sends null, maybe default to 0? Or keep null to show unchecked?
-                    // Let's keep existing value.
                     cumple_auditor: ra.cumple_auditor,
                     observacion_auditor: ra.observacion_auditor || '',
                     hallazgos: ra.hallazgos || []
@@ -172,10 +318,6 @@ export default function RegistroForm() {
         setLoading(true);
         setError('');
 
-        // US-2.27: Validate Mandatory Evidence
-        // Only valid if WE HAVE IDs (Edit Mode) or if backend handles it?
-        // Backend handles "cerrado" validation, but frontend should block too.
-        // If isEdit, verify.
         if (isEdit) {
             const missingEvidence = actividades.filter(a =>
                 a.cumple &&
@@ -191,9 +333,17 @@ export default function RegistroForm() {
             }
         }
 
+        // Validate assignment
+        if (!form.contratista_asignacion_id) {
+            setError('Debe seleccionar una asignación (contrato/servicio)');
+            setLoading(false);
+            return;
+        }
+
         const payload = {
             ...form,
-            periodo: `${form.periodo}-01`, // Convert YYYY-MM to YYYY-MM-DD
+            contratista_id: selectedContractor, // Send selected Contratista company ID
+            periodo: `${form.periodo}-01`,
             actividades: actividades.map(a => ({
                 id: a.id,
                 actividad_id: a.actividad_id,
@@ -206,106 +356,217 @@ export default function RegistroForm() {
         };
 
         try {
+            let response;
             if (isEdit) {
-                await api.put(`/registros/${id}`, payload);
+                response = await api.put(`/registros/${id}`, payload);
             } else {
-                await api.post('/registros', payload);
+                response = await api.post('/registros', payload);
             }
+
+            // Process Pending Uploads if any (for New Registers)
+            if (!isEdit) {
+                const hasFiles = actividades.some(a => a.pendingFiles?.length > 0);
+                if (hasFiles) {
+                    let createdReq = response.data.data;
+                    const newRegId = createdReq.id;
+
+                    // If activities not returned in response, fetch them to get IDs
+                    if (!createdReq.actividades) {
+                        const refetch = await api.get(`/registros/${newRegId}`);
+                        createdReq = refetch.data.data;
+                    }
+
+                    // Upload files
+                    await Promise.all(actividades.map(async (localAct) => {
+                        if (localAct.pendingFiles?.length > 0) {
+                            // Match local activity to new RegistroActividad by activity_id
+                            const targetRA = createdReq.actividades.find(ra => ra.actividad_id === localAct.actividad_id);
+                            if (targetRA) {
+                                await Promise.all(localAct.pendingFiles.map(file => {
+                                    const fd = new FormData();
+                                    fd.append('archivo', file);
+                                    fd.append('registro_actividad_id', targetRA.id);
+                                    return api.post('/evidencias', fd, {
+                                        headers: { 'Content-Type': 'multipart/form-data' }
+                                    });
+                                }));
+                            }
+                        }
+                    }));
+                }
+            }
+
             navigate('/registros');
         } catch (err) {
-            setError(err.response?.data?.message || 'Error al guardar');
+            const msg = err.response?.data?.message || 'Error al guardar';
+            if (err.response?.status === 409) {
+                setErrorModal({ show: true, message: msg });
+            } else {
+                setError(msg);
+            }
         } finally {
             setLoading(false);
         }
     };
 
+    const isContractor = ['contratista_admin', 'contratista_user'].includes(user?.role);
+    const isAdminOrADC = isAdmin || user?.role === 'administrador_contrato';
+
+    const handleReabrirDirecto = () => {
+        setConfirmModal({
+            isOpen: true,
+            title: 'Reabrir Registro',
+            message: '¿Está seguro de reabrir este registro? Pasará a estado "Pendiente" y podrá ser editado nuevamente.',
+            action: async () => {
+                try {
+                    await api.post('/reaperturas/directa', { registro_id: id });
+                    toast.success('Registro reabierto exitosamente');
+                    fetchRegistro();
+                } catch (err) {
+                    toast.error(err.response?.data?.message || 'Error al reabrir registro');
+                }
+            }
+        });
+    };
+
+    // Helper to get current assignment details
+    const currentAssignment = useMemo(() => {
+        if (!form.contratista_asignacion_id || !assignments.length) return null;
+        return assignments.find(a => String(a.id) === String(form.contratista_asignacion_id));
+    }, [form.contratista_asignacion_id, assignments]);
+
+    // Group activities by Elemento
+    const groupedActividades = useMemo(() => {
+        const groups = {};
+        actividades.forEach(act => {
+            const elemId = act.elemento?.id || 'other';
+            const elemName = act.elemento?.nombre || 'Otros';
+            // Assuming Elemento has a number/prefix like "ELEMENTO 9: ..."
+            // If not, we might want to pretend or just use the name
+            if (!groups[elemId]) {
+                groups[elemId] = { id: elemId, name: elemName, acts: [], total: 0, cumple: 0 };
+            }
+            groups[elemId].acts.push(act);
+
+            // Calculate progress for element
+            // Ignore N/A? Or strict? Let's use simple count for now.
+            groups[elemId].total++;
+            if (act.cumple) groups[elemId].cumple++;
+        });
+        return Object.values(groups).sort((a, b) => a.id - b.id);
+    }, [actividades]);
+
+    // Calculate total progress
+    const totalProgress = useMemo(() => {
+        if (!actividades.length) return 0;
+        const cumplidas = actividades.filter(a => a.cumple).length;
+        return Math.round((cumplidas / actividades.length) * 100);
+    }, [actividades]);
+
+    const handleBack = () => navigate(-1);
+
+    if (!user) return <div className="loading">Cargando...</div>;
+
+    const parsedCursor = (disabled) => disabled ? 'not-allowed' : 'pointer';
+
+    const readOnlyStyle = {
+        backgroundColor: '#f3f4f6',
+        border: '1px solid #e5e7eb',
+        color: '#374151'
+    };
+
     return (
-        <div className="page-container">
-            <header className="page-header">
-                <button onClick={() => navigate(-1)} className="btn-back">
-                    <ArrowLeft size={18} /> Volver
-                </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <h1>{isEdit ? 'Editar Registro' : 'Nuevo Registro'}</h1>
-                    {isEdit && (
-                        <a
-                            href={`${api.defaults.baseURL}/reportes/registro/${id}/pdf?token=${localStorage.getItem('token')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn-secondary"
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                textDecoration: 'none',
-                                fontSize: '0.9rem',
-                                padding: '0.5rem 1rem'
-                            }}
-                        >
-                            <FileText size={18} />
-                            Descargar Reporte
-                            <FileText size={18} />
-                            Descargar Reporte
-                        </a>
-                    )}
+        <div className="page-container" style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px' }}>
 
-                    {/* US-5.1: Request Reopening */}
+            {/* Header Title */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '1rem' }}>
+                <FileText size={24} color="#f97316" /> {/* Orange Icon */}
+                <h1 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#111827', margin: 0 }}>
+                    Registro Mensual de Cumplimiento
+                </h1>
+            </div>
 
-                </div>
-            </header>
-
-            {error && <div className="error-message">{error}</div>}
+            {error && <div className="error-message" style={{ marginBottom: '1rem' }}>{error}</div>}
 
             <form onSubmit={handleSubmit}>
-                <div className="form-card">
-                    <h2>Información General</h2>
 
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label htmlFor="periodo">Periodo *</label>
-                            <input
-                                id="periodo"
-                                type="month"
-                                value={form.periodo}
-                                onChange={(e) => setForm({ ...form, periodo: e.target.value })}
-                                required
-                            />
+                {/* Information Card */}
+                <div style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '1.5rem' }}>
+                    <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#1f2937', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ width: '4px', height: '16px', backgroundColor: '#3b82f6', borderRadius: '2px' }}></span>
+                        Información del Contratista
+                    </h2>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', marginBottom: '1rem' }}>
+                        {/* Row 1 */}
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Programa</label>
+                            <input type="text" className="form-control" style={readOnlyStyle} readOnly
+                                value={currentAssignment?.servicio?.programa?.nombre || 'Cargando...'} />
                         </div>
-                        <div className="form-group">
-                            <label htmlFor="dotacion_total">Dotación Total</label>
-                            <input
-                                id="dotacion_total"
-                                type="number"
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Servicio</label>
+                            <input type="text" className="form-control" style={readOnlyStyle} readOnly
+                                value={currentAssignment?.servicio?.nombre || ''} />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Dependencia</label>
+                            <input type="text" className="form-control" style={readOnlyStyle} readOnly
+                                value={currentAssignment?.dependencia?.nombre || ''} />
+                        </div>
+
+                        {/* Row 2 */}
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Periodo *</label>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                {/* Access Text representation of month if needed, or just the input */}
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    style={readOnlyStyle} // Keeping it readonly style for look, but it might need to be editable if new? 
+                                    // Actually prompt implies it's "pre-selected" via widget, so maybe readonly?
+                                    // But general case allows edit. Let's keep standard style if editable.
+                                    // Re-reading styling requirement: "inputs as readonly/disabled where appropriate to match the gray background"
+                                    // Periodo is usually editable unless locked.
+                                    // Let's use standard style but logic handles disabled state.
+                                    disabled={Boolean(searchParams.get('vinculacion_id'))}
+                                    value={new Date(form.periodo + '-01').toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                                    readOnly={true} // Visual hack to show text, but we store YYYY-MM
+                                />
+                                {/* Hidden real input if needed or just use logic */}
+                            </div>
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Nombre EECC *</label>
+                            <input type="text" className="form-control" style={readOnlyStyle} readOnly
+                                value={user?.contratistaEntidad?.nombre || user?.eecc_nombre || searchNombre || ''} />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Dotación Total</label>
+                            <input type="number" className="form-control"
                                 value={form.dotacion_total}
                                 onChange={(e) => setForm({ ...form, dotacion_total: parseInt(e.target.value) || 0 })}
                             />
                         </div>
-                    </div>
 
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label htmlFor="personas_nuevas">Personas Nuevas</label>
-                            <input
-                                id="personas_nuevas"
-                                type="number"
+                        {/* Row 3 */}
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Personas Nuevas</label>
+                            <input type="number" className="form-control"
                                 value={form.personas_nuevas}
                                 onChange={(e) => setForm({ ...form, personas_nuevas: parseInt(e.target.value) || 0 })}
                             />
                         </div>
-                        <div className="form-group">
-                            <label htmlFor="supervisores">Supervisores</label>
-                            <input
-                                id="supervisores"
-                                type="number"
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Supervisores</label>
+                            <input type="number" className="form-control"
                                 value={form.supervisores}
                                 onChange={(e) => setForm({ ...form, supervisores: parseInt(e.target.value) || 0 })}
                             />
                         </div>
-                        <div className="form-group">
-                            <label htmlFor="prevencionistas">Prevencionistas</label>
-                            <input
-                                id="prevencionistas"
-                                type="number"
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Prevencionistas</label>
+                            <input type="number" className="form-control"
                                 value={form.prevencionistas}
                                 onChange={(e) => setForm({ ...form, prevencionistas: parseInt(e.target.value) || 0 })}
                             />
@@ -313,231 +574,343 @@ export default function RegistroForm() {
                     </div>
                 </div>
 
-                {/* US-3.14: Audit Configuration Panel */}
-                {(user?.role === 'admin' || user?.role === 'administrador_contrato') && (
-                    <div className="form-card" style={{ borderLeft: '4px solid var(--color-brand-secondary)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                            <ClipboardCheck size={20} color="var(--color-brand-secondary)" />
-                            <h2 style={{ margin: 0 }}>Panel de Auditoría</h2>
+                {/* Progress Bar */}
+                <div style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '1rem 1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '1.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                        <span style={{ fontWeight: 600, color: '#374151' }}>Progreso de Cumplimiento</span>
+                        <span style={{ fontWeight: 700, color: totalProgress < 70 ? '#ef4444' : '#10b981' }}>{totalProgress}%</span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', backgroundColor: '#f3f4f6', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ width: `${totalProgress}%`, height: '100%', backgroundColor: totalProgress < 70 ? '#ef4444' : '#10b981', transition: 'width 0.3s' }}></div>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.5rem' }}>Meta: 85%</div>
+                </div>
+
+                {/* Activities Groups */}
+                {groupedActividades.map(group => (
+                    <div key={group.id} style={{ marginBottom: '2rem', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', backgroundColor: 'white' }}>
+                        {/* Element Header */}
+                        <div style={{ backgroundColor: '#1d4ed8', color: 'white', padding: '0.75rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, textTransform: 'uppercase' }}>
+                                {group.name}
+                            </h3>
+                            <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
+                                {group.cumple}/{group.total}  {Math.round((group.cumple / group.total) * 100)}%
+                            </div>
                         </div>
-                        <div className="form-row">
-                            <div className="form-group">
-                                <label htmlFor="tipo_auditoria">Tipo de Auditoría</label>
-                                <select
-                                    id="tipo_auditoria"
-                                    value={form.tipo_auditoria || 'sistema'}
-                                    onChange={(e) => setForm({ ...form, tipo_auditoria: e.target.value })}
-                                >
-                                    <option value="sistema">Sistema / Remota</option>
-                                    <option value="terreno">Presencial / Terreno</option>
-                                </select>
+
+                        {/* Activities Table */}
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                                <thead style={{ backgroundColor: '#f9fafb', color: '#6b7280', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                                    <tr>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '60px' }}>Código</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600 }}>Actividad</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '15%' }}>Criterios de Aceptar</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600, width: '80px' }}>Frecuencia</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600, width: '140px' }}>Cumple</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600, width: '100px', backgroundColor: '#f0f9ff', color: '#0369a1' }}>Auditor</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '150px', backgroundColor: '#f0f9ff', color: '#0369a1' }}>Obs. Auditor</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '150px' }}>Responsable</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '150px' }}>Evidencia</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {group.acts.map((act) => {
+                                        // Find index in main activities array for handlers
+                                        const globalIndex = actividades.findIndex(a => a === act);
+
+                                        return (
+                                            <tr key={act.id || act.actividad_id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                                <td style={{ padding: '1rem', verticalAlign: 'top', color: '#3b82f6', fontWeight: 600 }}>
+                                                    <span style={{ backgroundColor: '#eff6ff', padding: '2px 6px', borderRadius: '4px' }}>{act.codigo}</span>
+                                                </td>
+                                                <td style={{ padding: '1rem', verticalAlign: 'top', color: '#374151' }}>
+                                                    <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>{act.descripcion}</div>
+                                                </td>
+                                                <td style={{ padding: '1rem', verticalAlign: 'top', color: '#6b7280', fontSize: '0.8rem' }}>
+                                                    {act.criterios || '-'}
+                                                </td>
+                                                <td style={{ padding: '1rem', verticalAlign: 'top', textAlign: 'center', color: '#6b7280', fontSize: '0.8rem' }}>
+                                                    {act.frecuencia || 'Mensual'}
+                                                </td>
+                                                <td style={{ padding: '1rem', verticalAlign: 'top', textAlign: 'center' }}>
+                                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => !registroCerrado && handleActividadChange(globalIndex, 'cumple', true)}
+                                                            style={{
+                                                                padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid', cursor: parsedCursor(registroCerrado),
+                                                                backgroundColor: act.cumple ? '#f0fdf4' : 'transparent',
+                                                                borderColor: act.cumple ? '#16a34a' : '#e5e7eb',
+                                                                color: act.cumple ? '#15803d' : '#9ca3af',
+                                                                fontWeight: act.cumple ? 600 : 400,
+                                                                opacity: registroCerrado ? 0.6 : 1
+                                                            }}
+                                                        >
+                                                            ✓ Cumple
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => !registroCerrado && handleActividadChange(globalIndex, 'cumple', false)}
+                                                            style={{
+                                                                padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid', cursor: parsedCursor(registroCerrado),
+                                                                backgroundColor: !act.cumple ? '#fef2f2' : 'transparent',
+                                                                borderColor: !act.cumple ? '#ef4444' : '#e5e7eb',
+                                                                color: !act.cumple ? '#b91c1c' : '#9ca3af',
+                                                                fontWeight: !act.cumple ? 600 : 400,
+                                                                opacity: registroCerrado ? 0.6 : 1
+                                                            }}
+                                                        >
+                                                            ✕ No Cumple
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                                {/* Auditor Columns */}
+                                                <td style={{ padding: '1rem', verticalAlign: 'top', textAlign: 'center', backgroundColor: '#f0f9ff' }}>
+                                                    {act.cumple_auditor === true && <span style={{ color: '#16a34a', fontWeight: 'bold' }}>✓</span>}
+                                                    {act.cumple_auditor === false && <span style={{ color: '#dc2626', fontWeight: 'bold' }}>✕</span>}
+                                                    {act.cumple_auditor === null && <span style={{ color: '#9ca3af' }}>-</span>}
+                                                </td>
+                                                <td style={{ padding: '1rem', verticalAlign: 'top', backgroundColor: '#f0f9ff', fontSize: '0.8rem', color: '#374151' }}>
+                                                    {act.observacion_auditor || '-'}
+                                                </td>
+                                                <td style={{ padding: '1rem', verticalAlign: 'top' }}>
+                                                    <input
+                                                        type="text"
+                                                        className="form-control"
+                                                        placeholder="Nombre"
+                                                        value={act.responsable}
+                                                        onChange={(e) => handleActividadChange(globalIndex, 'responsable', e.target.value)}
+                                                        style={{ fontSize: '0.8rem', padding: '0.4rem', height: 'auto' }}
+                                                        disabled={registroCerrado}
+                                                    />
+                                                </td>
+                                                <td style={{ padding: '1rem', verticalAlign: 'top' }}>
+                                                    {/* Use FileUpload component but style it */}
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                        {isEdit ? (
+                                                            <div className="custom-file-upload">
+                                                                <FileUpload
+                                                                    registroActividadId={act.id}
+                                                                    existingCount={act.evidencias?.length || 0}
+                                                                    templateUrl={act.template_url}
+                                                                    disabled={registroCerrado}
+                                                                    onUploadComplete={(evidencia) => {
+                                                                        const updated = [...actividades];
+                                                                        if (!updated[globalIndex].evidencias) updated[globalIndex].evidencias = [];
+                                                                        updated[globalIndex].evidencias.push(evidencia);
+                                                                        setActividades(updated);
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="custom-file-upload">
+                                                                <FileUpload
+                                                                    existingCount={(act.pendingFiles?.length || 0)}
+                                                                    templateUrl={act.template_url}
+                                                                    disabled={registroCerrado}
+                                                                    onFileSelect={(file) => {
+                                                                        const updated = [...actividades];
+                                                                        if (!updated[globalIndex].pendingFiles) updated[globalIndex].pendingFiles = [];
+                                                                        updated[globalIndex].pendingFiles.push(file);
+                                                                        setActividades(updated);
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        )}
+
+                                                        {/* Existing Evidence */}
+                                                        {act.evidencias?.length > 0 && (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                                {act.evidencias.map(e => (
+                                                                    <a
+                                                                        key={e.id}
+                                                                        href={`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/${e.ruta}`}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        style={{ fontSize: '0.7rem', color: '#3b82f6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                                    >
+                                                                        📄 {e.nombre_archivo.substring(0, 15)}...
+                                                                    </a>
+                                                                ))}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Pending Files */}
+                                                        {act.pendingFiles?.length > 0 && (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+                                                                <small style={{ fontSize: '0.7rem', color: '#f59e0b' }}>Pendientes:</small>
+                                                                {act.pendingFiles.map((f, i) => (
+                                                                    <div key={i} style={{ fontSize: '0.7rem', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                        ⏳ {f.name.substring(0, 15)}...
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ))
+                }
+
+                {/* Audit Feedback Section */}
+                {(isEdit && (reviewComments || generalCommitments.length > 0)) && (
+                    <div style={{ marginTop: '2rem', marginBottom: '2rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+
+                        {/* Comments */}
+                        <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <FileText size={18} /> Comentarios Auditoría
+                            </h3>
+                            <div style={{ backgroundColor: '#f9fafb', padding: '1rem', borderRadius: '6px', fontSize: '0.9rem', color: '#4b5563', minHeight: '80px' }}>
+                                {reviewComments || 'Sin comentarios generales.'}
                             </div>
-                            <div className="form-group">
-                                <label htmlFor="estado_auditoria">Estado</label>
-                                <select
-                                    id="estado_auditoria"
-                                    value={form.estado_auditoria}
-                                    onChange={(e) => setForm({ ...form, estado_auditoria: e.target.value })}
-                                >
-                                    <option value="pendiente">Pendiente</option>
-                                    <option value="auditando">En Revisión (Auditando)</option>
-                                    <option value="auditada_sistema">Aprobar (Sistema)</option>
-                                    <option value="auditada_terreno">Aprobar (Terreno)</option>
-                                    <option value="reabierto">Solicitar Corrección (Reapertura)</option>
-                                </select>
-                            </div>
+                        </div>
+
+                        {/* Commitments */}
+                        <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <ClipboardCheck size={18} /> Compromisos
+                            </h3>
+                            {generalCommitments.length === 0 ? (
+                                <div style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '0.9rem' }}>No hay compromisos registrados.</div>
+                            ) : (
+                                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    {generalCommitments.map(comp => (
+                                        <li key={comp.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f3f4f6', paddingBottom: '0.5rem' }}>
+                                            <span style={{ fontSize: '0.9rem', color: '#374151', fontWeight: 500 }}>{comp.descripcion}</span>
+                                            <span style={{ fontSize: '0.8rem', color: '#6b7280', backgroundColor: '#f3f4f6', padding: '2px 6px', borderRadius: '4px' }}>
+                                                {new Date(comp.fecha_compromiso).toLocaleDateString('es-CL')}
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
                         </div>
                     </div>
                 )}
 
-                <div className="form-card">
-                    <h2>Actividades</h2>
+                {/* Footer */}
+                <div style={{
+                    marginTop: '2rem',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    position: 'sticky',
+                    bottom: 0,
+                    backgroundColor: 'white',
+                    padding: '1rem 1rem',
+                    borderTop: '1px solid #e5e7eb',
+                    zIndex: 10,
+                    boxShadow: '0 -2px 10px rgba(0,0,0,0.05)',
+                    marginLeft: '-20px',
+                    marginRight: '-20px'
+                }}>
+                    <button
+                        type="button"
+                        onClick={handleBack}
+                        style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                        ← Volver
+                    </button>
 
-                    <div className="actividades-form">
-                        {actividades.map((act, index) => (
-                            <div key={index} className="actividad-row">
-                                <div className="actividad-info">
-                                    <code>{act.codigo}</code>
-                                    <span>{act.descripcion}</span>
-                                </div>
-                                <div className="actividad-fields">
-                                    <label className="checkbox-field">
-                                        <input
-                                            type="checkbox"
-                                            checked={act.cumple}
-                                            onChange={(e) => handleActividadChange(index, 'cumple', e.target.checked)}
-                                        />
-                                        Cumple
-                                    </label>
-                                    <input
-                                        type="text"
-                                        placeholder="Responsable"
-                                        value={act.responsable}
-                                        onChange={(e) => handleActividadChange(index, 'responsable', e.target.value)}
-                                        style={{ marginBottom: '0.5rem' }}
-                                    />
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                        {/* Reabrir Action for Admin/ADC */}
+                        {(isAdminOrADC && (registroCerrado || ['auditado', 'auditada', 'auditada_sistema', 'auditada_terreno'].includes(form.estado_auditoria))) && (
+                            <button
+                                type="button"
+                                onClick={handleReabrirDirecto}
+                                style={{
+                                    backgroundColor: '#f59e0b', color: 'white', padding: '0.75rem 2rem', borderRadius: '6px',
+                                    border: 'none', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem'
+                                }}
+                            >
+                                <RefreshCw size={20} /> Reabrir Registro
+                            </button>
+                        )}
 
-                                    {/* US-2.25 & US-2.27: Evidence Upload */}
-                                    {isEdit && act.id ? (
-                                        <div className="evidence-section" style={{ marginTop: '0.5rem' }}>
-                                            {act.requiere_evidencia && <small className="text-warning" style={{ display: 'block', marginBottom: 4 }}>* Evidencia Requerida</small>}
-                                            <FileUpload
-                                                registroActividadId={act.id}
-                                                existingCount={act.evidencias?.length || 0}
-                                                onUploadComplete={(evidencia) => {
-                                                    const updated = [...actividades];
-                                                    if (!updated[index].evidencias) updated[index].evidencias = [];
-                                                    updated[index].evidencias.push(evidencia);
-                                                    setActividades(updated);
-                                                }}
-                                            />
-                                            {/* List uploaded files (Gallery) */}
-                                            {act.evidencias && act.evidencias.length > 0 && (
-                                                <div className="evidence-gallery" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
-                                                    {act.evidencias.map(e => (
-                                                        <a
-                                                            key={e.id}
-                                                            href={`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/evidencias/${e.id}/download?token=${localStorage.getItem('token')}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="evidence-item"
-                                                            style={{
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: '0.25rem',
-                                                                padding: '0.25rem 0.5rem',
-                                                                background: '#f3f4f6',
-                                                                borderRadius: '4px',
-                                                                fontSize: '0.8rem',
-                                                                textDecoration: 'none',
-                                                                color: '#374151',
-                                                                border: '1px solid #e5e7eb'
-                                                            }}
-                                                        >
-                                                            {e.nombre_archivo.match(/\.(jpg|jpeg|png|gif)$/i) ? '🖼️' : '📄'}
-                                                            <span style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                {e.nombre_archivo}
-                                                            </span>
-                                                        </a>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem', fontStyle: 'italic' }}>
-                                            Guarde el registro para subir evidencias.
-                                        </div>
-                                    )}
-
-                                    {/* US-3.14: Audit Fields */}
-                                    {(user?.role === 'admin' || user?.role === 'administrador_contrato') && (
-                                        <div className="audit-section" style={{ marginTop: '1rem', paddingTop: '0.5rem', borderTop: '1px dashed #ccc' }}>
-                                            <h4 style={{ fontSize: '0.8rem', color: 'var(--color-brand-secondary)', marginBottom: '0.5rem' }}>Zona Auditor</h4>
-                                            <div className="audit-status-group" style={{ display: 'flex', gap: '1rem', marginBottom: '0.5rem' }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#10b981' }}>
-                                                    <input
-                                                        type="radio"
-                                                        name={`audit_status_${index}`}
-                                                        checked={act.cumple_auditor === 1}
-                                                        onChange={() => handleActividadChange(index, 'cumple_auditor', 1)}
-                                                    />
-                                                    <span>Cumple</span>
-                                                </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#ef4444' }}>
-                                                    <input
-                                                        type="radio"
-                                                        name={`audit_status_${index}`}
-                                                        checked={act.cumple_auditor === 0}
-                                                        onChange={() => handleActividadChange(index, 'cumple_auditor', 0)}
-                                                    />
-                                                    <span>No Cumple</span>
-                                                </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', color: '#6b7280' }}>
-                                                    <input
-                                                        type="radio"
-                                                        name={`audit_status_${index}`}
-                                                        checked={act.cumple_auditor === 2}
-                                                        onChange={() => handleActividadChange(index, 'cumple_auditor', 2)}
-                                                    />
-                                                    <span>N/A</span>
-                                                </label>
-                                            </div>
-                                            <textarea
-                                                placeholder="Observación de auditoría..."
-                                                value={act.observacion_auditor || ''}
-                                                onChange={(e) => handleActividadChange(index, 'observacion_auditor', e.target.value)}
-                                                style={{ width: '100%', marginTop: '0.5rem', fontSize: '0.85rem', padding: '0.5rem' }}
-                                                rows="2"
-                                            />
-                                            {/* US-3.8: Hallazgo UX */}
-                                            {act.cumple_auditor === 0 && (
-                                                <div style={{ marginTop: '0.5rem' }}>
-                                                    {act.hallazgos && act.hallazgos.length > 0 ? (
-                                                        <HallazgoList
-                                                            hallazgos={act.hallazgos}
-                                                            onEdit={(h) => handleHallazgoEdit(h, act)}
-                                                            onDelete={(hId) => handleHallazgoDelete(hId, act.id)}
-                                                            onCompromiso={handleCompromisoClick}
-                                                            canCreateCompromiso={canWrite('Compromiso') || canWrite('Registros')}
-                                                            readOnly={!canWrite('Registro')}
-                                                        />
-                                                    ) : null}
-
-                                                    <button
-                                                        type="button"
-                                                        className="btn-text"
-                                                        style={{ color: '#ef4444', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4, marginTop: '0.5rem' }}
-                                                        onClick={() => openHallazgoModal(act)}
-                                                    >
-                                                        ➕ Agregar Hallazgo
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
+                        {!registroCerrado && (
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                style={{
+                                    backgroundColor: '#10b981', color: 'white', padding: '0.75rem 2rem', borderRadius: '6px', border: 'none', fontWeight: 600, cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                }}
+                            >
+                                {loading ? <RefreshCw className="spin" size={20} /> : <Save size={20} />}
+                                {isEdit ? 'Actualizar' : 'Guardar Registro'}
+                            </button>
+                        )}
                     </div>
                 </div>
+            </form >
 
-                <div className="form-actions">
-                    <button type="button" onClick={() => navigate(-1)} className="btn-secondary">
-                        Cancelar
-                    </button>
-                    <button type="submit" className="btn-primary" disabled={loading}>
-                        <Save size={18} />
-                        {loading ? 'Guardando...' : 'Guardar Registro'}
-                    </button>
-                </div>
-            </form>
-
-            <HallazgoModal
-                isOpen={hallazgoModal.show}
-                onClose={() => setHallazgoModal({ show: false, actividad: null })}
-                onSuccess={handleHallazgoSuccess}
-                registroId={id}
-                actividad={hallazgoModal.actividad}
-                hallazgo={hallazgoModal.hallazgo}
-            />
-
+            {/* Modals placed outside */}
+            {
+                hallazgoModal.show && (
+                    <HallazgoModal
+                        show={hallazgoModal.show}
+                        onClose={() => setHallazgoModal({ show: false, actividad: null, hallazgo: null })}
+                        actividad={hallazgoModal.actividad}
+                        hallazgo={hallazgoModal.hallazgo}
+                        registroId={id || null}
+                        onSuccess={hallazgoModal.hallazgo ? handleHallazgoSuccess : handleHallazgoSuccess}
+                    />
+                )
+            }
             <CompromisoModal
-                isOpen={compromisoModal.show}
+                show={compromisoModal.show}
                 onClose={() => setCompromisoModal({ show: false, hallazgo: null })}
-                onSuccess={handleCompromisoSuccess}
-                registroId={id}
                 hallazgo={compromisoModal.hallazgo}
+                onSuccess={handleCompromisoSuccess}
             />
-
             <SolicitudReaperturaModal
-                registroId={id}
                 isOpen={reaperturaModal.show}
                 onClose={() => setReaperturaModal({ show: false })}
-                onSuccess={() => {
-                    alert('Solicitud enviada exitosamente');
-                    fetchRegistro(); // Reload status
-                }}
+                registroId={id}
+                onSuccess={() => { setReaperturaModal({ show: false }); fetchRegistro(); }}
             />
-        </div>
+            {
+                errorModal.show && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+                    }}>
+                        <div style={{ background: 'white', padding: '2rem', borderRadius: '8px', maxWidth: '400px', textAlign: 'center' }}>
+                            <h3 style={{ marginTop: 0, color: '#dc2626' }}>Error</h3>
+                            <p>{errorModal.message}</p>
+                            <button
+                                onClick={() => setErrorModal({ show: false, message: '' })}
+                                style={{
+                                    marginTop: '1rem', padding: '0.5rem 1rem', background: '#3b82f6', color: 'white',
+                                    border: 'none', borderRadius: '4px', cursor: 'pointer'
+                                }}
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+                    </div>
+                )
+            }
+
+            <ConfirmationModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                onConfirm={confirmModal.action}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                confirmText="Confirmar"
+                cancelText="Cancelar"
+            />
+        </div >
     );
-}
+};
+
+

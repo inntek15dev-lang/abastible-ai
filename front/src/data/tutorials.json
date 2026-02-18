@@ -1,0 +1,345 @@
+[
+    {
+        "id": "dashboard-tour-user",
+        "title": "Conociendo el Dashboard",
+        "role": "contratista_user",
+        "module": "Inicio",
+        "startUrl": "/",
+        "description": "Recorrido por los indicadores principales de su gestión.",
+        "steps": [
+            {
+                "element": "#kpi-card-0",
+                "popover": {
+                    "title": "Registros Pendientes",
+                    "description": "Cantidad de registros que requieren su atención inmediata."
+                }
+            },
+            {
+                "element": "#kpi-card-1",
+                "popover": {
+                    "title": "% Auditados",
+                    "description": "Porcentaje de registros que ya han sido revisados, en terreno o sistema."
+                }
+            },
+            {
+                "element": "#kpi-card-2",
+                "popover": {
+                    "title": "Evidencias",
+                    "description": "Cantidad total de documentos y fotos subidas este periodo."
+                }
+            }
+        ]
+    },
+    {
+        "id": "crear-registro-contratista",
+        "title": "Crear Nuevo Registro Mensual",
+        "role": "contratista_admin",
+        "module": "Gestión de Registros",
+        "startUrl": "/registros",
+        "description": "Guía paso a paso para crear un nuevo registro de cumplimiento mensual.",
+        "steps": [
+            {
+                "element": "#btn-nuevo-registro",
+                "popover": {
+                    "title": "Iniciar Nuevo Registro",
+                    "description": "Haga clic aquí para comenzar un nuevo registro de cumplimiento para el mes actual.",
+                    "side": "bottom"
+                }
+            },
+            {
+                "element": "#select-servicio",
+                "popover": {
+                    "title": "Seleccionar Servicio",
+                    "description": "Elija el contrato o servicio asociado a este registro.",
+                    "side": "right"
+                }
+            },
+            {
+                "element": "#select-dependencia",
+                "popover": {
+                    "title": "Seleccionar Dependencia",
+                    "description": "Indique la instalación o dependencia donde se prestó el servicio.",
+                    "side": "right"
+                }
+            },
+            {
+                "element": "#btn-guardar-registro",
+                "popover": {
+                    "title": "Crear Borrador",
+                    "description": "Guarde la información inicial para generar el registro y comenzar a cargar evidencias.",
+                    "side": "top"
+                }
+            }
+        ]
+    },
+    {
+        "id": "carga-evidencias",
+        "title": "Carga de Evidencias",
+        "role": "contratista_admin",
+        "module": "Gestión de Registros",
+        "startUrl": "/registros",
+        "description": "Cómo subir documentos obligatorios para validar sus actividades.",
+        "steps": [
+            {
+                "element": ">> row-status:pendiente .tutorial-btn-editar",
+                "popover": {
+                    "title": "Editar Registro",
+                    "description": "Seleccione un registro pendiente para ingresar y cargar evidencias."
+                }
+            },
+            {
+                "element": ".tutorial-evidence-section",
+                "popover": {
+                    "title": "Sección de Evidencias",
+                    "description": "Aquí puede subir fotos o documentos. Recuerde que si la actividad lo requiere (*), es obligatorio."
+                }
+            },
+            {
+                "element": "#btn-save-registro",
+                "popover": {
+                    "title": "Guardar Cambios",
+                    "description": "No olvide guardar el registro para que las evidencias queden registradas en el sistema."
+                }
+            }
+        ]
+    },
+    {
+        "id": "solicitud-reapertura",
+        "title": "Solicitar Reapertura",
+        "role": "contratista_admin",
+        "module": "Solicitudes",
+        "startUrl": "/registros",
+        "description": "Qué hacer si su registro fue cerrado pero necesita corregir algo.",
+        "steps": [
+            {
+                "element": "#filter-status",
+                "popover": {
+                    "title": "Buscar Registro",
+                    "description": "Filtre por 'Cerrado' o 'Auditado' para encontrar registros antiguos."
+                }
+            },
+            {
+                "element": ">> row-status:auditada_sistema .tutorial-btn-reabrir",
+                "popover": {
+                    "title": "Solicitar Reapertura",
+                    "description": "Este botón permite enviar una solicitud al administrador para volver a editar el registro."
+                }
+            },
+            {
+                "element": "#reapertura-motivo",
+                "popover": {
+                    "title": "Justificación",
+                    "description": "Explique claramente por qué necesita abrir nuevamente el registro (ej. 'Faltó subir un documento')."
+                },
+                "action": {
+                    "type": "input",
+                    "value": "Solicito reapertura para corregir documento erróneo."
+                }
+            },
+            {
+                "element": "#btn-enviar-reapertura",
+                "popover": {
+                    "title": "Enviar Solicitud",
+                    "description": "El administrador recibirá su petición y le notificará si es aprobada o rechazada."
+                }
+            }
+        ]
+    },
+    {
+        "id": "gestion-programas",
+        "title": "Gestión de Programas de Auditoría",
+        "role": "admin",
+        "module": "Programas",
+        "startUrl": "/programas",
+        "description": "Cómo crear y configurar programas de auditoría.",
+        "steps": [
+            {
+                "element": ".page-header",
+                "popover": {
+                    "title": "Gestión de Programas",
+                    "description": "Aquí puede ver todos los programas de auditoría vigentes."
+                }
+            },
+            {
+                "element": "#btn-new-program",
+                "popover": {
+                    "title": "Crear Programa",
+                    "description": "Use este botón para definir un nuevo estándar o programa de cumplimiento."
+                }
+            },
+            {
+                "element": ".program-card",
+                "popover": {
+                    "title": "Tarjeta de Programa",
+                    "description": "Cada tarjeta muestra el estado y configuración general del programa."
+                }
+            },
+            {
+                "element": ".btn-view-elements",
+                "popover": {
+                    "title": "Ver Elementos",
+                    "description": "Haga clic aquí para configurar los Elementos y Actividades específicas de este programa."
+                }
+            }
+        ]
+    },
+    {
+        "id": "gestion-elementos",
+        "title": "Configuración de Elementos y Actividades",
+        "role": "admin",
+        "module": "Programas",
+        "//comment": "This tutorial assumes user is inside ElementoList",
+        "description": "Cómo agregar estructura (elementos y actividades) a un programa.",
+        "steps": [
+            {
+                "element": ".btn-new-element",
+                "popover": {
+                    "title": "Nuevo Elemento",
+                    "description": "Cree un agrupador o categoría principal para sus actividades (ej. 'Seguridad Laboral')."
+                }
+            },
+            {
+                "element": ".element-container",
+                "popover": {
+                    "title": "Elemento",
+                    "description": "Aquí verá el desglose del elemento creado."
+                }
+            },
+            {
+                "element": ".btn-add-activity",
+                "popover": {
+                    "title": "Agregar Actividad",
+                    "description": "Defina las tareas específicas que el contratista debe cumplir y evidenciar."
+                }
+            },
+            {
+                "element": ".activities-table",
+                "popover": {
+                    "title": "Tabla de Actividades",
+                    "description": "Revise códigos, descripciones y si requieren evidencia obligatoria."
+                }
+            }
+        ]
+    },
+    {
+        "id": "gestion-contratistas",
+        "title": "Gestión de Empresas Contratistas",
+        "role": "admin",
+        "module": "Contratistas",
+        "startUrl": "/contratistas",
+        "description": "Administración de empresas, servicios y administradores de contrato.",
+        "steps": [
+            {
+                "element": "#btn-sync-contractors",
+                "popover": {
+                    "title": "Sincronizar",
+                    "description": "Importe o actualice la lista de contratistas desde fuentes externas si está configurado."
+                }
+            },
+            {
+                "element": "#btn-new-contractor",
+                "popover": {
+                    "title": "Crear Contratista",
+                    "description": "Registre manualmente una nueva empresa contratista."
+                }
+            },
+            {
+                "element": ".contratista-card",
+                "popover": {
+                    "title": "Ficha de Contratista",
+                    "description": "Vea la información básica, RUT y estado."
+                }
+            },
+            {
+                "element": ".action-btn",
+                "popover": {
+                    "title": "Ver Vinculaciones",
+                    "description": "Despliegue para asignar Servicios, Dependencias y Administradores de Contrato."
+                }
+            }
+        ]
+    },
+    {
+        "id": "auditar-registro",
+        "title": "Auditoría de Registro Mensual",
+        "role": "administrador_contrato",
+        "module": "Auditoría",
+        "startUrl": "/registros",
+        "description": "Flujo completo para validar el cumplimiento de un contratista.",
+        "steps": [
+            {
+                "element": ">> row-status:pendiente .tutorial-btn-editar",
+                "popover": {
+                    "title": "Iniciar Auditoría",
+                    "description": "Seleccione un registro en estado 'Pendiente' para comenzar la revisión."
+                }
+            },
+            {
+                "element": "#btn-iniciar-auditoria",
+                "popover": {
+                    "title": "Confirmar Inicio",
+                    "description": "Al iniciar, el registro cambiará a estado 'Auditando' y el contratista no podrá hacer cambios."
+                }
+            },
+            {
+                "element": ".audit-section",
+                "popover": {
+                    "title": "Zona de Auditoría",
+                    "description": "Aquí puede marcar Cumple/No Cumple y dejar observaciones para cada actividad."
+                }
+            },
+            {
+                "element": "#btn-add-hallazgo",
+                "popover": {
+                    "title": "Levantar Hallazgo",
+                    "description": "Si detecta incumplimientos, agregue un hallazgo formal para seguimiento."
+                }
+            },
+            {
+                "element": "#btn-save-registro",
+                "popover": {
+                    "title": "Guardar Avance/Finalizar",
+                    "description": "Guarde sus observaciones y cambie el estado del registro a 'Auditada' o 'Rechazada'."
+                }
+            }
+        ]
+    },
+    {
+        "id": "generacion-reportes",
+        "title": "Generación de Reportes",
+        "role": "admin",
+        "module": "Reportes",
+        "startUrl": "/reportes",
+        "description": "Cómo consultar y exportar datos de cumplimiento.",
+        "steps": [
+            {
+                "element": "#filter-periodo-report",
+                "popover": {
+                    "title": "Seleccionar Periodo",
+                    "description": "Elija el mes y año que desea analizar."
+                }
+            },
+            {
+                "element": "#report-card-compliance",
+                "popover": {
+                    "title": "Gráficos de Cumplimiento",
+                    "description": "Visualice el desempeño por elemento del programa."
+                }
+            },
+            {
+                "element": "#btn-export-excel",
+                "popover": {
+                    "title": "Exportar Excel",
+                    "description": "Descargue la data cruda para análisis detallados."
+                }
+            },
+            {
+                "element": "#btn-export-pdf",
+                "popover": {
+                    "title": "Exportar PDF",
+                    "description": "Genere un informe ejecutivo listo para imprimir o compartir."
+                }
+            }
+        ]
+    }
+]

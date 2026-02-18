@@ -10,7 +10,7 @@ const ComplianceChart = ({ data }) => {
 
     return (
         <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer>
+            <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                     data={data}
                     margin={{

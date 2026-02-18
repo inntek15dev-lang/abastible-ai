@@ -1,139 +1,220 @@
+// IEEE Trace: REQ-001 | US-001 | pages/programas/ElementoList.jsx
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
-import { Plus, Edit, Trash2, Filter } from 'lucide-react';
+import { Plus, Edit, Trash2, ArrowLeft, FolderOpen, Pencil, Paperclip } from 'lucide-react';
+import './ElementoList.css';
 
 export default function ElementoList() {
+    const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const programId = searchParams.get('programa_id');
+
+    const [program, setProgram] = useState(null);
     const [elementos, setElementos] = useState([]);
-    const [programas, setProgramas] = useState([]);
-    const [selectedPrograma, setSelectedPrograma] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const { canWrite, canExec } = useAuth();
 
-    useEffect(() => {
-        fetchResources();
-    }, []);
+    // Modal states (reused from previous logic, simplified for brevity here)
+    // In a real refactor, these should be separate components or keep existing modal logic.
+    // implementing visual structure first.
+    // Modal logic removed - functionality moved to ActividadForm page
 
     useEffect(() => {
-        fetchElementos();
-    }, [selectedPrograma]);
-
-    const fetchResources = async () => {
-        try {
-            const res = await api.get('/programas');
-            setProgramas(res.data.data);
-        } catch (err) {
-            console.error(err);
+        if (programId) {
+            fetchProgramData();
+        } else {
+            setError("No se ha seleccionado un programa válido.");
+            setLoading(false);
         }
-    };
+    }, [programId]);
 
-    const fetchElementos = async () => {
+
+
+    const fetchProgramData = async () => {
         setLoading(true);
         try {
-            const url = selectedPrograma ? `/elementos?programa_id=${selectedPrograma}` : '/elementos';
-            const response = await api.get(url);
-            setElementos(response.data.data);
+            // Fetch Program Details
+            const progRes = await api.get(`/programas/${programId}`);
+            setProgram(progRes.data.data);
+
+            // Fetch Elements for this program
+            const elemRes = await api.get(`/elementos?programa_id=${programId}`);
+            setElementos(elemRes.data.data);
         } catch (err) {
-            setError('Error al cargar elementos');
+            setError('Error al cargar datos del programa.');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm('¿Eliminar este elemento? Se eliminarán también sus actividades asociadas.')) return;
-        try {
-            await api.delete(`/elementos/${id}`);
-            fetchElementos();
-        } catch (err) {
-            alert('Error al eliminar elemento');
-        }
-    };
+    if (loading) return <div className="loading">Cargando...</div>;
+    if (error) return <div className="error-message">{error}</div>;
+    if (!program) return <div className="error-message">Programa no encontrado</div>;
+
+    // Calculate stats
+    const totalActivities = elementos.reduce((acc, el) => acc + (el.actividades?.length || 0), 0);
 
     return (
-        <div className="page-container">
-            <header className="page-header">
-                <div>
-                    <h1>Elementos del Programa</h1>
-                    <p className="text-secondary">Gestión de áreas y elementos normativos</p>
+        <div className="page-container-elements">
+            {/* 1. Header Area */}
+            <header className="elements-header">
+                <div className="header-left">
+                    <button onClick={() => navigate('/programas')} className="btn-back-circle" title="Volver a Programas">
+                        <ArrowLeft size={20} />
+                    </button>
+                    <div className="program-info-block">
+                        <span className="program-badge">{program.codigo || `PROG-${program.id}`}</span>
+                        <h1>
+                            <span role="img" aria-label="doc">📄</span> {program.nombre}
+                        </h1>
+                    </div>
                 </div>
                 {canWrite('Programas') && (
-                    <Link to="/elementos/new" className="btn-primary">
-                        <Plus size={18} /> Nuevo Elemento
+                    <Link to={`/programas/${program.id}/edit`} className="btn-edit-program">
+                        <Pencil size={16} /> Editar Programa
                     </Link>
                 )}
             </header>
 
-            <div className="filters-bar" style={{ background: 'white', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <Filter size={20} className="text-secondary" />
-                <select
-                    className="form-control"
-                    value={selectedPrograma}
-                    onChange={(e) => setSelectedPrograma(e.target.value)}
-                    style={{ maxWidth: '300px' }}
-                >
-                    <option value="">Todos los Programas</option>
-                    {programas.map(p => (
-                        <option key={p.id} value={p.id}>{p.nombre}</option>
-                    ))}
-                </select>
+            {/* 2. Stats Dashboard */}
+            <div className="stats-dashboard">
+                <div className="stats-grid">
+                    <div className="stat-box">
+                        <span className="stat-value">{program.meta_cumplimiento || 85}%</span>
+                        <span className="stat-label">Meta de Cumplimiento</span>
+                    </div>
+                    <div className="stat-box">
+                        <span className="stat-value green">{elementos.length}</span>
+                        <span className="stat-label">Elementos</span>
+                    </div>
+                    <div className="stat-box">
+                        <span className="stat-value purple">{totalActivities}</span>
+                        <span className="stat-label">Actividades Totales</span>
+                    </div>
+                </div>
+                <p className="program-description-text">
+                    {program.descripcion || 'Sin descripción.'}
+                </p>
             </div>
 
-            {error && <div className="error-message">{error}</div>}
-
-            {loading ? (
-                <div className="loading">Cargando...</div>
-            ) : (
-                <div className="table-container">
-                    <table className="data-table">
-                        <thead>
-                            <tr>
-                                <th>Programa</th>
-                                <th>N°</th>
-                                <th>Nombre</th>
-                                <th>Descripción</th>
-                                <th>Orden</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {elementos.length === 0 ? (
-                                <tr>
-                                    <td colSpan="6" className="text-center py-4">No hay elementos registrados</td>
-                                </tr>
-                            ) : (
-                                elementos.map((elem) => (
-                                    <tr key={elem.id}>
-                                        <td>
-                                            <span className="badge secondary">{elem.programa?.nombre || '-'}</span>
-                                        </td>
-                                        <td style={{ fontWeight: 'bold' }}>{elem.numero}</td>
-                                        <td>{elem.nombre}</td>
-                                        <td style={{ maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {elem.descripcion}
-                                        </td>
-                                        <td>{elem.orden}</td>
-                                        <td className="actions-cell">
-                                            {canWrite('Programas') && (
-                                                <Link to={`/elementos/${elem.id}/edit`} className="btn-icon">
-                                                    <Edit size={18} />
-                                                </Link>
-                                            )}
-                                            {canExec('Programas') && (
-                                                <button onClick={() => handleDelete(elem.id)} className="btn-icon danger">
-                                                    <Trash2 size={18} />
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+            {/* 3. Elements Section Header */}
+            <div className="elements-section-header">
+                <div className="section-title">
+                    <FolderOpen size={20} />
+                    <span>Elementos y Actividades</span>
                 </div>
-            )}
-        </div>
+                {canWrite('Programas') && (
+                    <Link to={`/elementos/new?programa_id=${program.id}`} className="btn-new-element">
+                        <Plus size={16} /> Nuevo Elemento
+                    </Link>
+                )}
+            </div>
+
+            {/* 4. Elements List */}
+            <div>
+                {elementos.length === 0 ? (
+                    <div className="element-container" style={{ padding: '24px', textAlign: 'center', color: '#666' }}>
+                        No hay elementos definidos para este programa.
+                    </div>
+                ) : (
+                    elementos.map((elem, index) => (
+                        <div key={elem.id} className="element-container">
+                            {/* Element Header */}
+                            <div className="element-header-row">
+                                <div className="element-info">
+                                    <div className="element-number-circle">{elem.numero}</div>
+                                    <div className="element-title-block">
+                                        <h3>{elem.nombre}</h3>
+                                        <p className="element-subtitle">{elem.actividades?.length || 0} actividades</p>
+                                    </div>
+                                </div>
+                                <div className="element-actions">
+                                    {canWrite('Programas') && (
+                                        <>
+                                            <button
+                                                className="btn-add-activity"
+                                                onClick={() => navigate('/actividades/new', { state: { elemento_id: elem.id } })}
+                                            >
+                                                <Plus size={14} /> Actividad
+                                            </button>
+                                            <Link to={`/elementos/${elem.id}/edit`} className="btn-edit-text">
+                                                <Pencil size={14} /> Editar
+                                            </Link>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Activities Table (if any) */}
+                            {elem.actividades && elem.actividades.length > 0 && (
+                                <div className="activities-table-wrapper">
+                                    <table className="activities-table">
+                                        <thead>
+                                            <tr>
+                                                <th className="code-col">Cód</th>
+                                                <th className="activity-col">Actividad</th>
+                                                <th className="desc-col">Descripción</th>
+                                                <th className="criteria-col" style={{ width: '25%' }}>CRITERIOS</th>
+                                                <th className="freq-col" style={{ width: '10%' }}>FRECUENCIA</th>
+                                                <th className="meta-col" style={{ width: '10%' }}>EVIDENCIA</th>
+                                                <th style={{ width: '50px' }}></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {elem.actividades.map(act => (
+                                                <tr key={act.id}>
+                                                    <td><span className="badge-code">{act.codigo}</span></td>
+                                                    <td>{act.nombre || act.actividad || 'Actividad...'}</td>
+                                                    <td>{act.descripcion}</td>
+                                                    <td>{act.criterios || '-'}</td>
+                                                    <td>{act.frecuencia}</td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        {act.template_url ? (
+                                                            <a
+                                                                href={`${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/${act.template_url}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="btn-icon-only"
+                                                                title="Descargar plantilla"
+                                                                style={{
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    color: '#2563eb',
+                                                                    textDecoration: 'none'
+                                                                }}
+                                                            >
+                                                                <Paperclip size={16} />
+                                                            </a>
+                                                        ) : (
+                                                            (act.requiere_evidencia ? <span title="Requiere evidencia, sin plantilla" style={{ color: '#d1d5db' }}>-</span> : <span style={{ color: '#9ca3af' }}>-</span>)
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        {canWrite('Programas') && (
+                                                            <button
+                                                                className="btn-icon-only"
+                                                                onClick={() => navigate(`/actividades/${act.id}/edit`)}
+                                                                title="Editar actividad"
+                                                            >
+                                                                <Pencil size={14} className="text-gray-500 hover:text-blue-600" />
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    ))
+                )}
+            </div>
+            {/* Activity Modal Removed - Moved to separate view per Parko */}
+        </div >
     );
 }

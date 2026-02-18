@@ -144,13 +144,13 @@ export default function ReaperturaList() {
                                             {s.estado === 'pendiente' ? (
                                                 <div className="actions-cell">
                                                     <button
-                                                        className="btn-audit success"
+                                                        className="btn-audit success btn-reapertura-aprobar"
                                                         onClick={() => openModal(s, 'aprobar')}
                                                     >
                                                         <Check size={16} /> Aprobar
                                                     </button>
                                                     <button
-                                                        className="btn-audit danger"
+                                                        className="btn-audit danger btn-reapertura-rechazar"
                                                         onClick={() => openModal(s, 'rechazar')}
                                                     >
                                                         <X size={16} /> Rechazar
@@ -191,6 +191,7 @@ export default function ReaperturaList() {
                     </p>
 
                     <textarea
+                        id="txt-motivo-reapertura"
                         className="form-control"
                         rows={3}
                         placeholder={actionType === 'aprobar' ? "Comentario opcional..." : "Razón del rechazo..."}
@@ -206,6 +207,7 @@ export default function ReaperturaList() {
                             Cancelar
                         </button>
                         <button
+                            id="btn-confirmar-reapertura-action"
                             onClick={submitAction}
                             disabled={actionType === 'rechazar' && !actionReason.trim()}
                             className={`px-4 py-2 text-sm font-medium text-white rounded-md disabled:opacity-50 ${actionType === 'aprobar' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'

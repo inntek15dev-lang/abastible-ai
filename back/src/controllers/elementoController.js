@@ -24,6 +24,27 @@ const elementoController = {
         }
     },
 
+    // GET /api/elementos/:id
+    async show(req, res) {
+        try {
+            const elemento = await Elemento.findByPk(req.params.id, {
+                include: [
+                    { model: Programa, as: 'programa' },
+                    { model: Actividad, as: 'actividades' }
+                ]
+            });
+
+            if (!elemento) {
+                return res.status(404).json({ success: false, message: 'Elemento no encontrado' });
+            }
+
+            res.json({ success: true, data: elemento });
+        } catch (error) {
+            console.error('Elemento show error:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener elemento' });
+        }
+    },
+
     // POST /api/elementos
     async store(req, res) {
         try {

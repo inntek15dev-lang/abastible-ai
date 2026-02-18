@@ -36,6 +36,10 @@ const SolicitudReapertura = sequelize.define('SolicitudReapertura', {
     fecha_respuesta: {
         type: DataTypes.DATE,
         allowNull: true
+    },
+    estado_previo: {
+        type: DataTypes.STRING(50),
+        allowNull: true
     }
 }, {
     tableName: 'solicitudes_reapertura',

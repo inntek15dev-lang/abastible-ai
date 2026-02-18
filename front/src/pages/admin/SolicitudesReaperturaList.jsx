@@ -98,7 +98,7 @@ export default function SolicitudesReaperturaList() {
                                             {canWrite('Auditoria') && (
                                                 <>
                                                     <button
-                                                        className="btn-icon success"
+                                                        className="btn-icon success btn-reapertura-aprobar"
                                                         onClick={() => handleAction(s.id, 'aprobar')}
                                                         disabled={processing === s.id}
                                                         title="Aprobar"
@@ -106,7 +106,7 @@ export default function SolicitudesReaperturaList() {
                                                         <Check size={18} />
                                                     </button>
                                                     <button
-                                                        className="btn-icon danger"
+                                                        className="btn-icon danger btn-reapertura-rechazar"
                                                         onClick={() => handleAction(s.id, 'rechazar')}
                                                         disabled={processing === s.id}
                                                         title="Rechazar"

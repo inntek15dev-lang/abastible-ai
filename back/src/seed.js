@@ -17,8 +17,6 @@ const {
     RegistroActividad,
     Hallazgo,
     Compromiso,
-    Licitacion,
-    Postulacion,
     SolicitudReapertura
 } = require('./database/models');
 
@@ -117,23 +115,21 @@ async function seed() {
         await Privilegio.bulkCreate([
             { role_id: roles[0].id, ref_modulo: '*', read: 1, write: 1, excec: 1 },
             { role_id: roles[0].id, ref_modulo: 'Auditoria', read: 1, write: 1, excec: 1 },
-            { role_id: roles[0].id, ref_modulo: 'Licitaciones', read: 1, write: 1, excec: 1 },
-            { role_id: roles[0].id, ref_modulo: 'Licitaciones_Crear', read: 1, write: 1, excec: 1 },
-            { role_id: roles[0].id, ref_modulo: 'Licitaciones_Postular', read: 1, write: 1, excec: 1 },
+            { role_id: roles[0].id, ref_modulo: 'Reportes', read: 1, write: 1, excec: 1 },
             { role_id: roles[0].id, ref_modulo: 'Registros_Exportar', read: 1, write: 1, excec: 1 }
         ]);
 
-        const adminContratoModules = ['Dashboard', 'Registros', 'Contratistas', 'Reaperturas', 'Compromisos', 'Auditoria', 'Licitaciones', 'Registros_Exportar'];
+        const adminContratoModules = ['Dashboard', 'Registros', 'Contratistas', 'Reaperturas', 'Compromisos', 'Auditoria', 'Reportes', 'Registros_Exportar'];
         for (const mod of adminContratoModules) {
             await Privilegio.create({ role_id: roles[1].id, ref_modulo: mod, read: 1, write: ['Registros'].includes(mod) ? 0 : 1, excec: ['Reaperturas'].includes(mod) ? 1 : 0 });
         }
 
-        const contratistaAdminModules = ['Dashboard', 'Registros', 'Evidencias', 'Reaperturas', 'Usuarios', 'Compromisos', 'Licitaciones', 'Licitaciones_Postular', 'Registros_Exportar'];
+        const contratistaAdminModules = ['Dashboard', 'Registros', 'Evidencias', 'Reaperturas', 'Usuarios', 'Compromisos', 'Reportes', 'Registros_Exportar'];
         for (const mod of contratistaAdminModules) {
             await Privilegio.create({ role_id: roles[2].id, ref_modulo: mod, read: 1, write: ['Registros', 'Evidencias', 'Usuarios'].includes(mod) ? 1 : 0, excec: mod === 'Reaperturas' ? 1 : 0 });
         }
 
-        const contratistaUserModules = ['Dashboard', 'Registros', 'Evidencias', 'Licitaciones', 'Licitaciones_Postular', 'Registros_Exportar'];
+        const contratistaUserModules = ['Dashboard', 'Registros', 'Evidencias', 'Registros_Exportar'];
         for (const mod of contratistaUserModules) {
             await Privilegio.create({ role_id: roles[3].id, ref_modulo: mod, read: 1, write: ['Registros', 'Evidencias'].includes(mod) ? 1 : 0, excec: 0 });
         }
@@ -260,52 +256,7 @@ async function seed() {
             }
         }
 
-        // ============= ORDER 5: Licitaciones & Postulaciones =============
-        console.log('🚀 Generando Licitaciones y Postulaciones...');
-
-        const licitacionesData = [
-            { titulo: 'Servicio de Transporte Granel Norte', descripcion: 'Licitación para transporte de gas a granel zona norte.', estado: 'abierta', presupuesto: 50000000 },
-            { titulo: 'Mantenimiento de Tanques GLP', descripcion: 'Servicio de pintura y mantención.', estado: 'borrador', presupuesto: 12000000 },
-            { titulo: 'Seguridad Privada Plantas', descripcion: 'Guardias de seguridad 24/7.', estado: 'cerrada', presupuesto: 85000000 },
-            { titulo: 'Aseo Industrial BioBio', descripcion: 'Limpieza industrial.', estado: 'adjudicada', presupuesto: 5000000 }
-        ];
-
-        const licitaciones = [];
-        for (const lic of licitacionesData) {
-            const nuevaLic = await Licitacion.create({
-                titulo: lic.titulo,
-                descripcion: lic.descripcion,
-                fecha_inicio: new Date(),
-                fecha_fin: new Date(new Date().setDate(new Date().getDate() + 30)),
-                estado: lic.estado,
-                presupuesto_referencial: lic.presupuesto,
-                presupuesto_referencial: lic.presupuesto,
-                user_id: createdUsers['admin@abastible.cl'].id
-            });
-            licitaciones.push(nuevaLic);
-        }
-
-        // Postulaciones (Only for active/closed tenders)
-        await Postulacion.create({
-            licitacion_id: licitaciones[0].id, // Abierta
-            contratista_id: createdUsers['contratista@demo.cl'].id,
-            oferta_economica: 48000000,
-            estado: 'enviada'
-        });
-
-        await Postulacion.create({
-            licitacion_id: licitaciones[2].id, // Cerrada
-            contratista_id: createdUsers['roberto@demo2.cl'].id,
-            oferta_economica: 82000000,
-            estado: 'rechazada'
-        });
-
-        await Postulacion.create({
-            licitacion_id: licitaciones[3].id, // Adjudicada
-            contratista_id: createdUsers['contratista@demo.cl'].id,
-            oferta_economica: 4500000,
-            estado: 'aceptada'
-        });
+        // ============= ORDER 5: REMOVED (Licitaciones) =============
 
         // ============= ORDER 6: Solicitudes Reapertura =============
         console.log('🚀 Generando Solicitudes de Reapertura...');
