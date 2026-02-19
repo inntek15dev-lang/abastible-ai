@@ -1,5 +1,5 @@
 // IEEE Trace: REQ-010 | US-010 | pages/compromisos/CompromisoList.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
@@ -11,6 +11,18 @@ export default function CompromisoList() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [filter, setFilter] = useState('all');
+
+    // Hierarchy Filters
+    const [contratistas, setContratistas] = useState([]);
+    const [servicios, setServicios] = useState([]);
+    const [dependencias, setDependencias] = useState([]);
+    const [vinculaciones, setVinculaciones] = useState([]);
+
+    const [selectedContratista, setSelectedContratista] = useState('');
+    const [selectedServicio, setSelectedServicio] = useState('');
+    const [selectedDependencia, setSelectedDependencia] = useState('');
+    const [contratoNumero, setContratoNumero] = useState('');
+
     const hallazgoId = searchParams.get('hallazgo');
     const { user, isAdmin } = useAuth();
     const isAdminOrADC = isAdmin || user?.role === 'administrador_contrato';
@@ -24,15 +36,54 @@ export default function CompromisoList() {
     });
 
     useEffect(() => {
+        const loadResult = async () => {
+            try {
+                const [contRes, servRes, depRes, vincRes] = await Promise.all([
+                    api.get('/contratistas'),
+                    api.get('/resources/tipos-contratista'),
+                    api.get('/resources/dependencias'),
+                    api.get('/vinculaciones')
+                ]);
+                setContratistas(contRes.data.data || []);
+                setServicios(servRes.data.data || []);
+                setDependencias(depRes.data.data || []);
+                setVinculaciones(vincRes.data.data || []);
+            } catch (err) {
+                console.error("Error loading filters", err);
+            }
+        };
+        loadResult();
+    }, []);
+
+    useEffect(() => {
         fetchCompromisos();
-    }, [filter]);
+
+        // Check for specific contract match
+        if (selectedContratista && selectedServicio && selectedDependencia) {
+            const match = vinculaciones.find(v =>
+                String(v.contratista_id) === String(selectedContratista) &&
+                String(v.servicio_id) === String(selectedServicio) &&
+                String(v.dependencia_id) === String(selectedDependencia)
+            );
+            setContratoNumero(match ? match.numero_contrato : '');
+        } else {
+            setContratoNumero('');
+        }
+
+    }, [filter, selectedContratista, selectedServicio, selectedDependencia]);
 
     const fetchCompromisos = async () => {
         try {
+            setLoading(true);
             let params = {};
             if (filter === 'vencidos') params.vencidos = 'true';
             else if (filter !== 'all') params.estado = filter;
             if (hallazgoId) params.hallazgo_id = hallazgoId;
+
+            // Apply Hierarchy Filters
+            if (selectedContratista) params.contratista_id = selectedContratista;
+            if (selectedServicio) params.servicio_id = selectedServicio;
+            if (selectedDependencia) params.dependencia_id = selectedDependencia;
 
             const response = await api.get('/compromisos', { params });
             setCompromisos(response.data.data);
@@ -42,6 +93,28 @@ export default function CompromisoList() {
             setLoading(false);
         }
     };
+
+    // Filter logic for dropdowns
+    const filteredServicios = useMemo(() => {
+        if (!selectedContratista) return servicios;
+
+        // Actually simplest is just valid combinations
+        const validServiceIds = new Set(vinculaciones
+            .filter(v => String(v.contratista_id) === String(selectedContratista))
+            .map(v => v.servicio_id));
+        return servicios.filter(s => validServiceIds.has(s.id));
+    }, [selectedContratista, vinculaciones, servicios]);
+
+    const filteredDependencias = useMemo(() => {
+        if (!selectedContratista && !selectedServicio) return dependencias;
+        let filteredVincs = vinculaciones;
+        if (selectedContratista) filteredVincs = filteredVincs.filter(v => String(v.contratista_id) === String(selectedContratista));
+        if (selectedServicio) filteredVincs = filteredVincs.filter(v => String(v.servicio_id) === String(selectedServicio));
+
+        const validDepIds = new Set(filteredVincs.map(v => v.dependencia_id));
+        return dependencias.filter(d => validDepIds.has(d.id));
+    }, [selectedContratista, selectedServicio, vinculaciones, dependencias]);
+
 
     const handleCumplir = async (id) => {
         const observacion = prompt('Observación de cumplimiento (opcional):');
@@ -97,18 +170,68 @@ export default function CompromisoList() {
         return new Date(fecha) < new Date();
     };
 
-    if (loading) return <div className="loading">Cargando...</div>;
+    if (loading && compromisos.length === 0) return <div className="loading">Cargando...</div>;
 
     return (
         <div className="page-container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
             <header className="page-header" style={{ marginBottom: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ background: '#2563eb', color: 'white', padding: '10px', borderRadius: '12px', display: 'flex' }}>
-                        <Shield size={24} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ background: '#2563eb', color: 'white', padding: '10px', borderRadius: '12px', display: 'flex' }}>
+                            <Shield size={24} />
+                        </div>
+                        <div>
+                            <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#111827', margin: 0 }}>Gestión de Compromisos</h1>
+                            <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>Seguimiento y control de acciones de mejora</p>
+                        </div>
+                    </div>
+                    {contratoNumero && (
+                        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '8px 16px', borderRadius: '8px', color: '#1e40af' }}>
+                            <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 600, display: 'block', color: '#60a5fa' }}>Contrato N°</span>
+                            <span style={{ fontSize: '1.1rem', fontWeight: 700 }}>{contratoNumero}</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Hierarchy Filters */}
+                <div style={{ background: 'white', padding: '16px', borderRadius: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                    <div>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '4px', display: 'block' }}>Empresa Contratista</label>
+                        <select
+                            className="form-control"
+                            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}
+                            value={selectedContratista}
+                            onChange={(e) => { setSelectedContratista(e.target.value); setSelectedServicio(''); setSelectedDependencia(''); }}
+                        >
+                            <option value="">Todas las Empresas</option>
+                            {contratistas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                        </select>
                     </div>
                     <div>
-                        <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#111827', margin: 0 }}>Gestión de Compromisos</h1>
-                        <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>Seguimiento y control de acciones de mejora</p>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '4px', display: 'block' }}>Servicio</label>
+                        <select
+                            className="form-control"
+                            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}
+                            value={selectedServicio}
+                            onChange={(e) => { setSelectedServicio(e.target.value); setSelectedDependencia(''); }}
+                            disabled={!selectedContratista}
+                        >
+                            <option value="">Todos los Servicios</option>
+                            {filteredServicios.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '4px', display: 'block' }}>Dependencia</label>
+                        <select
+                            className="form-control"
+                            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}
+                            value={selectedDependencia}
+                            onChange={(e) => setSelectedDependencia(e.target.value)}
+                            disabled={!selectedServicio}
+                        >
+                            <option value="">Todas las Dependencias</option>
+                            {filteredDependencias.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+                        </select>
                     </div>
                 </div>
 

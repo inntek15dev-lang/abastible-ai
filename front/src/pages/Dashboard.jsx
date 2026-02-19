@@ -32,20 +32,23 @@ export default function Dashboard() {
     const [services, setServices] = useState([]);
     const [dependencies, setDependencies] = useState([]);
     const [vinculaciones, setVinculaciones] = useState([]); // Parko: Store links
+    const [historyData, setHistoryData] = useState([]);
 
     useEffect(() => {
         const loadInitialData = async () => {
             try {
-                const [progRes, servRes, depRes, vincRes] = await Promise.all([
+                const [progRes, servRes, depRes, vincRes, histRes] = await Promise.all([
                     api.get('/programas'),
                     api.get('/resources/tipos-contratista'),
                     api.get('/resources/dependencias'),
-                    api.get('/vinculaciones') // Parko: Fetch active assignments
+                    api.get('/vinculaciones'), // Parko: Fetch active assignments
+                    api.get('/dashboard/historico') // Parko: Fetch history
                 ]);
                 setPrograms(progRes.data.data || []);
                 setServices(servRes.data.data || []);
                 setDependencies(depRes.data.data || []);
                 setVinculaciones(vincRes.data.data || []);
+                setHistoryData(histRes.data.data || []);
             } catch (err) {
                 console.error("Error loading filter options:", err);
             }
@@ -329,15 +332,8 @@ export default function Dashboard() {
                     {/* Placeholder for future filter */}
                 </div>
 
-                {/* Mock Data for now - Backend Task 19 will provide real data */}
-                <ComplianceChart data={[
-                    { name: 'Ago', cumplimiento: 78 },
-                    { name: 'Sep', cumplimiento: 82 },
-                    { name: 'Oct', cumplimiento: 85 },
-                    { name: 'Nov', cumplimiento: 88 },
-                    { name: 'Dic', cumplimiento: 92 },
-                    { name: 'Ene', cumplimiento: kpis?.promedioCumplimiento || 90 }
-                ]} />
+                {/* Real Data Integration - US-1.1 */}
+                <ComplianceChart data={historyData} />
             </div>
 
 

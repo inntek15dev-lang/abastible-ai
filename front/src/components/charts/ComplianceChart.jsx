@@ -1,17 +1,23 @@
 import React from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const ComplianceChart = ({ data }) => {
-    // data expected format: [{ name: 'Ene', uv: 85 }, { name: 'Feb', uv: 90 }]
+    // data expected format: [{ name: 'Ene', cumplimiento: 85 }, { name: 'Feb', cumplimiento: 90 }]
 
     if (!data || data.length === 0) {
         return <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>No hay datos suficientes para mostrar la tendencia.</div>;
     }
 
+    const getBarColor = (value) => {
+        if (value >= 85) return '#10b981'; // Green
+        if (value >= 70) return '#f59e0b'; // Yellow
+        return '#ef4444'; // Red
+    };
+
     return (
         <div style={{ width: '100%', height: 300 }}>
             <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
+                <BarChart
                     data={data}
                     margin={{
                         top: 10,
@@ -35,16 +41,14 @@ const ComplianceChart = ({ data }) => {
                     />
                     <Tooltip
                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                        cursor={{ fill: '#f3f4f6' }}
                     />
-                    <Area
-                        type="monotone"
-                        dataKey="cumplimiento"
-                        stroke="var(--color-brand-primary)"
-                        fill="var(--color-brand-primary)"
-                        fillOpacity={0.1}
-                        name="Cumplimiento %"
-                    />
-                </AreaChart>
+                    <Bar dataKey="cumplimiento" name="Cumplimiento %" radius={[4, 4, 0, 0]}>
+                        {data.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={getBarColor(entry.cumplimiento)} />
+                        ))}
+                    </Bar>
+                </BarChart>
             </ResponsiveContainer>
         </div>
     );

@@ -371,10 +371,27 @@ const dashboardController = {
                 else whereRegistro.contratista_asignacion_id = { [Op.in]: assignmentIds };
             }
 
-            // Calculate range: First day of 5 months ago
+            // Calculate range: Last 6 months including current
             const today = new Date();
-            const startMonth = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+            const months = [];
+            // Generate last 6 months array (YYYY-MM)
+            for (let i = 5; i >= 0; i--) {
+                const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+                // Adjust for timezone offset to ensure correct month
+                // Use UTC methods to avoid local time shifts
+                const year = d.getFullYear();
+                const month = d.getMonth() + 1;
+                const key = `${year}-${String(month).padStart(2, '0')}`;
 
+                const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+                const name = monthNames[d.getMonth()];
+
+                months.push({ key, name, date: d });
+            }
+
+            const startMonth = months[0].date;
+
+            // Query Data
             const registros = await Registro.findAll({
                 where: {
                     ...whereRegistro,
@@ -385,22 +402,25 @@ const dashboardController = {
                     [sequelize.fn('AVG', sequelize.col('porcentaje_cumplimiento')), 'promedio']
                 ],
                 group: ['periodo'],
-                order: [['periodo', 'ASC']],
                 raw: true
             });
 
-            // Format for Frontend: { name: 'Ene', cumplimiento: 90 }
-            const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            // Map and Fill Gaps
+            const data = months.map(m => {
+                // Find matching record
+                // Careful with date comparison. String conversion is safest.
+                const record = registros.find(r => {
+                    const rDate = new Date(r.periodo);
+                    // Check if YYYY-MM matches
+                    const rKey = `${rDate.getUTCFullYear()}-${String(rDate.getUTCMonth() + 1).padStart(2, '0')}`;
+                    // Try local too just in case DB stores local
+                    const rKeyLocal = `${rDate.getFullYear()}-${String(rDate.getMonth() + 1).padStart(2, '0')}`;
+                    return rKey === m.key || rKeyLocal === m.key || String(r.periodo).startsWith(m.key);
+                });
 
-            // Fill gaps? For now, just return what we have. Frontend can handle gaps or we fill them.
-            // Let's map existing data.
-            const data = registros.map(r => {
-                const d = new Date(r.periodo);
-                // Adjust for timezone issues if necessary, usually period is stored as date
-                // Assuming UTC or local consistent
                 return {
-                    name: monthNames[d.getUTCMonth()], // + '-' + d.getgetFullYear().toString().substr(2)
-                    cumplimiento: parseFloat(r.promedio || 0).toFixed(1)
+                    name: m.name,
+                    cumplimiento: record ? parseFloat(record.promedio || 0).toFixed(1) : 0
                 };
             });
 

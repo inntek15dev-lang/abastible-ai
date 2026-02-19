@@ -67,9 +67,7 @@ export const MODULES = [
 
             // { path: '/vinculaciones', label: 'Vinculaciones', icon: Link, module: 'Vinculaciones' }, // REMOVED (Managed via Contratistas)
             { path: '/dependencias', label: 'Dependencias y Plantas', icon: Building, module: 'Gestion_Configuracion' },
-            { path: '/servicios', label: 'Servicios y Tipos', icon: Settings, module: 'Gestion_Configuracion' },
-            { path: '/elementos', label: 'Elementos', icon: settingsIconHelper('elementos'), module: 'Gestion_Configuracion' },
-            { path: '/actividades', label: 'Actividades', icon: settingsIconHelper('actividades'), module: 'Gestion_Configuracion' }
+            { path: '/servicios', label: 'Servicios y Tipos', icon: Settings, module: 'Gestion_Configuracion' }
         ]
     },
     {
