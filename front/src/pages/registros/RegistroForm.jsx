@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
-import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock } from 'lucide-react';
+import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock, CheckCircle } from 'lucide-react';
 import FileUpload from '../../components/forms/FileUpload';
 import HallazgoModal from '../../components/forms/HallazgoModal';
 import HallazgoList from '../../components/forms/HallazgoList';
@@ -317,8 +317,8 @@ export default function RegistroForm() {
         setActividades(updated);
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = async (e, options = {}) => {
+        if (e && e.preventDefault) e.preventDefault();
         setLoading(true);
         setError('');
 
@@ -346,6 +346,7 @@ export default function RegistroForm() {
 
         const payload = {
             ...form,
+            terminar_subsanacion: options.terminar_subsanacion || false,
             contratista_id: selectedContractor, // Send selected Contratista company ID
             periodo: `${form.periodo}-01`,
             actividades: actividades.map(a => ({
@@ -852,17 +853,32 @@ export default function RegistroForm() {
                         )}
 
                         {!isLocked && (
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                style={{
-                                    backgroundColor: '#10b981', color: 'white', padding: '0.75rem 2rem', borderRadius: '6px', border: 'none', fontWeight: 600, cursor: 'pointer',
-                                    display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                                }}
-                            >
-                                {loading ? <RefreshCw className="spin" size={20} /> : <Save size={20} />}
-                                {isEdit ? 'Actualizar' : 'Guardar Registro'}
-                            </button>
+                            <>
+                                {isContractor && form.estado_auditoria === 'reabierto' && (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => handleSubmit(e, { terminar_subsanacion: true })}
+                                        disabled={loading}
+                                        style={{
+                                            backgroundColor: '#3b82f6', color: 'white', padding: '0.75rem 2rem', borderRadius: '6px', border: 'none', fontWeight: 600, cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                        }}
+                                    >
+                                        <CheckCircle size={20} /> Terminar Subsanación
+                                    </button>
+                                )}
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    style={{
+                                        backgroundColor: '#10b981', color: 'white', padding: '0.75rem 2rem', borderRadius: '6px', border: 'none', fontWeight: 600, cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                    }}
+                                >
+                                    {loading ? <RefreshCw className="spin" size={20} /> : <Save size={20} />}
+                                    {isEdit ? 'Actualizar' : 'Guardar Registro'}
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>

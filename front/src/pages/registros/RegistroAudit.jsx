@@ -152,6 +152,29 @@ export default function RegistroAudit() {
         }
     };
 
+    const handleIniciarRevision = async () => {
+        try {
+            await api.post(`/registros/${id}/iniciar-revision`);
+            fetchRegistro();
+        } catch (err) {
+            setError(err.response?.data?.message || 'Error al iniciar revisión');
+        }
+    };
+
+    const handleFinalizarRevision = async () => {
+        setSaving(true);
+        try {
+            await api.post(`/registros/${id}/finalizar-revision`, {
+                comentario_general: comentarioGeneral
+            });
+            navigate('/registros');
+        } catch (err) {
+            setError(err.response?.data?.message || 'Error al finalizar revisión');
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleSaveObservation = async (actividadId) => {
         try {
             await api.put(`/registros/${id}/actividades/${actividadId}/auditar`, {
@@ -218,8 +241,11 @@ export default function RegistroAudit() {
     if (!registro) return <div className="error-message">Registro no encontrado</div>;
 
     const isAuditando = registro.estado_auditoria === 'auditando';
-    const isPendiente = registro.estado_auditoria === 'pendiente' || registro.estado_auditoria === 'reabierto';
-    const isAuditado = ['auditada', 'cerrado'].includes(registro.estado_auditoria);
+    const isEnRevision = registro.estado_auditoria === 'en_revision';
+    const isSubsanado = registro.estado_auditoria === 'subsanado';
+    const isFinalizado = registro.estado_auditoria === 'finalizado';
+    const isAuditado = ['auditada', 'cerrado', 'finalizado'].includes(registro.estado_auditoria);
+    const isPendiente = registro.estado_auditoria === 'pendiente';
 
     // Mock Element Names (Ideally fetch from backend)
     const elementNames = {
@@ -331,17 +357,30 @@ export default function RegistroAudit() {
                         </div>
                     </div>
                     <div>
-                        <span className={`badge ${isAuditado ? 'success' : isAuditando ? 'info' : 'warning'}`} style={{ fontSize: '0.85rem' }}>
-                            {isAuditando ? 'EN AUDITORÍA' : isAuditado ? 'REGISTRO CERRADO Y AUDITADO' : 'PENDIENTE'}
-                        </span>
+                        {(() => {
+                            const status = registro.estado_auditoria;
+                            if (status === 'en_revision') return <span className="badge" style={{ fontSize: '0.85rem', background: '#e0f2fe', color: '#0284c7', border: '1px solid #bae6fd', padding: '4px 8px', borderRadius: '4px', fontWeight: 600 }}>EN REVISIÓN</span>;
+                            if (status === 'finalizado') return <span className="badge success" style={{ fontSize: '0.85rem' }}>AUDITORÍA FINALIZADA</span>;
+                            if (status === 'auditada' || status === 'cerrado') return <span className="badge success" style={{ fontSize: '0.85rem' }}>REGISTRO CERRADO Y AUDITADO</span>;
+                            if (status === 'subsanado') return <span className="badge" style={{ fontSize: '0.85rem', background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe' }}>SUBSANADO - PENDIENTE DE REVISIÓN</span>;
+                            if (status === 'reabierto') return <span className="badge warning" style={{ fontSize: '0.85rem' }}>REABIERTO - PENDIENTE DE SUBSANACIÓN</span>;
+                            return <span className="badge warning" style={{ fontSize: '0.85rem' }}>PENDIENTE</span>;
+                        })()}
                     </div>
                 </div>
 
-                {isPendiente && canWrite('Auditoria') ? (
-                    <div style={{ padding: '40px', textAlign: 'center' }}>
-                        <button id="btn-iniciar-auditoria" className="btn-primary" onClick={handleIniciarAuditoria} style={{ fontSize: '1.1rem', padding: '12px 24px' }}>
-                            Iniciar Proceso de Auditoría
-                        </button>
+                {(isPendiente || isSubsanado) && canWrite('Auditoria') ? (
+                    <div style={{ padding: '40px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+                        {isPendiente && (
+                            <button id="btn-iniciar-auditoria" className="btn-primary" onClick={handleIniciarAuditoria} style={{ fontSize: '1.1rem', padding: '12px 24px' }}>
+                                Iniciar Proceso de Auditoría
+                            </button>
+                        )}
+                        {isSubsanado && (
+                            <button id="btn-iniciar-revision" className="btn-primary" onClick={handleIniciarRevision} style={{ fontSize: '1.1rem', padding: '12px 24px', background: '#7c3aed' }}>
+                                Iniciar Revisión de Subsanación
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <table className="data-table" style={{ borderCollapse: 'collapse' }}>
@@ -504,7 +543,7 @@ export default function RegistroAudit() {
 
                                         {/* Auditor Verdict */}
                                         <td style={{ verticalAlign: 'middle' }}>
-                                            {isAuditando && canWrite('Auditoria') ? (
+                                            {(isAuditando || isEnRevision) && canWrite('Auditoria') ? (
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                     <button
                                                         onClick={() => handleAuditarActividad(act.id, true)}
@@ -544,7 +583,7 @@ export default function RegistroAudit() {
 
                                         {/* Observacion */}
                                         <td style={{ verticalAlign: 'middle' }}>
-                                            {isAuditando && canWrite('Auditoria') ? (
+                                            {(isAuditando || isEnRevision) && canWrite('Auditoria') ? (
                                                 <div style={{ position: 'relative' }}>
                                                     <textarea
                                                         className="form-control"
@@ -572,7 +611,7 @@ export default function RegistroAudit() {
 
             {/* Comments and Commitments Section */}
             {/* Comments and Commitments Section */}
-            {(isAuditando || isAuditado) && (
+            {(isAuditando || isEnRevision || isAuditado) && (
                 <div style={{ marginTop: '32px', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '32px' }}>
 
                     {/* Comments Section */}
@@ -590,7 +629,7 @@ export default function RegistroAudit() {
                                 placeholder="Escriba sus conclusiones generales aquí..."
                                 value={comentarioGeneral}
                                 onChange={(e) => setComentarioGeneral(e.target.value)}
-                                disabled={!isAuditando || !canWrite('Auditoria')}
+                                disabled={!(isAuditando || isEnRevision) || !canWrite('Auditoria')}
                                 style={{
                                     resize: 'none',
                                     borderRadius: '8px',
@@ -643,7 +682,7 @@ export default function RegistroAudit() {
                                                     <Calendar size={12} /> <span>Vence: {new Date(comp.fecha_compromiso).toLocaleDateString('es-CL')}</span>
                                                 </div>
                                             </div>
-                                            {isAuditando && canWrite('Auditoria') && (
+                                            {(isAuditando || isEnRevision) && canWrite('Auditoria') && (
                                                 <button
                                                     onClick={() => handleDeleteCompromiso(comp.id)}
                                                     style={{ color: '#ef4444', background: '#fef2f2', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '8px', marginLeft: '12px' }}
@@ -657,7 +696,7 @@ export default function RegistroAudit() {
                             )}
                         </div>
 
-                        {isAuditando && canWrite('Auditoria') && (
+                        {(isAuditando || isEnRevision) && canWrite('Auditoria') && (
                             <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', marginTop: '20px', border: '1px solid #e2e8f0' }}>
                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                     <div style={{ flex: '1 1 auto', minWidth: 0 }}>
@@ -706,17 +745,17 @@ export default function RegistroAudit() {
             )}
 
             {/* Final Actions */}
-            {isAuditando && canWrite('Auditoria') && (
+            {(isAuditando || isEnRevision) && canWrite('Auditoria') && (
                 <div style={{ marginTop: '32px', padding: '24px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px' }}>
                     <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Revise los datos antes de finalizar el proceso oficial.</span>
                     <button
                         className="btn-primary"
-                        onClick={handleFinalizarAuditoria}
+                        onClick={isEnRevision ? handleFinalizarRevision : handleFinalizarAuditoria}
                         disabled={saving}
                         style={{ background: '#10b981', padding: '12px 32px', fontSize: '1rem', fontWeight: 600, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}
                     >
                         <Save size={20} />
-                        {saving ? 'Cerrando...' : 'Finalizar Auditoría'}
+                        {saving ? 'Cerrando...' : isEnRevision ? 'Finalizar Revisión de Subsanación' : 'Finalizar Auditoría'}
                     </button>
                 </div>
             )}

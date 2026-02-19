@@ -340,7 +340,12 @@ const registroController = {
             }
 
             const oldData = registro.toJSON();
-            const { actividades, ...registroData } = req.body;
+            const { actividades, terminar_subsanacion, ...registroData } = req.body;
+
+            // Transition to 'subsanado' if requested by contractor after reopening
+            if (terminar_subsanacion && registro.estado_auditoria === 'reabierto') {
+                registroData.estado_auditoria = 'subsanado';
+            }
 
             // CHECK: Mandatory Evidence before closing
             if (registroData.cerrado === 1 && oldData.cerrado === 0) {

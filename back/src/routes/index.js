@@ -371,6 +371,8 @@ router.delete('/registros/:id', auth, requirePrivilege('Registros', 'excec'), re
 router.post('/registros/:id/auditar', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.iniciarAuditoria);
 router.put('/registros/:id/actividades/:actividadId/auditar', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.auditarActividad);
 router.post('/registros/:id/finalizar-auditoria', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.finalizarAuditoria);
+router.post('/registros/:id/iniciar-revision', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.iniciarRevision);
+router.post('/registros/:id/finalizar-revision', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.finalizarRevision);
 router.post('/registros/:id/comentarios', auth, auditoriaController.agregarComentario);
 
 // Evidencias

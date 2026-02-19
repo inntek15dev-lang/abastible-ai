@@ -490,7 +490,7 @@ const dashboardController = {
 
                 row.data[periodoStr] = {
                     declarado: parseFloat(reg.porcentaje_cumplimiento || 0).toFixed(1),
-                    auditado: reg.porcentaje_cumplimiento_auditor ? parseFloat(reg.porcentaje_cumplimiento_auditor).toFixed(1) : null,
+                    auditado: reg.porcentaje_cumplimiento_auditor !== null ? parseFloat(reg.porcentaje_cumplimiento_auditor).toFixed(1) : null,
                     registroId: reg.id,
                     estado: reg.estado_auditoria
                 };

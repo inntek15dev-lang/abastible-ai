@@ -16,9 +16,29 @@ const compromisoController = {
             // Role-based filtering (Security)
             const user = req.user;
             if (user.role === 'contratista_user' || user.role === 'contratista_admin') {
-                // Ensure they only see their own assignments/commitments
-                where.responsable_id = user.id;
-                // OR filter by assignments logic if needed, but simple ownership check for now
+                if (registro_id) {
+                    // If filtering by record, verify ownership/assignment of the record
+                    const registro = await Registro.findByPk(registro_id, {
+                        include: [{ model: Vinculacion, as: 'vinculacionEntidad' }]
+                    });
+
+                    let hasAccess = false;
+                    if (registro) {
+                        if (registro.user_id === user.id) hasAccess = true;
+                        else if (user.parent_id && registro.user_id === user.parent_id) hasAccess = true;
+                        else if (user.role === 'contratista_admin' && user.contratista_id && registro.vinculacionEntidad?.contratista_id === user.contratista_id) {
+                            hasAccess = true;
+                        }
+                    }
+
+                    if (!hasAccess) {
+                        where.responsable_id = user.id;
+                    }
+                    // If they own it, we don't force responsable_id, so they see all commitments of that record
+                } else {
+                    // General list: only show where they are responsible
+                    where.responsable_id = user.id;
+                }
             }
 
             const compromisos = await Compromiso.findAll({
