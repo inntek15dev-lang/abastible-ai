@@ -1,9 +1,9 @@
 // IEEE Trace: REQ-002 | US-002 | pages/registros/RegistroForm.jsx
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
-import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock } from 'lucide-react';
+import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock, CheckCircle, Trash2 } from 'lucide-react';
 import FileUpload from '../../components/forms/FileUpload';
 import HallazgoModal from '../../components/forms/HallazgoModal';
 import HallazgoList from '../../components/forms/HallazgoList';
@@ -17,7 +17,9 @@ export default function RegistroForm() {
     const [searchParams] = useSearchParams(); // NEW
     const { user, isAdmin, canWrite } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const isEdit = Boolean(id);
+    const isReadOnly = location.state?.readonly || false;
 
     const [form, setForm] = useState({
         periodo: new Date().toISOString().slice(0, 7), // YYYY-MM format
@@ -35,6 +37,7 @@ export default function RegistroForm() {
     const [reaperturaModal, setReaperturaModal] = useState({ show: false });
     const [errorModal, setErrorModal] = useState({ show: false, message: '' });
     const [registroCerrado, setRegistroCerrado] = useState(false);
+    const isLocked = registroCerrado || isReadOnly;
     const [confirmModal, setConfirmModal] = useState({
         isOpen: false,
         action: null,
@@ -47,6 +50,7 @@ export default function RegistroForm() {
     const [assignments, setAssignments] = useState([]);
     const [selectedContractor, setSelectedContractor] = useState(null);
     const [searchNombre, setSearchNombre] = useState('');
+    const [searchRut, setSearchRut] = useState('');
 
 
     // Auditor/Review Data
@@ -229,6 +233,20 @@ export default function RegistroForm() {
         }
     };
 
+    const handleEvidenciaDelete = async (evidenciaId, actividadIndex) => {
+        if (!window.confirm('¿Está seguro de eliminar esta evidencia? Esta acción no se puede deshacer.')) return;
+        try {
+            await api.delete(`/evidencias/${evidenciaId}`);
+            const updated = [...actividades];
+            updated[actividadIndex].evidencias = updated[actividadIndex].evidencias.filter(e => e.id !== evidenciaId);
+            setActividades(updated);
+            toast.success('Evidencia eliminada correctamente');
+        } catch (err) {
+            console.error(err);
+            toast.error('Error al eliminar la evidencia');
+        }
+    };
+
     const fetchActividades = async (programaId) => {
         try {
             const url = programaId ? `/actividades?programa_id=${programaId}` : '/actividades';
@@ -313,8 +331,8 @@ export default function RegistroForm() {
         setActividades(updated);
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = async (e, options = {}) => {
+        if (e && e.preventDefault) e.preventDefault();
         setLoading(true);
         setError('');
 
@@ -342,6 +360,7 @@ export default function RegistroForm() {
 
         const payload = {
             ...form,
+            terminar_subsanacion: options.terminar_subsanacion || false,
             contratista_id: selectedContractor, // Send selected Contratista company ID
             periodo: `${form.periodo}-01`,
             actividades: actividades.map(a => ({
@@ -482,7 +501,7 @@ export default function RegistroForm() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '1rem' }}>
                 <FileText size={24} color="#f97316" /> {/* Orange Icon */}
                 <h1 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#111827', margin: 0 }}>
-                    Registro Mensual de Cumplimiento
+                    Registro Mensual de Cumplimiento {isReadOnly && <span style={{ fontSize: '0.8rem', backgroundColor: '#f3f4f6', padding: '2px 8px', borderRadius: '4px', border: '1px solid #e5e7eb', color: '#6b7280', marginLeft: '10px' }}>VISTA SOLO LECTURA</span>}
                 </h1>
             </div>
 
@@ -545,6 +564,7 @@ export default function RegistroForm() {
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Dotación Total</label>
                             <input type="number" className="form-control"
                                 value={form.dotacion_total}
+                                disabled={isLocked}
                                 onChange={(e) => setForm({ ...form, dotacion_total: parseInt(e.target.value) || 0 })}
                             />
                         </div>
@@ -554,6 +574,7 @@ export default function RegistroForm() {
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Personas Nuevas</label>
                             <input type="number" className="form-control"
                                 value={form.personas_nuevas}
+                                disabled={isLocked}
                                 onChange={(e) => setForm({ ...form, personas_nuevas: parseInt(e.target.value) || 0 })}
                             />
                         </div>
@@ -561,6 +582,7 @@ export default function RegistroForm() {
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Supervisores</label>
                             <input type="number" className="form-control"
                                 value={form.supervisores}
+                                disabled={isLocked}
                                 onChange={(e) => setForm({ ...form, supervisores: parseInt(e.target.value) || 0 })}
                             />
                         </div>
@@ -568,6 +590,7 @@ export default function RegistroForm() {
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Prevencionistas</label>
                             <input type="number" className="form-control"
                                 value={form.prevencionistas}
+                                disabled={isLocked}
                                 onChange={(e) => setForm({ ...form, prevencionistas: parseInt(e.target.value) || 0 })}
                             />
                         </div>
@@ -638,28 +661,28 @@ export default function RegistroForm() {
                                                     <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
                                                         <button
                                                             type="button"
-                                                            onClick={() => !registroCerrado && handleActividadChange(globalIndex, 'cumple', true)}
+                                                            onClick={() => !isLocked && handleActividadChange(globalIndex, 'cumple', true)}
                                                             style={{
-                                                                padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid', cursor: parsedCursor(registroCerrado),
+                                                                padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid', cursor: parsedCursor(isLocked),
                                                                 backgroundColor: act.cumple ? '#f0fdf4' : 'transparent',
                                                                 borderColor: act.cumple ? '#16a34a' : '#e5e7eb',
                                                                 color: act.cumple ? '#15803d' : '#9ca3af',
                                                                 fontWeight: act.cumple ? 600 : 400,
-                                                                opacity: registroCerrado ? 0.6 : 1
+                                                                opacity: isLocked ? 0.6 : 1
                                                             }}
                                                         >
                                                             ✓ Cumple
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            onClick={() => !registroCerrado && handleActividadChange(globalIndex, 'cumple', false)}
+                                                            onClick={() => !isLocked && handleActividadChange(globalIndex, 'cumple', false)}
                                                             style={{
-                                                                padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid', cursor: parsedCursor(registroCerrado),
+                                                                padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid', cursor: parsedCursor(isLocked),
                                                                 backgroundColor: !act.cumple ? '#fef2f2' : 'transparent',
                                                                 borderColor: !act.cumple ? '#ef4444' : '#e5e7eb',
                                                                 color: !act.cumple ? '#b91c1c' : '#9ca3af',
                                                                 fontWeight: !act.cumple ? 600 : 400,
-                                                                opacity: registroCerrado ? 0.6 : 1
+                                                                opacity: isLocked ? 0.6 : 1
                                                             }}
                                                         >
                                                             ✕ No Cumple
@@ -683,7 +706,7 @@ export default function RegistroForm() {
                                                         value={act.responsable}
                                                         onChange={(e) => handleActividadChange(globalIndex, 'responsable', e.target.value)}
                                                         style={{ fontSize: '0.8rem', padding: '0.4rem', height: 'auto' }}
-                                                        disabled={registroCerrado}
+                                                        disabled={isLocked}
                                                     />
                                                 </td>
                                                 <td style={{ padding: '1rem', verticalAlign: 'top' }}>
@@ -695,11 +718,15 @@ export default function RegistroForm() {
                                                                     registroActividadId={act.id}
                                                                     existingCount={act.evidencias?.length || 0}
                                                                     templateUrl={act.template_url}
-                                                                    disabled={registroCerrado}
+                                                                    disabled={isLocked}
                                                                     onUploadComplete={(evidencia) => {
                                                                         const updated = [...actividades];
                                                                         if (!updated[globalIndex].evidencias) updated[globalIndex].evidencias = [];
                                                                         updated[globalIndex].evidencias.push(evidencia);
+                                                                        // Parko: Auto-select "Cumple" if evidence is required/uploaded
+                                                                        if (act.requiere_evidencia) {
+                                                                            updated[globalIndex].cumple = true;
+                                                                        }
                                                                         setActividades(updated);
                                                                     }}
                                                                 />
@@ -709,11 +736,15 @@ export default function RegistroForm() {
                                                                 <FileUpload
                                                                     existingCount={(act.pendingFiles?.length || 0)}
                                                                     templateUrl={act.template_url}
-                                                                    disabled={registroCerrado}
+                                                                    disabled={isLocked}
                                                                     onFileSelect={(file) => {
                                                                         const updated = [...actividades];
                                                                         if (!updated[globalIndex].pendingFiles) updated[globalIndex].pendingFiles = [];
                                                                         updated[globalIndex].pendingFiles.push(file);
+                                                                        // Parko: Auto-select "Cumple" if evidence is required/selected
+                                                                        if (act.requiere_evidencia) {
+                                                                            updated[globalIndex].cumple = true;
+                                                                        }
                                                                         setActividades(updated);
                                                                     }}
                                                                 />
@@ -722,17 +753,41 @@ export default function RegistroForm() {
 
                                                         {/* Existing Evidence */}
                                                         {act.evidencias?.length > 0 && (
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                                 {act.evidencias.map(e => (
-                                                                    <a
-                                                                        key={e.id}
-                                                                        href={`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/${e.ruta}`}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        style={{ fontSize: '0.7rem', color: '#3b82f6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                                                    >
-                                                                        📄 {e.nombre_archivo.substring(0, 15)}...
-                                                                    </a>
+                                                                    <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                        <a
+                                                                            href={`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/${e.ruta}`}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            style={{ fontSize: '0.7rem', color: '#3b82f6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0 }}
+                                                                            title={e.nombre_archivo}
+                                                                        >
+                                                                            📄 {e.nombre_archivo.length > 15 ? e.nombre_archivo.substring(0, 15) + '...' : e.nombre_archivo}
+                                                                        </a>
+                                                                        {!isLocked && (
+                                                                            <button
+                                                                                type="button"
+                                                                                title="Eliminar evidencia"
+                                                                                onClick={() => handleEvidenciaDelete(e.id, globalIndex)}
+                                                                                style={{
+                                                                                    background: 'none',
+                                                                                    border: 'none',
+                                                                                    cursor: 'pointer',
+                                                                                    padding: '2px',
+                                                                                    color: '#ef4444',
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center',
+                                                                                    flexShrink: 0,
+                                                                                    borderRadius: '3px'
+                                                                                }}
+                                                                                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fee2e2'}
+                                                                                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                                            >
+                                                                                <Trash2 size={12} />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
                                                                 ))}
                                                             </div>
                                                         )}
@@ -835,18 +890,33 @@ export default function RegistroForm() {
                             </button>
                         )}
 
-                        {!registroCerrado && (
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                style={{
-                                    backgroundColor: '#10b981', color: 'white', padding: '0.75rem 2rem', borderRadius: '6px', border: 'none', fontWeight: 600, cursor: 'pointer',
-                                    display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                                }}
-                            >
-                                {loading ? <RefreshCw className="spin" size={20} /> : <Save size={20} />}
-                                {isEdit ? 'Actualizar' : 'Guardar Registro'}
-                            </button>
+                        {!isLocked && (
+                            <>
+                                {isContractor && form.estado_auditoria === 'reabierto' && (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => handleSubmit(e, { terminar_subsanacion: true })}
+                                        disabled={loading}
+                                        style={{
+                                            backgroundColor: '#3b82f6', color: 'white', padding: '0.75rem 2rem', borderRadius: '6px', border: 'none', fontWeight: 600, cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                        }}
+                                    >
+                                        <CheckCircle size={20} /> Terminar Subsanación
+                                    </button>
+                                )}
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    style={{
+                                        backgroundColor: '#10b981', color: 'white', padding: '0.75rem 2rem', borderRadius: '6px', border: 'none', fontWeight: 600, cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                    }}
+                                >
+                                    {loading ? <RefreshCw className="spin" size={20} /> : <Save size={20} />}
+                                    {isEdit ? 'Actualizar' : 'Guardar Registro'}
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>

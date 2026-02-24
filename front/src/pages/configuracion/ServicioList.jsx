@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
-import { Plus, Edit, Trash2, Search, Tag, Briefcase, Users } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Tag, Briefcase, Users, Link2 } from 'lucide-react';
 
 export default function ServicioList() {
     const [servicios, setServicios] = useState([]);
@@ -154,6 +154,12 @@ export default function ServicioList() {
                                             <Users size={16} className="text-slate-400" />
                                             <span>
                                                 <strong className="text-slate-700 font-semibold">{serv.contratistas_count || 0}</strong> Contratistas
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Link2 size={16} className="text-slate-400" />
+                                            <span>
+                                                <strong className="text-slate-700 font-semibold">{serv.vinculaciones_count || 0}</strong> Vinculaciones
                                             </span>
                                         </div>
                                     </div>

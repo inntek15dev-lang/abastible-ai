@@ -371,6 +371,8 @@ router.delete('/registros/:id', auth, requirePrivilege('Registros', 'excec'), re
 router.post('/registros/:id/auditar', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.iniciarAuditoria);
 router.put('/registros/:id/actividades/:actividadId/auditar', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.auditarActividad);
 router.post('/registros/:id/finalizar-auditoria', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.finalizarAuditoria);
+router.post('/registros/:id/iniciar-revision', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.iniciarRevision);
+router.post('/registros/:id/finalizar-revision', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.finalizarRevision);
 router.post('/registros/:id/comentarios', auth, auditoriaController.agregarComentario);
 
 // Evidencias
@@ -621,6 +623,33 @@ router.get('/dashboard/cumplimiento', auth, dashboardController.cumplimiento);
  *     tags: [Dashboard]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: contratista_id
+ *         schema:
+ *           type: string
+ *         description: Filter by company ID
+ *       - in: query
+ *         name: servicio_id
+ *         schema:
+ *           type: string
+ *         description: Filter by service ID
+ *       - in: query
+ *         name: dependencia_id
+ *         schema:
+ *           type: string
+ *         description: Filter by dependency ID
+ *       - in: query
+ *         name: programa_id
+ *         schema:
+ *           type: string
+ *         description: Filter by program ID
+ *       - in: query
+ *         name: tiene_registros
+ *         schema:
+ *           type: string
+ *           enum: [si, no]
+ *         description: Filter by presence of records
  *     responses:
  *       200:
  *         description: Compliance matrix

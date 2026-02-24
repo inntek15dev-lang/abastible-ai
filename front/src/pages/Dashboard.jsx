@@ -24,26 +24,31 @@ export default function Dashboard() {
         search: '',
         programa_id: 'todos',
         servicio_id: 'todos',
-        dependencia_id: 'todas',
-        estado: 'Activos'
+        dependencia_id: 'todas'
     });
 
     // Options State
     const [programs, setPrograms] = useState([]);
     const [services, setServices] = useState([]);
     const [dependencies, setDependencies] = useState([]);
+    const [vinculaciones, setVinculaciones] = useState([]); // Parko: Store links
+    const [historyData, setHistoryData] = useState([]);
 
     useEffect(() => {
         const loadInitialData = async () => {
             try {
-                const [progRes, servRes, depRes] = await Promise.all([
+                const [progRes, servRes, depRes, vincRes, histRes] = await Promise.all([
                     api.get('/programas'),
-                    api.get('/resources/tipos-contratista'), // Assuming endpoint
-                    api.get('/resources/dependencias')    // Assuming endpoint
+                    api.get('/resources/tipos-contratista'),
+                    api.get('/resources/dependencias'),
+                    api.get('/vinculaciones'), // Parko: Fetch active assignments
+                    api.get('/dashboard/historico') // Parko: Fetch history
                 ]);
                 setPrograms(progRes.data.data || []);
                 setServices(servRes.data.data || []);
-                setDependencies(servRes.data.data || []);
+                setDependencies(depRes.data.data || []);
+                setVinculaciones(vincRes.data.data || []);
+                setHistoryData(histRes.data.data || []);
             } catch (err) {
                 console.error("Error loading filter options:", err);
             }
@@ -51,6 +56,17 @@ export default function Dashboard() {
         loadInitialData();
         fetchKpis();
     }, []);
+
+    // Filter dependencies based on selected service
+    const filteredDependencies = filters.servicio_id === 'todos'
+        ? dependencies
+        : dependencies.filter(dep =>
+            vinculaciones.some(v =>
+                String(v.servicio_id) === String(filters.servicio_id) &&
+                String(v.dependencia_id) === String(dep.id)
+            )
+        );
+
 
     // Fetch KPIs when filters change (debounced or manual apply? User usually expects auto or "Apply" button. Auto for now except search)
     // Actually, let's trigger on change for dropdowns, debounce for text.
@@ -73,7 +89,6 @@ export default function Dashboard() {
             if (filters.programa_id !== 'todos') params.append('programa_id', filters.programa_id);
             if (filters.servicio_id !== 'todos') params.append('servicio_id', filters.servicio_id);
             if (filters.dependencia_id !== 'todas') params.append('dependencia_id', filters.dependencia_id);
-            if (filters.estado) params.append('estado', filters.estado);
 
             const response = await api.get(`/dashboard/kpis?${params.toString()}`);
             setKpis(response.data.data);
@@ -96,8 +111,7 @@ export default function Dashboard() {
             search: '',
             programa_id: 'todos',
             servicio_id: 'todos',
-            dependencia_id: 'todas',
-            estado: 'Activos'
+            dependencia_id: 'todas'
         });
     };
 
@@ -213,7 +227,7 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div>
                         <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Servicio</label>
                         <select
@@ -235,21 +249,10 @@ export default function Dashboard() {
                             onChange={(e) => handleFilterChange('dependencia_id', e.target.value)}
                         >
                             <option value="todas">Todas</option>
-                            {dependencies.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+                            {filteredDependencies.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
                         </select>
                     </div>
-                    <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Estado</label>
-                        <select
-                            className="form-control"
-                            style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
-                            value={filters.estado}
-                            onChange={(e) => handleFilterChange('estado', e.target.value)}
-                        >
-                            <option value="Activos">Activos</option>
-                            <option value="Todos">Todos</option>
-                        </select>
-                    </div>
+
                 </div>
                 <div style={{ textAlign: 'right', marginTop: '0.5rem' }}>
                     <button
@@ -329,15 +332,8 @@ export default function Dashboard() {
                     {/* Placeholder for future filter */}
                 </div>
 
-                {/* Mock Data for now - Backend Task 19 will provide real data */}
-                <ComplianceChart data={[
-                    { name: 'Ago', cumplimiento: 78 },
-                    { name: 'Sep', cumplimiento: 82 },
-                    { name: 'Oct', cumplimiento: 85 },
-                    { name: 'Nov', cumplimiento: 88 },
-                    { name: 'Dic', cumplimiento: 92 },
-                    { name: 'Ene', cumplimiento: kpis?.promedioCumplimiento || 90 }
-                ]} />
+                {/* Real Data Integration - US-1.1 */}
+                <ComplianceChart data={historyData} />
             </div>
 
 

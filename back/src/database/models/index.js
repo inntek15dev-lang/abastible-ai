@@ -150,8 +150,8 @@ Compromiso.belongsTo(User, { foreignKey: 'responsable_id', as: 'responsable' });
 Compromiso.belongsTo(User, { foreignKey: 'creado_por_id', as: 'creadoPor' });
 
 // Compromiso -> ContratistaAsignacion
-Compromiso.belongsTo(ContratistaAsignacion, { foreignKey: 'contratista_asignacion_id', as: 'asignacion' });
-ContratistaAsignacion.hasMany(Compromiso, { foreignKey: 'contratista_asignacion_id', as: 'compromisos' });
+// Compromiso.belongsTo(ContratistaAsignacion, { foreignKey: 'contratista_asignacion_id', as: 'asignacion' });
+// ContratistaAsignacion.hasMany(Compromiso, { foreignKey: 'contratista_asignacion_id', as: 'compromisos' });
 
 // AuditoriaComentario -> Registro
 AuditoriaComentario.belongsTo(Registro, { foreignKey: 'registro_id', as: 'registro' });

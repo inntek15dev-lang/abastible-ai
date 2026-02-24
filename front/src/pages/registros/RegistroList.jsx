@@ -712,6 +712,9 @@ export default function RegistroList() {
                         <option value="auditando">Auditando</option>
                         <option value="auditada">Auditada</option>
                         <option value="reabierto">Reabierto</option>
+                        <option value="subsanado">Subsanado</option>
+                        <option value="en_revision">En Revisión</option>
+                        <option value="finalizado">Finalizado</option>
                         <option value="reapertura_pendiente">Reapertura Pendiente</option>
                     </select>
                 </div>
@@ -863,6 +866,15 @@ export default function RegistroList() {
                                             } else if (status === 'reabierto') {
                                                 label = 'Reabierto';
                                                 style = { background: '#fff7ed', color: '#ea580c', border: '1px solid #ffedd5' }; // Orange
+                                            } else if (status === 'subsanado') {
+                                                label = 'Subsanado';
+                                                style = { background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe' }; // Purple
+                                            } else if (status === 'en_revision') {
+                                                label = 'En Revisión';
+                                                style = { background: '#e0f2fe', color: '#0284c7', border: '1px solid #bae6fd' }; // Sky
+                                            } else if (status === 'finalizado') {
+                                                label = 'Finalizado';
+                                                style = { background: '#f0fdf4', color: '#16a34a', border: '1px solid #dcfce7' }; // Green
                                             } else if (status === 'reapertura_pendiente') {
                                                 label = 'Solicitud Reapertura';
                                                 style = { background: '#fef2f2', color: '#dc2626', border: '1px solid #fee2e2' }; // Red
@@ -877,23 +889,31 @@ export default function RegistroList() {
                                     </td>
                                     <td className="actions-cell" style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <div className="flex flex-col gap-1 items-end">
-                                            {/* Action: Audit/Edit */}
-                                            {(registro.estado_auditoria === 'pendiente' || registro.estado_auditoria === 'reabierto') ? (
-                                                <Link to={`/registros/${registro.id}`} className="btn-action" title="Editar Registro">
-                                                    <Edit2 size={14} /> <span>Editar</span>
-                                                </Link>
-                                            ) : (
-                                                <Link to={`/registros/${registro.id}`} className="btn-action" title="Ver Detalle">
-                                                    <Eye size={14} /> <span>Ver</span>
-                                                </Link>
-                                            )}
-
-                                            {/* Action: Audit (US-003) */}
-                                            {canWrite('Auditoria') && (
+                                            {/* Action: Audit (US-003) - Admin Contrato Only & Pending Status */}
+                                            {user?.role === 'administrador_contrato' && ['pendiente', 'subsanado', 'auditando', 'en_revision'].includes(registro.estado_auditoria) && (
                                                 <Link to={`/registros/${registro.id}/auditar`} className="btn-action btn-auditar" title="Auditar Registro">
                                                     <ClipboardCheck size={14} /> <span>Auditar</span>
                                                 </Link>
                                             )}
+
+                                            {/* Action: Edit - Contractor Only & Pending/Reopened Status */}
+                                            {['contratista_admin', 'contratista_user'].includes(user?.role) &&
+                                                (registro.estado_auditoria === 'pendiente' || registro.estado_auditoria === 'reabierto' || registro.estado_auditoria === 'reapertura_pendiente') && (
+                                                    <Link to={`/registros/${registro.id}`} className="btn-action" title="Editar Registro">
+                                                        <Edit2 size={14} /> <span>Editar</span>
+                                                    </Link>
+                                                )}
+
+                                            {/* Action: View (Read Only) - Available to ALL */}
+                                            <Link
+                                                to={`/registros/${registro.id}`}
+                                                state={{ readonly: true }}
+                                                className="btn-action"
+                                                title="Ver Detalle"
+                                                style={{ color: '#6b7280', borderColor: '#d1d5db' }}
+                                            >
+                                                <Eye size={14} /> <span>Ver</span>
+                                            </Link>
 
                                             {/* Action: PDF */}
                                             {canExec('Registros_Exportar') && (

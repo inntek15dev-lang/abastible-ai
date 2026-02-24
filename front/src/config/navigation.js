@@ -46,17 +46,7 @@ export const MODULES = [
             { path: '/hallazgos', label: 'Hallazgos (Directo)', icon: Search, module: 'Registros' } // Sprint 2 Gap
         ]
     },
-    {
-        id: 'personas',
-        label: 'Personas',
-        icon: Users,
-        color: '#10B981', // Green (Tailwind emerald-500)
-        module: 'Dashboard', // Using Dashboard for now as placeholder
-        items: [
-            { path: '#dotacion', label: 'Dotación (Proximamente)', icon: Users, module: 'Dashboard' },
-            { path: '#turnos', label: 'Turnos (Proximamente)', icon: UserCircle, module: 'Dashboard' }
-        ]
-    },
+
     {
         id: 'mi-programa',
         label: 'Mi Programa',
@@ -77,9 +67,7 @@ export const MODULES = [
 
             // { path: '/vinculaciones', label: 'Vinculaciones', icon: Link, module: 'Vinculaciones' }, // REMOVED (Managed via Contratistas)
             { path: '/dependencias', label: 'Dependencias y Plantas', icon: Building, module: 'Gestion_Configuracion' },
-            { path: '/servicios', label: 'Servicios y Tipos', icon: Settings, module: 'Gestion_Configuracion' },
-            { path: '/elementos', label: 'Elementos', icon: settingsIconHelper('elementos'), module: 'Gestion_Configuracion' },
-            { path: '/actividades', label: 'Actividades', icon: settingsIconHelper('actividades'), module: 'Gestion_Configuracion' }
+            { path: '/servicios', label: 'Servicios y Tipos', icon: Settings, module: 'Gestion_Configuracion' }
         ]
     },
     {
