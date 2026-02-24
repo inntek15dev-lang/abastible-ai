@@ -774,7 +774,7 @@ a {
 }
 
 .btn-traza {
-  border-color: transparent;
+  border-color: var(--color-brand-secondary);
   color: var(--color-brand-secondary);
 }
 
