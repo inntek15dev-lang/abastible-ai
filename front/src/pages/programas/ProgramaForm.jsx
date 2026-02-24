@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api';
-import { Save, ArrowLeft } from 'lucide-react';
+import { Save, ArrowLeft, Pencil } from 'lucide-react';
+import './ProgramaForm.css';
 
 export default function ProgramaForm() {
     const { id } = useParams();
@@ -10,7 +11,9 @@ export default function ProgramaForm() {
     const isEdit = Boolean(id);
 
     const [form, setForm] = useState({
+        codigo: '',
         nombre: '',
+        meta_cumplimiento: '',
         descripcion: '',
         activo: true
     });
@@ -20,13 +23,22 @@ export default function ProgramaForm() {
     useEffect(() => {
         if (isEdit) {
             fetchPrograma();
+        } else {
+            // Default constants for new
+            setForm(prev => ({ ...prev, codigo: 'PROG-NEW', meta_cumplimiento: '0,00' }));
         }
     }, [id]);
 
     const fetchPrograma = async () => {
         try {
             const response = await api.get(`/programas/${id}`);
-            setForm(response.data.data);
+            const data = response.data.data;
+            // Mock/Adapt missing fields for visual fidelity
+            setForm({
+                ...data,
+                codigo: data.codigo || `PROG-${String(data.id).padStart(2, '0')}`,
+                meta_cumplimiento: data.meta_cumplimiento || ''
+            });
         } catch (err) {
             setError('Error al cargar programa');
         }
@@ -38,10 +50,18 @@ export default function ProgramaForm() {
         setError('');
 
         try {
+            // Only send backend-supported fields
+            const payload = {
+                nombre: form.nombre,
+                descripcion: form.descripcion,
+                meta_cumplimiento: form.meta_cumplimiento,
+                activo: form.activo
+            };
+
             if (isEdit) {
-                await api.put(`/programas/${id}`, form);
+                await api.put(`/programas/${id}`, payload);
             } else {
-                await api.post('/programas', form);
+                await api.post('/programas', payload);
             }
             navigate('/programas');
         } catch (err) {
@@ -52,59 +72,98 @@ export default function ProgramaForm() {
     };
 
     return (
-        <div className="page-container">
-            <header className="page-header">
-                <button onClick={() => navigate(-1)} className="btn-back">
-                    <ArrowLeft size={18} /> Volver
+        <div className="page-container-edit">
+            <header className="edit-header">
+                <button onClick={() => navigate(-1)} className="btn-back-arrow" title="Volver">
+                    <ArrowLeft size={24} />
                 </button>
-                <h1>{isEdit ? 'Editar Programa' : 'Nuevo Programa'}</h1>
+                <div className="edit-title-row">
+                    <Pencil size={20} className="icon-pencil-header" />
+                    <span>{isEdit ? `Editar Programa: ${form.nombre || '...'}` : 'Nuevo Programa'}</span>
+                </div>
             </header>
 
             {error && <div className="error-message">{error}</div>}
 
-            <form onSubmit={handleSubmit} className="form-card">
-                <div className="form-group">
-                    <label htmlFor="nombre">Nombre *</label>
-                    <input
-                        id="nombre"
-                        type="text"
-                        value={form.nombre}
-                        onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-                        required
-                    />
-                </div>
+            <div className="program-edit-card">
+                <form onSubmit={handleSubmit}>
+                    <div className="form-section">
+                        {/* Código */}
+                        <div className="input-group">
+                            <label className="input-label">Código <span className="required">*</span></label>
+                            <input
+                                type="text"
+                                className="input-field"
+                                value={form.codigo}
+                                onChange={(e) => setForm({ ...form, codigo: e.target.value })}
+                                placeholder="PROG-01"
+                            // Assuming Code is editable or auto-generated, visually specifically requested
+                            />
+                            <p className="helper-text">Identificador único del programa (se guardará en mayúsculas)</p>
+                        </div>
 
-                <div className="form-group">
-                    <label htmlFor="descripcion">Descripción</label>
-                    <textarea
-                        id="descripcion"
-                        value={form.descripcion || ''}
-                        onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
-                        rows={4}
-                    />
-                </div>
+                        {/* Nombre */}
+                        <div className="input-group">
+                            <label className="input-label">Nombre <span className="required">*</span></label>
+                            <input
+                                type="text"
+                                className="input-field"
+                                value={form.nombre}
+                                onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                                required
+                            />
+                        </div>
 
-                <div className="form-group checkbox">
-                    <label>
+                        {/* Meta de Cumplimiento */}
+                        <div className="input-group">
+                            <label className="input-label">Meta de Cumplimiento (%) <span className="required">*</span></label>
+                            <div className="input-wrapper-percent">
+                                <input
+                                    type="text"
+                                    className="input-field"
+                                    value={form.meta_cumplimiento}
+                                    onChange={(e) => setForm({ ...form, meta_cumplimiento: e.target.value })}
+                                    style={{ width: '100%' }}
+                                />
+                                <span className="percent-suffix">%</span>
+                            </div>
+                        </div>
+
+                        {/* Descripción */}
+                        <div className="input-group">
+                            <label className="input-label">Descripción</label>
+                            <textarea
+                                className="textarea-field"
+                                value={form.descripcion || ''}
+                                onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+                                rows={4}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Checkbox */}
+                    <div className="checkbox-group">
                         <input
+                            id="activoCheck"
                             type="checkbox"
+                            className="checkbox-input"
                             checked={form.activo}
                             onChange={(e) => setForm({ ...form, activo: e.target.checked })}
                         />
-                        Activo
-                    </label>
-                </div>
+                        <label htmlFor="activoCheck" className="checkbox-label">Programa Activo</label>
+                    </div>
 
-                <div className="form-actions">
-                    <button type="button" onClick={() => navigate(-1)} className="btn-secondary">
-                        Cancelar
-                    </button>
-                    <button type="submit" className="btn-primary" disabled={loading}>
-                        <Save size={18} />
-                        {loading ? 'Guardando...' : 'Guardar'}
-                    </button>
-                </div>
-            </form>
+                    {/* Actions */}
+                    <div className="form-actions-row">
+                        <button type="submit" className="btn-save-changes" disabled={loading}>
+                            {loading ? 'Guardando...' : 'Guardar Cambios'}
+                        </button>
+                        <button type="button" onClick={() => navigate(-1)} className="btn-cancel-edit">
+                            Cancelar
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     );
 }

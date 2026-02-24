@@ -32,24 +32,10 @@
     height: 40px;
 }
 
-.logo-circle {
-    width: 32px;
-    height: 32px;
-    background-color: var(--color-brand-primary);
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    font-size: 1.2rem;
-}
-
-.logo-text {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #1f2937;
-    letter-spacing: -0.025em;
+.navbar-logo {
+    height: 40px;
+    width: auto;
+    object-fit: contain;
 }
 
 /* Modules Navigation */
@@ -102,9 +88,9 @@
 
 /* Dropdown Menu */
 .dropdown-menu {
-    position: absolute;
-    top: 100%;
-    left: 0;
+    /* position: absolute;  Managed by RAC Popover */
+    /* top: 100%;           Managed by RAC Popover */
+    /* left: 0;             Managed by RAC Popover */
     margin-top: 0.5rem;
     width: 250px;
     background-color: white;
@@ -196,11 +182,11 @@
     color: #6b7280;
 }
 
-.dropdown-menu.right {
+/* .dropdown-menu.right {
     right: 0;
     left: auto;
     transform-origin: top right;
-}
+} */
 
 /* Responsive */
 @media (max-width: 1024px) {

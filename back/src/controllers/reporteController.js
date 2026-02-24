@@ -1,5 +1,5 @@
 const PDFDocument = require('pdfkit');
-const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso } = require('../database/models');
+const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso, Elemento, Vinculacion, Administracion, sequelize } = require('../database/models');
 
 module.exports = {
     async registroPdf(req, res) {
@@ -107,6 +107,153 @@ module.exports = {
     },
 
     async cumplimientoGeneral(req, res) {
-        res.status(501).json({ message: 'Not implemented yet' });
+        try {
+            const { periodo } = req.query; // Format YYYY-MM
+            const user = req.user;
+            const whereRegistro = {};
+
+            // 1. Get Vinculacion IDs based on role (Unified scope logic)
+            if (user.role === 'administrador_contrato') {
+                const adminRecords = await Administracion.findAll({
+                    where: { administrador_contrato_id: user.id, activo: 1 },
+                    attributes: ['vinculacion_id']
+                });
+                const vincIds = adminRecords.map(a => a.vinculacion_id);
+                if (vincIds.length === 0) whereRegistro.id = -1;
+                else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
+            } else if (user.role === 'contratista_admin') {
+                if (user.contratista_id) {
+                    const vincs = await Vinculacion.findAll({
+                        where: { contratista_id: user.contratista_id, activo: 1 },
+                        attributes: ['id']
+                    });
+                    const vincIds = vincs.map(v => v.id);
+                    if (vincIds.length === 0) whereRegistro.id = -1;
+                    else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
+                } else {
+                    whereRegistro.id = -1;
+                }
+            } else if (user.role === 'contratista_user') {
+                if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
+                    const vincs = await Vinculacion.findAll({
+                        where: {
+                            contratista_id: user.contratista_id,
+                            servicio_id: user.tipo_contratista_id,
+                            dependencia_id: user.dependencia_id,
+                            activo: 1
+                        },
+                        attributes: ['id']
+                    });
+                    const vincIds = vincs.map(v => v.id);
+                    if (vincIds.length === 0) whereRegistro.id = -1;
+                    else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
+                } else {
+                    whereRegistro.id = -1;
+                }
+            }
+
+            if (periodo) {
+                // Filter by month
+                // Sequelize where date starts with YYYY-MM
+                // whereRegistro.periodo = { [Op.startsWith]: periodo }; // Might verify date format
+                // Better:
+                const startDate = new Date(periodo + '-01');
+                const endDate = new Date(new Date(startDate).setMonth(startDate.getMonth() + 1));
+                whereRegistro.periodo = {
+                    [require('sequelize').Op.gte]: startDate,
+                    [require('sequelize').Op.lt]: endDate
+                };
+            }
+
+            // 1. Resumen de Registros
+            const registros = await Registro.findAll({
+                where: whereRegistro,
+                attributes: ['id', 'periodo', 'eecc_nombre', 'porcentaje_cumplimiento', 'estado_auditoria', 'auditado'],
+                order: [['periodo', 'DESC']],
+                include: [{ model: User, as: 'usuario', attributes: ['name'] }]
+            });
+
+            // 2. Cumplimiento por Elemento
+            // This is heavier. We need to aggregate RegistroActividad linked to these registros.
+            // If no registros, elements are 0% or N/A?
+            // Let's get all elements matches?
+            // Complex query:
+            // Select Elemento.nombre, AVG(case when respuesta='cumple' then 1 else 0 end)
+            // From RegistroActividad
+            // Join Actividad -> Elemento
+            // Where registro_id IN (registros.ids)
+
+            let elementosStats = [];
+            const registroIds = registros.map(r => r.id);
+
+            if (registroIds.length > 0) {
+                // Raw query for aggregation
+                /*
+                SELECT e.id, e.nombre,
+                       COUNT(ra.id) as total_actividades,
+                       SUM(CASE WHEN ra.respuesta_auditor = 'cumple' OR (ra.respuesta_auditor IS NULL AND ra.respuesta_contratista = 'cumple') THEN 1 ELSE 0 END) as cumplidas
+                FROM registro_actividades ra
+                JOIN actividades a ON ra.actividad_id = a.id
+                JOIN elementos e ON a.elemento_id = e.id
+                WHERE ra.registro_id IN (...)
+                GROUP BY e.id
+                */
+                // Using Sequelize syntax:
+                // Using Sequelize syntax:
+                elementosStats = await RegistroActividad.findAll({
+                    attributes: [
+                        [sequelize.col('actividad.elemento.id'), 'elemento_id'],
+                        [sequelize.col('actividad.elemento.nombre'), 'elemento_nombre'],
+                        // Denominator: count only those not NA (2)
+                        [sequelize.literal(`SUM(CASE WHEN cumple_auditor != 2 THEN 1 ELSE 0 END)`), 'total_valido'],
+                        // Numerator: count those that are 1 (audited) or 1 (contractor if not audited)
+                        [sequelize.literal(`SUM(CASE WHEN cumple_auditor = 1 OR (cumple_auditor IS NULL AND cumple = 1) THEN 1 ELSE 0 END)`), 'cumplidas_count']
+                    ],
+                    include: [{
+                        model: Actividad,
+                        as: 'actividad',
+                        attributes: [],
+                        include: [{
+                            model: Elemento,
+                            as: 'elemento',
+                            attributes: ['id', 'nombre']
+                        }]
+                    }],
+                    where: { registro_id: registroIds },
+                    group: ['actividad.elemento.id', 'actividad.elemento.nombre'],
+                    raw: true
+                });
+
+                // Format
+                elementosStats = elementosStats.map(e => ({
+                    id: e.elemento_id,
+                    name: e.elemento_nombre,
+                    value: parseInt(e.total_valido) > 0 ? Math.round((parseInt(e.cumplidas_count) / parseInt(e.total_valido)) * 100) : 0
+                }));
+            }
+
+            // Fill with all elements if needed (optional, for now show only what has data)
+            // If we want to show ALL elements even with 0 data, we'd query Elemento.findAll and merge.
+            // Let's stick to showing data for now.
+
+            res.json({
+                success: true,
+                data: {
+                    elementos: elementosStats,
+                    registros: registros.map(r => ({
+                        id: r.id,
+                        periodo: r.periodo,
+                        eecc: r.eecc_nombre || 'N/A',
+                        cumplimiento: parseFloat(r.porcentaje_cumplimiento),
+                        estado: parseFloat(r.porcentaje_cumplimiento) >= 85 ? 'Cumple meta' : 'Bajo meta',
+                        statusClass: parseFloat(r.porcentaje_cumplimiento) >= 85 ? 'ok' : 'bad'
+                    }))
+                }
+            });
+
+        } catch (error) {
+            console.error('Reporte Cumplimiento Error:', error);
+            res.status(500).json({ message: 'Error al obtener reporte' });
+        }
     }
 };

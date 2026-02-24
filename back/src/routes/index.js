@@ -50,6 +50,7 @@ const evidenciaController = require('../controllers/evidenciaController');
 const hallazgoController = require('../controllers/hallazgoController');
 const compromisoController = require('../controllers/compromisoController');
 
+
 // ============= PUBLIC ROUTES =============
 /**
  * @swagger
@@ -188,6 +189,7 @@ router.delete('/programas/:id', auth, requirePrivilege('Programas', 'excec'), pr
  *         description: Created
  */
 router.get('/elementos', auth, elementoController.index);
+router.get('/elementos/:id', auth, elementoController.show);
 router.post('/elementos', auth, requirePrivilege('Programas', 'write'), elementoController.store);
 router.put('/elementos/:id', auth, requirePrivilege('Programas', 'write'), elementoController.update);
 router.delete('/elementos/:id', auth, requirePrivilege('Programas', 'excec'), elementoController.destroy);
@@ -225,9 +227,9 @@ router.delete('/elementos/:id', auth, requirePrivilege('Programas', 'excec'), el
  *         description: Created
  */
 router.get('/actividades', auth, actividadController.index);
-router.post('/actividades', auth, requirePrivilege('Programas', 'write'), actividadController.store);
-router.put('/actividades/:id', auth, requirePrivilege('Programas', 'write'), actividadController.update);
-router.delete('/actividades/:id', auth, requirePrivilege('Programas', 'excec'), actividadController.destroy);
+router.post('/actividades', auth, requirePrivilege('Gestion_Configuracion', 'write'), upload.single('plantilla'), actividadController.store);
+router.put('/actividades/:id', auth, requirePrivilege('Gestion_Configuracion', 'write'), upload.single('plantilla'), actividadController.update);
+router.delete('/actividades/:id', auth, requirePrivilege('Gestion_Configuracion', 'excec'), actividadController.destroy);
 
 // Registros (role-based filtering applied in controller)
 /**
@@ -281,7 +283,7 @@ router.delete('/registros/:id', auth, requirePrivilege('Registros', 'excec'), re
  * /registros/{id}/auditar:
  *   post:
  *     summary: Start auditoria for a register
- *     tags: [Registros]
+ *     tags: [Auditoria]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -293,10 +295,84 @@ router.delete('/registros/:id', auth, requirePrivilege('Registros', 'excec'), re
  *     responses:
  *       200:
  *         description: Auditoria started
+ *
+ * /registros/{id}/actividades/{actividadId}/auditar:
+ *   put:
+ *     summary: Audit a specific activity
+ *     tags: [Auditoria]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: actividadId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               estado:
+ *                 type: string
+ *                 enum: [aprobado, rechazado]
+ *               observacion:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Activity audited
+ *
+ * /registros/{id}/finalizar-auditoria:
+ *   post:
+ *     summary: Finalize the audit process
+ *     tags: [Auditoria]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Audit finalized
+ *
+ * /registros/{id}/comentarios:
+ *   post:
+ *     summary: Add a comment to a register
+ *     tags: [Auditoria]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               comentario:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Comment added
  */
 router.post('/registros/:id/auditar', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.iniciarAuditoria);
 router.put('/registros/:id/actividades/:actividadId/auditar', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.auditarActividad);
 router.post('/registros/:id/finalizar-auditoria', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.finalizarAuditoria);
+router.post('/registros/:id/iniciar-revision', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.iniciarRevision);
+router.post('/registros/:id/finalizar-revision', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.finalizarRevision);
 router.post('/registros/:id/comentarios', auth, auditoriaController.agregarComentario);
 
 // Evidencias
@@ -383,10 +459,13 @@ router.put('/compromisos/:id', auth, requirePrivilege('Compromisos', 'write'), c
 router.patch('/compromisos/:id/cumplir', auth, compromisoController.cumplir);
 router.delete('/compromisos/:id', auth, requirePrivilege('Compromisos', 'excec'), compromisoController.destroy);
 
+
+
+
 // ============= SPRINT 3: REAPERTURAS =============
+// Multer for Reaperturas (if needed, though not explicitly used in routes)
 const reaperturaController = require('../controllers/reaperturaController');
 
-// Reaperturas
 /**
  * @swagger
  * /reaperturas:
@@ -403,9 +482,79 @@ const reaperturaController = require('../controllers/reaperturaController');
  *     tags: [Reaperturas]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               registro_id:
+ *                 type: integer
+ *               motivo:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Request created
+ *
+ * /reaperturas/{id}/aprobar:
+ *   put:
+ *     summary: Approve reopen request
+ *     tags: [Reaperturas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Request approved
+ *
+ * /reaperturas/{id}/rechazar:
+ *   put:
+ *     summary: Reject reopen request
+ *     tags: [Reaperturas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               motivo_rechazo:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Request rejected
+ *
+ * /reaperturas/directa:
+ *   post:
+ *     summary: Directly reopen a register (Admin only)
+ *     tags: [Reaperturas]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               registro_id:
+ *                 type: integer
+ *               motivo:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Register reopened
  */
 router.get('/reaperturas', auth, reaperturaController.index);
 router.post('/reaperturas', auth, reaperturaController.store);
@@ -445,9 +594,69 @@ router.get('/dashboard/kpis', auth, dashboardController.kpis);
  *         description: Compliance data
  */
 router.get('/dashboard/cumplimiento', auth, dashboardController.cumplimiento);
-router.get('/dashboard/cumplimiento', auth, dashboardController.cumplimiento);
+
+/**
+ * @swagger
+ * /dashboard/historico:
+ *   get:
+ *     summary: Get historical compliance data
+ *     tags: [Dashboard]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Historical data
+ *
+ * /dashboard/actividad:
+ *   get:
+ *     summary: Get recent activity logs
+ *     tags: [Dashboard]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Activity logs
+ *
+ * /dashboard/matrix:
+ *   get:
+ *     summary: Get compliance matrix
+ *     tags: [Dashboard]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: contratista_id
+ *         schema:
+ *           type: string
+ *         description: Filter by company ID
+ *       - in: query
+ *         name: servicio_id
+ *         schema:
+ *           type: string
+ *         description: Filter by service ID
+ *       - in: query
+ *         name: dependencia_id
+ *         schema:
+ *           type: string
+ *         description: Filter by dependency ID
+ *       - in: query
+ *         name: programa_id
+ *         schema:
+ *           type: string
+ *         description: Filter by program ID
+ *       - in: query
+ *         name: tiene_registros
+ *         schema:
+ *           type: string
+ *           enum: [si, no]
+ *         description: Filter by presence of records
+ *     responses:
+ *       200:
+ *         description: Compliance matrix
+ */
 router.get('/dashboard/historico', auth, dashboardController.historico);
 router.get('/dashboard/actividad', auth, dashboardController.actividadReciente);
+router.get('/dashboard/matrix', auth, dashboardController.matrix);
 
 // Reportes
 /**
@@ -474,70 +683,55 @@ router.get('/dashboard/actividad', auth, dashboardController.actividadReciente);
  *               format: binary
  */
 router.get('/reportes/registro/:id/pdf', auth, reporteController.registroPdf);
-router.get('/reportes/cumplimiento', auth, reporteController.cumplimientoGeneral);
 
-// ============= SPRINT 5: LICITACIONES & DOCUMENTOS =============
-// Sprint 5 Controllers
-const licitacionController = require('../controllers/licitacionController');
-const postulacionController = require('../controllers/postulacionController');
-// documentoController already imported or needs check? Let's fix duplicate import above.
-const documentoController = require('../controllers/documentoController');
-
-// Licitaciones
 /**
  * @swagger
- * /licitaciones:
+ * /reportes/cumplimiento:
  *   get:
- *     summary: List available licitaciones
- *     tags: [Licitaciones]
+ *     summary: Generate general compliance report
+ *     tags: [Reportes]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of licitaciones
+ *         description: Compliance report
+ */
+router.get('/reportes/cumplimiento', auth, reporteController.cumplimientoGeneral);
+
+// ============= SPRINT 5: DOCUMENTOS =============
+// Documentos
+const documentoController = require('../controllers/documentoController');
+
+/**
+ * @swagger
+ * /documentos:
+ *   get:
+ *     summary: List documents
+ *     tags: [Documentos]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of documents
+ * /documentos/upload:
  *   post:
- *     summary: Create a new licitacion
- *     tags: [Licitaciones]
+ *     summary: Upload a document
+ *     tags: [Documentos]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
- *             $ref: '#/components/schemas/Licitacion'
+ *             type: object
+ *             properties:
+ *               archivo:
+ *                 type: string
+ *                 format: binary
  *     responses:
  *       201:
- *         description: Licitacion created
+ *         description: Document uploaded
  */
-router.get('/licitaciones', auth, licitacionController.index);
-router.get('/licitaciones/:id', auth, licitacionController.show);
-router.post('/licitaciones', auth, requirePrivilege('Licitaciones_Crear', 'write'), licitacionController.store);
-router.put('/licitaciones/:id', auth, requirePrivilege('Licitaciones_Crear', 'write'), licitacionController.update);
-router.put('/licitaciones/:id/estado', auth, requirePrivilege('Licitaciones_Crear', 'write'), licitacionController.cambiarEstado);
-
-// Postulaciones
-/**
- * @swagger
- * /licitaciones/{id}/postular:
- *   post:
- *     summary: Postulate to a licitacion
- *     tags: [Licitaciones]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       201:
- *         description: Postulation sent
- */
-router.post('/licitaciones/:id/postular', auth, requirePrivilege('Licitaciones_Postular', 'excec'), postulacionController.postular);
-router.get('/mis-postulaciones', auth, postulacionController.misPostulaciones);
-
-// Documentos
 router.post('/documentos/upload', auth, upload.single('archivo'), documentoController.upload);
 router.get('/documentos', auth, documentoController.index);
 
@@ -579,15 +773,147 @@ router.get('/usuarios/:id', auth, usuarioController.show);
 router.post('/usuarios', auth, requirePrivilege('Usuarios', 'write'), usuarioController.store);
 router.put('/usuarios/:id', auth, requirePrivilege('Usuarios', 'write'), usuarioController.update);
 router.delete('/usuarios/:id', auth, requirePrivilege('Usuarios', 'excec'), usuarioController.destroy);
+router.get('/usuarios/:id/asignaciones', auth, usuarioController.asignaciones);
 
 // Resources (Dropdowns)
 const resourceController = require('../controllers/resourceController');
+
+/**
+ * @swagger
+ * /resources/dependencias:
+ *   get:
+ *     summary: List dependencies for dropdowns
+ *     tags: [Resources]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of dependencies
+ *
+ * /resources/tipos-contratista:
+ *   get:
+ *     summary: List contractor types (services) for dropdowns
+ *     tags: [Resources]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of services
+ */
 router.get('/resources/dependencias', auth, resourceController.dependencias);
 router.get('/resources/tipos-contratista', auth, resourceController.tiposContratista);
+
+
 
 // ============= SPRINT 7: GESTIÓN DE ROLES =============
 const roleController = require('../controllers/roleController');
 
+/**
+ * @swagger
+ * /roles:
+ *   get:
+ *     summary: List all roles
+ *     tags: [Roles]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of roles
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Role'
+ *   post:
+ *     summary: Create a new role
+ *     tags: [Roles]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Role'
+ *     responses:
+ *       201:
+ *         description: Role created
+ *
+ * /roles/{id}:
+ *   put:
+ *     summary: Update a role
+ *     tags: [Roles]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Role'
+ *     responses:
+ *       200:
+ *         description: Role updated
+ *   delete:
+ *     summary: Delete a role
+ *     tags: [Roles]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Role deleted
+ *
+ * /roles/{id}/privileges:
+ *   get:
+ *     summary: Get privileges for a role
+ *     tags: [Roles]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of privileges
+ *   put:
+ *     summary: Update privileges for a role
+ *     tags: [Roles]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               privileges:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *     responses:
+ *       200:
+ *         description: Privileges updated
+ */
 router.get('/roles', auth, requirePrivilege('Admin_Usuarios', 'read'), roleController.index);
 router.post('/roles', auth, requirePrivilege('Admin_Usuarios', 'write'), roleController.store);
 router.put('/roles/:id', auth, requirePrivilege('Admin_Usuarios', 'write'), roleController.update);
@@ -600,19 +926,354 @@ router.put('/roles/:id/privileges', auth, requirePrivilege('Admin_Usuarios', 'wr
 const dependenciaController = require('../controllers/dependenciaController');
 const servicioController = require('../controllers/servicioController'); // Wraps TipoContratista
 
+/**
+ * @swagger
+ * /dependencias:
+ *   get:
+ *     summary: List all dependencies
+ *     tags: [Dependencias]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of dependencies
+ *   post:
+ *     summary: Create a dependency
+ *     tags: [Dependencias]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Dependencia'
+ *     responses:
+ *       201:
+ *         description: Created
+ * /dependencias/{id}:
+ *   get:
+ *     summary: Get dependency by ID
+ *     tags: [Dependencias]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Dependency details
+ *   put:
+ *     summary: Update dependency
+ *     tags: [Dependencias]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Updated
+ *   delete:
+ *     summary: Delete dependency
+ *     tags: [Dependencias]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Deleted
+ */
 // Dependencias
 router.get('/dependencias', auth, dependenciaController.index);
 router.get('/dependencias/:id', auth, dependenciaController.show);
-router.post('/dependencias', auth, requirePrivilege('Programas', 'write'), dependenciaController.store); // Sharing logic with Programas/Admin
-router.put('/dependencias/:id', auth, requirePrivilege('Programas', 'write'), dependenciaController.update);
-router.delete('/dependencias/:id', auth, requirePrivilege('Programas', 'excec'), dependenciaController.destroy);
+router.post('/dependencias', auth, requirePrivilege('Gestion_Configuracion', 'write'), dependenciaController.store); // Sharing logic with Programas/Admin
+router.put('/dependencias/:id', auth, requirePrivilege('Gestion_Configuracion', 'write'), dependenciaController.update);
+router.delete('/dependencias/:id', auth, requirePrivilege('Gestion_Configuracion', 'excec'), dependenciaController.destroy);
 
+/**
+ * @swagger
+ * /servicios:
+ *   get:
+ *     summary: List all services
+ *     tags: [Servicios]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of services
+ *   post:
+ *     summary: Create a service
+ *     tags: [Servicios]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Servicio'
+ *     responses:
+ *       201:
+ *         description: Created
+ * /servicios/{id}:
+ *   get:
+ *     summary: Get service by ID
+ *     tags: [Servicios]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Service details
+ *   put:
+ *     summary: Update service
+ *     tags: [Servicios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Updated
+ *   delete:
+ *     summary: Delete service
+ *     tags: [Servicios]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Deleted
+ */
 // Servicios
 router.get('/servicios', auth, servicioController.index);
 router.get('/servicios/:id', auth, servicioController.show);
-router.post('/servicios', auth, requirePrivilege('Programas', 'write'), servicioController.store);
-router.put('/servicios/:id', auth, requirePrivilege('Programas', 'write'), servicioController.update);
-router.delete('/servicios/:id', auth, requirePrivilege('Programas', 'excec'), servicioController.destroy);
+router.post('/servicios', auth, requirePrivilege('Gestion_Configuracion', 'write'), servicioController.store);
+router.put('/servicios/:id', auth, requirePrivilege('Gestion_Configuracion', 'write'), servicioController.update);
+router.delete('/servicios/:id', auth, requirePrivilege('Gestion_Configuracion', 'excec'), servicioController.destroy);
+
+// ============= SPRINT 9 REFACTOR: CONTRATISTAS =============
+const contratistaController = require('../controllers/contratistaController');
+
+/**
+ * @swagger
+ * /contratistas:
+ *   get:
+ *     summary: List all contractors
+ *     tags: [Contratistas]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of contractors
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Contratista'
+ *   post:
+ *     summary: Create a contractor
+ *     tags: [Contratistas]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Contratista'
+ *     responses:
+ *       201:
+ *         description: Created
+ * /contratistas/{id}:
+ *   get:
+ *     summary: Get contractor by ID
+ *     tags: [Contratistas]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Contractor details
+ *   put:
+ *     summary: Update contractor
+ *     tags: [Contratistas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Updated
+ *   delete:
+ *     summary: Delete contractor
+ *     tags: [Contratistas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Deleted
+ */
+router.get('/contratistas', auth, contratistaController.index);
+router.get('/contratistas/:id', auth, contratistaController.show);
+router.post('/contratistas', auth, requirePrivilege('Gestion_Configuracion', 'write'), contratistaController.store);
+router.put('/contratistas/:id', auth, requirePrivilege('Gestion_Configuracion', 'write'), contratistaController.update);
+router.post('/contratistas/:id/admin', auth, requirePrivilege('Gestion_Configuracion', 'write'), contratistaController.assignAdmin);
+router.delete('/contratistas/:id/admin/:adminId', auth, requirePrivilege('Gestion_Configuracion', 'write'), contratistaController.removeAdmin);
+router.delete('/contratistas/:id', auth, requirePrivilege('Gestion_Configuracion', 'excec'), contratistaController.destroy);
+
+// ============= SPRINT 10: SYNC (Parko) =============
+const syncController = require('../controllers/syncController');
+
+/**
+ * @swagger
+ * /sync/compare:
+ *   get:
+ *     summary: Compare local vs external data
+ *     tags: [Sync]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Comparison result
+ * /sync/execute:
+ *   post:
+ *     summary: Execute synchronization
+ *     tags: [Sync]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               changes:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *     responses:
+ *       200:
+ *         description: Sync completed
+ */
+router.get('/sync/compare', auth, requirePrivilege('Configuración', 'read'), syncController.compareData);
+router.post('/sync/execute', auth, requirePrivilege('Configuración', 'write'), syncController.syncData);
+
+// ============= VINCULACIONES MODULE =============
+const vinculacionController = require('../controllers/vinculacionController');
+
+/**
+ * @swagger
+ * /vinculaciones:
+ *   get:
+ *     summary: List all assignments
+ *     tags: [Vinculaciones]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of assignments
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Vinculacion'
+ *   post:
+ *     summary: Create assignment
+ *     tags: [Vinculaciones]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Vinculacion'
+ *     responses:
+ *       201:
+ *         description: Created
+ * /vinculaciones/{id}:
+ *   get:
+ *     summary: Get assignment by ID
+ *     tags: [Vinculaciones]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Details
+ *   put:
+ *     summary: Update assignment
+ *     tags: [Vinculaciones]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Updated
+ *   delete:
+ *     summary: Delete assignment
+ *     tags: [Vinculaciones]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Deleted
+ */
+router.get('/vinculaciones', auth, vinculacionController.index);
+router.get('/vinculaciones/:id', auth, requirePrivilege('Vinculaciones', 'read'), vinculacionController.show);
+router.post('/vinculaciones', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.store);
+router.post('/vinculaciones/:id/admin', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.assignAdmin);
+router.delete('/vinculaciones/:id/admin/:adminId', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.removeAdmin);
+router.put('/vinculaciones/:id', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.update);
+router.delete('/vinculaciones/:id', auth, requirePrivilege('Vinculaciones', 'excec'), vinculacionController.destroy);
 
 // End of Routes
 

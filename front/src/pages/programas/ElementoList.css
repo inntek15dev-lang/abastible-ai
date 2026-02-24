@@ -1,0 +1,349 @@
+/* ============================================
+   Theme: ElementoList (Program Detail View)
+   Source: info/medias/vista-elementos.png
+   ============================================ */
+
+/* -----------------------------
+   1. LAYOUT & VARIABLES
+   ----------------------------- */
+:root {
+    --color-bg-page-elements: #F4F6F8;
+    --color-card-bg: #FFFFFF;
+    --color-primary: #1A73E8;
+    --color-primary-soft: #E8F0FE;
+    --color-text-main: #202124;
+    --color-text-secondary: #5F6368;
+    --color-border: #DADCE0;
+
+    --color-header-blue: #4285F4;
+    /* Header bar */
+    --color-success: #34A853;
+    /* Success/Green actions */
+
+    --shadow-card: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+}
+
+.page-container-elements {
+    background-color: var(--color-bg-page-elements);
+    min-height: 100vh;
+    padding: 24px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* -----------------------------
+   2. HEADER AREA
+   ----------------------------- */
+.elements-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.btn-back-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--color-border);
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+}
+
+.program-info-block h1 {
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: var(--color-text-main);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.program-badge {
+    background-color: var(--color-primary-soft);
+    color: var(--color-primary);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    /* Stacked above title */
+    display: inline-block;
+}
+
+.btn-edit-program {
+    background: white;
+    border: 1px solid var(--color-border);
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+/* -----------------------------
+   3. STATS DASHBOARD CARD
+   ----------------------------- */
+.stats-dashboard {
+    background: white;
+    border-radius: 12px;
+    /* Nicelly rounded */
+    padding: 32px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    /* Softer shadow */
+    text-align: center;
+}
+
+.stats-grid {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 24px;
+}
+
+.stat-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    /* Default blue */
+}
+
+.stat-value.green {
+    color: var(--color-success);
+}
+
+.stat-value.purple {
+    color: #A142F4;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    margin-top: 4px;
+}
+
+.program-description-text {
+    border-top: 1px solid var(--color-border);
+    padding-top: 24px;
+    color: var(--color-text-secondary);
+    font-size: 0.95rem;
+    text-align: left;
+}
+
+/* -----------------------------
+   4. ELEMENTS SECTION HEADER
+   ----------------------------- */
+.elements-section-header {
+    background-color: var(--color-header-blue);
+    color: white;
+    padding: 16px 24px;
+    border-radius: 8px 8px 0 0;
+    /* Rounded top only */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.btn-new-element {
+    background-color: white;
+    color: var(--color-primary);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* -----------------------------
+   5. ELEMENT ITEM (ROW wrapper)
+   ----------------------------- */
+.element-container {
+    background: white;
+    border: 1px solid var(--color-border);
+    border-top: none;
+    /* Connects to header or previous item */
+}
+
+.element-container:last-child {
+    border-radius: 0 0 8px 8px;
+    /* Close bottom */
+}
+
+.element-header-row {
+    padding: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid #F1F3F4;
+    /* Subtle separator inside */
+}
+
+.element-info {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.element-number-circle {
+    width: 40px;
+    height: 40px;
+    background-color: #1A73E8;
+    /* Darker blue */
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.element-title-block h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--color-text-main);
+    font-weight: 600;
+}
+
+.element-subtitle {
+    margin: 4px 0 0 0;
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+}
+
+.element-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.btn-add-activity {
+    background-color: #E6F4EA;
+    color: #137333;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-edit-text {
+    background: none;
+    border: none;
+    color: var(--color-primary);
+    cursor: pointer;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* -----------------------------
+   6. ACTIVITIES TABLE
+   ----------------------------- */
+.activities-table-wrapper {
+    padding: 0 24px 24px 80px;
+    /* Indent to align with title text */
+}
+
+.activities-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.activities-table th {
+    text-align: left;
+    color: var(--color-text-secondary);
+    /* stats gray */
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    padding: 12px 16px;
+    border-bottom: 1px solid #F1F3F4;
+    font-weight: 600;
+}
+
+.activities-table td {
+    padding: 16px;
+    vertical-align: top;
+    border-bottom: 1px solid #F1F3F4;
+    color: #3C4043;
+    line-height: 1.5;
+}
+
+.activities-table tr:last-child td {
+    border-bottom: none;
+}
+
+.code-col {
+    width: 60px;
+}
+
+.activity-col {
+    width: 20%;
+    font-weight: 500;
+}
+
+.desc-col {
+    width: 30%;
+    color: #5F6368;
+}
+
+.criteria-col {
+    width: 30%;
+    color: #5F6368;
+}
+
+.freq-col {
+    width: 10%;
+}
+
+.meta-col {
+    width: 60px;
+    text-align: center;
+}
+
+.badge-code {
+    background-color: #E8F0FE;
+    color: #1967D2;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}

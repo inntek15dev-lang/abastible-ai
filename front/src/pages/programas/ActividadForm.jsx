@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import api from '../../api';
-import { Save, ArrowLeft } from 'lucide-react';
+import { Save, ArrowLeft, Paperclip, Pencil, Upload } from 'lucide-react';
 
 export default function ActividadForm() {
     const { id } = useParams();
@@ -16,8 +16,11 @@ export default function ActividadForm() {
         criterios: '',
         frecuencia: '',
         requiere_evidencia: false,
-        orden: 0
+        orden: 0,
+        activo: true
     });
+
+    const [plantillaFile, setPlantillaFile] = useState(null);
 
     const [programas, setProgramas] = useState([]);
     const [elementos, setElementos] = useState([]);
@@ -26,12 +29,22 @@ export default function ActividadForm() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
+    const { state } = useLocation(); // Import useLocation
+
+
     useEffect(() => {
         fetchResources();
         if (isEdit) {
             fetchActividad();
+        } else if (state && state.elemento_id) {
+            setForm(prev => ({ ...prev, elemento_id: state.elemento_id }));
+            // We need to find the program for this element to select it
+            api.get('/elementos').then(res => {
+                const elem = res.data.data.find(e => e.id === state.elemento_id);
+                if (elem) setSelectedPrograma(elem.programa_id);
+            });
         }
-    }, [id]);
+    }, [id, state]);
 
     // When program changes, load its elements
     useEffect(() => {
@@ -69,7 +82,8 @@ export default function ActividadForm() {
                     criterios: found.criterios || '',
                     frecuencia: found.frecuencia || '',
                     requiere_evidencia: found.requiere_evidencia === 1 || found.requiere_evidencia === true,
-                    orden: found.orden
+                    orden: found.orden,
+                    activo: found.activo !== undefined ? found.activo : true
                 });
 
                 // Set parent selection logic
@@ -99,39 +113,77 @@ export default function ActividadForm() {
         e.preventDefault();
         setLoading(true);
         try {
-            const payload = { ...form };
+            const formData = new FormData();
+
+            // Append standard fields
+            Object.keys(form).forEach(key => {
+                if (typeof form[key] === 'boolean') {
+                    formData.append(key, form[key] ? '1' : '0');
+                } else {
+                    formData.append(key, form[key]);
+                }
+            });
+
+            // Append File if selected
+            if (plantillaFile) {
+                formData.append('plantilla', plantillaFile);
+            }
+
+            const config = {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            };
+
             if (isEdit) {
-                await api.put(`/actividades/${id}`, payload);
+                // Use POST with _method=PUT to ensure file upload compatibility if needed, 
+                // but trying standard PUT first as some modern backends handle it.
+                // If it fails, we can switch to POST + _method.
+                await api.put(`/actividades/${id}`, formData, config);
             } else {
-                await api.post('/actividades', payload);
+                await api.post('/actividades', formData, config);
             }
             navigate('/actividades');
         } catch (err) {
             setError(err.response?.data?.message || 'Error al guardar');
+            console.error(err);
         } finally {
             setLoading(false);
         }
     };
+    // Helper to get program name for title
+    const getProgramName = () => {
+        if (selectedPrograma) {
+            const prog = programas.find(p => p.id == selectedPrograma);
+            return prog ? `- ${prog.nombre}` : '';
+        }
+        return '';
+    };
 
     return (
-        <div className="page-container">
-            <header className="page-header">
-                <button onClick={() => navigate(-1)} className="btn-back">
-                    <ArrowLeft size={18} /> Volver
+        <div className="parko-form-container">
+            <header className="parko-header">
+                <button onClick={() => navigate(-1)} className="parko-back-btn" title="Volver">
+                    <ArrowLeft size={20} />
                 </button>
-                <h1>{isEdit ? 'Editar Actividad' : 'Nueva Actividad'}</h1>
+                <div className="parko-title">
+                    <Pencil size={18} className="parko-title-icon" />
+                    <span>{isEdit ? 'Editar Actividad' : 'Nueva Actividad'}</span>
+                    <span className="parko-subtitle">{getProgramName()}</span>
+                </div>
             </header>
 
             {error && <div className="error-message">{error}</div>}
 
-            <form onSubmit={handleSubmit} className="form-card" style={{ maxWidth: '800px' }}>
+            <form onSubmit={handleSubmit} className="parko-card">
+                <div className="parko-form-grid">
 
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Programa (Filtrar Elementos)</label>
+                    {/* Program Selection */}
+                    <div className="parko-group">
+                        <label className="parko-label">
+                            Programa <span className="parko-asterisk">*</span>
+                        </label>
                         <select
-                            className="form-control"
-                            value={selectedPrograma}
+                            className="parko-select"
+                            value={selectedPrograma || ''}
                             onChange={(e) => setSelectedPrograma(e.target.value)}
                         >
                             <option value="">Seleccione Programa</option>
@@ -140,11 +192,13 @@ export default function ActividadForm() {
                             ))}
                         </select>
                     </div>
-                    <div className="form-group">
-                        <label>Elemento *</label>
+
+                    {/* Elemento */}
+                    <div className="parko-group">
+                        <label className="parko-label">Elemento <span className="parko-asterisk">*</span></label>
                         <select
-                            className="form-control"
-                            value={form.elemento_id}
+                            className="parko-select"
+                            value={form.elemento_id || ''}
                             onChange={(e) => setForm({ ...form, elemento_id: e.target.value })}
                             required
                             disabled={!selectedPrograma}
@@ -155,92 +209,165 @@ export default function ActividadForm() {
                             ))}
                         </select>
                     </div>
-                </div>
 
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Código *</label>
+                    {/* Row: Code | Orden */}
+                    <div className="parko-form-row">
+                        <div className="parko-group">
+                            <label className="parko-label">
+                                Número (Código) <span className="parko-asterisk">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                required
+                                value={form.codigo}
+                                onChange={e => setForm({ ...form, codigo: e.target.value })}
+                                placeholder="1.1"
+                                className="parko-input"
+                            />
+                        </div>
+                        <div className="parko-group">
+                            <label className="parko-label">
+                                Orden
+                            </label>
+                            <input
+                                type="number"
+                                value={form.orden || ''}
+                                onChange={e => setForm({ ...form, orden: e.target.value })}
+                                placeholder="1"
+                                className="parko-input"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Actividad (Nombre) */}
+                    <div className="parko-group">
+                        <label className="parko-label">
+                            Nombre <span className="parko-asterisk">*</span>
+                        </label>
                         <input
                             type="text"
-                            className="form-control"
-                            value={form.codigo}
-                            onChange={(e) => setForm({ ...form, codigo: e.target.value })}
                             required
+                            value={form.actividad}
+                            onChange={e => setForm({ ...form, actividad: e.target.value })}
+                            placeholder="Nombre de la actividad"
+                            className="parko-input"
                         />
                     </div>
-                    <div className="form-group">
-                        <label>Frecuencia</label>
-                        <input
-                            type="text"
-                            className="form-control"
+
+                    {/* Descripción */}
+                    <div className="parko-group">
+                        <label className="parko-label">
+                            Descripción
+                        </label>
+                        <textarea
+                            required
+                            value={form.descripcion}
+                            onChange={e => setForm({ ...form, descripcion: e.target.value })}
+                            rows={3}
+                            className="parko-textarea"
+                        />
+                    </div>
+
+                    {/* Frecuencia */}
+                    <div className="parko-group">
+                        <label className="parko-label">
+                            Frecuencia <span className="parko-asterisk">*</span>
+                        </label>
+                        <select
                             value={form.frecuencia}
-                            onChange={(e) => setForm({ ...form, frecuencia: e.target.value })}
+                            onChange={e => setForm({ ...form, frecuencia: e.target.value })}
+                            className="parko-select"
+                        >
+                            <option value="mensual">Mensual</option>
+                            <option value="trimestral">Trimestral</option>
+                            <option value="semestral">Semestral</option>
+                            <option value="anual">Anual</option>
+                            <option value="cuando_aplique">Cuando aplique</option>
+                        </select>
+                    </div>
+
+                    {/* Criterios */}
+                    <div className="parko-group">
+                        <label className="parko-label">
+                            Criterios de cumplimiento
+                        </label>
+                        <textarea
+                            value={form.criterios || ''}
+                            onChange={e => setForm({ ...form, criterios: e.target.value })}
+                            rows={3}
+                            className="parko-textarea"
                         />
                     </div>
-                </div>
 
-                <div className="form-group">
-                    <label>Título Actividad *</label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        value={form.actividad}
-                        onChange={(e) => setForm({ ...form, actividad: e.target.value })}
-                        required
-                    />
-                </div>
-
-                <div className="form-group">
-                    <label>Descripción *</label>
-                    <textarea
-                        className="form-control"
-                        rows="3"
-                        value={form.descripcion}
-                        onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
-                        required
-                    />
-                </div>
-
-                <div className="form-group">
-                    <label>Criterios de Aceptación</label>
-                    <textarea
-                        className="form-control"
-                        rows="3"
-                        value={form.criterios}
-                        onChange={(e) => setForm({ ...form, criterios: e.target.value })}
-                    />
-                </div>
-
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Orden</label>
-                        <input
-                            type="number"
-                            className="form-control"
-                            value={form.orden}
-                            onChange={(e) => setForm({ ...form, orden: e.target.value })}
-                        />
+                    {/* Plantilla Upload - NEW */}
+                    <div className="parko-group">
+                        <label className="parko-label">
+                            Plantilla de Evidencia (PDF, Word, Excel)
+                        </label>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <input
+                                type="file"
+                                onChange={e => setPlantillaFile(e.target.files[0])}
+                                className="parko-input"
+                                accept=".pdf,.doc,.docx,.xls,.xlsx"
+                                style={{ padding: '0.4rem', fontSize: '0.9rem' }}
+                            />
+                            {/* Visual hint icon */}
+                            <Upload size={18} className="text-gray-400" />
+                        </div>
+                        <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                            Subir un archivo para que el contratista lo descargue y complete como evidencia.
+                        </span>
                     </div>
-                    <div className="form-group" style={{ display: 'flex', alignItems: 'center', paddingTop: '2rem' }}>
-                        <label className="checkbox-field">
+
+                    {/* Checkboxes */}
+                    <div className="parko-group">
+                        <label className="parko-checkbox-wrapper">
+                            <input
+                                type="checkbox"
+                                checked={form.activo !== false}
+                                onChange={e => setForm({ ...form, activo: e.target.checked })}
+                                className="parko-checkbox"
+                            />
+                            <span className="parko-checkbox-label">
+                                Activo
+                            </span>
+                        </label>
+
+                        <label className="parko-checkbox-wrapper" style={{ marginTop: '0.5rem' }}>
                             <input
                                 type="checkbox"
                                 checked={form.requiere_evidencia}
-                                onChange={(e) => setForm({ ...form, requiere_evidencia: e.target.checked })}
+                                onChange={e => setForm({ ...form, requiere_evidencia: e.target.checked })}
+                                className="parko-checkbox"
                             />
-                            Requiere Evidencia
+                            <div className="modal-checkbox-content">
+                                <span className="parko-checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <Paperclip size={14} className="text-gray-400" />
+                                    Requiere evidencia
+                                </span>
+                            </div>
                         </label>
                     </div>
-                </div>
 
-                <div className="form-actions">
-                    <button type="button" onClick={() => navigate(-1)} className="btn-secondary">
-                        Cancelar
-                    </button>
-                    <button type="submit" className="btn-primary" disabled={loading}>
-                        <Save size={18} />
-                        {loading ? 'Guardando...' : 'Guardar'}
-                    </button>
+                    {/* Actions */}
+                    <div className="parko-actions">
+                        <button
+                            type="button"
+                            className="parko-btn-cancel"
+                            onClick={() => navigate(-1)}
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            type="submit"
+                            className="parko-btn-save"
+                            disabled={loading}
+                        >
+                            <Save size={16} />
+                            {loading ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Guardar')}
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>

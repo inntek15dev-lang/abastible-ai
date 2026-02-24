@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Save, X } from 'lucide-react';
+import { Save, Calendar, FileText, Shield } from 'lucide-react';
 import api from '../../api';
+import Modal from '../ui/Modal';
 
 export default function CompromisoModal({ isOpen, onClose, onSuccess, registroId, hallazgo }) {
     const [descripcion, setDescripcion] = useState('');
@@ -36,57 +37,142 @@ export default function CompromisoModal({ isOpen, onClose, onSuccess, registroId
         }
     };
 
+    const footerButtons = (
+        <>
+            <button
+                type="button"
+                onClick={onClose}
+                className="btn-link"
+                disabled={loading}
+                style={{
+                    color: '#64748b',
+                    fontWeight: 500,
+                    textDecoration: 'none',
+                    marginRight: 'auto'
+                }}
+            >
+                Cancelar
+            </button>
+            <button
+                type="submit"
+                className="btn-primary"
+                disabled={loading}
+                onClick={handleSubmit}
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 20px',
+                    borderRadius: '8px',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    backgroundColor: '#1d4ed8' // Blue for commitments
+                }}
+            >
+                {loading ? 'Guardando...' : (
+                    <>
+                        <Save size={18} /> Crear Compromiso
+                    </>
+                )}
+            </button>
+        </>
+    );
+
     return (
-        <div className="modal-overlay" style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-        }}>
-            <div className="modal-content" style={{
-                backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px', width: '90%', maxWidth: '500px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Nuevo Compromiso"
+            footer={footerButtons}
+            maxWidth="max-w-lg"
+        >
+            {/* Context Header */}
+            <div style={{
+                marginBottom: '20px',
+                padding: '16px',
+                backgroundColor: '#f8fafc',
+                borderRadius: '8px',
+                border: '1px solid #e2e8f0',
+                display: 'flex',
+                gap: '12px',
+                alignItems: 'flex-start'
             }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <h3 style={{ margin: 0 }}>Nuevo Compromiso</h3>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
+                <div style={{
+                    minWidth: '40px',
+                    height: '40px',
+                    borderRadius: '8px',
+                    backgroundColor: '#dbeafe',
+                    color: '#1e40af',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }}>
+                    <Shield size={20} />
                 </div>
-
-                <div style={{ marginBottom: '1rem', fontSize: '0.9rem', color: '#666', background: '#f9fafb', padding: '0.5rem', borderRadius: '4px' }}>
-                    Hallazgo: <strong>{hallazgo?.descripcion}</strong>
+                <div>
+                    <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>
+                        Vinculado al Hallazgo
+                    </div>
+                    <div style={{ fontSize: '0.9rem', color: '#334155', fontWeight: 500, lineHeight: '1.4' }}>
+                        "{hallazgo?.descripcion || 'Sin descripción'}"
+                    </div>
                 </div>
-
-                {error && <div className="text-danger" style={{ marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</div>}
-
-                <form onSubmit={handleSubmit}>
-                    <div className="form-group" style={{ marginBottom: '1rem' }}>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Descripción del Compromiso</label>
-                        <textarea
-                            value={descripcion}
-                            onChange={(e) => setDescripcion(e.target.value)}
-                            rows="3"
-                            required
-                            placeholder="Detalle la acción correctiva a implementar..."
-                            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd' }}
-                        />
-                    </div>
-
-                    <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                        <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Fecha de Cumplimiento</label>
-                        <input
-                            type="date"
-                            value={fechaCompromiso}
-                            onChange={(e) => setFechaCompromiso(e.target.value)}
-                            required
-                            style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd' }}
-                        />
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                        <button type="button" onClick={onClose} className="btn-secondary">Cancelar</button>
-                        <button type="submit" className="btn-primary" disabled={loading}>
-                            {loading ? 'Guardando...' : 'Crear Compromiso'}
-                        </button>
-                    </div>
-                </form>
             </div>
-        </div>
+
+            {error && <div className="error-message mb-4" style={{
+                backgroundColor: '#fef2f2',
+                color: '#991b1b',
+                padding: '12px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                border: '1px solid #fca5a5'
+            }}>{error}</div>}
+
+            <form onSubmit={handleSubmit} id="form-compromiso">
+                <div className="form-group" style={{ marginBottom: '20px' }}>
+                    <label htmlFor="comp-descripcion" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <FileText size={16} /> Descripción del Compromiso
+                    </label>
+                    <textarea
+                        id="comp-descripcion"
+                        className="form-control"
+                        value={descripcion}
+                        onChange={(e) => setDescripcion(e.target.value)}
+                        rows="4"
+                        required
+                        placeholder="Detalle la acción correctiva a implementar para resolver el hallazgo..."
+                        style={{
+                            width: '100%',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            border: '1px solid #cbd5e1',
+                            fontSize: '0.9rem',
+                            resize: 'vertical',
+                            minHeight: '100px'
+                        }}
+                    />
+                </div>
+
+                <div className="form-group">
+                    <label htmlFor="comp-fecha" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Calendar size={16} /> Fecha de Cumplimiento
+                    </label>
+                    <input
+                        id="comp-fecha"
+                        type="date"
+                        className="form-control"
+                        value={fechaCompromiso}
+                        onChange={(e) => setFechaCompromiso(e.target.value)}
+                        required
+                        style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            borderRadius: '8px',
+                            border: '1px solid #cbd5e1',
+                            fontSize: '0.9rem'
+                        }}
+                    />
+                </div>
+            </form>
+        </Modal>
     );
 }

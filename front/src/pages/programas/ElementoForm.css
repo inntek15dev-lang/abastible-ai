@@ -1,0 +1,196 @@
+/* ============================================
+   Theme: ElementoForm (Edit View)
+   Source: info/medias/vista-editar-elemento.png
+   ============================================ */
+
+/* -----------------------------
+   1. LAYOUT & BACKGROUND
+   ----------------------------- */
+.page-container-edit-element {
+    background-color: #F4F6F8;
+    /* Light gray background */
+    min-height: 100vh;
+    padding: 24px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* -----------------------------
+   2. HEADER
+   ----------------------------- */
+.element-edit-header {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto 24px auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.btn-back-arrow {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #5F6368;
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.btn-back-arrow:hover {
+    background-color: #E8EAED;
+}
+
+.element-edit-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.15rem;
+    font-weight: 500;
+    /* Regular weight, slightly bold */
+    color: #202124;
+}
+
+.icon-pencil-header {
+    color: #F97316;
+    /* Orange accent */
+}
+
+.program-name-subtitle {
+    color: #5F6368;
+    font-weight: 400;
+}
+
+/* -----------------------------
+   3. FORM CARD
+   ----------------------------- */
+.element-edit-card {
+    background: #FFFFFF;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 32px;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* -----------------------------
+   4. FORM FIELDS
+   ----------------------------- */
+.form-section-element {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-bottom: 32px;
+}
+
+.input-row-element {
+    display: flex;
+    gap: 16px;
+}
+
+.input-group-element {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+}
+
+.label-element {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #5F6368;
+}
+
+.label-element span.required {
+    color: #D93025;
+}
+
+.input-field-element {
+    height: 44px;
+    /* Slightly shorter than program form usually */
+    padding: 0 12px;
+    border: 1px solid #DADCE0;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    color: #202124;
+    background-color: #fff;
+}
+
+.input-field-element:focus {
+    outline: none;
+    border-color: #1A73E8;
+    border-width: 2px;
+    padding-left: 11px;
+}
+
+.select-field-element {
+    height: 44px;
+    padding: 0 12px;
+    border: 1px solid #DADCE0;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    color: #202124;
+    background-color: #fff;
+    cursor: pointer;
+}
+
+/* -----------------------------
+   5. CHECKBOX & ACTIONS
+   ----------------------------- */
+.checkbox-group-element {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 32px;
+}
+
+.checkbox-input-element {
+    width: 18px;
+    height: 18px;
+    accent-color: #1A73E8;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.actions-row-element {
+    display: flex;
+    justify-content: flex-end;
+    /* Aligned to right as per image */
+    gap: 12px;
+    border-top: 1px solid #F1F3F4;
+    padding-top: 24px;
+}
+
+.btn-cancel-element {
+    padding: 8px 16px;
+    background-color: #FFFFFF;
+    border: 1px solid #DADCE0;
+    border-radius: 4px;
+    color: #202124;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.btn-save-element {
+    padding: 8px 24px;
+    background-color: #1A73E8;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-save-element:hover {
+    background-color: #1557B0;
+}

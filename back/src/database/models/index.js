@@ -27,9 +27,12 @@ const AuditoriaComentario = require('./AuditoriaComentario');
 const SolicitudReapertura = require('./SolicitudReapertura');
 
 // Sprint 5
-const Licitacion = require('./Licitacion');
-const Postulacion = require('./Postulacion');
 const Documento = require('./Documento');
+
+// Sprint 9 (Refactor)
+const Contratista = require('./Contratista');
+const Vinculacion = require('./Vinculacion');
+const Administracion = require('./Administracion');
 
 // ============= SPRINT 1 ASSOCIATIONS =============
 
@@ -89,9 +92,13 @@ Programa.hasMany(Registro, { foreignKey: 'programa_id', as: 'registros' });
 Registro.belongsTo(Dependencia, { foreignKey: 'dependencia_id', as: 'dependenciaEntidad' });
 Dependencia.hasMany(Registro, { foreignKey: 'dependencia_id', as: 'registros' });
 
-// Registro -> ContratistaAsignacion
+// Registro -> ContratistaAsignacion (legacy)
 Registro.belongsTo(ContratistaAsignacion, { foreignKey: 'contratista_asignacion_id', as: 'asignacion' });
 ContratistaAsignacion.hasMany(Registro, { foreignKey: 'contratista_asignacion_id', as: 'registros' });
+
+// Registro -> Vinculacion (new: FK now references vinculaciones table)
+Registro.belongsTo(Vinculacion, { foreignKey: 'contratista_asignacion_id', as: 'vinculacionEntidad' });
+Vinculacion.hasMany(Registro, { foreignKey: 'contratista_asignacion_id', as: 'registros' });
 
 // RegistroActividad -> Registro
 RegistroActividad.belongsTo(Registro, { foreignKey: 'registro_id', as: 'registro' });
@@ -143,8 +150,8 @@ Compromiso.belongsTo(User, { foreignKey: 'responsable_id', as: 'responsable' });
 Compromiso.belongsTo(User, { foreignKey: 'creado_por_id', as: 'creadoPor' });
 
 // Compromiso -> ContratistaAsignacion
-Compromiso.belongsTo(ContratistaAsignacion, { foreignKey: 'contratista_asignacion_id', as: 'asignacion' });
-ContratistaAsignacion.hasMany(Compromiso, { foreignKey: 'contratista_asignacion_id', as: 'compromisos' });
+// Compromiso.belongsTo(ContratistaAsignacion, { foreignKey: 'contratista_asignacion_id', as: 'asignacion' });
+// ContratistaAsignacion.hasMany(Compromiso, { foreignKey: 'contratista_asignacion_id', as: 'compromisos' });
 
 // AuditoriaComentario -> Registro
 AuditoriaComentario.belongsTo(Registro, { foreignKey: 'registro_id', as: 'registro' });
@@ -170,39 +177,43 @@ SolicitudReapertura.belongsTo(User, { foreignKey: 'aprobador_id', as: 'aprobador
 
 // ============= SPRINT 5 ASSOCIATIONS =============
 
-// Licitacion -> User (creator)
-Licitacion.belongsTo(User, { foreignKey: 'user_id', as: 'creador' });
-
-// Licitacion -> Postulaciones
-Licitacion.hasMany(Postulacion, { foreignKey: 'licitacion_id', as: 'postulaciones' });
-Postulacion.belongsTo(Licitacion, { foreignKey: 'licitacion_id', as: 'licitacion' });
-
 // Licitacion -> Documentos (Polymorphic-ish)
-Licitacion.hasMany(Documento, {
-    foreignKey: 'entidad_id',
-    constraints: false,
-    scope: {
-        entidad_tipo: 'Licitacion'
-    },
-    as: 'documentos'
-});
+// REMOVED
 
 // Postulacion -> Documentos (Polymorphic-ish)
-Postulacion.hasMany(Documento, {
-    foreignKey: 'entidad_id',
-    constraints: false,
-    scope: {
-        entidad_tipo: 'Postulacion'
-    },
-    as: 'documentos'
-});
+// REMOVED
 
 // Postulacion -> User (contratista)
-Postulacion.belongsTo(User, { foreignKey: 'contratista_id', as: 'contratista' });
-User.hasMany(Postulacion, { foreignKey: 'contratista_id', as: 'postulaciones' });
+// REMOVED
 
 // Documento -> User (uploader)
 Documento.belongsTo(User, { foreignKey: 'user_id', as: 'uploader' });
+
+// ============= SPRINT 9 ASSOCIATIONS =============
+
+// Contratista -> Users (Operativos)
+Contratista.hasMany(User, { foreignKey: 'contratista_id', as: 'usuarios' });
+User.belongsTo(Contratista, { foreignKey: 'contratista_id', as: 'contratistaEntidad' });
+
+// Vinculacion -> Contratista
+Contratista.hasMany(Vinculacion, { foreignKey: 'contratista_id', as: 'vinculaciones' });
+Vinculacion.belongsTo(Contratista, { foreignKey: 'contratista_id', as: 'contratista' });
+
+// Vinculacion -> Servicio (TipoContratista)
+TipoContratista.hasMany(Vinculacion, { foreignKey: 'servicio_id', as: 'vinculaciones' });
+Vinculacion.belongsTo(TipoContratista, { foreignKey: 'servicio_id', as: 'servicio' });
+
+// Vinculacion -> Dependencia
+Dependencia.hasMany(Vinculacion, { foreignKey: 'dependencia_id', as: 'vinculaciones' });
+Vinculacion.belongsTo(Dependencia, { foreignKey: 'dependencia_id', as: 'dependencia' });
+
+// Administracion -> Vinculacion
+Vinculacion.hasMany(Administracion, { foreignKey: 'vinculacion_id', as: 'administraciones' });
+Administracion.belongsTo(Vinculacion, { foreignKey: 'vinculacion_id', as: 'vinculacion' });
+
+// Administracion -> User (Admin Contrato)
+User.hasMany(Administracion, { foreignKey: 'administrador_contrato_id', as: 'contratosAdministrados' });
+Administracion.belongsTo(User, { foreignKey: 'administrador_contrato_id', as: 'administradorContrato' });
 
 module.exports = {
     sequelize,
@@ -228,7 +239,9 @@ module.exports = {
     // Sprint 3
     SolicitudReapertura,
     // Sprint 5
-    Licitacion,
-    Postulacion,
-    Documento
+    Documento,
+    // Sprint 9 (Refactor)
+    Contratista,
+    Vinculacion,
+    Administracion
 };

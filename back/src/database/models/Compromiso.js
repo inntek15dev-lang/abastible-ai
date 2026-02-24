@@ -24,9 +24,9 @@ const Compromiso = sequelize.define('Compromiso', {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: false
     },
-    contratista_asignacion_id: {
-        type: DataTypes.BIGINT.UNSIGNED,
-        allowNull: false
+    numero_contrato: {
+        type: DataTypes.STRING,
+        allowNull: true
     },
     descripcion: {
         type: DataTypes.TEXT,

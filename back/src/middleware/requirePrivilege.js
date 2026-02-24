@@ -16,7 +16,15 @@ const requirePrivilege = (module, action = 'read') => {
 
         const { privileges, role } = req.user;
 
-        // Admin with wildcard has all privileges
+        if (role === 'admin') {
+            return next();
+        }
+
+        // Hardcode: Contratista Admin has access to Usuarios
+        if (role === 'contratista_admin' && module === 'Usuarios') {
+            return next();
+        }
+
         const hasWildcard = privileges.some(p => p.module === '*' && p[action]);
         if (hasWildcard) {
             return next();

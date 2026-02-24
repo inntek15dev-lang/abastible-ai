@@ -1,9 +1,9 @@
 // IEEE Trace: REQ-010 | US-010 | pages/compromisos/CompromisoList.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
-import { CheckCircle, Clock, AlertCircle, Calendar, User, Edit, X, Save } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, Calendar, User, Edit, X, Save, Shield, Trash2 } from 'lucide-react';
 
 export default function CompromisoList() {
     const [searchParams] = useSearchParams();
@@ -11,8 +11,21 @@ export default function CompromisoList() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [filter, setFilter] = useState('all');
+
+    // Hierarchy Filters
+    const [contratistas, setContratistas] = useState([]);
+    const [servicios, setServicios] = useState([]);
+    const [dependencias, setDependencias] = useState([]);
+    const [vinculaciones, setVinculaciones] = useState([]);
+
+    const [selectedContratista, setSelectedContratista] = useState('');
+    const [selectedServicio, setSelectedServicio] = useState('');
+    const [selectedDependencia, setSelectedDependencia] = useState('');
+    const [contratoNumero, setContratoNumero] = useState('');
+
     const hallazgoId = searchParams.get('hallazgo');
-    const { user } = useAuth();
+    const { user, isAdmin } = useAuth();
+    const isAdminOrADC = isAdmin || user?.role === 'administrador_contrato';
 
     // Edit Modal State
     const [editingCompromiso, setEditingCompromiso] = useState(null);
@@ -23,15 +36,54 @@ export default function CompromisoList() {
     });
 
     useEffect(() => {
+        const loadResult = async () => {
+            try {
+                const [contRes, servRes, depRes, vincRes] = await Promise.all([
+                    api.get('/contratistas'),
+                    api.get('/resources/tipos-contratista'),
+                    api.get('/resources/dependencias'),
+                    api.get('/vinculaciones')
+                ]);
+                setContratistas(contRes.data.data || []);
+                setServicios(servRes.data.data || []);
+                setDependencias(depRes.data.data || []);
+                setVinculaciones(vincRes.data.data || []);
+            } catch (err) {
+                console.error("Error loading filters", err);
+            }
+        };
+        loadResult();
+    }, []);
+
+    useEffect(() => {
         fetchCompromisos();
-    }, [filter]);
+
+        // Check for specific contract match
+        if (selectedContratista && selectedServicio && selectedDependencia) {
+            const match = vinculaciones.find(v =>
+                String(v.contratista_id) === String(selectedContratista) &&
+                String(v.servicio_id) === String(selectedServicio) &&
+                String(v.dependencia_id) === String(selectedDependencia)
+            );
+            setContratoNumero(match ? match.numero_contrato : '');
+        } else {
+            setContratoNumero('');
+        }
+
+    }, [filter, selectedContratista, selectedServicio, selectedDependencia]);
 
     const fetchCompromisos = async () => {
         try {
+            setLoading(true);
             let params = {};
             if (filter === 'vencidos') params.vencidos = 'true';
             else if (filter !== 'all') params.estado = filter;
             if (hallazgoId) params.hallazgo_id = hallazgoId;
+
+            // Apply Hierarchy Filters
+            if (selectedContratista) params.contratista_id = selectedContratista;
+            if (selectedServicio) params.servicio_id = selectedServicio;
+            if (selectedDependencia) params.dependencia_id = selectedDependencia;
 
             const response = await api.get('/compromisos', { params });
             setCompromisos(response.data.data);
@@ -41,6 +93,28 @@ export default function CompromisoList() {
             setLoading(false);
         }
     };
+
+    // Filter logic for dropdowns
+    const filteredServicios = useMemo(() => {
+        if (!selectedContratista) return servicios;
+
+        // Actually simplest is just valid combinations
+        const validServiceIds = new Set(vinculaciones
+            .filter(v => String(v.contratista_id) === String(selectedContratista))
+            .map(v => v.servicio_id));
+        return servicios.filter(s => validServiceIds.has(s.id));
+    }, [selectedContratista, vinculaciones, servicios]);
+
+    const filteredDependencias = useMemo(() => {
+        if (!selectedContratista && !selectedServicio) return dependencias;
+        let filteredVincs = vinculaciones;
+        if (selectedContratista) filteredVincs = filteredVincs.filter(v => String(v.contratista_id) === String(selectedContratista));
+        if (selectedServicio) filteredVincs = filteredVincs.filter(v => String(v.servicio_id) === String(selectedServicio));
+
+        const validDepIds = new Set(filteredVincs.map(v => v.dependencia_id));
+        return dependencias.filter(d => validDepIds.has(d.id));
+    }, [selectedContratista, selectedServicio, vinculaciones, dependencias]);
+
 
     const handleCumplir = async (id) => {
         const observacion = prompt('Observación de cumplimiento (opcional):');
@@ -72,6 +146,16 @@ export default function CompromisoList() {
         }
     };
 
+    const handleDelete = async (id) => {
+        if (!window.confirm('¿Está seguro de eliminar este compromiso?')) return;
+        try {
+            await api.delete(`/compromisos/${id}`);
+            fetchCompromisos();
+        } catch (err) {
+            setError('Error al eliminar compromiso');
+        }
+    };
+
     const getEstadoIcon = (estado) => {
         switch (estado) {
             case 'cumplido': return <CheckCircle className="text-success" size={20} />;
@@ -86,136 +170,319 @@ export default function CompromisoList() {
         return new Date(fecha) < new Date();
     };
 
-    if (loading) return <div className="loading">Cargando...</div>;
+    if (loading && compromisos.length === 0) return <div className="loading">Cargando...</div>;
 
     return (
-        <div className="page-container">
-            <header className="page-header">
-                <h1>Compromisos</h1>
-                <div className="filter-tabs">
-                    {['all', 'pendiente', 'en_proceso', 'cumplido', 'vencidos'].map((f) => (
-                        <button
-                            key={f}
-                            className={`filter-tab ${filter === f ? 'active' : ''}`}
-                            onClick={() => setFilter(f)}
+        <div className="page-container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
+            <header className="page-header" style={{ marginBottom: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ background: '#2563eb', color: 'white', padding: '10px', borderRadius: '12px', display: 'flex' }}>
+                            <Shield size={24} />
+                        </div>
+                        <div>
+                            <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#111827', margin: 0 }}>Gestión de Compromisos</h1>
+                            <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>Seguimiento y control de acciones de mejora</p>
+                        </div>
+                    </div>
+                    {contratoNumero && (
+                        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '8px 16px', borderRadius: '8px', color: '#1e40af' }}>
+                            <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 600, display: 'block', color: '#60a5fa' }}>Contrato N°</span>
+                            <span style={{ fontSize: '1.1rem', fontWeight: 700 }}>{contratoNumero}</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Hierarchy Filters */}
+                <div style={{ background: 'white', padding: '16px', borderRadius: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                    <div>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '4px', display: 'block' }}>Empresa Contratista</label>
+                        <select
+                            className="form-control"
+                            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}
+                            value={selectedContratista}
+                            onChange={(e) => { setSelectedContratista(e.target.value); setSelectedServicio(''); setSelectedDependencia(''); }}
                         >
-                            {f === 'all' ? 'Todos' : f.charAt(0).toUpperCase() + f.slice(1).replace('_', ' ')}
+                            <option value="">Todas las Empresas</option>
+                            {contratistas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '4px', display: 'block' }}>Servicio</label>
+                        <select
+                            className="form-control"
+                            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}
+                            value={selectedServicio}
+                            onChange={(e) => { setSelectedServicio(e.target.value); setSelectedDependencia(''); }}
+                            disabled={!selectedContratista}
+                        >
+                            <option value="">Todos los Servicios</option>
+                            {filteredServicios.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '4px', display: 'block' }}>Dependencia</label>
+                        <select
+                            className="form-control"
+                            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}
+                            value={selectedDependencia}
+                            onChange={(e) => setSelectedDependencia(e.target.value)}
+                            disabled={!selectedServicio}
+                        >
+                            <option value="">Todas las Dependencias</option>
+                            {filteredDependencias.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+                        </select>
+                    </div>
+                </div>
+
+                <div className="filter-tabs" style={{ background: '#f1f5f9', padding: '6px', borderRadius: '12px', display: 'inline-flex', gap: '4px', width: 'fit-content' }}>
+                    {[
+                        { id: 'all', label: 'TODOS', icon: null },
+                        { id: 'pendiente', label: 'PENDIENTE', color: '#f59e0b' },
+                        { id: 'cumplido', label: 'CUMPLIDO', color: '#10b981' },
+                        { id: 'vencidos', label: 'VENCIDO', color: '#ef4444' }
+                    ].map((f) => (
+                        <button
+                            key={f.id}
+                            className={`filter-tab ${filter === f.id ? 'active' : ''}`}
+                            onClick={() => setFilter(f.id)}
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                background: filter === f.id ? 'white' : 'transparent',
+                                color: filter === f.id ? (f.color || '#1e293b') : '#64748b',
+                                fontWeight: 600,
+                                fontSize: '0.85rem',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                boxShadow: filter === f.id ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                            }}
+                        >
+                            {f.label}
                         </button>
                     ))}
                 </div>
             </header>
 
-            {error && <div className="error-message">{error}</div>}
+            {error && (
+                <div style={{
+                    background: '#fef2f2',
+                    color: '#991b1b',
+                    padding: '12px 16px',
+                    borderRadius: '10px',
+                    marginBottom: '24px',
+                    border: '1px solid #fee2e2',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                }}>
+                    <AlertCircle size={18} /> {error}
+                </div>
+            )}
 
-            <div className="compromisos-grid">
+            <div className="compromisos-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '20px' }}>
                 {compromisos.length === 0 ? (
-                    <div className="empty-state">No hay compromisos</div>
+                    <div style={{
+                        gridColumn: '1 / -1',
+                        textAlign: 'center',
+                        padding: '60px',
+                        background: '#f9fafb',
+                        borderRadius: '16px',
+                        border: '1px dashed #cbd5e1',
+                        color: '#94a3b8'
+                    }}>
+                        <Shield size={48} style={{ opacity: 0.2, marginBottom: '16px' }} />
+                        <p style={{ fontSize: '1.1rem', fontWeight: 500 }}>No se encontraron compromisos registrados</p>
+                    </div>
                 ) : (
-                    compromisos.map((c) => (
-                        <div
-                            key={c.id}
-                            className={`compromiso-card ${isVencido(c.fecha_compromiso, c.estado) ? 'vencido' : ''}`}
-                        >
-                            <div className="compromiso-header" style={{ justifyContent: 'space-between' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    {getEstadoIcon(c.estado)}
-                                    <span className={`badge ${c.estado}`}>{c.estado}</span>
+                    compromisos.map((c, idx) => {
+                        const vencido = isVencido(c.fecha_compromiso, c.estado);
+                        const statusColors = {
+                            pendiente: { bg: '#fffbeb', border: '#fef3c7', text: '#b45309', bar: '#f59e0b' },
+                            en_proceso: { bg: '#eff6ff', border: '#dbeafe', text: '#1d4ed8', bar: '#3b82f6' },
+                            cumplido: { bg: '#f0fdf4', border: '#dcfce7', text: '#15803d', bar: '#10b981' },
+                            vencido: { bg: '#fef2f2', border: '#fee2e2', text: '#b91c1c', bar: '#ef4444' }
+                        };
+                        const color = vencido ? statusColors.vencido : (statusColors[c.estado] || statusColors.pendiente);
+
+                        return (
+                            <div
+                                key={c.id}
+                                className="compromiso-card"
+                                style={{
+                                    background: 'white',
+                                    borderRadius: '16px',
+                                    border: `1px solid ${color.border}`,
+                                    borderTop: `4px solid ${color.bar}`,
+                                    padding: '20px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '16px',
+                                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+                                    position: 'relative',
+                                    transition: 'transform 0.2s',
+                                    cursor: 'default'
+                                }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: color.bg, padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700, color: color.text, textTransform: 'uppercase' }}>
+                                        {getEstadoIcon(c.estado)}
+                                        {vencido ? 'VENCIDO' : c.estado.replace('_', ' ')}
+                                    </div>
+
+                                    {['pendiente', 'en_proceso'].includes(c.estado) &&
+                                        (user.role === 'admin' || user.id === c.creado_por_id) && (
+                                            <button
+                                                className="btn-icon"
+                                                onClick={() => handleEditClick(c)}
+                                                style={{ color: '#94a3b8', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                                            >
+                                                <Edit size={16} />
+                                            </button>
+                                        )}
                                 </div>
+
+                                <div style={{ flex: 1 }}>
+                                    <p style={{ margin: 0, color: '#1f2937', fontWeight: 600, fontSize: '0.95rem', lineHeight: '1.5' }}>
+                                        {c.descripcion}
+                                    </p>
+                                </div>
+
+                                <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b' }}>
+                                            <Calendar size={14} />
+                                            <span>Vencimiento:</span>
+                                        </div>
+                                        <span style={{ fontWeight: 700, color: vencido ? '#ef4444' : '#1e293b' }}>
+                                            {new Date(c.fecha_compromiso).toLocaleDateString('es-CL')}
+                                        </span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b' }}>
+                                            <User size={14} />
+                                            <span>Responsable:</span>
+                                        </div>
+                                        <span style={{ fontWeight: 600, color: '#1e293b' }}>
+                                            {c.responsable?.name || 'Sin asignar'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {c.registro && (
+                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#cbd5e1' }}></div>
+                                        Origen: {c.registro.periodo} - {c.registro.eecc_nombre}
+                                    </div>
+                                )}
 
                                 {['pendiente', 'en_proceso'].includes(c.estado) &&
-                                    (user.role === 'admin' || user.id === c.creado_por_id) && (
+                                    (user.id === c.responsable_id || user.role === 'admin') && (
                                         <button
-                                            className="btn-icon"
-                                            onClick={() => handleEditClick(c)}
-                                            title="Editar Compromiso"
+                                            className="btn-cumplir"
+                                            onClick={() => handleCumplir(c.id)}
+                                            style={{
+                                                marginTop: '4px',
+                                                background: '#10b981',
+                                                color: 'white',
+                                                border: 'none',
+                                                padding: '10px',
+                                                borderRadius: '10px',
+                                                fontWeight: 700,
+                                                fontSize: '0.9rem',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '8px',
+                                                cursor: 'pointer',
+                                                boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)',
+                                                transition: 'all 0.2s'
+                                            }}
                                         >
-                                            <Edit size={16} />
+                                            <CheckCircle size={18} /> Marcar Cumplido
                                         </button>
                                     )}
-                            </div>
 
-                            <p className="compromiso-descripcion">{c.descripcion}</p>
-
-                            <div className="compromiso-meta">
-                                <div className="meta-item">
-                                    <Calendar size={14} />
-                                    <span>
-                                        {new Date(c.fecha_compromiso).toLocaleDateString('es-CL')}
-                                        {isVencido(c.fecha_compromiso, c.estado) && (
-                                            <span className="vencido-tag">VENCIDO</span>
-                                        )}
-                                    </span>
-                                </div>
-                                <div className="meta-item">
-                                    <User size={14} />
-                                    <span>{c.responsable?.name || 'Sin asignar'}</span>
-                                </div>
-                            </div>
-
-                            {c.registro && (
-                                <div className="compromiso-origen">
-                                    Registro: {c.registro.periodo} - {c.registro.eecc_nombre}
-                                </div>
-                            )}
-
-                            {['pendiente', 'en_proceso'].includes(c.estado) &&
-                                (user.id === c.responsable_id || user.role === 'admin') && (
+                                {isAdminOrADC && (
                                     <button
-                                        className="btn-cumplir"
-                                        onClick={() => handleCumplir(c.id)}
+                                        className="btn-delete"
+                                        onClick={() => handleDelete(c.id)}
+                                        style={{
+                                            marginTop: '8px',
+                                            background: '#fef2f2',
+                                            color: '#ef4444',
+                                            border: '1px solid #fee2e2',
+                                            padding: '10px',
+                                            borderRadius: '10px',
+                                            fontWeight: 700,
+                                            fontSize: '0.9rem',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '8px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
                                     >
-                                        <CheckCircle size={16} /> Marcar Cumplido
+                                        <Trash2 size={18} /> Eliminar
                                     </button>
                                 )}
-                        </div>
-                    ))
+                            </div>
+                        );
+                    })
                 )}
             </div>
 
             {/* Edit Modal */}
-            {editingCompromiso && (
-                <div className="modal-overlay" style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-                }}>
-                    <div className="form-card" style={{ width: '500px', maxWidth: '90%' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-                            <h2>Editar Compromiso</h2>
-                            <button className="btn-icon" onClick={() => setEditingCompromiso(null)}>
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleUpdate}>
-                            <div className="form-group">
-                                <label>Descripción</label>
-                                <textarea
-                                    value={editForm.descripcion}
-                                    onChange={e => setEditForm({ ...editForm, descripcion: e.target.value })}
-                                    rows={3}
-                                    required
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Fecha Compromiso</label>
-                                <input
-                                    type="date"
-                                    value={editForm.fecha_compromiso}
-                                    onChange={e => setEditForm({ ...editForm, fecha_compromiso: e.target.value })}
-                                    required
-                                />
-                            </div>
-
-                            <div className="form-actions">
-                                <button type="button" className="btn-secondary" onClick={() => setEditingCompromiso(null)}>Cancelar</button>
-                                <button type="submit" className="btn-primary">
-                                    <Save size={16} /> Guardar Cambios
+            {
+                editingCompromiso && (
+                    <div className="modal-overlay" style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+                    }}>
+                        <div className="form-card" style={{ width: '500px', maxWidth: '90%' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
+                                <h2>Editar Compromiso</h2>
+                                <button className="btn-icon" onClick={() => setEditingCompromiso(null)}>
+                                    <X size={20} />
                                 </button>
                             </div>
-                        </form>
+
+                            <form onSubmit={handleUpdate}>
+                                <div className="form-group">
+                                    <label>Descripción</label>
+                                    <textarea
+                                        value={editForm.descripcion}
+                                        onChange={e => setEditForm({ ...editForm, descripcion: e.target.value })}
+                                        rows={3}
+                                        required
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Fecha Compromiso</label>
+                                    <input
+                                        type="date"
+                                        value={editForm.fecha_compromiso}
+                                        onChange={e => setEditForm({ ...editForm, fecha_compromiso: e.target.value })}
+                                        required
+                                    />
+                                </div>
+
+                                <div className="form-actions">
+                                    <button type="button" className="btn-secondary" onClick={() => setEditingCompromiso(null)}>Cancelar</button>
+                                    <button type="submit" className="btn-primary">
+                                        <Save size={16} /> Guardar Cambios
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

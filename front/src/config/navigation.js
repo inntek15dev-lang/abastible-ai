@@ -6,12 +6,13 @@ import {
     CheckSquare,
     RefreshCw,
     FolderOpen,
-    Briefcase,
     Shield,
     Settings,
     UserCircle,
     Search,
-    Building
+    Building,
+    BookOpen,
+    Link
 } from 'lucide-react';
 
 export const MODULES = [
@@ -24,6 +25,14 @@ export const MODULES = [
         color: '#3B82F6' // Blue (Tailwind blue-500)
     },
     {
+        id: 'matriz_cumplimiento',
+        label: 'Matriz de Cumplimiento',
+        path: '/reportes/cumplimiento',
+        icon: Building, // Using Building icon as before
+        module: 'Reportes', // Keep same permission module
+        color: '#8B5CF6' // Purple
+    },
+    {
         id: 'operaciones',
         label: 'Operaciones',
         icon: FileText,
@@ -34,35 +43,31 @@ export const MODULES = [
             { path: '/evidencias', label: 'Gestión de Evidencias', icon: FolderOpen, module: 'Evidencias' },
             { path: '/reaperturas', label: 'Solicitudes de Reapertura', icon: RefreshCw, module: 'Reaperturas' },
             { path: '/compromisos', label: 'Compromisos y Hallazgos', icon: CheckSquare, module: 'Compromisos' },
-            { path: '/hallazgos', label: 'Hallazgos (Directo)', icon: Search, module: 'Registros' }, // Sprint 2 Gap
-            { path: '/licitaciones', label: 'Licitaciones', icon: Briefcase, module: 'Licitaciones' },
-            { path: '/mis-postulaciones', label: 'Mis Postulaciones', icon: FileText, module: 'Licitaciones' }
+            { path: '/hallazgos', label: 'Hallazgos (Directo)', icon: Search, module: 'Registros' } // Sprint 2 Gap
         ]
     },
+
     {
-        id: 'personas',
-        label: 'Personas',
-        icon: Users,
-        color: '#10B981', // Green (Tailwind emerald-500)
-        module: 'Dashboard', // Using Dashboard for now as placeholder
-        items: [
-            { path: '#dotacion', label: 'Dotación (Proximamente)', icon: Users, module: 'Dashboard' },
-            { path: '#turnos', label: 'Turnos (Proximamente)', icon: UserCircle, module: 'Dashboard' }
-        ]
+        id: 'mi-programa',
+        label: 'Mi Programa',
+        icon: FolderOpen,
+        color: '#8B5CF6',
+        path: '/programas',
+        module: 'Programas'
     },
     {
         id: 'configuracion',
         label: 'Configuración',
         icon: Settings,
         color: '#8B5CF6', // Purple (Tailwind violet-500)
-        module: 'Programas', // Only for Admins usually
+        module: 'Gestion_Configuracion',
         items: [
-            { path: '/programas', label: 'Programas y Estándares', icon: FolderOpen, module: 'Programas' },
-            { path: '/contratistas', label: 'Empresas Contratistas', icon: Building, module: 'Usuarios' },
-            { path: '/dependencias', label: 'Dependencias y Plantas', icon: Building, module: 'Programas' },
-            { path: '/servicios', label: 'Servicios y Tipos', icon: Settings, module: 'Programas' },
-            { path: '/elementos', label: 'Elementos', icon: settingsIconHelper('elementos'), module: 'Programas' },
-            { path: '/actividades', label: 'Actividades', icon: settingsIconHelper('actividades'), module: 'Programas' }
+            { path: '/programas', label: 'Programas y Estándares', icon: FolderOpen, module: 'Gestion_Configuracion' },
+            { path: '/contratistas', label: 'Empresas Contratistas', icon: Building, module: 'Gestion_Configuracion' },
+
+            // { path: '/vinculaciones', label: 'Vinculaciones', icon: Link, module: 'Vinculaciones' }, // REMOVED (Managed via Contratistas)
+            { path: '/dependencias', label: 'Dependencias y Plantas', icon: Building, module: 'Gestion_Configuracion' },
+            { path: '/servicios', label: 'Servicios y Tipos', icon: Settings, module: 'Gestion_Configuracion' }
         ]
     },
     {
@@ -70,11 +75,18 @@ export const MODULES = [
         label: 'Seguridad',
         icon: Shield,
         color: '#EF4444', // Red
-        module: 'Usuarios',
         items: [
             { path: '/usuarios', label: 'Gestión de Usuarios', icon: Users, module: 'Usuarios' },
             { path: '/roles', label: 'Roles y Privilegios', icon: Shield, module: 'Admin_Usuarios' }
         ]
+    },
+    {
+        id: 'tutoriales',
+        label: 'Centro de Ayuda',
+        icon: BookOpen,
+        color: '#2563EB', // Blue
+        path: '/tutorials',
+        module: 'Dashboard' // Accessible to everyone
     }
 ];
 

@@ -37,11 +37,15 @@ export function AuthProvider({ children }) {
 
     // Privilege check methods (privilegios-engine integration)
     const checkPrivilege = useCallback((module, action) => {
+        if (user?.role === 'admin') return true;
         if (!user?.privileges) return false;
 
         // Check for wildcard (admin)
         const hasWildcard = user.privileges.some(p => p.module === '*' && p[action]);
         if (hasWildcard) return true;
+
+        // Hardcode: Contratista Admin has access to Usuarios
+        if (user.role === 'contratista_admin' && module === 'Usuarios') return true;
 
         // Check specific module
         return user.privileges.some(p => p.module === module && p[action]);

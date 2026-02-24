@@ -21,35 +21,42 @@ export default function UsuarioForm() {
         eecc_nombre: '',
         rut: '',
         telefono: '',
-        asignacion_inicial: {
-            programa_id: '',
-            servicio_id: '',
-            dependencia_id: '',
-            administrador_contrato_id: ''
-        }
+        contratista_id: '' // New field to link to contractor
     });
 
     const [dependencias, setDependencias] = useState([]);
     const [tiposContratista, setTiposContratista] = useState([]);
-    const [programas, setProgramas] = useState([]);
-    const [adcs, setAdcs] = useState([]);
+    const [contratistas, setContractors] = useState([]); // List of contractors
+    const [roles, setRoles] = useState([]); // List of roles
     const [loading, setLoading] = useState(false);
     const [pageLoading, setPageLoading] = useState(true);
     const [error, setError] = useState('');
 
+    // Scoped resources for the selected contractor
+    const [scopedServices, setScopedServices] = useState([]);
+    const [scopedDependencies, setScopedDependencies] = useState([]);
+
     useEffect(() => {
         const loadData = async () => {
             try {
-                const [depsRes, tiposRes, programasRes, adcsRes] = await Promise.all([
+                // Determine if we need to fetch contractors list (Admin/ADC)
+                const promises = [
                     api.get('/resources/dependencias'),
                     api.get('/resources/tipos-contratista'),
-                    api.get('/programas'),
-                    api.get('/usuarios?role=administrador_contrato')
-                ]);
+                    api.get('/roles'), // Fetch roles
+                    // Fetch contractors if user can assign them
+                    ['admin', 'administrador_contrato'].includes(currentUser.role)
+                        ? api.get('/contratistas?activo=1')
+                        : Promise.resolve({ data: { data: [] } })
+                ];
+
+                const [depsRes, tiposRes, rolesRes, contratistasRes] = await Promise.all(promises);
+
                 setDependencias(depsRes.data.data);
                 setTiposContratista(tiposRes.data.data);
-                setProgramas(programasRes.data.data);
-                setAdcs(adcsRes.data.data);
+                const fetchedRoles = rolesRes.data.data || [];
+                setRoles(fetchedRoles);
+                setContractors(contratistasRes.data.data);
 
                 if (isEdit) {
                     const userRes = await api.get(`/usuarios/${id}`);
@@ -63,8 +70,18 @@ export default function UsuarioForm() {
                         dependencia_id: u.dependencia_id || '',
                         eecc_nombre: u.eecc_nombre || '',
                         rut: u.rut || '',
-                        telefono: u.telefono || ''
+                        telefono: u.telefono || '',
+                        contratista_id: u.contratista_id || u.parent_id || '' // parent_id is often used as contratista_id link
                     });
+                } else {
+                    // Pre-fill for Contratista Admin creating a user
+                    if (currentUser.role === 'contratista_admin') {
+                        setForm(prev => ({
+                            ...prev,
+                            contratista_id: currentUser.contratista_id || currentUser.id,
+                            role: 'contratista_user'
+                        }));
+                    }
                 }
             } catch (err) {
                 console.error(err);
@@ -74,7 +91,53 @@ export default function UsuarioForm() {
             }
         };
         loadData();
-    }, [id]);
+    }, [id, currentUser]);
+
+    // Effect to update scoped resources when contratista_id changes
+    useEffect(() => {
+        const updateScopes = async () => {
+            // Determine the ID of the contractor to fetch scope from
+            // If admin/adc select from dropdown (form.contratista_id)
+            // If contractor admin, use their own id (currentUser.contratista_id or id)
+            const cId = form.contratista_id || (currentUser.role === 'contratista_admin' ? (currentUser.contratista_id || currentUser.id) : null);
+
+            if (!cId) {
+                setScopedServices([]);
+                setScopedDependencies([]);
+                return;
+            }
+
+            try {
+                // Fetch specific contractor with vinculaciones to get scope
+                // We need to fetch it to get vinculaciones, as the list might not have them fully loaded or user might not have list access
+                const res = await api.get(`/contratistas/${cId}`);
+                const selectedContratista = res.data.data;
+
+                if (selectedContratista && selectedContratista.vinculaciones) {
+                    // Extract unique services and dependencies from vinculaciones
+                    const services = new Map();
+                    const deps = new Map();
+
+                    selectedContratista.vinculaciones.forEach(v => {
+                        if (v.activo) {
+                            if (v.servicio) services.set(v.servicio.id, v.servicio);
+                            if (v.dependencia) deps.set(v.dependencia.id, v.dependencia);
+                        }
+                    });
+
+                    setScopedServices(Array.from(services.values()));
+                    setScopedDependencies(Array.from(deps.values()));
+                }
+            } catch (err) {
+                console.error("Error fetching contractor details for scope", err);
+            }
+        };
+
+        if (form.contratista_id || currentUser.role === 'contratista_admin') {
+            updateScopes();
+        }
+    }, [form.contratista_id, currentUser]); // Removed contratistas from dep to avoid loop if list changes
+
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -86,6 +149,16 @@ export default function UsuarioForm() {
             if (isEdit && !payload.password) {
                 delete payload.password;
             }
+
+            // Map contratista_id to parent_id if needed by backend or keep distinct
+            // For now, let's assumes backend handles 'contratista_id' or we pass it as 'parent_id' for linking
+            // FIX: Do NOT overwrite parent_id with contratista_id, as they are different tables.
+            // if (payload.contratista_id) {
+            //     payload.parent_id = payload.contratista_id;
+            // }
+
+            // Remove unused fields from payload if they exist
+            delete payload.asignacion_inicial;
 
             if (isEdit) {
                 await api.put(`/usuarios/${id}`, payload);
@@ -100,7 +173,7 @@ export default function UsuarioForm() {
         }
     };
 
-    const isContractor = ['contratista_admin', 'contratista_user'].includes(form.role);
+    const isContractorRole = ['contratista_admin', 'contratista_user'].includes(form.role);
 
     if (pageLoading) return <div className="loading">Cargando...</div>;
 
@@ -153,10 +226,22 @@ export default function UsuarioForm() {
                             onChange={e => setForm({ ...form, role: e.target.value })}
                             disabled={currentUser.role === 'contratista_admin'}
                         >
-                            <option value="contratista_user">Contratista Operativo</option>
-                            <option value="contratista_admin">Contratista Admin</option>
-                            <option value="administrador_contrato">Admin Contrato (Abastible)</option>
-                            <option value="admin">Super Admin</option>
+                            <option value="">Seleccione Rol...</option>
+                            {roles.filter(r => {
+                                // Filter roles based on current user privileges
+                                if (currentUser.role === 'contratista_admin') {
+                                    return r.name === 'contratista_user';
+                                }
+                                if (currentUser.role === 'administrador_contrato') {
+                                    // Admins can create contractors or other admins maybe? 
+                                    // For now let's allow them to create contratista_user and contratista_admin
+                                    // But maybe not System Admin
+                                    return ['contratista_user', 'contratista_admin'].includes(r.name);
+                                }
+                                return true; // Super admin sees all
+                            }).map(r => (
+                                <option key={r.id} value={r.name}>{r.name.replace('_', ' ').toUpperCase()}</option>
+                            ))}
                         </select>
                     </div>
                 </div>
@@ -181,7 +266,7 @@ export default function UsuarioForm() {
                 </div>
 
                 {/* Fields for Abastible Users */}
-                {!isContractor && form.role === 'admin' && (
+                {!isContractorRole && form.role === 'admin' && (
                     <div className="form-group">
                         <label>Dependencia (Gerencia)</label>
                         <select
@@ -197,94 +282,72 @@ export default function UsuarioForm() {
                 )}
 
                 {/* Fields for Contractors */}
-                {isContractor && (
+                {isContractorRole && (
                     <>
-                        <div className="form-group">
-                            <label>Empresa Contratista</label>
-                            <input
-                                type="text"
-                                placeholder="Nombre de la empresa"
-                                value={form.eecc_nombre}
-                                onChange={e => setForm({ ...form, eecc_nombre: e.target.value })}
-                            />
-                        </div>
-
-                        {!isEdit && (
-                            <div className="section-divider" style={{ margin: '2rem 0', borderTop: '2px dashed var(--color-border)', paddingTop: '1rem' }}>
-                                <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--color-brand-primary)' }}>
-                                    Asignación Inicial Obligatoria (Contrato)
-                                </h3>
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label>Dependencia / Planta *</label>
-                                        <select
-                                            required
-                                            value={form.asignacion_inicial.dependencia_id}
-                                            onChange={e => setForm({
-                                                ...form,
-                                                asignacion_inicial: { ...form.asignacion_inicial, dependencia_id: e.target.value }
-                                            })}
-                                        >
-                                            <option value="">Seleccione...</option>
-                                            {dependencias.map(d => (
-                                                <option key={d.id} value={d.id}>{d.nombre}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Programa OIEM *</label>
-                                        <select
-                                            required
-                                            value={form.asignacion_inicial.programa_id}
-                                            onChange={e => setForm({
-                                                ...form,
-                                                asignacion_inicial: { ...form.asignacion_inicial, programa_id: e.target.value }
-                                            })}
-                                        >
-                                            <option value="">Seleccione...</option>
-                                            {programas.map(p => (
-                                                <option key={p.id} value={p.id}>{p.nombre}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label>Servicio asignado *</label>
-                                        <select
-                                            required
-                                            value={form.asignacion_inicial.servicio_id}
-                                            onChange={e => setForm({
-                                                ...form,
-                                                asignacion_inicial: { ...form.asignacion_inicial, servicio_id: e.target.value }
-                                            })}
-                                        >
-                                            <option value="">Seleccione...</option>
-                                            {tiposContratista
-                                                .filter(t => !form.asignacion_inicial.programa_id || t.programa_id == form.asignacion_inicial.programa_id)
-                                                .map(t => (
-                                                    <option key={t.id} value={t.id}>{t.nombre}</option>
-                                                ))}
-                                        </select>
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Administrador Contrato (ADC)</label>
-                                        <select
-                                            value={form.asignacion_inicial.administrador_contrato_id}
-                                            onChange={e => setForm({
-                                                ...form,
-                                                asignacion_inicial: { ...form.asignacion_inicial, administrador_contrato_id: e.target.value }
-                                            })}
-                                        >
-                                            <option value="">Sin asignar (Opcional)</option>
-                                            {adcs.map(a => (
-                                                <option key={a.id} value={a.id}>{a.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
+                        {/* Admin selects Contractor Company */}
+                        {['admin', 'administrador_contrato'].includes(currentUser.role) && (
+                            <div className="form-group">
+                                <label>Empresa Contratista *</label>
+                                <select
+                                    required
+                                    value={form.contratista_id}
+                                    onChange={e => setForm({
+                                        ...form,
+                                        contratista_id: e.target.value,
+                                        // Reset Scope when company changes
+                                        tipo_contratista_id: '',
+                                        dependencia_id: ''
+                                    })}
+                                >
+                                    <option value="">Seleccione Empresa...</option>
+                                    {contratistas.map(c => (
+                                        <option key={c.id} value={c.id}>{c.nombre}</option>
+                                    ))}
+                                </select>
                             </div>
                         )}
+
+                        <div className="section-divider" style={{ margin: '2rem 0', borderTop: '2px dashed var(--color-border)', paddingTop: '1rem' }}>
+                            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--color-brand-primary)' }}>
+                                Alcance de Acceso (Scope)
+                            </h3>
+                            <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem' }}>
+                                Defina a qué Servicio y Dependencia tendrá acceso este usuario.
+                                <br />
+                                <em>Las opciones están limitadas a los contratos vigentes de la empresa seleccionada.</em>
+                            </p>
+
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>Servicio Asociado *</label>
+                                    <select
+                                        required
+                                        value={form.tipo_contratista_id}
+                                        onChange={e => setForm({ ...form, tipo_contratista_id: e.target.value })}
+                                        disabled={!form.contratista_id && currentUser.role !== 'contratista_admin'}
+                                    >
+                                        <option value="">Seleccione Servicio...</option>
+                                        {scopedServices.map(s => (
+                                            <option key={s.id} value={s.id}>{s.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label>Dependencia Permitida *</label>
+                                    <select
+                                        required
+                                        value={form.dependencia_id}
+                                        onChange={e => setForm({ ...form, dependencia_id: e.target.value })}
+                                        disabled={!form.contratista_id && currentUser.role !== 'contratista_admin'}
+                                    >
+                                        <option value="">Seleccione Dependencia...</option>
+                                        {scopedDependencies.map(d => (
+                                            <option key={d.id} value={d.id}>{d.nombre}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
                     </>
                 )}
 

@@ -1,0 +1,248 @@
+/* ============================================
+   Theme: ProgramsManager
+   Source: info/medias/vista-programas.png
+   ============================================ */
+
+/* -----------------------------
+   1. CSS VARIABLES
+   ----------------------------- */
+:root {
+    /* Colors */
+    --color-bg-page: #F8F9FA;
+    /* Light Gray Background */
+    --color-card-bg: #FFFFFF;
+
+    --color-primary: #1A73E8;
+    /* Google Blue */
+    --color-primary-hover: #1557B0;
+
+    --color-text-main: #202124;
+    /* Almost Black */
+    --color-text-secondary: #5F6368;
+    /* Gray text */
+    --color-text-light: #DADCE0;
+
+    --color-border: #DADCE0;
+
+    /* Status Colors */
+    --color-badge-bg: #E6F4EA;
+    /* Light Green */
+    --color-badge-text: #137333;
+    /* Dark Green */
+
+    --color-percentage: #1A73E8;
+    /* Blue for % */
+
+    /* Spacing */
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+
+    /* Borders */
+    --border-radius-card: 8px;
+    --border-radius-btn: 4px;
+
+    /* Shadows */
+    --shadow-card: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+    --shadow-card-hover: 0 1px 3px 0 rgba(60, 64, 67, 0.3), 0 4px 8px 3px rgba(60, 64, 67, 0.15);
+}
+
+/* -----------------------------
+   2. PAGE LAYOUT
+   ----------------------------- */
+.page-container {
+    background-color: var(--color-bg-page);
+    min-height: 100vh;
+    padding: var(--spacing-lg);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+}
+
+.page-title {
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: var(--color-text-main);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+/* -----------------------------
+   3. CARD GRID
+   ----------------------------- */
+.programs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.program-card {
+    background: var(--color-card-bg);
+    border-radius: var(--border-radius-card);
+    box-shadow: var(--shadow-card);
+    padding: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.2s;
+    min-height: 280px;
+}
+
+.program-card:hover {
+    box-shadow: var(--shadow-card-hover);
+}
+
+/* -----------------------------
+   4. CARD HEADER & BADGES
+   ----------------------------- */
+.card-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--spacing-md);
+}
+
+.program-code-badge {
+    background-color: var(--color-badge-bg);
+    color: var(--color-badge-text);
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: inline-block;
+}
+
+.program-meta-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.meta-label {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.program-goal-large {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    line-height: 1;
+}
+
+/* -----------------------------
+   5. CARD CONTENT
+   ----------------------------- */
+.program-name {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-text-main);
+    margin-bottom: var(--spacing-sm);
+}
+
+.program-description {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+    margin-bottom: var(--spacing-lg);
+    flex-grow: 1;
+    /* Pushes footer down */
+}
+
+.program-stats-row {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* -----------------------------
+   6. CARD ACTIONS
+   ----------------------------- */
+.card-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-top: auto;
+}
+
+.btn-card-action {
+    flex: 1;
+    height: 36px;
+    border-radius: var(--border-radius-btn);
+    border: none;
+    font-weight: 500;
+    font-size: 0.875rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.1s;
+}
+
+.btn-view {
+    background-color: #F1F3F4;
+    color: var(--color-text-main);
+}
+
+.btn-view:hover {
+    background-color: #E8EAED;
+}
+
+.btn-edit {
+    background-color: #E8F0FE;
+    color: var(--color-primary);
+}
+
+.btn-edit:hover {
+    background-color: #D2E3FC;
+}
+
+.btn-delete-icon {
+    width: 36px;
+    background-color: #FCE8E6;
+    color: #C5221F;
+    padding: 0;
+    flex: 0 0 36px;
+}
+
+.btn-delete-icon:hover {
+    background-color: #FAD2CF;
+}
+
+
+/* -----------------------------
+   7. UTILITIES
+   ----------------------------- */
+.btn-primary-add {
+    background-color: var(--color-primary);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: 500;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-primary-add:hover {
+    background-color: var(--color-primary-hover);
+}
