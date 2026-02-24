@@ -1,5 +1,5 @@
 const PDFDocument = require('pdfkit');
-const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso, Elemento, sequelize } = require('../database/models');
+const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso, Elemento, Vinculacion, Administracion, sequelize } = require('../database/models');
 
 module.exports = {
     async registroPdf(req, res) {
@@ -112,15 +112,44 @@ module.exports = {
             const user = req.user;
             const whereRegistro = {};
 
-            // Filter logic (Share with DashboardController)
-            if (['contratista_admin', 'contratista_user'].includes(user.role)) {
-                if (user.eecc_nombre) {
-                    whereRegistro.eecc_nombre = user.eecc_nombre;
+            // 1. Get Vinculacion IDs based on role (Unified scope logic)
+            if (user.role === 'administrador_contrato') {
+                const adminRecords = await Administracion.findAll({
+                    where: { administrador_contrato_id: user.id, activo: 1 },
+                    attributes: ['vinculacion_id']
+                });
+                const vincIds = adminRecords.map(a => a.vinculacion_id);
+                if (vincIds.length === 0) whereRegistro.id = -1;
+                else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
+            } else if (user.role === 'contratista_admin') {
+                if (user.contratista_id) {
+                    const vincs = await Vinculacion.findAll({
+                        where: { contratista_id: user.contratista_id, activo: 1 },
+                        attributes: ['id']
+                    });
+                    const vincIds = vincs.map(v => v.id);
+                    if (vincIds.length === 0) whereRegistro.id = -1;
+                    else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
+                } else {
+                    whereRegistro.id = -1;
                 }
-            } else if (user.role === 'administrador_contrato') {
-                // Find assignments
-                // For simplicity in this quick impl, assuming we filter by what they can see
-                // Ideally reuse logic or middleware
+            } else if (user.role === 'contratista_user') {
+                if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
+                    const vincs = await Vinculacion.findAll({
+                        where: {
+                            contratista_id: user.contratista_id,
+                            servicio_id: user.tipo_contratista_id,
+                            dependencia_id: user.dependencia_id,
+                            activo: 1
+                        },
+                        attributes: ['id']
+                    });
+                    const vincIds = vincs.map(v => v.id);
+                    if (vincIds.length === 0) whereRegistro.id = -1;
+                    else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
+                } else {
+                    whereRegistro.id = -1;
+                }
             }
 
             if (periodo) {

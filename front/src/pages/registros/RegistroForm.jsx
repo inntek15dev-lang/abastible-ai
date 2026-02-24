@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
-import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock, CheckCircle } from 'lucide-react';
+import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock, CheckCircle, Trash2 } from 'lucide-react';
 import FileUpload from '../../components/forms/FileUpload';
 import HallazgoModal from '../../components/forms/HallazgoModal';
 import HallazgoList from '../../components/forms/HallazgoList';
@@ -230,6 +230,20 @@ export default function RegistroForm() {
         } catch (err) {
             console.error(err);
             alert('Error al eliminar hallazgo');
+        }
+    };
+
+    const handleEvidenciaDelete = async (evidenciaId, actividadIndex) => {
+        if (!window.confirm('¿Está seguro de eliminar esta evidencia? Esta acción no se puede deshacer.')) return;
+        try {
+            await api.delete(`/evidencias/${evidenciaId}`);
+            const updated = [...actividades];
+            updated[actividadIndex].evidencias = updated[actividadIndex].evidencias.filter(e => e.id !== evidenciaId);
+            setActividades(updated);
+            toast.success('Evidencia eliminada correctamente');
+        } catch (err) {
+            console.error(err);
+            toast.error('Error al eliminar la evidencia');
         }
     };
 
@@ -739,17 +753,41 @@ export default function RegistroForm() {
 
                                                         {/* Existing Evidence */}
                                                         {act.evidencias?.length > 0 && (
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                                 {act.evidencias.map(e => (
-                                                                    <a
-                                                                        key={e.id}
-                                                                        href={`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/${e.ruta}`}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        style={{ fontSize: '0.7rem', color: '#3b82f6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                                                    >
-                                                                        📄 {e.nombre_archivo.substring(0, 15)}...
-                                                                    </a>
+                                                                    <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                        <a
+                                                                            href={`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/${e.ruta}`}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            style={{ fontSize: '0.7rem', color: '#3b82f6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0 }}
+                                                                            title={e.nombre_archivo}
+                                                                        >
+                                                                            📄 {e.nombre_archivo.length > 15 ? e.nombre_archivo.substring(0, 15) + '...' : e.nombre_archivo}
+                                                                        </a>
+                                                                        {!isLocked && (
+                                                                            <button
+                                                                                type="button"
+                                                                                title="Eliminar evidencia"
+                                                                                onClick={() => handleEvidenciaDelete(e.id, globalIndex)}
+                                                                                style={{
+                                                                                    background: 'none',
+                                                                                    border: 'none',
+                                                                                    cursor: 'pointer',
+                                                                                    padding: '2px',
+                                                                                    color: '#ef4444',
+                                                                                    display: 'flex',
+                                                                                    alignItems: 'center',
+                                                                                    flexShrink: 0,
+                                                                                    borderRadius: '3px'
+                                                                                }}
+                                                                                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fee2e2'}
+                                                                                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                                            >
+                                                                                <Trash2 size={12} />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
                                                                 ))}
                                                             </div>
                                                         )}

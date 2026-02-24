@@ -1,5 +1,5 @@
 // IEEE Trace: REQ-001 | Servicio (TipoContratista) Controller
-const { TipoContratista, Programa } = require('../database/models');
+const { TipoContratista, Programa, sequelize } = require('../database/models');
 
 const servicioController = {
     // GET /api/servicios
@@ -13,6 +13,18 @@ const servicioController = {
             const servicios = await TipoContratista.findAll({
                 where,
                 include: [{ model: Programa, as: 'programa', attributes: ['id', 'nombre'] }],
+                attributes: {
+                    include: [
+                        [
+                            sequelize.literal(`(SELECT COUNT(DISTINCT v.contratista_id) FROM vinculaciones v WHERE v.servicio_id = TipoContratista.id AND v.activo = 1)`),
+                            'contratistas_count'
+                        ],
+                        [
+                            sequelize.literal(`(SELECT COUNT(*) FROM vinculaciones v WHERE v.servicio_id = TipoContratista.id AND v.activo = 1)`),
+                            'vinculaciones_count'
+                        ]
+                    ]
+                },
                 order: [['nombre', 'ASC']]
             });
             res.json({ success: true, data: servicios });

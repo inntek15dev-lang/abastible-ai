@@ -69,126 +69,137 @@ export default function ServicioForm() {
         }
     };
 
+    const styles = {
+        container: { minHeight: '100vh', backgroundColor: '#f8fafc', padding: '64px 24px', fontFamily: '"Inter", "Segoe UI", system-ui, sans-serif' },
+        wrapper: { maxWidth: '1000px', margin: '0 auto' },
+        header: { marginBottom: '40px' },
+        backBtn: { background: 'none', border: 'none', color: '#94a3b8', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '16px', padding: 0, transition: 'color 0.2s' },
+        titleRow: { display: 'flex', alignItems: 'center', gap: '20px' },
+        iconBox: { width: '56px', height: '56px', backgroundColor: '#fff', borderRadius: '20px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+        title: { fontSize: '36px', fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.04em' },
+        subtitle: { color: '#64748b', fontSize: '15px', margin: '6px 0 0 0', fontWeight: 450 },
+        card: { backgroundColor: '#ffffff', borderRadius: '48px', boxShadow: '0 40px 80px -20px rgba(0, 0, 0, 0.08)', border: '1px solid #ffffff', padding: '80px', position: 'relative', overflow: 'hidden' },
+        grid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '40px' },
+        field: { display: 'flex', flexDirection: 'column', gap: '8px' },
+        fullWidth: { gridColumn: '1 / -1' },
+        label: { fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '4px', paddingLeft: '4px' },
+        input: { padding: '18px 28px', borderRadius: '24px', border: '2px solid #f1f5f9', backgroundColor: '#fbfcfd', fontSize: '16px', color: '#1e293b', outline: 'none', transition: 'all 0.3s ease', fontWeight: 600, width: '100%', boxSizing: 'border-box' },
+        select: { padding: '18px 28px', borderRadius: '24px', border: '2px solid #f1f5f9', backgroundColor: '#fbfcfd', fontSize: '16px', color: '#1e293b', outline: 'none', cursor: 'pointer', appearance: 'none', backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2394a3b8\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'%3E%3C/polyline%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 24px center', backgroundSize: '18px', width: '100%', boxSizing: 'border-box' },
+        textArea: { padding: '24px 28px', borderRadius: '24px', border: '2px solid #f1f5f9', backgroundColor: '#fbfcfd', fontSize: '16px', color: '#1e293b', outline: 'none', resize: 'none', minHeight: '140px', lineHeight: '1.6', width: '100%', boxSizing: 'border-box' },
+        statusBox: { backgroundColor: '#f8fafc', padding: '24px 32px', borderRadius: '28px', border: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '20px', cursor: 'pointer', marginTop: '10px' },
+        checkbox: { width: '28px', height: '28px', borderRadius: '10px', border: '2px solid #e2e8f0', appearance: 'none', backgroundColor: '#fff', cursor: 'pointer', position: 'relative', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+        footer: { display: 'flex', justifyContent: 'flex-end', gap: '20px', marginTop: '56px', paddingTop: '40px', borderTop: '1px solid #f8fafc' },
+        btnCancel: { background: 'none', border: 'none', color: '#94a3b8', padding: '18px 32px', borderRadius: '24px', fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', cursor: 'pointer', transition: 'all 0.2s' },
+        btnSubmit: { backgroundColor: '#0f172a', color: '#fff', padding: '18px 48px', borderRadius: '24px', fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '2px', border: 'none', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)', display: 'flex', alignItems: 'center', gap: '12px' }
+    };
+
     return (
-        <div className="min-h-screen bg-slate-50 py-8 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-3xl mx-auto">
-                {/* Header Outside Card */}
-                <div className="mb-6">
-                    <button
-                        onClick={() => navigate(-1)}
-                        className="text-slate-500 hover:text-slate-700 transition-colors font-medium text-sm mb-2 flex items-center gap-1"
-                    >
-                        ← Volver
+        <div style={styles.container}>
+            <div style={styles.wrapper}>
+                {/* Header Section */}
+                <div style={styles.header}>
+                    <button onClick={() => navigate(-1)} style={styles.backBtn}>
+                        <ArrowLeft size={16} /> Regresar
                     </button>
-                    <div className="flex items-center gap-2 text-slate-800">
-                        <Edit className="text-orange-500" size={24} />
-                        <h1 className="text-xl font-bold">
-                            {isEdit ? `Editar Servicio: ${form.nombre || '...'}` : 'Nuevo Servicio'}
-                        </h1>
+                    <div style={styles.titleRow}>
+                        <div style={styles.iconBox}>
+                            <Edit size={28} color="#3b82f6" />
+                        </div>
+                        <div>
+                            <h1 style={styles.title}>{isEdit ? 'Editar Servicio' : 'Nuevo Servicio'}</h1>
+                            <p style={styles.subtitle}>
+                                {isEdit ? `Gestión de parámetros para ${form.nombre}` : 'Inicie la configuración del nuevo servicio operativo'}
+                            </p>
+                        </div>
                     </div>
                 </div>
 
-                {/* Main Card */}
-                <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-8">
-                    <form onSubmit={handleSubmit}>
+                {/* Main Card Section */}
+                <div style={styles.card}>
+                    {/* Decorative element */}
+                    <div style={{ position: 'absolute', top: 0, right: 0, width: '200px', height: '200px', background: 'radial-gradient(circle at top right, #f8fafc, transparent)', zIndex: 0 }}></div>
+
+                    <form onSubmit={handleSubmit} style={{ position: 'relative', zIndex: 1 }}>
                         {error && (
-                            <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
-                                <span className="font-bold">Error:</span> {error}
+                            <div style={{ marginBottom: '40px', padding: '24px 32px', backgroundColor: '#fef2f2', borderRadius: '24px', border: '1px solid #fee2e2', color: '#b91c1c', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ minWidth: '8px', minHeight: '8px', borderRadius: '50%', backgroundColor: '#ef4444' }}></div>
+                                {error}
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                            {/* Código (Mocked) */}
-                            <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-2">
-                                    Código <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    className="block w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-slate-50 text-slate-500 focus:outline-none"
-                                    value={isEdit ? `SVR-${id.padStart(2, '0')}` : 'GENERADO AUTOMÁTICAMENTE'}
-                                    readOnly
-                                />
+                        <div style={styles.grid}>
+                            <div style={styles.field}>
+                                <label style={styles.label}>Código de Referencia</label>
+                                <div style={{ ...styles.input, backgroundColor: '#f8fafc', color: '#94a3b8', borderStyle: 'dashed', display: 'flex', alignItems: 'center' }}>
+                                    {isEdit ? `SVR-${id.padStart(3, '0')}` : 'SYS-AUTO-GENERATED'}
+                                </div>
                             </div>
 
-                            {/* Programa Select */}
-                            <div>
-                                <label htmlFor="programa" className="block text-sm font-bold text-slate-700 mb-2">
-                                    Programa que aplica <span className="text-red-500">*</span>
-                                </label>
+                            <div style={styles.field}>
+                                <label style={styles.label}>Programa Asociado</label>
                                 <select
-                                    id="programa"
-                                    className="block w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
+                                    style={styles.select}
                                     value={form.programa_id}
                                     onChange={(e) => setForm({ ...form, programa_id: e.target.value })}
                                     required
                                 >
-                                    <option value="">Seleccione...</option>
+                                    <option value="">Seleccione un programa...</option>
                                     {programas.map(p => (
                                         <option key={p.id} value={p.id}>{p.nombre}</option>
                                     ))}
                                 </select>
                             </div>
 
-                            {/* Nombre Input (Full Width) */}
-                            <div className="md:col-span-2">
-                                <label htmlFor="nombre" className="block text-sm font-bold text-slate-700 mb-2">
-                                    Nombre del Servicio <span className="text-red-500">*</span>
-                                </label>
+                            <div style={{ ...styles.field, ...styles.fullWidth }}>
+                                <label style={styles.label}>Nombre del Servicio</label>
                                 <input
-                                    id="nombre"
                                     type="text"
-                                    className="block w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                    style={styles.input}
                                     value={form.nombre}
                                     onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                                    placeholder="Ej: MANTENIMIENTO PREVENTIVO ELECTRICO"
                                     required
-                                    placeholder="Ej. TRANSPORTE CILINDROS"
                                 />
                             </div>
 
-                            {/* Descripcion Textarea (Full Width) */}
-                            <div className="md:col-span-2">
-                                <label htmlFor="descripcion" className="block text-sm font-bold text-slate-700 mb-2">
-                                    Descripción
-                                </label>
+                            <div style={{ ...styles.field, ...styles.fullWidth }}>
+                                <label style={styles.label}>Descripción General</label>
                                 <textarea
-                                    id="descripcion"
-                                    className="block w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-y min-h-[100px]"
+                                    style={styles.textArea}
                                     value={form.descripcion}
                                     onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
-                                    rows="4"
+                                    placeholder="Especifique el alcance técnico y detalles operativos de este servicio..."
                                 />
                             </div>
 
-                            {/* Activo Checkbox */}
-                            <div className="md:col-span-2">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300"
-                                        checked={form.activo === 1}
-                                        onChange={(e) => setForm({ ...form, activo: e.target.checked ? 1 : 0 })}
-                                    />
-                                    <span className="text-sm font-medium text-slate-700">Activo</span>
-                                </label>
+                            <div style={{ ...styles.field, ...styles.fullWidth }}>
+                                <div style={styles.statusBox} onClick={() => setForm({ ...form, activo: form.activo === 1 ? 0 : 1 })}>
+                                    <div style={{
+                                        ...styles.checkbox,
+                                        backgroundColor: form.activo === 1 ? '#3b82f6' : '#fff',
+                                        borderColor: form.activo === 1 ? '#3b82f6' : '#e2e8f0'
+                                    }}>
+                                        {form.activo === 1 && (
+                                            <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#fff' }}></div>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '15px', fontWeight: 800, color: '#1e293b' }}>Servicio Operativo</div>
+                                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '2px' }}>Permitir nuevas vinculaciones en terreno</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-4 pt-4">
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {loading ? 'Guardando...' : 'Guardar Cambios'}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => navigate(-1)}
-                                className="px-6 py-3 bg-white border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500"
-                            >
-                                Cancelar
+                        <div style={styles.footer}>
+                            <button type="button" onClick={() => navigate(-1)} style={styles.btnCancel}>Descartar</button>
+                            <button type="submit" disabled={loading} style={{ ...styles.btnSubmit, opacity: loading ? 0.7 : 1 }}>
+                                {loading ? 'Procesando...' : (
+                                    <>
+                                        <Save size={20} />
+                                        {isEdit ? 'Guardar Cambios' : 'Crear Servicio'}
+                                    </>
+                                )}
                             </button>
                         </div>
                     </form>
