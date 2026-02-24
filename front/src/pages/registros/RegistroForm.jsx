@@ -613,8 +613,8 @@ export default function RegistroForm() {
                 {groupedActividades.map(group => (
                     <div key={group.id} style={{ marginBottom: '2rem', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', backgroundColor: 'white' }}>
                         {/* Element Header */}
-                        <div style={{ backgroundColor: '#1d4ed8', color: 'white', padding: '0.75rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, textTransform: 'uppercase' }}>
+                        <div style={{ backgroundColor: '#fe5000', color: 'white', padding: '0.75rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, textTransform: 'uppercase', color: 'white' }}>
                                 {group.name}
                             </h3>
                             <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
@@ -628,7 +628,7 @@ export default function RegistroForm() {
                                 <thead style={{ backgroundColor: '#f9fafb', color: '#6b7280', fontSize: '0.75rem', textTransform: 'uppercase' }}>
                                     <tr>
                                         <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '60px' }}>Código</th>
-                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600 }}>Actividad</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '30%' }}>Actividad</th>
                                         <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '15%' }}>Criterios de Aceptar</th>
                                         <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600, width: '80px' }}>Frecuencia</th>
                                         <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600, width: '140px' }}>Cumple</th>

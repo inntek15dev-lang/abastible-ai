@@ -24,6 +24,8 @@ const dashboardController = {
         try {
             const user = req.user;
             const now = new Date();
+            const isContractor = ['contratista_admin', 'contratista_user'].includes(user.role);
+            const isContractManager = user.role === 'administrador_contrato';
 
             // Determine scope filters
             const whereRegistro = {};
