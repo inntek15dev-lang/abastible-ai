@@ -27,8 +27,8 @@ export default function ElementComplianceWidget({ period }) {
             if (response.data.success) {
                 setData(response.data.data.elementos.map(e => ({
                     ...e,
-                    statusColor: getValueColorClass(e.value),
-                    barColor: getBarColorClass(e.value)
+                    declaradoColor: getBarColorClass(e.declarado),
+                    auditadoColor: e.auditado !== null ? getBarColorClass(e.auditado) : 'gray'
                 })));
             }
         } catch (error) {
@@ -39,15 +39,10 @@ export default function ElementComplianceWidget({ period }) {
     };
 
     const getBarColorClass = (val) => {
+        if (val === null) return 'gray';
         if (val >= 85) return 'green';
         if (val < 70) return 'red';
         return 'yellow';
-    };
-
-    const getValueColorClass = (val) => {
-        if (val >= 85) return 'high';
-        if (val < 70) return 'low';
-        return 'mid';
     };
 
     if (loading) return <div className="p-4 text-center text-gray-400">Cargando cumplimiento...</div>;
@@ -55,6 +50,19 @@ export default function ElementComplianceWidget({ period }) {
     return (
         <div className="compliance-widget">
             <h3 className="widget-title">Cumplimiento por Elemento</h3>
+
+            {/* Legend */}
+            <div className="compliance-legend">
+                <div className="legend-item">
+                    <span className="legend-box declarado"></span>
+                    <span>Declarado</span>
+                </div>
+                <div className="legend-item">
+                    <span className="legend-box auditado"></span>
+                    <span>Auditado</span>
+                </div>
+            </div>
+
             {data.length === 0 ? (
                 <p className="text-sm text-gray-500 italic">No hay datos para el periodo seleccionado.</p>
             ) : (
@@ -62,16 +70,35 @@ export default function ElementComplianceWidget({ period }) {
                     {data.map((item, index) => (
                         <div key={index} className="compliance-item">
                             <div className="compliance-header">
-                                <span>{item.name}</span>
-                                <span className={`compliance-value ${item.statusColor}`}>
-                                    {item.value}%
-                                </span>
+                                <span className="item-name">{item.name}</span>
                             </div>
-                            <div className="progress-track">
-                                <div
-                                    className={`progress-fill ${item.barColor}`}
-                                    style={{ width: `${item.value}%` }}
-                                />
+
+                            {/* Declarado Row */}
+                            <div className="bar-container">
+                                <div className="progress-track small">
+                                    <div
+                                        className={`progress-fill ${item.declaradoColor}`}
+                                        style={{ width: `${item.declarado}%` }}
+                                    />
+                                </div>
+                                <span className="bar-value">{item.declarado}%</span>
+                            </div>
+
+                            {/* Auditado Row */}
+                            <div className="bar-container">
+                                <div className="progress-track small audit-track">
+                                    {item.auditado !== null ? (
+                                        <div
+                                            className={`progress-fill ${item.auditadoColor}`}
+                                            style={{ width: `${item.auditado}%` }}
+                                        />
+                                    ) : (
+                                        <div className="no-data-bar">Pendiente</div>
+                                    )}
+                                </div>
+                                <span className="bar-value">
+                                    {item.auditado !== null ? `${item.auditado}%` : '-'}
+                                </span>
                             </div>
                         </div>
                     ))}

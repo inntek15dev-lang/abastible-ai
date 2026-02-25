@@ -4,15 +4,24 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import {
     AlertTriangle,
-    TrendingUp
+    TrendingUp,
+    CheckCircle2,
+    FileText,
+    Users,
+    LayoutDashboard,
+    Search,
+    RefreshCcw,
+    Calendar,
+    Briefcase,
+    Building2
 } from 'lucide-react';
 import ComplianceChart from '../components/charts/ComplianceChart';
 import ElementComplianceWidget from '../components/dashboard/ElementComplianceWidget';
 import RecordsSummaryWidget from '../components/dashboard/RecordsSummaryWidget';
-
+import './Dashboard.css';
 
 export default function Dashboard() {
-    const { user, isAdmin } = useAuth();
+    const { user } = useAuth();
     const [kpis, setKpis] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -31,7 +40,7 @@ export default function Dashboard() {
     const [programs, setPrograms] = useState([]);
     const [services, setServices] = useState([]);
     const [dependencies, setDependencies] = useState([]);
-    const [vinculaciones, setVinculaciones] = useState([]); // Parko: Store links
+    const [vinculaciones, setVinculaciones] = useState([]);
     const [historyData, setHistoryData] = useState([]);
 
     useEffect(() => {
@@ -41,8 +50,8 @@ export default function Dashboard() {
                     api.get('/programas'),
                     api.get('/resources/tipos-contratista'),
                     api.get('/resources/dependencias'),
-                    api.get('/vinculaciones'), // Parko: Fetch active assignments
-                    api.get('/dashboard/historico') // Parko: Fetch history
+                    api.get('/vinculaciones'),
+                    api.get('/dashboard/historico')
                 ]);
                 setPrograms(progRes.data.data || []);
                 setServices(servRes.data.data || []);
@@ -57,22 +66,7 @@ export default function Dashboard() {
         fetchKpis();
     }, []);
 
-    // Filter dependencies based on selected service
-    const filteredDependencies = filters.servicio_id === 'todos'
-        ? dependencies
-        : dependencies.filter(dep =>
-            vinculaciones.some(v =>
-                String(v.servicio_id) === String(filters.servicio_id) &&
-                String(v.dependencia_id) === String(dep.id)
-            )
-        );
-
-
-    // Fetch KPIs when filters change (debounced or manual apply? User usually expects auto or "Apply" button. Auto for now except search)
-    // Actually, let's trigger on change for dropdowns, debounce for text.
-    // For simplicity, let's keep it manual or effect-based.
     useEffect(() => {
-        // Debounce search
         const timeoutId = setTimeout(() => {
             fetchKpis();
         }, 500);
@@ -81,7 +75,7 @@ export default function Dashboard() {
 
     const fetchKpis = async () => {
         try {
-            // Build query
+            setLoading(true);
             const params = new URLSearchParams();
             if (filters.fecha_inicio) params.append('fecha_inicio', filters.fecha_inicio);
             if (filters.fecha_fin) params.append('fecha_fin', filters.fecha_fin);
@@ -92,7 +86,7 @@ export default function Dashboard() {
 
             const response = await api.get(`/dashboard/kpis?${params.toString()}`);
             setKpis(response.data.data);
-            setLoading(false); // Ensure loading is off
+            setLoading(false);
         } catch (err) {
             console.error(err);
             setError('Error al cargar métricas');
@@ -116,49 +110,96 @@ export default function Dashboard() {
     };
 
     const isContractor = ['contratista_admin', 'contratista_user'].includes(user?.role);
+    const kpiTitle = isContractor ? 'Mi Gestión Operativa' : 'Monitor de Cumplimiento Global';
 
-    // Role-specific Labeling
-    const kpiTitle = isContractor ? 'Mi Gestión (KPIs)' : 'Monitor Global';
-
-    // Calculate % Auditados
     const pctAuditados = kpis?.totalRegistros > 0
         ? Math.round((kpis.auditados / kpis.totalRegistros) * 100)
         : 0;
 
-    const kpiData = kpis ? [
+    const getColorForValue = (val) => {
+        const num = parseFloat(val);
+        if (isNaN(num) || val === null) return '#94a3b8'; // Gray for null/NaN
+        if (num >= 85) return '#10b981';  // Green
+        if (num >= 70) return '#f59e0b';  // Yellow
+        return '#ef4444';                 // Red
+    };
+
+    const kpiCards = kpis ? [
         {
-            title: 'CUMPLIMIENTO GENERAL',
-            value: `${kpis.promedioCumplimiento}%`,
-            subtitle: 'Promedio del periodo',
-            color: '#10b981', // Green
+            title: 'CUMPLIMIENTO',
+            value: (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ color: getColorForValue(kpis.promedioCumplimiento) }}>
+                        {kpis.promedioCumplimiento}%
+                    </span>
+                    {kpis.promedioCumplimientoAuditor !== null && (
+                        <>
+                            <span style={{ color: '#94a3b8', fontWeight: 400 }}>/</span>
+                            <span style={{ color: getColorForValue(kpis.promedioCumplimientoAuditor) }}>
+                                {kpis.promedioCumplimientoAuditor}%
+                            </span>
+                        </>
+                    )}
+                </div>
+            ),
+            subtitle: kpis.promedioCumplimientoAuditor !== null ? 'Declarado / Auditado' : 'Promedio declarado',
+            color: '#334155', // Neutral base color
+            bg: '#f8fafc',    // Neutral base bg
+            icon: <TrendingUp size={20} color="#10b981" />
         },
         {
-            title: '% AUDITADOS',
+            title: 'AUDITADOS',
             value: `${pctAuditados}%`,
-            subtitle: `Terreno: ${kpis.auditadosTerreno || 0} | Sistema: ${kpis.auditadosSistema || 0}`,
-            color: '#3b82f6', // Blue
+            subtitle: `${kpis.auditadosTerreno || 0} Terreno / ${kpis.auditadosSistema || 0} Sistema`,
+            color: '#3b82f6',
+            bg: '#eff6ff',
+            icon: <CheckCircle2 size={20} color="#3b82f6" />
         },
         {
             title: 'EVIDENCIAS',
             value: kpis.totalEvidencias || 0,
-            subtitle: 'Total subidas',
-            color: '#8b5cf6', // Purple
+            subtitle: 'Documentos cargados',
+            color: '#8b5cf6',
+            bg: '#f5f3ff',
+            icon: <FileText size={20} color="#8b5cf6" />
         },
         {
-            title: 'HALLAZGOS ABIERTOS',
+            title: 'HALLAZGOS',
             value: kpis.hallazgosAbiertos,
-            subtitle: 'Requieren atención',
-            color: '#ef4444', // Red
+            subtitle: 'Revisiones críticas',
+            color: '#ef4444',
+            bg: '#fef2f2',
+            icon: <AlertTriangle size={20} color="#ef4444" />
         },
         {
             title: 'REGISTROS',
             value: kpis.totalRegistros,
-            subtitle: 'En periodo seleccionado',
-            color: '#374151', // Gray
+            subtitle: 'Total del periodo',
+            color: '#334155',
+            bg: '#f8fafc',
+            icon: <LayoutDashboard size={20} color="#334155" />
         }
     ] : [];
 
-    if (loading) return <div className="loading">Cargando dashboard...</div>;
+    const filteredDependencies = filters.servicio_id === 'todos'
+        ? dependencies
+        : dependencies.filter(dep =>
+            vinculaciones.some(v =>
+                String(v.servicio_id) === String(filters.servicio_id) &&
+                String(v.dependencia_id) === String(dep.id)
+            )
+        );
+
+    // Skeleton loader component
+    if (loading && !kpis) return (
+        <div className="dashboard-page">
+            <div className="skeleton" style={{ height: '40px', width: '300px', marginBottom: '1rem' }} />
+            <div className="skeleton" style={{ height: '200px', borderRadius: '16px', marginBottom: '2rem' }} />
+            <div className="kpi-grid">
+                {[1, 2, 3, 4, 5].map(i => <div key={i} className="skeleton" style={{ height: '140px', borderRadius: '16px' }} />)}
+            </div>
+        </div>
+    );
 
     return (
         <div className="dashboard-page">
@@ -167,184 +208,139 @@ export default function Dashboard() {
                     <h1>Dashboard</h1>
                     <span className="subtitle">{kpiTitle}</span>
                 </div>
-                <div className="user-badge column-right">
+                <div className="user-badge">
                     <strong>{user?.name}</strong>
                     <span>{user?.role?.replace('_', ' ').toUpperCase()}</span>
-                    {user?.eecc_nombre && <small>{user.eecc_nombre}</small>}
+                    {user?.eecc_nombre && <small style={{ color: '#94a3b8', fontSize: '0.7rem' }}>{user.eecc_nombre}</small>}
                 </div>
             </header>
 
-            {error && <div className="error-message">{error}</div>}
+            {error && <div className="error-message" style={{ marginBottom: '2rem' }}>{error}</div>}
 
-            {/* Filter Bar */}
-            <div className="dashboard-filters" style={{ background: 'white', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', boxShadow: '0 1px 2px 0 rgba(0,0,0,0.05)' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                    <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Periodo Inicio</label>
+            {/* Filter Section */}
+            <div className="dashboard-filters-container">
+                <div className="filter-grid">
+                    <div className="filter-group">
+                        <label><Calendar size={12} inline /> Periodo Inicio</label>
                         <input
                             type="month"
-                            className="form-control"
-                            style={{ width: '100%' }}
+                            className="filter-control"
                             value={filters.fecha_inicio}
                             onChange={(e) => handleFilterChange('fecha_inicio', e.target.value)}
                         />
                     </div>
-                    <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Periodo Fin</label>
+                    <div className="filter-group">
+                        <label><Calendar size={12} inline /> Periodo Fin</label>
                         <input
                             type="month"
-                            className="form-control"
-                            style={{ width: '100%' }}
+                            className="filter-control"
                             value={filters.fecha_fin}
                             onChange={(e) => handleFilterChange('fecha_fin', e.target.value)}
                         />
                     </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 2fr) 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                    <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Buscar</label>
+                    <div className="filter-group">
+                        <label><Search size={12} inline /> Búsqueda</label>
                         <input
                             type="text"
-                            placeholder="Nombre, RUT..."
-                            className="form-control"
-                            style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                            placeholder="Nombre EECC, RUT..."
+                            className="filter-control"
                             value={filters.search}
                             onChange={(e) => handleFilterChange('search', e.target.value)}
                         />
                     </div>
-                    <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Programa</label>
+                    <div className="filter-group">
+                        <label><Briefcase size={12} inline /> Programa</label>
                         <select
-                            className="form-control"
-                            style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                            className="filter-control"
                             value={filters.programa_id}
                             onChange={(e) => handleFilterChange('programa_id', e.target.value)}
                         >
-                            <option value="todos">Todos</option>
+                            <option value="todos">Todos los Programas</option>
                             {programs.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                         </select>
                     </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Servicio</label>
+                    <div className="filter-group">
+                        <label><RefreshCcw size={12} inline /> Servicio</label>
                         <select
-                            className="form-control"
-                            style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                            className="filter-control"
                             value={filters.servicio_id}
                             onChange={(e) => handleFilterChange('servicio_id', e.target.value)}
                         >
-                            <option value="todos">Todos</option>
+                            <option value="todos">Todos los Servicios</option>
                             {services.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
                         </select>
                     </div>
-                    <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Dependencia</label>
+                    <div className="filter-group">
+                        <label><Building2 size={12} inline /> Dependencia</label>
                         <select
-                            className="form-control"
-                            style={{ width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '0.375rem' }}
+                            className="filter-control"
                             value={filters.dependencia_id}
                             onChange={(e) => handleFilterChange('dependencia_id', e.target.value)}
                         >
-                            <option value="todas">Todas</option>
+                            <option value="todas">Todas las Dependencias</option>
                             {filteredDependencies.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
                         </select>
                     </div>
-
-                </div>
-                <div style={{ textAlign: 'right', marginTop: '0.5rem' }}>
-                    <button
-                        onClick={clearFilters}
-                        style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '0.875rem', cursor: 'pointer', textDecoration: 'underline' }}
-                    >
+                    <button onClick={clearFilters} className="clear-filters-btn">
                         Limpiar Filtros
                     </button>
                 </div>
             </div>
 
-            {/* NEW KPI SECTION (Vertical Stack Style applied to Grid) */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                gap: '1rem',
-                marginBottom: '2rem'
-            }}>
-                {kpiData.map((kpi, index) => (
-                    <div key={index} id={`kpi-card-${index}`} className="kpi-card" style={{
-                        background: 'white',
-                        borderRadius: '8px',
-                        padding: '16px',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                        borderLeft: `4px solid ${kpi.color}`,
-                        display: 'flex',
-                        flexDirection: 'column'
-                    }}>
-                        <span style={{
-                            color: '#6b7280',
-                            fontSize: '11px',
-                            textTransform: 'uppercase',
-                            fontWeight: '600',
-                            marginBottom: '8px'
-                        }}>
-                            {kpi.title}
-                        </span>
-                        <span style={{
-                            fontSize: '28px',
-                            fontWeight: '700',
-                            color: kpi.color,
-                            marginBottom: '4px',
-                            lineHeight: '1.2'
-                        }}>
-                            {kpi.value}
-                        </span>
-                        <span style={{
-                            color: '#9ca3af',
-                            fontSize: '12px'
-                        }}>
-                            {kpi.subtitle}
-                        </span>
+            {/* KPI Cards Section */}
+            <div className="kpi-grid">
+                {kpiCards.map((kpi, index) => (
+                    <div key={index} className="kpi-card-polished">
+                        <div className="kpi-card-icon-wrapper" style={{ backgroundColor: kpi.bg }}>
+                            {kpi.icon}
+                        </div>
+                        <div className="kpi-card-content">
+                            <span className="kpi-card-title">{kpi.title}</span>
+                            <span className="kpi-card-value" style={{ color: kpi.color }}>{kpi.value}</span>
+                            <span className="kpi-card-subtitle">{kpi.subtitle}</span>
+                        </div>
                     </div>
                 ))}
             </div>
 
-            {/* US-1.13: Leyenda de Semáforos */}
-            <div className="dashboard-legend" style={{ marginTop: '1rem', display: 'flex', gap: '1rem', fontSize: '0.875rem', color: '#6b7280' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#10b981' }}></span>
-                    <span>Cumplimiento Óptimo ({'>'}85%)</span>
+            {/* Main Content Section */}
+            <div className="dashboard-section-card">
+                <div className="section-title-wrapper">
+                    <h3 className="section-title">
+                        <TrendingUp size={22} color="#3b82f6" />
+                        Evolución de Cumplimiento (Últimos 6 meses)
+                    </h3>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#f59e0b' }}></span>
-                    <span>Atención Requerida</span>
+
+                <div style={{ marginTop: '1rem', height: 400 }}>
+                    <ComplianceChart data={historyData} />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ width: 12, height: 12, borderRadius: '50%', backgroundColor: '#ef4444' }}></span>
-                    <span>Crítico ({'<'}70%)</span>
+
+                <div className="legend-container">
+                    <div className="legend-item">
+                        <span className="legend-dot" style={{ backgroundColor: '#10b981' }}></span>
+                        <span>Óptimo ({'>'}85%)</span>
+                    </div>
+                    <div className="legend-item">
+                        <span className="legend-dot" style={{ backgroundColor: '#f59e0b' }}></span>
+                        <span>Regular (70% - 85%)</span>
+                    </div>
+                    <div className="legend-item">
+                        <span className="legend-dot" style={{ backgroundColor: '#ef4444' }}></span>
+                        <span>Crítico ({'<'}70%)</span>
+                    </div>
                 </div>
             </div>
 
-            {/* US-1.1: Tendencia Histórica */}
-            <div className="dashboard-chart-section" style={{ marginTop: '2rem', background: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#111827' }}>Evolución de Cumplimiento (Últimos 6 meses)</h3>
-                    {/* Placeholder for future filter */}
+            {/* Secondary Widgets Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '2rem' }}>
+                <div className="dashboard-section-card" style={{ marginBottom: 0 }}>
+                    <ElementComplianceWidget period={filters.fecha_fin || new Date().toISOString().slice(0, 7)} />
                 </div>
-
-                {/* Real Data Integration - US-1.1 */}
-                <ComplianceChart data={historyData} />
+                <div className="dashboard-section-card" style={{ marginBottom: 0 }}>
+                    <RecordsSummaryWidget period={filters.fecha_fin || new Date().toISOString().slice(0, 7)} />
+                </div>
             </div>
-
-
-
-
-            {/* US-X: Cumplimiento por Elemento */}
-            <ElementComplianceWidget period={filters.fecha_fin || new Date().toISOString().slice(0, 7)} />
-
-            {/* US-X: Resumen de Registros */}
-            <RecordsSummaryWidget period={filters.fecha_fin || new Date().toISOString().slice(0, 7)} />
-
         </div>
     );
 }

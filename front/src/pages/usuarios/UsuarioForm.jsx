@@ -2,8 +2,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api';
-import { Save, ArrowLeft } from 'lucide-react';
+import { Save, ArrowLeft, User, Shield, Briefcase, Pencil } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import SearchableSelect from '../../components/common/SearchableSelect';
+import './UsuarioForm.css';
 
 export default function UsuarioForm() {
     const { id } = useParams();
@@ -96,9 +98,6 @@ export default function UsuarioForm() {
     // Effect to update scoped resources when contratista_id changes
     useEffect(() => {
         const updateScopes = async () => {
-            // Determine the ID of the contractor to fetch scope from
-            // If admin/adc select from dropdown (form.contratista_id)
-            // If contractor admin, use their own id (currentUser.contratista_id or id)
             const cId = form.contratista_id || (currentUser.role === 'contratista_admin' ? (currentUser.contratista_id || currentUser.id) : null);
 
             if (!cId) {
@@ -108,13 +107,10 @@ export default function UsuarioForm() {
             }
 
             try {
-                // Fetch specific contractor with vinculaciones to get scope
-                // We need to fetch it to get vinculaciones, as the list might not have them fully loaded or user might not have list access
                 const res = await api.get(`/contratistas/${cId}`);
                 const selectedContratista = res.data.data;
 
                 if (selectedContratista && selectedContratista.vinculaciones) {
-                    // Extract unique services and dependencies from vinculaciones
                     const services = new Map();
                     const deps = new Map();
 
@@ -136,7 +132,7 @@ export default function UsuarioForm() {
         if (form.contratista_id || currentUser.role === 'contratista_admin') {
             updateScopes();
         }
-    }, [form.contratista_id, currentUser]); // Removed contratistas from dep to avoid loop if list changes
+    }, [form.contratista_id, currentUser]);
 
 
     const handleSubmit = async (e) => {
@@ -150,14 +146,6 @@ export default function UsuarioForm() {
                 delete payload.password;
             }
 
-            // Map contratista_id to parent_id if needed by backend or keep distinct
-            // For now, let's assumes backend handles 'contratista_id' or we pass it as 'parent_id' for linking
-            // FIX: Do NOT overwrite parent_id with contratista_id, as they are different tables.
-            // if (payload.contratista_id) {
-            //     payload.parent_id = payload.contratista_id;
-            // }
-
-            // Remove unused fields from payload if they exist
             delete payload.asignacion_inicial;
 
             if (isEdit) {
@@ -178,189 +166,200 @@ export default function UsuarioForm() {
     if (pageLoading) return <div className="loading">Cargando...</div>;
 
     return (
-        <div className="page-container">
-            <header className="page-header">
-                <button onClick={() => navigate(-1)} className="btn-back">
-                    <ArrowLeft size={18} /> Volver
+        <div className="page-container-usuario">
+            <header className="usuario-edit-header">
+                <button onClick={() => navigate(-1)} className="btn-back-arrow" title="Volver">
+                    <ArrowLeft size={24} />
                 </button>
-                <h1>{isEdit ? 'Editar Usuario' : 'Nuevo Usuario'}</h1>
+                <div className="usuario-edit-title-row">
+                    {isEdit ? <Pencil size={20} className="icon-pencil-header" /> : <User size={20} className="icon-user-header" />}
+                    <span>{isEdit ? 'Editar Usuario' : 'Nuevo Usuario'}</span>
+                </div>
             </header>
 
-            {error && <div className="error-message">{error}</div>}
+            {error && <div className="error-message" style={{ maxWidth: 800, margin: '0 auto 16px' }}>{error}</div>}
 
-            <form onSubmit={handleSubmit} className="form-card">
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Nombre *</label>
-                        <input
-                            type="text" required
-                            value={form.name}
-                            onChange={e => setForm({ ...form, name: e.target.value })}
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label>Email *</label>
-                        <input
-                            type="email" required
-                            value={form.email}
-                            onChange={e => setForm({ ...form, email: e.target.value })}
-                        />
-                    </div>
-                </div>
+            <div className="usuario-edit-card">
+                <form onSubmit={handleSubmit}>
+                    <div className="form-section-usuario">
+                        <div className="section-subtitle-usuario">
+                            <User size={18} />
+                            <span>Datos Personales</span>
+                        </div>
 
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>{isEdit ? 'Nueva Contraseña (opcional)' : 'Contraseña *'}</label>
-                        <input
-                            type="password"
-                            required={!isEdit}
-                            minLength={6}
-                            value={form.password}
-                            onChange={e => setForm({ ...form, password: e.target.value })}
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label>Rol *</label>
-                        <select
-                            value={form.role}
-                            onChange={e => setForm({ ...form, role: e.target.value })}
-                            disabled={currentUser.role === 'contratista_admin'}
-                        >
-                            <option value="">Seleccione Rol...</option>
-                            {roles.filter(r => {
-                                // Filter roles based on current user privileges
-                                if (currentUser.role === 'contratista_admin') {
-                                    return r.name === 'contratista_user';
-                                }
-                                if (currentUser.role === 'administrador_contrato') {
-                                    // Admins can create contractors or other admins maybe? 
-                                    // For now let's allow them to create contratista_user and contratista_admin
-                                    // But maybe not System Admin
-                                    return ['contratista_user', 'contratista_admin'].includes(r.name);
-                                }
-                                return true; // Super admin sees all
-                            }).map(r => (
-                                <option key={r.id} value={r.name}>{r.name.replace('_', ' ').toUpperCase()}</option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>RUT</label>
-                        <input
-                            type="text"
-                            value={form.rut}
-                            onChange={e => setForm({ ...form, rut: e.target.value })}
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label>Teléfono</label>
-                        <input
-                            type="text"
-                            value={form.telefono}
-                            onChange={e => setForm({ ...form, telefono: e.target.value })}
-                        />
-                    </div>
-                </div>
-
-                {/* Fields for Abastible Users */}
-                {!isContractorRole && form.role === 'admin' && (
-                    <div className="form-group">
-                        <label>Dependencia (Gerencia)</label>
-                        <select
-                            value={form.dependencia_id}
-                            onChange={e => setForm({ ...form, dependencia_id: e.target.value })}
-                        >
-                            <option value="">Seleccione...</option>
-                            {dependencias.map(d => (
-                                <option key={d.id} value={d.id}>{d.nombre}</option>
-                            ))}
-                        </select>
-                    </div>
-                )}
-
-                {/* Fields for Contractors */}
-                {isContractorRole && (
-                    <>
-                        {/* Admin selects Contractor Company */}
-                        {['admin', 'administrador_contrato'].includes(currentUser.role) && (
-                            <div className="form-group">
-                                <label>Empresa Contratista *</label>
-                                <select
+                        <div className="input-row-usuario">
+                            <div className="input-group-usuario">
+                                <label className="label-usuario">Nombre <span className="required">*</span></label>
+                                <input
+                                    type="text"
+                                    className="input-field-usuario"
                                     required
-                                    value={form.contratista_id}
-                                    onChange={e => setForm({
-                                        ...form,
-                                        contratista_id: e.target.value,
-                                        // Reset Scope when company changes
-                                        tipo_contratista_id: '',
-                                        dependencia_id: ''
-                                    })}
+                                    value={form.name}
+                                    onChange={e => setForm({ ...form, name: e.target.value })}
+                                />
+                            </div>
+                            <div className="input-group-usuario">
+                                <label className="label-usuario">Email <span className="required">*</span></label>
+                                <input
+                                    type="email"
+                                    className="input-field-usuario"
+                                    required
+                                    value={form.email}
+                                    onChange={e => setForm({ ...form, email: e.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="input-row-usuario">
+                            <div className="input-group-usuario">
+                                <label className="label-usuario">RUT</label>
+                                <input
+                                    type="text"
+                                    className="input-field-usuario"
+                                    value={form.rut}
+                                    onChange={e => setForm({ ...form, rut: e.target.value })}
+                                />
+                            </div>
+                            <div className="input-group-usuario">
+                                <label className="label-usuario">Teléfono</label>
+                                <input
+                                    type="text"
+                                    className="input-field-usuario"
+                                    value={form.telefono}
+                                    onChange={e => setForm({ ...form, telefono: e.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="section-subtitle-usuario" style={{ marginTop: '16px' }}>
+                            <Shield size={18} />
+                            <span>Acceso y Seguridad</span>
+                        </div>
+
+                        <div className="input-row-usuario">
+                            <div className="input-group-usuario">
+                                <label className="label-usuario">{isEdit ? 'Nueva Contraseña (opcional)' : 'Contraseña *'}</label>
+                                <input
+                                    type="password"
+                                    className="input-field-usuario"
+                                    required={!isEdit}
+                                    minLength={6}
+                                    value={form.password}
+                                    onChange={e => setForm({ ...form, password: e.target.value })}
+                                />
+                            </div>
+                            <div className="input-group-usuario">
+                                <label className="label-usuario">Rol *</label>
+                                <select
+                                    className="select-field-usuario"
+                                    value={form.role}
+                                    onChange={e => setForm({ ...form, role: e.target.value })}
+                                    disabled={currentUser.role === 'contratista_admin'}
                                 >
-                                    <option value="">Seleccione Empresa...</option>
-                                    {contratistas.map(c => (
-                                        <option key={c.id} value={c.id}>{c.nombre}</option>
+                                    <option value="">Seleccione Rol...</option>
+                                    {roles.filter(r => {
+                                        if (currentUser.role === 'contratista_admin') {
+                                            return r.name === 'contratista_user';
+                                        }
+                                        if (currentUser.role === 'administrador_contrato') {
+                                            return ['contratista_user', 'contratista_admin'].includes(r.name);
+                                        }
+                                        return true;
+                                    }).map(r => (
+                                        <option key={r.id} value={r.name}>{r.name.replace('_', ' ').toUpperCase()}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Fields for Abastible Users */}
+                        {!isContractorRole && form.role === 'admin' && (
+                            <div className="input-group-usuario">
+                                <label className="label-usuario">Dependencia (Gerencia)</label>
+                                <select
+                                    className="select-field-usuario"
+                                    value={form.dependencia_id}
+                                    onChange={e => setForm({ ...form, dependencia_id: e.target.value })}
+                                >
+                                    <option value="">Seleccione...</option>
+                                    {dependencias.map(d => (
+                                        <option key={d.id} value={d.id}>{d.nombre}</option>
                                     ))}
                                 </select>
                             </div>
                         )}
 
-                        <div className="section-divider" style={{ margin: '2rem 0', borderTop: '2px dashed var(--color-border)', paddingTop: '1rem' }}>
-                            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--color-brand-primary)' }}>
-                                Alcance de Acceso (Scope)
-                            </h3>
-                            <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem' }}>
-                                Defina a qué Servicio y Dependencia tendrá acceso este usuario.
-                                <br />
-                                <em>Las opciones están limitadas a los contratos vigentes de la empresa seleccionada.</em>
-                            </p>
-
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>Servicio Asociado *</label>
-                                    <select
-                                        required
-                                        value={form.tipo_contratista_id}
-                                        onChange={e => setForm({ ...form, tipo_contratista_id: e.target.value })}
-                                        disabled={!form.contratista_id && currentUser.role !== 'contratista_admin'}
-                                    >
-                                        <option value="">Seleccione Servicio...</option>
-                                        {scopedServices.map(s => (
-                                            <option key={s.id} value={s.id}>{s.nombre}</option>
-                                        ))}
-                                    </select>
+                        {/* Fields for Contractors */}
+                        {isContractorRole && (
+                            <>
+                                <div className="section-subtitle-usuario" style={{ marginTop: '16px' }}>
+                                    <Briefcase size={18} />
+                                    <span>Alcance de Acceso (Scope)</span>
                                 </div>
-                                <div className="form-group">
-                                    <label>Dependencia Permitida *</label>
-                                    <select
-                                        required
-                                        value={form.dependencia_id}
-                                        onChange={e => setForm({ ...form, dependencia_id: e.target.value })}
-                                        disabled={!form.contratista_id && currentUser.role !== 'contratista_admin'}
-                                    >
-                                        <option value="">Seleccione Dependencia...</option>
-                                        {scopedDependencies.map(d => (
-                                            <option key={d.id} value={d.id}>{d.nombre}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </>
-                )}
+                                <span className="scope-description">
+                                    Defina el servicio y dependencia para este usuario. Las opciones están limitadas a los contratos vigentes.
+                                </span>
 
-                <div className="form-actions">
-                    <button type="button" onClick={() => navigate(-1)} className="btn-secondary">
-                        Cancelar
-                    </button>
-                    <button type="submit" className="btn-primary" disabled={loading}>
-                        <Save size={18} />
-                        {loading ? 'Guardando...' : 'Guardar Usuario'}
-                    </button>
-                </div>
-            </form>
+                                {/* Admin selects Contractor Company */}
+                                {['admin', 'administrador_contrato'].includes(currentUser.role) && (
+                                    <div className="input-group-usuario">
+                                        <label className="label-usuario">Empresa Contratista <span className="required">*</span></label>
+                                        <SearchableSelect
+                                            options={contratistas}
+                                            value={form.contratista_id}
+                                            onChange={val => setForm({
+                                                ...form,
+                                                contratista_id: val,
+                                                tipo_contratista_id: '',
+                                                dependencia_id: ''
+                                            })}
+                                            placeholder="Seleccione Empresa..."
+                                            dropdownTop="calc(34% + 4px)"
+                                            containerFlex="1 1 auto"
+                                        />
+                                    </div>
+                                )}
+
+                                <div className="input-row-usuario">
+                                    <div className="input-group-usuario">
+                                        <label className="label-usuario">Servicio Asociado <span className="required">*</span></label>
+                                        <SearchableSelect
+                                            options={scopedServices}
+                                            value={form.tipo_contratista_id}
+                                            onChange={val => setForm({ ...form, tipo_contratista_id: val })}
+                                            placeholder="Seleccione Servicio..."
+                                            disabled={!form.contratista_id && currentUser.role !== 'contratista_admin'}
+                                            dropdownTop="calc(34% + 4px)"
+                                            containerFlex="1 1 auto"
+                                        />
+                                    </div>
+                                    <div className="input-group-usuario">
+                                        <label className="label-usuario">Dependencia Permitida <span className="required">*</span></label>
+                                        <SearchableSelect
+                                            options={scopedDependencies}
+                                            value={form.dependencia_id}
+                                            onChange={val => setForm({ ...form, dependencia_id: val })}
+                                            placeholder="Seleccione Dependencia..."
+                                            disabled={!form.contratista_id && currentUser.role !== 'contratista_admin'}
+                                            dropdownTop="calc(34% + 4px)"
+                                            containerFlex="1 1 auto"
+                                        />
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    <div className="actions-row-usuario">
+                        <button type="button" onClick={() => navigate(-1)} className="btn-cancel-usuario">
+                            Cancelar
+                        </button>
+                        <button type="submit" className="btn-save-usuario" disabled={loading}>
+                            {loading ? 'Guardando...' : <><Save size={18} /> Guardar Usuario</>}
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     );
 }
