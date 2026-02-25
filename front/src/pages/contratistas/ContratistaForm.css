@@ -1,0 +1,178 @@
+/* ============================================
+   Theme: ContratistaForm (Card View)
+   Source: Inspired by ElementoForm.css
+   ============================================ */
+
+/* 1. LAYOUT & BACKGROUND */
+.page-container-contratista {
+    background-color: #F4F6F8;
+    min-height: 100vh;
+    padding: 24px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* 2. HEADER */
+.contratista-edit-header {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto 24px auto;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.btn-back-arrow {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #5F6368;
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.btn-back-arrow:hover {
+    background-color: #E8EAED;
+}
+
+.contratista-edit-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.15rem;
+    font-weight: 500;
+    color: #202124;
+}
+
+.icon-building-header {
+    color: var(--color-brand-primary);
+}
+
+/* 3. FORM CARD */
+.contratista-edit-card {
+    background: #FFFFFF;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 32px;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* 4. FORM FIELDS */
+.form-section-contratista {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-bottom: 32px;
+}
+
+.section-subtitle-contratista {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-brand-secondary);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #F1F3F4;
+}
+
+.input-row-contratista {
+    display: flex;
+    gap: 16px;
+}
+
+.input-group-contratista {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+}
+
+.label-contratista {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #5F6368;
+}
+
+.label-contratista span.required {
+    color: #D93025;
+}
+
+.input-field-contratista,
+.select-field-contratista {
+    height: 44px;
+    padding: 0px 4px;
+    border: 1px solid #DADCE0;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    color: #202124;
+    background-color: #fff;
+    width: 100%;
+}
+
+.input-field-contratista:focus,
+.select-field-contratista:focus {
+    outline: none;
+    border-color: var(--color-brand-primary);
+    border-width: 2px;
+    padding-left: 11px;
+}
+
+/* 5. ACTIONS */
+.actions-row-contratista {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    border-top: 1px solid #F1F3F4;
+    padding-top: 24px;
+    margin-top: 24px;
+}
+
+.btn-cancel-contratista {
+    padding: 8px 16px;
+    background-color: #FFFFFF;
+    border: 1px solid #DADCE0;
+    border-radius: 4px;
+    color: #202124;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.btn-save-contratista {
+    padding: 8px 24px;
+    background-color: var(--color-brand-primary);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-save-contratista:hover {
+    filter: brightness(0.9);
+}
+
+.btn-save-contratista:disabled {
+    background-color: #DADCE0;
+    cursor: not-allowed;
+}
+
+.vinculacion-description {
+    font-size: 0.85rem;
+    color: #5F6368;
+    font-weight: 400;
+    margin-left: 8px;
+}

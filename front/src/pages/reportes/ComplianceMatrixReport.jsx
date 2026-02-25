@@ -178,6 +178,7 @@ export default function ComplianceMatrixReport() {
                     options={options.contratistas}
                     disabled={isContractor}
                     placeholder="Todas las empresas"
+                    showAllOption={true}
                 />
                 <SearchableSelect
                     label="Servicio / Rubro"
@@ -187,6 +188,7 @@ export default function ComplianceMatrixReport() {
                     options={options.servicios}
                     disabled={isContratistaUser}
                     placeholder="Todos los servicios"
+                    showAllOption={true}
                 />
                 <SearchableSelect
                     label="Dependencia / Planta"
@@ -196,6 +198,7 @@ export default function ComplianceMatrixReport() {
                     options={options.dependencias}
                     disabled={isContratistaUser}
                     placeholder="Todas las dependencias"
+                    showAllOption={true}
                 />
                 <SearchableSelect
                     label="Programa OIEM"
@@ -204,6 +207,7 @@ export default function ComplianceMatrixReport() {
                     onChange={(val) => setFilters(f => ({ ...f, programa_id: val }))}
                     options={options.programas}
                     placeholder="Todos los programas"
+                    showAllOption={true}
                 />
 
                 {/* Status filter (Simplified select is fine here as it's only 2 options) */}

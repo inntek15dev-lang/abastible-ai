@@ -2,8 +2,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api';
-import { Save, ArrowLeft, Building, Layers } from 'lucide-react';
+import { Save, ArrowLeft, Building, Layers, Pencil } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import './ContratistaForm.css';
 
 export default function ContratistaForm() {
     const { id } = useParams();
@@ -73,143 +74,158 @@ export default function ContratistaForm() {
     };
 
     return (
-        <div className="page-container">
-            <header className="page-header">
-                <button onClick={() => navigate(-1)} className="btn-back">
-                    <ArrowLeft size={18} /> Volver
+        <div className="page-container-contratista">
+            <header className="contratista-edit-header">
+                <button onClick={() => navigate(-1)} className="btn-back-arrow" title="Volver">
+                    <ArrowLeft size={24} />
                 </button>
-                <h1>{isEdit ? 'Editar Empresa Contratista' : 'Nueva Empresa Contratista'}</h1>
+                <div className="contratista-edit-title-row">
+                    {isEdit ? <Pencil size={20} className="icon-pencil-header" /> : <Building size={20} className="icon-building-header" />}
+                    <span>{isEdit ? 'Editar Empresa Contratista' : 'Nueva Empresa Contratista'}</span>
+                </div>
             </header>
 
-            {error && <div className="error-message">{error}</div>}
+            {error && <div className="error-message" style={{ maxWidth: 800, margin: '0 auto 16px' }}>{error}</div>}
 
-            <form onSubmit={handleSubmit} className="form-card">
-                <div className="section-title">
-                    <Building size={20} className="text-brand-primary" />
-                    <h3>Datos de la Empresa</h3>
-                </div>
-
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Nombre Empresa *</label>
-                        <input
-                            type="text" required
-                            value={form.nombre}
-                            onChange={e => setForm({ ...form, nombre: e.target.value })}
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label>RUT *</label>
-                        <input
-                            type="text" required
-                            value={form.rut}
-                            onChange={e => setForm({ ...form, rut: e.target.value })}
-                            placeholder="12.345.678-9"
-                        />
-                    </div>
-                </div>
-
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Dirección</label>
-                        <input
-                            type="text"
-                            value={form.direccion}
-                            onChange={e => setForm({ ...form, direccion: e.target.value })}
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label>Teléfono</label>
-                        <input
-                            type="text"
-                            value={form.telefono}
-                            onChange={e => setForm({ ...form, telefono: e.target.value })}
-                        />
-                    </div>
-                </div>
-
-                <div className="form-group">
-                    <label>Email Contacto</label>
-                    <input
-                        type="email"
-                        value={form.email_contacto}
-                        onChange={e => setForm({ ...form, email_contacto: e.target.value })}
-                    />
-                </div>
-
-                {/* Initial Vinculacion (Only Create) */}
-                {!isEdit && (
-                    <div className="mt-8 pt-6 border-t border-dashed border-gray-300">
-                        <div className="section-title mb-4">
-                            <Layers size={20} className="text-brand-secondary" />
-                            <h3>Vinculación Inicial</h3>
-                            <p className="text-sm text-gray-500 font-normal ml-2">(Obligatorio para iniciar operaciones)</p>
+            <div className="contratista-edit-card">
+                <form onSubmit={handleSubmit}>
+                    <div className="form-section-contratista">
+                        <div className="section-subtitle-contratista">
+                            <Building size={18} />
+                            <span>Datos de la Empresa</span>
                         </div>
 
-                        <div className="form-row">
-                            <div className="form-group">
-                                <label>Dependencia / Planta *</label>
-                                <select
+                        <div className="input-row-contratista">
+                            <div className="input-group-contratista">
+                                <label className="label-contratista">Nombre Empresa <span className="required">*</span></label>
+                                <input
+                                    type="text"
+                                    className="input-field-contratista"
                                     required
-                                    value={form.vinculacion_inicial.dependencia_id}
-                                    onChange={e => setForm({
-                                        ...form,
-                                        vinculacion_inicial: { ...form.vinculacion_inicial, dependencia_id: e.target.value }
-                                    })}
-                                >
-                                    <option value="">Seleccione...</option>
-                                    {dependencias.map(d => (
-                                        <option key={d.id} value={d.id}>{d.nombre}</option>
-                                    ))}
-                                </select>
+                                    value={form.nombre}
+                                    onChange={e => setForm({ ...form, nombre: e.target.value })}
+                                />
                             </div>
-                            <div className="form-group">
-                                <label>Servicio Prestado *</label>
-                                <select
+                            <div className="input-group-contratista">
+                                <label className="label-contratista">RUT <span className="required">*</span></label>
+                                <input
+                                    type="text"
+                                    className="input-field-contratista"
                                     required
-                                    value={form.vinculacion_inicial.servicio_id}
-                                    onChange={e => setForm({
-                                        ...form,
-                                        vinculacion_inicial: { ...form.vinculacion_inicial, servicio_id: e.target.value }
-                                    })}
-                                >
-                                    <option value="">Seleccione...</option>
-                                    {servicios.map(s => (
-                                        <option key={s.id} value={s.id}>{s.nombre}</option>
-                                    ))}
-                                </select>
+                                    value={form.rut}
+                                    onChange={e => setForm({ ...form, rut: e.target.value })}
+                                    placeholder="12.345.678-9"
+                                />
                             </div>
                         </div>
 
-                        <div className="form-group">
-                            <label>Administrador de Contrato (ADC) *</label>
-                            <select
-                                required
-                                value={form.vinculacion_inicial.administrador_contrato_id}
-                                onChange={e => setForm({
-                                    ...form,
-                                    vinculacion_inicial: { ...form.vinculacion_inicial, administrador_contrato_id: e.target.value }
-                                })}
-                            >
-                                <option value="">Seleccione Admin Contrato...</option>
-                                {adcs.map(a => (
-                                    <option key={a.id} value={a.id}>{a.name}</option>
-                                ))}
-                            </select>
+                        <div className="input-row-contratista">
+                            <div className="input-group-contratista">
+                                <label className="label-contratista">Dirección</label>
+                                <input
+                                    type="text"
+                                    className="input-field-contratista"
+                                    value={form.direccion}
+                                    onChange={e => setForm({ ...form, direccion: e.target.value })}
+                                />
+                            </div>
+                            <div className="input-group-contratista">
+                                <label className="label-contratista">Teléfono</label>
+                                <input
+                                    type="text"
+                                    className="input-field-contratista"
+                                    value={form.telefono}
+                                    onChange={e => setForm({ ...form, telefono: e.target.value })}
+                                />
+                            </div>
                         </div>
-                    </div>
-                )}
 
-                <div className="form-actions mt-8">
-                    <button type="button" onClick={() => navigate(-1)} className="btn-secondary">
-                        Cancelar
-                    </button>
-                    <button type="submit" className="btn-primary" disabled={loading}>
-                        <Save size={18} />
-                        {loading ? 'Guardando...' : 'Guardar Empresa'}
-                    </button>
-                </div>
-            </form>
+                        <div className="input-group-contratista">
+                            <label className="label-contratista">Email Contacto</label>
+                            <input
+                                type="email"
+                                className="input-field-contratista"
+                                value={form.email_contacto}
+                                onChange={e => setForm({ ...form, email_contacto: e.target.value })}
+                            />
+                        </div>
+
+                        {/* Initial Vinculacion (Only Create) */}
+                        {!isEdit && (
+                            <div style={{ marginTop: '16px' }}>
+                                <div className="section-subtitle-contratista">
+                                    <Layers size={18} />
+                                    <span>Vinculación Inicial <span className="vinculacion-description">(Requerido)</span></span>
+                                </div>
+
+                                <div className="input-row-contratista">
+                                    <div className="input-group-contratista">
+                                        <label className="label-contratista">Dependencia / Planta <span className="required">*</span></label>
+                                        <select
+                                            className="select-field-contratista"
+                                            required
+                                            value={form.vinculacion_inicial.dependencia_id}
+                                            onChange={e => setForm({
+                                                ...form,
+                                                vinculacion_inicial: { ...form.vinculacion_inicial, dependencia_id: e.target.value }
+                                            })}
+                                        >
+                                            <option value="">Seleccione...</option>
+                                            {dependencias.map(d => (
+                                                <option key={d.id} value={d.id}>{d.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="input-group-contratista">
+                                        <label className="label-contratista">Servicio Prestado <span className="required">*</span></label>
+                                        <select
+                                            className="select-field-contratista"
+                                            required
+                                            value={form.vinculacion_inicial.servicio_id}
+                                            onChange={e => setForm({
+                                                ...form,
+                                                vinculacion_inicial: { ...form.vinculacion_inicial, servicio_id: e.target.value }
+                                            })}
+                                        >
+                                            <option value="">Seleccione...</option>
+                                            {servicios.map(s => (
+                                                <option key={s.id} value={s.id}>{s.nombre}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="input-group-contratista" style={{ marginTop: '20px' }}>
+                                    <label className="label-contratista">Administrador de Contrato (ADC) <span className="required">*</span></label>
+                                    <select
+                                        className="select-field-contratista"
+                                        required
+                                        value={form.vinculacion_inicial.administrador_contrato_id}
+                                        onChange={e => setForm({
+                                            ...form,
+                                            vinculacion_inicial: { ...form.vinculacion_inicial, administrador_contrato_id: e.target.value }
+                                        })}
+                                    >
+                                        <option value="">Seleccione Admin Contrato...</option>
+                                        {adcs.map(a => (
+                                            <option key={a.id} value={a.id}>{a.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="actions-row-contratista">
+                        <button type="button" onClick={() => navigate(-1)} className="btn-cancel-contratista">
+                            Cancelar
+                        </button>
+                        <button type="submit" className="btn-save-contratista" disabled={loading}>
+                            {loading ? 'Guardando...' : <><Save size={18} /> {isEdit ? 'Actualizar' : 'Guardar Empresa'}</>}
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     );
 }

@@ -40,10 +40,8 @@ export const MODULES = [
         module: 'Registros', // General check for the module
         items: [
             { path: '/registros', label: 'Registros y Cumplimiento', icon: FileText, module: 'Registros' },
-            { path: '/evidencias', label: 'Gestión de Evidencias', icon: FolderOpen, module: 'Evidencias' },
             { path: '/reaperturas', label: 'Solicitudes de Reapertura', icon: RefreshCw, module: 'Reaperturas' },
-            { path: '/compromisos', label: 'Compromisos y Hallazgos', icon: CheckSquare, module: 'Compromisos' },
-            { path: '/hallazgos', label: 'Hallazgos (Directo)', icon: Search, module: 'Registros' } // Sprint 2 Gap
+            { path: '/compromisos', label: 'Compromisos', icon: CheckSquare, module: 'Compromisos' }
         ]
     },
 
