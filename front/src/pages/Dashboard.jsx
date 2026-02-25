@@ -116,13 +116,35 @@ export default function Dashboard() {
         ? Math.round((kpis.auditados / kpis.totalRegistros) * 100)
         : 0;
 
+    const getColorForValue = (val) => {
+        const num = parseFloat(val);
+        if (isNaN(num) || val === null) return '#94a3b8'; // Gray for null/NaN
+        if (num >= 85) return '#10b981';  // Green
+        if (num >= 70) return '#f59e0b';  // Yellow
+        return '#ef4444';                 // Red
+    };
+
     const kpiCards = kpis ? [
         {
             title: 'CUMPLIMIENTO',
-            value: `${kpis.promedioCumplimiento}%`,
-            subtitle: 'Promedio general',
-            color: '#10b981',
-            bg: '#ecfdf5',
+            value: (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ color: getColorForValue(kpis.promedioCumplimiento) }}>
+                        {kpis.promedioCumplimiento}%
+                    </span>
+                    {kpis.promedioCumplimientoAuditor !== null && (
+                        <>
+                            <span style={{ color: '#94a3b8', fontWeight: 400 }}>/</span>
+                            <span style={{ color: getColorForValue(kpis.promedioCumplimientoAuditor) }}>
+                                {kpis.promedioCumplimientoAuditor}%
+                            </span>
+                        </>
+                    )}
+                </div>
+            ),
+            subtitle: kpis.promedioCumplimientoAuditor !== null ? 'Declarado / Auditado' : 'Promedio declarado',
+            color: '#334155', // Neutral base color
+            bg: '#f8fafc',    // Neutral base bg
             icon: <TrendingUp size={20} color="#10b981" />
         },
         {

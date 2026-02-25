@@ -7,10 +7,13 @@ import Modal from './ui/Modal';
 export default function TraceabilityPanel({ isOpen, onClose, registroId }) {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 5;
 
     useEffect(() => {
         if (isOpen && registroId) {
             fetchLogs();
+            setCurrentPage(1); // Reset page on open/change
         }
     }, [isOpen, registroId]);
 
@@ -27,6 +30,13 @@ export default function TraceabilityPanel({ isOpen, onClose, registroId }) {
             setLoading(false);
         }
     };
+
+    // Pagination Logic
+    const totalPages = Math.ceil(logs.length / itemsPerPage);
+    const paginatedLogs = logs.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
 
     const getIconForAction = (action) => {
         switch (action) {
@@ -76,17 +86,38 @@ export default function TraceabilityPanel({ isOpen, onClose, registroId }) {
     const title = 'Trazabilidad del Registro';
 
     const footerButtons = (
-        <>
-            <button className="btn-secondary" style={{ color: '#ef4444', borderColor: '#fee2e2', background: '#fef2f2' }}>
-                <FileText size={16} /> Exportar PDF
-            </button>
-            <button
-                onClick={onClose}
-                className="btn-secondary"
-            >
-                Cerrar
-            </button>
-        </>
+        <div className="flex w-full items-center justify-between">
+            <div className="flex items-center gap-2">
+                <button
+                    className="btn-secondary py-1 px-3 text-xs"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1 || loading}
+                >
+                    Anterior
+                </button>
+                <span className="text-xs text-gray-500 font-medium">
+                    Página {currentPage} de {totalPages || 1}
+                </span>
+                <button
+                    className="btn-secondary py-1 px-3 text-xs"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages || loading || totalPages === 0}
+                >
+                    Siguiente
+                </button>
+            </div>
+            <div className="flex gap-2">
+                <button className="btn-secondary" style={{ color: '#ef4444', borderColor: '#fee2e2', background: '#fef2f2' }}>
+                    <FileText size={16} /> Exportar PDF
+                </button>
+                <button
+                    onClick={onClose}
+                    className="btn-secondary"
+                >
+                    Cerrar
+                </button>
+            </div>
+        </div>
     );
 
     return (
@@ -97,7 +128,7 @@ export default function TraceabilityPanel({ isOpen, onClose, registroId }) {
             title={title}
             footer={footerButtons}
         >
-            <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
+            <div className="max-h-[60vh] overflow-y-auto custom-scrollbar pr-2 min-h-[300px]">
                 {loading ? (
                     <div className="flex justify-center py-10">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
@@ -109,7 +140,7 @@ export default function TraceabilityPanel({ isOpen, onClose, registroId }) {
                     </div>
                 ) : (
                     <div className="timeline-container" style={{ marginTop: '10px' }}>
-                        {logs.map((log) => (
+                        {paginatedLogs.map((log) => (
                             <div key={log.id} className="timeline-item">
                                 {/* Timeline Dot */}
                                 <div className="timeline-icon" style={{ background: '#f3f4f6', borderColor: '#e5e7eb' }}>
@@ -117,7 +148,7 @@ export default function TraceabilityPanel({ isOpen, onClose, registroId }) {
                                 </div>
 
                                 {/* Card Content */}
-                                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-start gap-4">
+                                <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-start gap-4 mb-4">
 
                                     {/* Action Badge */}
                                     <div style={{
