@@ -14,7 +14,7 @@ const compareData = async (req, res) => {
         let externalData;
         try {
             const response = await axios.get(EXTERNAL_API_URL, {
-                headers: { 'api-key': API_KEY }
+                headers: { 'api-key': API_KEY, 'Origin': 'https://a-oiem-api.onrender.com/' }
             });
             externalData = response.data.contratistas;
         } catch (error) {
