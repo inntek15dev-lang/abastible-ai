@@ -376,9 +376,9 @@ CREATE TABLE IF NOT EXISTS `registros` (
 
 -- Volcando datos para la tabla oiem_abastible.registros: ~0 rows (aproximadamente)
 INSERT INTO `registros` (`id`, `user_id`, `programa_id`, `periodo`, `eecc_nombre`, `dependencia`, `dependencia_id`, `personas_nuevas`, `supervisores`, `prevencionistas`, `dotacion_total`, `porcentaje_cumplimiento`, `auditado`, `tipo_auditoria`, `fecha_auditoria`, `auditado_por`, `observaciones_auditoria`, `cerrado`, `estado_auditoria`, `created_at`, `updated_at`) VALUES
-	(3, 2, 2, '2025-12-01', 'Transportes Demo SpA', 'PLANTA MEJILLONES', NULL, 0, 0, 0, 0, 87.50, 1, 'sistema', '2026-01-09', 1, NULL, 1, 'auditada_sistema', '2026-01-06 22:45:51', '2026-01-09 18:15:02'),
-	(4, 2, 1, '2026-03-01', 'Transportes Demo SpA', 'PLANTA MEJILLONES', NULL, 0, 0, 0, 0, 0.00, 1, 'sistema', '2026-01-06', 1, NULL, 1, 'auditada_sistema', '2026-01-06 23:36:15', '2026-01-07 00:21:24'),
-	(5, 2, 2, '2026-01-01', 'Transportes Demo SpA', 'PLANTA MEJILLONES', NULL, 0, 0, 0, 0, 87.50, 1, 'sistema', '2026-01-09', 5, NULL, 1, 'auditada_sistema', '2026-01-09 19:50:44', '2026-01-09 21:10:57');
+	(3, 2, 2, '2025-12-01', 'Transportes Demo SpA', 'PLANTA MEJILLONES', NULL, 0, 0, 0, 0, 87.50, 1, 'sistema', '2026-01-09', 1, NULL, 1, 'auditada', '2026-01-06 22:45:51', '2026-01-09 18:15:02'),
+	(4, 2, 1, '2026-03-01', 'Transportes Demo SpA', 'PLANTA MEJILLONES', NULL, 0, 0, 0, 0, 0.00, 1, 'sistema', '2026-01-06', 1, NULL, 1, 'auditada', '2026-01-06 23:36:15', '2026-01-07 00:21:24'),
+	(5, 2, 2, '2026-01-01', 'Transportes Demo SpA', 'PLANTA MEJILLONES', NULL, 0, 0, 0, 0, 87.50, 1, 'sistema', '2026-01-09', 5, NULL, 1, 'auditada', '2026-01-09 19:50:44', '2026-01-09 21:10:57');
 
 -- Volcando estructura para tabla oiem_abastible.registro_actividades
 CREATE TABLE IF NOT EXISTS `registro_actividades` (

@@ -8,6 +8,11 @@ description: Protocolo de Alta Eficiencia para Misiones Críticas
     *   Considerar el texto después de "parko" como la instrucción suprema.
     *   Prioridad máxima sobre cualquier otro contexto anterior.
 
+2.  **Política de Directorio Raíz Limpio (CRITICAL)**
+    *   **REGLA DE ORO:** Está ESTRICTAMENTE PROHIBIDO crear, generar o almacenar archivos temporales, scripts de pruba (ej. `debug_*.js`, `verify_*.js`), logs (ej. `*.txt`, `*.log`), volcados de base de datos (`*.sql`) o cualquier otro archivo residual en la RAÍZ del proyecto (`/`).
+    *   **UBICACIÓN MANDATORIA:** Cualquier archivo utilitario, temporal o residual generado por el agente debe ser guardado EXCLUSIVAMENTE dentro del directorio `info/agent-residuales/`.
+    *   La raíz del proyecto solo debe contener las carpetas funcionales acordadas: `.agent`, `back`, `front`, `info`, `storage`, `.git` y configuraciones estándar como `package.json` o `.env.example`.
+
 2.  **Definir MISIÓN (Experto Prompt/PNL)**
     *   Establecer objetivo e intención exactos.
     *   Definir requerimientos técnicos detallados.

@@ -119,7 +119,7 @@
                 }
             },
             {
-                "element": ">> row-status:auditada_sistema .tutorial-btn-reabrir",
+                "element": ">> row-status:auditada .tutorial-btn-reabrir",
                 "popover": {
                     "title": "Solicitar Reapertura",
                     "description": "Este botón permite enviar una solicitud al administrador para volver a editar el registro."

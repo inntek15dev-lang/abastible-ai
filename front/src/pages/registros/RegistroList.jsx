@@ -935,7 +935,7 @@ export default function RegistroList() {
                                             </button>
 
                                             {/* Action: Solicitar Reapertura (Only Closed & Audited, only Contractors) */}
-                                            {(['contratista_user', 'contratista_admin'].includes(user?.role) && ['auditado', 'auditada', 'auditada_sistema', 'auditada_terreno'].includes(registro.estado_auditoria)) && (
+                                            {(['contratista_user', 'contratista_admin'].includes(user?.role) && ['auditado', 'auditada'].includes(registro.estado_auditoria)) && (
                                                 <button
                                                     onClick={() => openReaperturaModal(registro.id)}
                                                     className="btn-action"
@@ -947,7 +947,7 @@ export default function RegistroList() {
                                             )}
 
                                             {/* Action: Reabrir Directo (Admin/ADC) */}
-                                            {isAdminOrADC && (registro.cerrado === 1 || ['auditado', 'auditada', 'auditada_sistema', 'auditada_terreno'].includes(registro.estado_auditoria)) && (
+                                            {isAdminOrADC && (registro.cerrado === 1 || ['auditado', 'auditada'].includes(registro.estado_auditoria)) && (
                                                 <button
                                                     onClick={() => handleReabrirDirecto(registro.id)}
                                                     className="btn-action"
