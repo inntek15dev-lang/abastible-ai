@@ -42,12 +42,12 @@ The system uses JWT (Bearer Token).
         },
         servers: [
             {
-                url: 'http://localhost:4000/api',
-                description: 'Local Development Server',
+                url: 'https://a-oiem-api.onrender.com/api',
+                description: 'Production Server (Render)',
             },
             {
-                url: 'https://api.abastible-ai.cloud/api',
-                description: 'Staging Server',
+                url: 'http://localhost:4000/api',
+                description: 'Local Development Server',
             },
         ],
         components: {

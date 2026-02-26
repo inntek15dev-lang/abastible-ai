@@ -64,7 +64,10 @@ app.get('/api-docs.json', (req, res) => {
     res.send(swaggerSpecs);
 });
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
-console.log('📄 Swagger Docs available at http://localhost:4000/api-docs');
+const swaggerUrl = process.env.NODE_ENV === 'production'
+    ? 'https://a-oiem-api.onrender.com/api-docs'
+    : `http://localhost:${PORT}/api-docs`;
+console.log(`📄 Swagger Docs available at ${swaggerUrl}`);
 
 // Routes
 app.use('/api', routes);
