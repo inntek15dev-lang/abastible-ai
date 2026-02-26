@@ -1,72 +1,152 @@
-/* ElementComplianceWidget.css */
+/* ElementComplianceWidget Polished Styles */
 .compliance-widget {
-    background: white;
-    border-radius: 12px;
-    padding: 24px;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
 }
 
 .widget-title {
-    font-size: 1.1rem;
+    font-size: 1.125rem;
     font-weight: 700;
-    color: #111827;
-    margin-bottom: 20px;
+    color: #1e293b;
+    margin-bottom: 1.5rem;
 }
 
 .compliance-list {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 1.25rem;
 }
 
 .compliance-item {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0.5rem;
 }
 
 .compliance-header {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     font-size: 0.875rem;
-    font-weight: 600;
-    color: #4b5563;
+    font-weight: 500;
+    color: #475569;
 }
 
 .compliance-value {
     font-weight: 700;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
 }
 
 .compliance-value.high {
-    color: #10b981;
+    background-color: #ecfdf5;
+    color: #059669;
 }
 
-/* Green */
 .compliance-value.mid {
-    color: #f59e0b;
+    background-color: #fffbeb;
+    color: #d97706;
 }
 
-/* Yellow/Orange */
 .compliance-value.low {
-    color: #ef4444;
+    background-color: #fef2f2;
+    color: #dc2626;
 }
 
-/* Red */
+.progress-track.small {
+    height: 6px;
+    flex: 1;
+}
 
-/* Progress Bar */
+.bar-container {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.bar-value {
+    min-width: 35px;
+    text-align: right;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.item-name {
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.compliance-legend {
+    display: flex;
+    gap: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #f1f5f9;
+    margin-bottom: 0.5rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.legend-box {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+}
+
+.legend-box.declarado {
+    background-color: #94a3b8;
+    /* Gray for declared basis */
+    opacity: 0.6;
+}
+
+.legend-box.auditado {
+    background-color: #10b981;
+    /* Green for audited focus */
+}
+
+/* Override bar colors for declared vs audited differentiation */
+.bar-container .progress-fill {
+    opacity: 0.6;
+    /* Softer for declared */
+}
+
+.bar-container .audit-track .progress-fill {
+    opacity: 1;
+    /* Stronger for audited */
+}
+
+.no-data-bar {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    font-style: italic;
+    padding-left: 0.5rem;
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
+
 .progress-track {
     width: 100%;
     height: 8px;
-    background-color: #f3f4f6;
-    border-radius: 4px;
+    background-color: #f1f5f9;
+    border-radius: 9999px;
     overflow: hidden;
 }
 
 .progress-fill {
     height: 100%;
-    border-radius: 4px;
-    transition: width 0.6s ease-out;
+    border-radius: 9999px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .progress-fill.green {
@@ -79,4 +159,8 @@
 
 .progress-fill.red {
     background-color: #ef4444;
+}
+
+.progress-fill.gray {
+    background-color: #cbd5e1;
 }

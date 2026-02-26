@@ -734,6 +734,11 @@ a {
   align-items: center;
 }
 
+.form-group input {
+  width: 80%;
+  padding: 0.5rem 0.5rem;
+}
+
 /* Action Buttons Group (Table) */
 .btn-icon-group {
   display: flex;
@@ -774,7 +779,7 @@ a {
 }
 
 .btn-traza {
-  border-color: transparent;
+  border-color: var(--color-brand-secondary);
   color: var(--color-brand-secondary);
 }
 

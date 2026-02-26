@@ -16,14 +16,14 @@ async function migrate() {
         await sequelize.query(`
             ALTER TABLE registros 
             MODIFY COLUMN estado_auditoria 
-            ENUM('pendiente', 'auditando', 'auditada_terreno', 'auditada_sistema', 'reabierto', 'reapertura_pendiente', 'auditada') 
+            ENUM('pendiente', 'auditando', 'auditada', 'reabierto', 'reapertura_pendiente', 'auditada') 
             NOT NULL DEFAULT 'pendiente'
         `);
         console.log('✅ ENUM expanded.');
 
         // Step 2: Update Data
         console.log('2. Updating records to "auditada"...');
-        await sequelize.query("UPDATE registros SET estado_auditoria = 'auditada' WHERE estado_auditoria IN ('auditada_sistema', 'auditada_terreno')");
+        await sequelize.query("UPDATE registros SET estado_auditoria = 'auditada' WHERE estado_auditoria IN ('auditada')");
         console.log('✅ Records updated.');
 
         // Step 3: Shrink ENUM

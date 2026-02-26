@@ -1,5 +1,6 @@
 const PDFDocument = require('pdfkit');
 const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso, Elemento, Vinculacion, Administracion, sequelize } = require('../database/models');
+const { Op } = require('sequelize');
 
 module.exports = {
     async registroPdf(req, res) {
@@ -153,15 +154,11 @@ module.exports = {
             }
 
             if (periodo) {
-                // Filter by month
-                // Sequelize where date starts with YYYY-MM
-                // whereRegistro.periodo = { [Op.startsWith]: periodo }; // Might verify date format
-                // Better:
                 const startDate = new Date(periodo + '-01');
                 const endDate = new Date(new Date(startDate).setMonth(startDate.getMonth() + 1));
                 whereRegistro.periodo = {
-                    [require('sequelize').Op.gte]: startDate,
-                    [require('sequelize').Op.lt]: endDate
+                    [Op.gte]: startDate,
+                    [Op.lt]: endDate
                 };
             }
 
@@ -204,10 +201,13 @@ module.exports = {
                     attributes: [
                         [sequelize.col('actividad.elemento.id'), 'elemento_id'],
                         [sequelize.col('actividad.elemento.nombre'), 'elemento_nombre'],
-                        // Denominator: count only those not NA (2)
-                        [sequelize.literal(`SUM(CASE WHEN cumple_auditor != 2 THEN 1 ELSE 0 END)`), 'total_valido'],
-                        // Numerator: count those that are 1 (audited) or 1 (contractor if not audited)
-                        [sequelize.literal(`SUM(CASE WHEN cumple_auditor = 1 OR (cumple_auditor IS NULL AND cumple = 1) THEN 1 ELSE 0 END)`), 'cumplidas_count']
+                        // Total valid (not NA)
+                        [sequelize.literal(`SUM(CASE WHEN cumple != 2 THEN 1 ELSE 0 END)`), 'total_declarado'],
+                        [sequelize.literal(`SUM(CASE WHEN cumple_auditor != 2 AND cumple_auditor IS NOT NULL THEN 1 ELSE 0 END)`), 'total_auditado'],
+                        // Numerator: count those that are 1 (declared)
+                        [sequelize.literal(`SUM(CASE WHEN cumple = 1 THEN 1 ELSE 0 END)`), 'cumplidas_declarado'],
+                        // Numerator: count those that are 1 (audited)
+                        [sequelize.literal(`SUM(CASE WHEN cumple_auditor = 1 THEN 1 ELSE 0 END)`), 'cumplidas_auditado']
                     ],
                     include: [{
                         model: Actividad,
@@ -228,7 +228,8 @@ module.exports = {
                 elementosStats = elementosStats.map(e => ({
                     id: e.elemento_id,
                     name: e.elemento_nombre,
-                    value: parseInt(e.total_valido) > 0 ? Math.round((parseInt(e.cumplidas_count) / parseInt(e.total_valido)) * 100) : 0
+                    declarado: parseInt(e.total_declarado) > 0 ? Math.round((parseInt(e.cumplidas_declarado) / parseInt(e.total_declarado)) * 100) : 0,
+                    auditado: parseInt(e.total_auditado) > 0 ? Math.round((parseInt(e.cumplidas_auditado) / parseInt(e.total_auditado)) * 100) : null
                 }));
             }
 

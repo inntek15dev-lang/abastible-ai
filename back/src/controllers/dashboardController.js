@@ -24,6 +24,8 @@ const dashboardController = {
         try {
             const user = req.user;
             const now = new Date();
+            const isContractor = ['contratista_admin', 'contratista_user'].includes(user.role);
+            const isContractManager = user.role === 'administrador_contrato';
 
             // Determine scope filters
             const whereRegistro = {};
@@ -148,7 +150,8 @@ const dashboardController = {
             const avgCumplimiento = await Registro.findOne({
                 where: whereRegistro,
                 attributes: [
-                    [sequelize.fn('AVG', sequelize.col('porcentaje_cumplimiento')), 'promedio']
+                    [sequelize.fn('AVG', sequelize.col('porcentaje_cumplimiento')), 'promedio'],
+                    [sequelize.fn('AVG', sequelize.col('porcentaje_cumplimiento_auditor')), 'promedioAuditado']
                 ],
                 raw: true
             });
@@ -219,6 +222,9 @@ const dashboardController = {
                     auditadosSistema,
                     totalEvidencias,
                     promedioCumplimiento: parseFloat(avgCumplimiento?.promedio || 0).toFixed(1),
+                    promedioCumplimientoAuditor: avgCumplimiento?.promedioAuditado !== null
+                        ? parseFloat(avgCumplimiento.promedioAuditado).toFixed(1)
+                        : null,
                     compromisosVencidos,
                     hallazgosAbiertos,
                     reapeturasPendientes,

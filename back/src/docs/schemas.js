@@ -128,7 +128,7 @@
  *           format: float
  *         estado_auditoria:
  *           type: string
- *           enum: [pendiente, auditando, auditada_terreno, auditada_sistema, reabierto]
+ *           enum: [pendiente, auditando, auditada, reabierto]
  *         auditado:
  *           type: integer
  *           description: 0 or 1

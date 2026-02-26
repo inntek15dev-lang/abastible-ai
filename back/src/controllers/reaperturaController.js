@@ -61,7 +61,7 @@ const reaperturaController = {
                 return res.status(404).json({ success: false, message: 'Registro no encontrado' });
             }
 
-            if (!['auditado', 'auditada', 'AUDITADA', 'auditada_sistema', 'auditada_terreno', 'cerrado'].includes(registro.estado_auditoria)) {
+            if (!['auditado', 'auditada', 'AUDITADA', 'cerrado'].includes(registro.estado_auditoria)) {
                 return res.status(400).json({
                     success: false,
                     message: 'El registro no está en un estado que permita reapertura'
@@ -194,7 +194,7 @@ const reaperturaController = {
             const registro = await Registro.findByPk(solicitud.registro_id);
             if (registro && registro.estado_auditoria === 'reapertura_pendiente') {
                 await registro.update({
-                    estado_auditoria: solicitud.estado_previo || 'auditada_sistema'
+                    estado_auditoria: solicitud.estado_previo || 'auditada'
                 });
             }
 
@@ -229,7 +229,7 @@ const reaperturaController = {
             }
 
             // Verify state
-            if (!['auditado', 'auditada', 'AUDITADA', 'auditada_sistema', 'auditada_terreno', 'cerrado', 'reapertura_pendiente'].includes(registro.estado_auditoria)) {
+            if (!['auditado', 'auditada', 'AUDITADA', 'cerrado', 'reapertura_pendiente'].includes(registro.estado_auditoria)) {
                 return res.status(400).json({
                     success: false,
                     message: 'El registro no está en un estado que permita reapertura'

@@ -99,7 +99,7 @@ Columns: [
   },
   {
     "Field": "estado_auditoria",
-    "Type": "enum('pendiente','auditando','auditada_terreno','auditada_sistema','reabierto')",
+    "Type": "enum('pendiente','auditando','auditada','reabierto')",
     "Null": "NO",
     "Key": "",
     "Default": "pendiente",

@@ -372,13 +372,53 @@ export default function RegistroAudit() {
                 {(isPendiente || isSubsanado) && canWrite('Auditoria') ? (
                     <div style={{ padding: '40px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
                         {isPendiente && (
-                            <button id="btn-iniciar-auditoria" className="btn-primary" onClick={handleIniciarAuditoria} style={{ fontSize: '1.1rem', padding: '12px 24px' }}>
-                                Iniciar Proceso de Auditoría
+                            <button
+                                id="btn-iniciar-auditoria"
+                                className="btn-primary"
+                                onClick={handleIniciarAuditoria}
+                                style={{
+                                    fontSize: '1.125rem',
+                                    padding: '14px 32px',
+                                    background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
+                                    border: 'none',
+                                    borderRadius: '12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    fontWeight: 600,
+                                    boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                                    transition: 'transform 0.2s, box-shadow 0.2s',
+                                    cursor: 'pointer'
+                                }}
+                                onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(37, 99, 235, 0.3)'; }}
+                                onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(37, 99, 235, 0.2)'; }}
+                            >
+                                <Shield size={24} /> Iniciar Proceso de Auditoría
                             </button>
                         )}
                         {isSubsanado && (
-                            <button id="btn-iniciar-revision" className="btn-primary" onClick={handleIniciarRevision} style={{ fontSize: '1.1rem', padding: '12px 24px', background: '#7c3aed' }}>
-                                Iniciar Revisión de Subsanación
+                            <button
+                                id="btn-iniciar-revision"
+                                className="btn-primary"
+                                onClick={handleIniciarRevision}
+                                style={{
+                                    fontSize: '1.125rem',
+                                    padding: '14px 32px',
+                                    background: 'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)',
+                                    border: 'none',
+                                    borderRadius: '12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    fontWeight: 600,
+                                    boxShadow: '0 4px 6px -1px rgba(124, 58, 237, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                                    transition: 'transform 0.2s, box-shadow 0.2s',
+                                    cursor: 'pointer'
+                                }}
+                                onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(124, 58, 237, 0.3)'; }}
+                                onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(124, 58, 237, 0.2)'; }}
+                            >
+                                <Check size={24} /> Iniciar Revisión de Subsanación
                             </button>
                         )}
                     </div>

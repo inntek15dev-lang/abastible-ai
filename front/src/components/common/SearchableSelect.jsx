@@ -12,7 +12,10 @@ export default function SearchableSelect({
     onChange,
     placeholder = "Seleccione...",
     disabled = false,
-    icon: Icon
+    icon: Icon,
+    showAllOption = false,
+    dropdownTop = "calc(100% + 4px)",
+    containerFlex = "1 1 200px"
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
@@ -46,7 +49,7 @@ export default function SearchableSelect({
     };
 
     return (
-        <div ref={containerRef} style={{ flex: '1 1 200px', minWidth: '150px', position: 'relative' }}>
+        <div ref={containerRef} style={{ flex: containerFlex, minWidth: '150px', position: 'relative' }}>
             {label && (
                 <label style={{
                     display: 'flex', alignItems: 'center', gap: '6px',
@@ -98,7 +101,7 @@ export default function SearchableSelect({
             {isOpen && (
                 <div style={{
                     position: 'absolute',
-                    top: 'calc(100% + 4px)',
+                    top: dropdownTop,
                     left: 0,
                     right: 0,
                     zIndex: 50,
@@ -130,20 +133,22 @@ export default function SearchableSelect({
 
                     {/* Options List */}
                     <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
-                        <div
-                            onClick={() => handleSelect('todos')}
-                            style={{
-                                padding: '8px 12px',
-                                fontSize: '13px',
-                                cursor: 'pointer',
-                                background: value === 'todos' ? '#eff6ff' : 'transparent',
-                                color: value === 'todos' ? '#2563eb' : '#475569',
-                                fontWeight: value === 'todos' ? 600 : 400,
-                            }}
-                            className="hover:bg-slate-50"
-                        >
-                            Todos
-                        </div>
+                        {showAllOption && (
+                            <div
+                                onClick={() => handleSelect('todos')}
+                                style={{
+                                    padding: '8px 12px',
+                                    fontSize: '13px',
+                                    cursor: 'pointer',
+                                    background: value === 'todos' ? '#eff6ff' : 'transparent',
+                                    color: value === 'todos' ? '#2563eb' : '#475569',
+                                    fontWeight: value === 'todos' ? 600 : 400,
+                                }}
+                                className="hover:bg-slate-50"
+                            >
+                                Todos
+                            </div>
+                        )}
                         {filteredOptions.length > 0 ? (
                             filteredOptions.map(opt => (
                                 <div
