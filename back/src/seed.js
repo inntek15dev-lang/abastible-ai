@@ -56,58 +56,47 @@ async function seed() {
         ];
         const dependencias = await Dependencia.bulkCreate(dependenciasData);
 
-        console.log('📦 Creando programas (5)...');
+        console.log('📦 Creando programas (1 - Granel)...');
         const programasData = [
-            { nombre: 'OIM Distribución Granel', descripcion: 'Programa Granel', activo: 1 },
-            { nombre: 'OIM Envasado', descripcion: 'Programa Envasado', activo: 1 },
-            { nombre: 'OIM Transporte', descripcion: 'Programa Transporte', activo: 1 },
-            { nombre: 'OIM Mantenimiento Plantas', descripcion: 'Programa Mantención', activo: 1 },
-            { nombre: 'OIM Seguridad Industrial', descripcion: 'Programa HSE', activo: 1 }
+            { nombre: 'OIM Distribución Granel', descripcion: 'Programa HSE y Operacional Distribución Granel', activo: 1 }
         ];
         const programas = await Programa.bulkCreate(programasData);
 
         // ============= ORDER 1: Tables with FK to order 0 =============
         console.log('📦 Creando tipos de contratista...');
         const tiposContratistaData = [
-            { nombre: 'Granel', descripcion: 'Contratistas de distribución granel', programa_id: programas[0].id, activo: 1 },
-            { nombre: 'Envasado', descripcion: 'Contratistas de envasado', programa_id: programas[1].id, activo: 1 },
-            { nombre: 'Transporte', descripcion: 'Fleteros', programa_id: programas[2].id, activo: 1 },
-            { nombre: 'Mantención', descripcion: 'Servicios de mantención', programa_id: programas[3].id, activo: 1 },
-            { nombre: 'Seguridad', descripcion: 'Servicios HSE', programa_id: programas[4].id, activo: 1 }
+            { nombre: 'Granel', descripcion: 'Contratista de distribución granel', programa_id: programas[0].id, activo: 1 }
         ];
         const tiposContratista = await TipoContratista.bulkCreate(tiposContratistaData);
 
-        console.log('📦 Creando elementos y actividades (Iterativo)...');
+        console.log('📦 Creando elementos y actividades de OIM Distribución Granel...');
         const allActividades = [];
+        const granelData = require('./data/granel');
 
-        // Generate Elements and Activities for EACH program to ensure coverage
-        for (const prog of programas) {
-            for (let i = 1; i <= 5; i++) {
-                const elemento = await Elemento.create({
-                    programa_id: prog.id,
-                    numero: `${i}`,
-                    nombre: `Elemento ${i} - ${prog.nombre.split(' ')[1]}`,
-                    descripcion: `Descripción elemento ${i}`,
-                    orden: i
+        let ordElm = 1;
+        for (const data of granelData) {
+            const elemento = await Elemento.create({
+                programa_id: programas[0].id,
+                numero: data.numero,
+                nombre: data.nombre,
+                descripcion: `Elemento ${data.numero}: ${data.nombre}`,
+                orden: ordElm++
+            });
+
+            let ordAct = 1;
+            for (const act of data.actividades) {
+                const actividad = await Actividad.create({
+                    elemento_id: elemento.id,
+                    codigo: act.codigo,
+                    actividad: `${act.codigo} - ${data.nombre}`,
+                    descripcion: act.descripcion,
+                    criterios: act.criterios,
+                    frecuencia: act.frecuencia,
+                    requiere_evidencia: act.requiere_evidencia,
+                    orden: ordAct++,
+                    activo: 1
                 });
-
-                // Create 2-3 activities per element
-                for (let j = 1; j <= 2; j++) {
-                    const actividad = await Actividad.create({
-                        elemento_id: elemento.id,
-                        codigo: `${i}.${j}`,
-                        actividad: `Actividad ${i}.${j} de ${prog.nombre}`,
-                        descripcion: `Descripción detallada de la actividad ${i}.${j}`,
-                        criterios: 'Criterio de aceptación estándar OIEM',
-                        frecuencia: j % 2 === 0 ? 'mensual' : 'semestral',
-                        requiere_evidencia: 1,
-                        orden: j,
-                        activo: 1
-                    });
-                    if (prog.id === programas[0].id) {
-                        allActividades.push(actividad); // Keep track for the main test scenario
-                    }
-                }
+                allActividades.push(actividad);
             }
         }
 
@@ -144,7 +133,7 @@ async function seed() {
             { name: 'María Contratista', email: 'contratista@demo.cl', role: 'contratista_admin', rut: '76.123.456-7', nombre_eecc: 'Transportes Demo SpA', typeId: 0, depId: 0 },
             { name: 'Carlos Operativo', email: 'operativo@demo.cl', role: 'contratista_user', parentEmail: 'contratista@demo.cl', typeId: 0, depId: 0 },
             { name: 'Ana Auditora', email: 'ana.auditora@abastible.cl', role: 'administrador_contrato', active: 1 },
-            { name: 'Roberto Contratista', email: 'roberto@demo2.cl', role: 'contratista_admin', rut: '77.777.777-7', nombre_eecc: 'Servicios Gas SpA', typeId: 1, depId: 1 }
+            { name: 'Roberto Contratista', email: 'roberto@demo2.cl', role: 'contratista_admin', rut: '77.777.777-7', nombre_eecc: 'Servicios Gas SpA', typeId: 0, depId: 1 }
         ];
 
         const createdUsers = {};
@@ -290,15 +279,7 @@ async function seed() {
             fecha_respuesta: new Date()
         });
 
-        // ============= ORDER 7: Secondary Assignment =============
-        console.log('🚀 Generando Asignación Secundaria (Aislamiento)...');
-        await ContratistaAsignacion.create({
-            user_id: createdUsers['roberto@demo2.cl'].id,
-            tipo_contratista_id: tiposContratista[1].id,
-            dependencia_id: dependencias[1].id,
-            administrador_contrato_id: createdUsers['juan.ac@abastible.cl'].id, // Different ADC
-            periodo_inicio: new Date()
-        });
+        // ============= ORDER 7: Secondary Assignment (REMOVED) =============
 
         console.log('');
         console.log('✅ Seed completado con Escenarios de Prueba!');
