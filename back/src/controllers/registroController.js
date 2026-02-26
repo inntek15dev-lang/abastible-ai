@@ -332,7 +332,7 @@ const registroController = {
             }
 
             // Can't edit if already audited (unless reabierto)
-            if (['auditada_terreno', 'auditada_sistema'].includes(registro.estado_auditoria)) {
+            if (['auditada'].includes(registro.estado_auditoria)) {
                 return res.status(403).json({
                     success: false,
                     message: 'No se puede editar un registro auditado'

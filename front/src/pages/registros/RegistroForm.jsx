@@ -877,7 +877,7 @@ export default function RegistroForm() {
 
                     <div style={{ display: 'flex', gap: '1rem' }}>
                         {/* Reabrir Action for Admin/ADC */}
-                        {(isAdminOrADC && (registroCerrado || ['auditado', 'auditada', 'auditada_sistema', 'auditada_terreno'].includes(form.estado_auditoria))) && (
+                        {(isAdminOrADC && (registroCerrado || ['auditado', 'auditada'].includes(form.estado_auditoria))) && (
                             <button
                                 type="button"
                                 onClick={handleReabrirDirecto}

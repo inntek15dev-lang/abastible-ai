@@ -174,7 +174,7 @@ CREATE TABLE IF NOT EXISTS `registros` (
     `dotacion_total` INT NOT NULL DEFAULT 0,
     `porcentaje_cumplimiento` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
     `porcentaje_cumplimiento_auditor` DECIMAL(5,2) NULL,
-    `estado_auditoria` ENUM('pendiente', 'auditando', 'auditada_terreno', 'auditada_sistema', 'reabierto') NOT NULL DEFAULT 'pendiente',
+    `estado_auditoria` ENUM('pendiente', 'auditando', 'auditada', 'reabierto') NOT NULL DEFAULT 'pendiente',
     `tipo_auditoria` ENUM('sistema', 'terreno') NULL,
     `auditor_id` BIGINT UNSIGNED NULL,
     `fecha_auditoria` TIMESTAMP NULL DEFAULT NULL,

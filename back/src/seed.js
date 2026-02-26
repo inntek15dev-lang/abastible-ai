@@ -202,7 +202,7 @@ async function seed() {
                 user_id: createdUsers['contratista@demo.cl'].id,
                 contratista_asignacion_id: contratistaAsignacionID,
                 periodo: periodo,
-                estado_auditoria: ['pendiente', 'en_proceso', 'enviado'].includes(scen.state) ? 'pendiente' : 'auditada_sistema',
+                estado_auditoria: ['pendiente', 'en_proceso', 'enviado'].includes(scen.state) ? 'pendiente' : 'auditada',
                 porcentaje_cumplimiento: scen.state === 'cerrado' ? 100 :
                     scen.state === 'auditado' ? 75 : 0,
                 auditado: ['auditado', 'cerrado'].includes(scen.state) ? 1 : 0,
@@ -265,7 +265,7 @@ async function seed() {
             user_id: createdUsers['contratista@demo.cl'].id,
             contratista_asignacion_id: contratistaAsignacionID,
             periodo: new Date(2025, 11, 1), // Dec 2025
-            estado_auditoria: 'auditada_sistema',
+            estado_auditoria: 'auditada',
             porcentaje_cumplimiento: 80,
             auditado: 1,
             cerrado: 1,
