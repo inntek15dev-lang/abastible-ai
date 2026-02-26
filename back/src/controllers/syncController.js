@@ -3,6 +3,7 @@ const { sequelize, Contratista, TipoContratista, Dependencia, Vinculacion } = re
 
 const EXTERNAL_API_URL = process.env.PIZZA_API_URL || 'https://prepro.ovalcontrol.com/api/getContratistasAbastible';
 const API_KEY = process.env.PIZZA_API_KEY;
+const ORIGIN = process.env.ORIGIN;
 
 // Helper to normalize strings for comparison
 const normalize = (str) => str ? str.trim().toUpperCase() : '';
@@ -14,7 +15,7 @@ const compareData = async (req, res) => {
         let externalData;
         try {
             const response = await axios.get(EXTERNAL_API_URL, {
-                headers: { 'api-key': API_KEY, 'Origin': 'https://a-oiem-api.onrender.com/' }
+                headers: { 'api-key': API_KEY, 'Origin': ORIGIN }
             });
             externalData = response.data.contratistas;
         } catch (error) {
