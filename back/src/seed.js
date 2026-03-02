@@ -117,6 +117,36 @@ async function seed() {
             }
         }
 
+        console.log('📦 Creando elementos y actividades de OIM Distribución Envasado...');
+        const envasadoData = require('./data/envasado');
+
+        let ordElmEnv = 1;
+        for (const data of envasadoData) {
+            const elemento = await Elemento.create({
+                programa_id: programas[0].id,
+                numero: data.numero,
+                nombre: data.nombre,
+                descripcion: `Elemento ${data.numero}: ${data.nombre}`,
+                orden: ordElmEnv++
+            });
+
+            let ordAct = 1;
+            for (const act of data.actividades) {
+                const actividad = await Actividad.create({
+                    elemento_id: elemento.id,
+                    codigo: act.codigo,
+                    actividad: `${act.codigo} - ${data.nombre}`,
+                    descripcion: act.descripcion,
+                    criterios: act.criterios,
+                    frecuencia: act.frecuencia,
+                    requiere_evidencia: act.requiere_evidencia,
+                    orden: ordAct++,
+                    activo: 1
+                });
+                allActividades.push(actividad);
+            }
+        }
+
         console.log('📦 Creando privilegios...');
         await Privilegio.bulkCreate([
             { role_id: roles[0].id, ref_modulo: '*', read: 1, write: 1, excec: 1 },
