@@ -13,11 +13,9 @@ const {
     Actividad,
     User,
     ContratistaAsignacion,
-    Registro,
-    RegistroActividad,
-    Hallazgo,
-    Compromiso,
-    SolicitudReapertura
+    Contratista,
+    Vinculacion,
+    Administracion
 } = require('./database/models');
 
 async function seed() {
@@ -45,29 +43,48 @@ async function seed() {
             { clave: 'max_evidencias_por_actividad', valor: '4', descripcion: 'Máximo de evidencias por actividad', tipo: 'integer' }
         ]);
 
-        console.log('📦 Creando dependencias (5+)...');
+        console.log('📦 Creando dependencias...');
         const dependenciasData = [
-            { nombre: 'Planta Mejillones', activo: 1 },
-            { nombre: 'Región del BioBio', activo: 1 },
-            { nombre: 'Santiago Maipú', activo: 1 },
-            { nombre: 'Planta Concón', activo: 1 },
-            { nombre: 'Planta Lirquén', activo: 1 },
-            { nombre: 'Planta Coquimbo', activo: 1 }
+            { nombre: 'OFICINA CHILLAN', activo: 1 },
+            { nombre: 'OFICINA DISTRIBUCIÓN LENGA', activo: 1 },
+            { nombre: 'OFICINA TEMUCO', activo: 1 },
+            { nombre: 'OFICINA VILLARRICA', activo: 1 },
+            { nombre: 'OFICINA DISTRIBUCIÓN MAIPÚ', activo: 1 },
+            { nombre: 'OFICINA DISTRIBUCIÓN OSORNO', activo: 1 },
+            { nombre: 'PLANTA COYAHIQUE', activo: 1 },
+            { nombre: 'OFICINA LOS ANGELES', activo: 1 },
+            { nombre: 'PLANTA LENGA', activo: 1 },
+            { nombre: 'PLANTA OSORNO', activo: 1 }
         ];
         const dependencias = await Dependencia.bulkCreate(dependenciasData);
+        // Index map for easy reference:
+        // 0: OFICINA CHILLAN
+        // 1: OFICINA DISTRIBUCIÓN LENGA
+        // 2: OFICINA TEMUCO
+        // 3: OFICINA VILLARRICA
+        // 4: OFICINA DISTRIBUCIÓN MAIPÚ
+        // 5: OFICINA DISTRIBUCIÓN OSORNO
+        // 6: PLANTA COYAHIQUE
+        // 7: OFICINA LOS ANGELES
+        // 8: PLANTA LENGA
+        // 9: PLANTA OSORNO
 
-        console.log('📦 Creando programas (1 - Granel)...');
+        console.log('📦 Creando programas...');
         const programasData = [
+            { nombre: 'OIM Distribución Envasado', descripcion: 'Programa HSE y Operacional Distribución Envasado', activo: 1 },
             { nombre: 'OIM Distribución Granel', descripcion: 'Programa HSE y Operacional Distribución Granel', activo: 1 }
         ];
         const programas = await Programa.bulkCreate(programasData);
+        // 0: Envasado, 1: Granel
 
         // ============= ORDER 1: Tables with FK to order 0 =============
-        console.log('📦 Creando tipos de contratista...');
+        console.log('📦 Creando tipos de contratista (servicios)...');
         const tiposContratistaData = [
-            { nombre: 'Granel', descripcion: 'Contratista de distribución granel', programa_id: programas[0].id, activo: 1 }
+            { nombre: 'Distribución Envasado', descripcion: 'Contratista de distribución envasado', programa_id: programas[0].id, activo: 1 },
+            { nombre: 'Distribución Granel', descripcion: 'Contratista de distribución granel', programa_id: programas[1].id, activo: 1 }
         ];
         const tiposContratista = await TipoContratista.bulkCreate(tiposContratistaData);
+        // 0: Distribución Envasado, 1: Distribución Granel
 
         console.log('📦 Creando elementos y actividades de OIM Distribución Granel...');
         const allActividades = [];
@@ -76,7 +93,7 @@ async function seed() {
         let ordElm = 1;
         for (const data of granelData) {
             const elemento = await Elemento.create({
-                programa_id: programas[0].id,
+                programa_id: programas[1].id,
                 numero: data.numero,
                 nombre: data.nombre,
                 descripcion: `Elemento ${data.numero}: ${data.nombre}`,
@@ -123,167 +140,102 @@ async function seed() {
             await Privilegio.create({ role_id: roles[3].id, ref_modulo: mod, read: 1, write: ['Registros', 'Evidencias'].includes(mod) ? 1 : 0, excec: 0 });
         }
 
-        console.log('📦 Creando usuarios (Standard + Extra)...');
+        // ============= ORDER 2: Empresa Contratista =============
+        console.log('📦 Creando empresa contratista...');
+        const mafran = await Contratista.create({
+            rut: '76169976-8',
+            nombre: 'SOC DE TRANSPORTE MAFRAN LTDA',
+            activo: 1
+        });
+
+        // ============= ORDER 3: Vinculaciones de MAFRAN =============
+        console.log('📦 Creando vinculaciones de MAFRAN...');
+        const vinculacionesData = [
+            // DISTRIBUCIÓN ENVASADO
+            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[0].id, numero_contrato: '265', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[1].id, numero_contrato: '277', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[2].id, numero_contrato: '297', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[3].id, numero_contrato: '303', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[4].id, numero_contrato: '1207', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[5].id, numero_contrato: '1208', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[6].id, numero_contrato: '1248', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[7].id, numero_contrato: '1320', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            // DISTRIBUCIÓN GRANEL
+            { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[7].id, numero_contrato: '1397', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[8].id, numero_contrato: '1399', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[3].id, numero_contrato: '1400', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[9].id, numero_contrato: '1401', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 }
+        ];
+        const vinculaciones = await Vinculacion.bulkCreate(vinculacionesData);
+
+        // ============= ORDER 4: Usuarios =============
+        console.log('📦 Creando usuarios...');
         const hashedPassword = await bcrypt.hash('User123*', 10);
 
-        const usersData = [
-            { name: 'Administrador OIEM', email: 'admin@abastible.cl', role: 'admin', active: 1 },
-            { name: 'Pedro Administrador', email: 'pedro.ac@abastible.cl', role: 'administrador_contrato', active: 1 },
-            { name: 'Juan Administrador', email: 'juan.ac@abastible.cl', role: 'administrador_contrato', active: 1 },
-            { name: 'María Contratista', email: 'contratista@demo.cl', role: 'contratista_admin', rut: '76.123.456-7', nombre_eecc: 'Transportes Demo SpA', typeId: 0, depId: 0 },
-            { name: 'Carlos Operativo', email: 'operativo@demo.cl', role: 'contratista_user', parentEmail: 'contratista@demo.cl', typeId: 0, depId: 0 },
-            { name: 'Ana Auditora', email: 'ana.auditora@abastible.cl', role: 'administrador_contrato', active: 1 },
-            { name: 'Roberto Contratista', email: 'roberto@demo2.cl', role: 'contratista_admin', rut: '77.777.777-7', nombre_eecc: 'Servicios Gas SpA', typeId: 0, depId: 1 }
-        ];
-
-        const createdUsers = {};
-        for (const u of usersData) {
-            const userParams = {
-                name: u.name,
-                email: u.email,
-                password: hashedPassword,
-                role: u.role,
-                activo: 1
-            };
-            if (u.rut) userParams.rut = u.rut;
-            if (u.nombre_eecc) userParams.eecc_nombre = u.nombre_eecc;
-            if (u.typeId !== undefined) userParams.tipo_contratista_id = tiposContratista[u.typeId].id;
-            if (u.depId !== undefined) userParams.dependencia_id = dependencias[u.depId].id;
-
-            const user = await User.create(userParams);
-            createdUsers[u.email] = user;
-
-            if (u.parentEmail && createdUsers[u.parentEmail]) {
-                user.parent_id = createdUsers[u.parentEmail].id;
-                await user.save();
-            }
-        }
-
-        // Asignaciones
-        const asignacion1 = await ContratistaAsignacion.create({
-            user_id: createdUsers['contratista@demo.cl'].id,
-            tipo_contratista_id: tiposContratista[0].id,
-            dependencia_id: dependencias[0].id,
-            administrador_contrato_id: createdUsers['pedro.ac@abastible.cl'].id,
-            periodo_inicio: new Date()
+        // 1. Admin OIEM (admin)
+        const adminOiem = await User.create({
+            name: 'Administrador OIEM',
+            email: 'admin@abastible.cl',
+            password: hashedPassword,
+            role: 'admin',
+            activo: 1
         });
 
-        // ============= ORDER 4: Test Scenarios (Registros) =============
-        console.log('🚀 Generando Escenarios de Prueba (Registros)...');
-
-        // We will create registers for the first Contratista to show different states
-        const contratistaAsignacionID = asignacion1.id;
-        const currentYear = 2026;
-
-        const scenarios = [
-            { month: 0, state: 'pendiente', desc: 'Enero: Pendiente' },
-            { month: 1, state: 'en_proceso', desc: 'Febrero: En Proceso (algunas respuestas)' },
-            { month: 2, state: 'enviado', desc: 'Marzo: Enviado a Auditoría' },
-            { month: 3, state: 'auditado', desc: 'Abril: Auditado con Hallazgos' },
-            { month: 4, state: 'cerrado', desc: 'Mayo: Cerrado impecable' }
-        ];
-
-        for (const scen of scenarios) {
-            const periodo = new Date(currentYear, scen.month, 1);
-
-            // 1. Create Registro
-            const registro = await Registro.create({
-                user_id: createdUsers['contratista@demo.cl'].id,
-                contratista_asignacion_id: contratistaAsignacionID,
-                periodo: periodo,
-                estado_auditoria: ['pendiente', 'en_proceso', 'enviado'].includes(scen.state) ? 'pendiente' : 'auditada',
-                porcentaje_cumplimiento: scen.state === 'cerrado' ? 100 :
-                    scen.state === 'auditado' ? 75 : 0,
-                auditado: ['auditado', 'cerrado'].includes(scen.state) ? 1 : 0,
-                cerrado: scen.state === 'cerrado' ? 1 : 0,
-                auditado_por: ['auditado', 'cerrado'].includes(scen.state) ? createdUsers['pedro.ac@abastible.cl'].id : null,
-                fecha_auditoria: ['auditado', 'cerrado'].includes(scen.state) ? new Date() : null
-            });
-
-            // 2. Populate Activities (RegistroActividad)
-            // Only if not strictly 'pendiente' empty
-            if (scen.state !== 'pendiente') {
-                for (const act of allActividades) {
-                    const respuesta = Math.random() > 0.5 ? 'cumple' : 'no_cumple';
-                    const regAct = await RegistroActividad.create({
-                        registro_id: registro.id,
-                        actividad_id: act.id,
-                        respuesta_contratista: respuesta,
-                        respuesta_auditor: ['auditado', 'cerrado'].includes(scen.state) ? respuesta : null
-                    });
-
-                    // 3. Add Evidence if 'En Proceso' or later
-                    // (Simulated Logic)
-
-                    // 4. Add Hallazgos if 'Auditado' and 'no_cumple'
-                    if (scen.state === 'auditado' && respuesta === 'no_cumple') {
-                        await Hallazgo.create({
-                            registro_id: registro.id,
-                            registro_actividad_id: regAct.id,
-                            descripcion: 'Evidencia insuficiente o no corresponde al periodo',
-                            tipo: 'no_conformidad',
-                            estado: 'abierto',
-                            auditor_id: createdUsers['pedro.ac@abastible.cl'].id
-                        });
-                    }
-                }
-            }
-
-
-            // 5. Create Compromisos (simulated for some)
-            if (scen.state !== 'pendiente' && Math.random() > 0.7) {
-                await Compromiso.create({
-                    registro_id: registro.id,
-                    contratista_asignacion_id: contratistaAsignacionID, // Linked to assignment
-                    responsable_id: createdUsers['contratista@demo.cl'].id,
-                    creado_por_id: createdUsers['pedro.ac@abastible.cl'].id,
-                    descripcion: 'Compromiso de mejora por hallazgo en auditoría',
-                    fecha_compromiso: new Date(),
-                    estado: 'pendiente',
-                    observacion_cumplimiento: null
-                });
-            }
-        }
-
-        // ============= ORDER 5: REMOVED (Licitaciones) =============
-
-        // ============= ORDER 6: Solicitudes Reapertura =============
-        console.log('🚀 Generando Solicitudes de Reapertura...');
-        // Create a closed register first to request reopening
-        const registroCerrado = await Registro.create({
-            user_id: createdUsers['contratista@demo.cl'].id,
-            contratista_asignacion_id: contratistaAsignacionID,
-            periodo: new Date(2025, 11, 1), // Dec 2025
-            estado_auditoria: 'auditada',
-            porcentaje_cumplimiento: 80,
-            auditado: 1,
-            cerrado: 1,
-            auditado_por: createdUsers['pedro.ac@abastible.cl'].id,
-            fecha_auditoria: new Date()
+        // 2. Administrador de Contratos (administrador_contrato)
+        const adminContrato = await User.create({
+            name: 'Administrador de Contratos',
+            email: 'administrador.contrato@abastible.cl',
+            password: hashedPassword,
+            role: 'administrador_contrato',
+            activo: 1
         });
 
-        await SolicitudReapertura.create({
-            registro_id: registroCerrado.id,
-            solicitante_id: createdUsers['contratista@demo.cl'].id,
-            motivo: 'Error en la carga de evidencias de la actividad 1.2',
-            estado: 'pendiente'
+        // 3. Contratista Administrador (contratista_admin) → asignado a MAFRAN
+        const contratistaAdmin = await User.create({
+            name: 'Contratista Administrador',
+            email: 'contratista.admin@demo.cl',
+            password: hashedPassword,
+            role: 'contratista_admin',
+            contratista_id: mafran.id,
+            activo: 1
         });
 
-        await SolicitudReapertura.create({
-            registro_id: registroCerrado.id, // Can have multiple? Assuming logic allows for history
-            solicitante_id: createdUsers['contratista@demo.cl'].id,
-            motivo: 'Faltó adjuntar certificado de asistencia',
-            estado: 'rechazada',
-            aprobador_id: createdUsers['pedro.ac@abastible.cl'].id,
-            comentario_respuesta: 'Documento ilegible',
-            fecha_respuesta: new Date()
+        // 4. Contratista Usuario (contratista_user) → asignado a MAFRAN, vinculación DISTRIBUCIÓN GRANEL / PLANTA OSORNO
+        const contratistaUser = await User.create({
+            name: 'Contratista Usuario',
+            email: 'contratista.usuario@demo.cl',
+            password: hashedPassword,
+            role: 'contratista_user',
+            contratista_id: mafran.id,
+            tipo_contratista_id: tiposContratista[1].id, // Distribución Granel
+            dependencia_id: dependencias[9].id,          // PLANTA OSORNO
+            parent_id: contratistaAdmin.id,
+            activo: 1
         });
 
-        // ============= ORDER 7: Secondary Assignment (REMOVED) =============
+        // ============= ORDER 5: Asignación de contratista (legacy + vinculación) =============
+        console.log('📦 Creando asignación de contratista...');
+        await ContratistaAsignacion.create({
+            user_id: contratistaAdmin.id,
+            tipo_contratista_id: tiposContratista[1].id, // Distribución Granel
+            dependencia_id: dependencias[9].id,          // PLANTA OSORNO
+            administrador_contrato_id: adminContrato.id,
+            periodo_inicio: new Date('2026-02-01')
+        });
+
+        // ============= ORDER 6: Administración (ADC → Vinculación) =============
+        console.log('📦 Creando administración de contrato...');
+        // vinculaciones[11] = DISTRIBUCIÓN GRANEL / PLANTA OSORNO (contrato 1401)
+        await Administracion.create({
+            vinculacion_id: vinculaciones[11].id,
+            administrador_contrato_id: adminContrato.id,
+            activo: 1
+        });
 
         console.log('');
-        console.log('✅ Seed completado con Escenarios de Prueba!');
+        console.log('✅ Seed base completado exitosamente!');
         console.log('📋 Credenciales: admin@abastible.cl / User123*');
+        console.log('📋 EECC: SOC DE TRANSPORTE MAFRAN LTDA (76169976-8) con 12 vinculaciones');
 
         process.exit(0);
     } catch (error) {
