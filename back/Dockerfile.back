@@ -13,5 +13,6 @@ COPY . .
 # Exponer el puerto
 EXPOSE 4000
 
-# Comando por defecto (producción)
-CMD ["npm", "start"]
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
+ENTRYPOINT ["./entrypoint.sh"]

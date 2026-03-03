@@ -68,7 +68,25 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /home/DOCKERS-PREPROD/ABASTIBLE
+            
+            # Login en el registro de GitHub
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # Actualizar imágenes y reiniciar contenedores
             docker compose pull
             docker compose up -d
+            
+            # --- Automatización de Base de Datos ---
+            echo "Esperando 15 segundos a que MySQL inicie correctamente..."
+            sleep 15
+            
+            echo "Ejecutando Migraciones (Estructura)..."
+            docker exec oiem_abastible_api npx sequelize-cli db:migrate
+            
+            echo "Ejecutando Seeders (Datos iniciales y Admin)..."
+            docker exec oiem_abastible_api npx sequelize-cli db:seed:all
+            
+            # Limpieza de imágenes huérfanas
             docker image prune -f
+            
+            echo "🚀 Despliegue de Preproducción finalizado con éxito."
