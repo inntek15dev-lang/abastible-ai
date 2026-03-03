@@ -1,11 +1,14 @@
+// Carga dotenv para que funcione localmente o en scripts de CLI
 require('dotenv').config();
 
 module.exports = {
-  preproduction: { // O 'development', según tu NODE_ENV
+  // Asegúrate de que el nombre coincida con lo que pasas en el flag --env
+  preproduction: {
     username: process.env.DB_USER || 'root',
-    password: process.env.DB_ROOT_PASSWORD,
-    database: process.env.DB_NAME,
+    password: process.env.DB_ROOT_PASSWORD, // <--- Verifica que esta variable sea igual al .env
+    database: process.env.DB_NAME || 'abastible_oiem_preprod',
     host: process.env.DB_HOST || 'db',
-    dialect: 'mysql'
+    dialect: 'mysql', // <--- Esto soluciona el error del Dialect
+    logging: false
   }
 };
