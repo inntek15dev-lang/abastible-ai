@@ -1,0 +1,24 @@
+name: CD OIEM Abastible
+
+on:
+  push:
+    branches: [ "main" ] # Se activa al subir cambios a main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Ejecutar comando remoto por SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            cd /home/DOCKERS-PREPROD/ABASTIBLE
+            sudo docker ps
+            echo "Conexión exitosa desde GitHub Actions"
