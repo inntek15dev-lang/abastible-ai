@@ -58,6 +58,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "docker-compose.yml"
           target: "/home/DOCKERS-PREPROD/ABASTIBLE/"
+          overwrite: true
 
       - name: Ejecutar despliegue vía SSH
         uses: appleboy/ssh-action@v1.0.3
