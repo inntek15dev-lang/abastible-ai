@@ -1,54 +1,20 @@
-name: CI/CD OIEM Abastible
-
-on:
-  push:
-    branches: [ "main" ]
-
-env:
-  REGISTRY: ghcr.io
-  # Esto generará nombres como ghcr.io/tu-usuario/abastible-api
-  IMAGE_API: ghcr.io/${{ github.repository }}-api
-  IMAGE_FRONT: ghcr.io/${{ github.repository }}-front
-
-jobs:
-  build-and-push:
+deploy:
+    needs: build-and-push
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
 
-      - name: Log in al GitHub Container Registry
-        uses: docker/login-action@v3
+      - name: Copiar docker-compose al servidor
+        uses: appleboy/scp-action@v0.1.7
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "docker-compose.yml"
+          target: "/home/DOCKERS-PREPROD/ABASTIBLE/"
 
-      - name: Build y Push Backend
-        uses: docker/build-push-action@v5
-        with:
-          context: ./back
-          file: ./back/Dockerfile.back
-          push: true
-          tags: ${{ env.IMAGE_API }}:latest
-
-      - name: Build y Push Frontend
-        uses: docker/build-push-action@v5
-        with:
-          context: ./front
-          file: ./front/Dockerfile.front
-          push: true
-          tags: ${{ env.IMAGE_FRONT }}:latest
-
-  deploy:
-    needs: build-and-push # Solo corre si el build sale bien
-    runs-on: ubuntu-latest
-    steps:
-      - name: Desplegar en Servidor vía SSH
+      - name: Ejecutar despliegue vía SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -56,11 +22,14 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /home/DOCKERS-PREPROD/ABASTIBLE
-            # Login en el servidor para poder bajar las imágenes
+            # Login para descargar las nuevas imágenes de GHCR
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            # Descargar solo lo nuevo
+            
+            # Forzar la descarga de las nuevas versiones
             docker compose pull
-            # Reiniciar servicios con las nuevas imágenes
+            
+            # Levantar/Actualizar los contenedores
             docker compose up -d
-            # Limpiar imágenes viejas para ahorrar espacio
+            
+            # Limpiar imágenes antiguas para ahorrar espacio en el server
             docker image prune -f
