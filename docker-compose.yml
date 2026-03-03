@@ -26,3 +26,13 @@ services:
       - DB_NAME=${DB_NAME}
     depends_on:
       - db
+  frontend:
+    image: ghcr.io/inntek15dev-lang/abastible-ai-front:latest
+    container_name: oiem_abastible_front
+    restart: always
+    ports:
+      - "8087:80" # <--- Puerto definido por el equipo
+    environment:
+      - VITE_API_URL=https://oiem-abastible-api.inntek.cl/api
+    depends_on:
+      - api
