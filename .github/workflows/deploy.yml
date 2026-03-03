@@ -1,4 +1,49 @@
-deploy:
+name: CI/CD OIEM Abastible
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_API: ghcr.io/${{ github.repository }}-api
+  IMAGE_FRONT: ghcr.io/${{ github.repository }}-front
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Log in al GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build y Push Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./back
+          file: ./back/Dockerfile.back
+          push: true
+          tags: ${{ env.IMAGE_API }}:latest
+
+      - name: Build y Push Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./front
+          file: ./front/Dockerfile.front
+          push: true
+          tags: ${{ env.IMAGE_FRONT }}:latest
+
+  deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
@@ -22,14 +67,7 @@ deploy:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /home/DOCKERS-PREPROD/ABASTIBLE
-            # Login para descargar las nuevas imágenes de GHCR
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            
-            # Forzar la descarga de las nuevas versiones
             docker compose pull
-            
-            # Levantar/Actualizar los contenedores
             docker compose up -d
-            
-            # Limpiar imágenes antiguas para ahorrar espacio en el serverL
             docker image prune -f
