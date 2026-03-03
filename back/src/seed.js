@@ -72,19 +72,23 @@ async function seed() {
         console.log('📦 Creando programas...');
         const programasData = [
             { nombre: 'OIM Distribución Envasado', descripcion: 'Programa HSE y Operacional Distribución Envasado', activo: 1 },
-            { nombre: 'OIM Distribución Granel', descripcion: 'Programa HSE y Operacional Distribución Granel', activo: 1 }
+            { nombre: 'OIM Distribución Granel', descripcion: 'Programa HSE y Operacional Distribución Granel', activo: 1 },
+            { nombre: 'OIM Distribución Envasado Acotado', descripcion: 'Programa HSE y Operacional Distribución Envasado Acotado', activo: 1 },
+            { nombre: 'Programa OIEM Produccion Movilizado', descripcion: 'Programa HSE y Operacional Producción Movilizado', activo: 1 }
         ];
         const programas = await Programa.bulkCreate(programasData);
-        // 0: Envasado, 1: Granel
+        // 0: Envasado, 1: Granel, 2: Envasado Acotado, 3: Produccion Movilizado
 
         // ============= ORDER 1: Tables with FK to order 0 =============
         console.log('📦 Creando tipos de contratista (servicios)...');
         const tiposContratistaData = [
             { nombre: 'Distribución Envasado', descripcion: 'Contratista de distribución envasado', programa_id: programas[0].id, activo: 1 },
-            { nombre: 'Distribución Granel', descripcion: 'Contratista de distribución granel', programa_id: programas[1].id, activo: 1 }
+            { nombre: 'Distribución Granel', descripcion: 'Contratista de distribución granel', programa_id: programas[1].id, activo: 1 },
+            { nombre: 'Distribución Envasado Acotado', descripcion: 'Contratista de distribución envasado acotado', programa_id: programas[2].id, activo: 1 },
+            { nombre: 'Producción Movilizado', descripcion: 'Asignación de producción movilizado', programa_id: programas[3].id, activo: 1 }
         ];
         const tiposContratista = await TipoContratista.bulkCreate(tiposContratistaData);
-        // 0: Distribución Envasado, 1: Distribución Granel
+        // 0: Distribución Envasado, 1: Distribución Granel, 2: Distribución Envasado Acotado, 3: Producción Movilizado
 
         console.log('📦 Creando elementos y actividades de OIM Distribución Granel...');
         const allActividades = [];
@@ -128,6 +132,66 @@ async function seed() {
                 nombre: data.nombre,
                 descripcion: `Elemento ${data.numero}: ${data.nombre}`,
                 orden: ordElmEnv++
+            });
+
+            let ordAct = 1;
+            for (const act of data.actividades) {
+                const actividad = await Actividad.create({
+                    elemento_id: elemento.id,
+                    codigo: act.codigo,
+                    actividad: `${act.codigo} - ${data.nombre}`,
+                    descripcion: act.descripcion,
+                    criterios: act.criterios,
+                    frecuencia: act.frecuencia,
+                    requiere_evidencia: act.requiere_evidencia,
+                    orden: ordAct++,
+                    activo: 1
+                });
+                allActividades.push(actividad);
+            }
+        }
+
+        console.log('📦 Creando elementos y actividades de OIM Distribución Envasado Acotado...');
+        const envasadoAcotadoData = require('./data/envasado_acotado');
+
+        let ordElmEnvAc = 1;
+        for (const data of envasadoAcotadoData) {
+            const elemento = await Elemento.create({
+                programa_id: programas[2].id,
+                numero: data.numero,
+                nombre: data.nombre,
+                descripcion: `Elemento ${data.numero}: ${data.nombre}`,
+                orden: ordElmEnvAc++
+            });
+
+            let ordAct = 1;
+            for (const act of data.actividades) {
+                const actividad = await Actividad.create({
+                    elemento_id: elemento.id,
+                    codigo: act.codigo,
+                    actividad: `${act.codigo} - ${data.nombre}`,
+                    descripcion: act.descripcion,
+                    criterios: act.criterios,
+                    frecuencia: act.frecuencia,
+                    requiere_evidencia: act.requiere_evidencia,
+                    orden: ordAct++,
+                    activo: 1
+                });
+                allActividades.push(actividad);
+            }
+        }
+
+        console.log('📦 Creando elementos y actividades de Programa OIEM Produccion Movilizado...');
+        const produccionMovilizadoData = require('./data/produccion_movilizado');
+
+        let ordElmProdMov = 1;
+        for (const data of produccionMovilizadoData) {
+            const elemento = await Elemento.create({
+                programa_id: programas[3].id,
+                numero: data.numero,
+                nombre: data.nombre,
+                descripcion: `Elemento ${data.numero}: ${data.nombre}`,
+                orden: ordElmProdMov++
             });
 
             let ordAct = 1;
