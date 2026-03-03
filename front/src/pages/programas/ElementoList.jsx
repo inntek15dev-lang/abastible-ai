@@ -174,7 +174,7 @@ export default function ElementoList() {
                                                     <td style={{ textAlign: 'center' }}>
                                                         {act.template_url ? (
                                                             <a
-                                                                href={`${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/${act.template_url}`}
+                                                                href={`${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${act.template_url}`}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 className="btn-icon-only"

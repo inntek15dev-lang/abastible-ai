@@ -1,8 +1,14 @@
-// IEEE Trace: REQ-007 | api/index.js
+// IEEE Trace: REQ-001 | US-001 | api/index
 import axios from 'axios';
 
+// Get API URL dynamically from Nginx injected window.ENV, then Vite build env, then fallback
+const dynamicApiUrl = (window.ENV && window.ENV.VITE_API_URL)
+    ? window.ENV.VITE_API_URL
+    : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api');
+
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api',
+    baseURL: dynamicApiUrl,
+    withCredentials: true,
     headers: {
         'Content-Type': 'application/json'
     }

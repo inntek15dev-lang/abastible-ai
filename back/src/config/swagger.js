@@ -46,6 +46,10 @@ The system uses JWT (Bearer Token).
                 description: 'Production Server (Render)',
             },
             {
+                url: 'https://oiem-abastible-api.inntek.cl/api',
+                description: 'Pre-production Server (Inntek/Docker)',
+            },
+            {
                 url: 'http://localhost:4000/api',
                 description: 'Local Development Server',
             },

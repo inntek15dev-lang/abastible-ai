@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # Base de Datos MySQL
+  db:
+    image: mysql:8.0
+    container_name: oiem_abastible_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASS:-tu_password_fuerte}
+      MYSQL_DATABASE: ${DB_NAME:-abastible_ai}
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password
+  # Backend Node.js
+  api:
+    build:
+      context: ./back
+      dockerfile: Dockerfile.back
+    container_name: oiem_abastible_api
+    restart: always
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=development # Usar production silenciaría logs y fallaría si no está configurado HTTPS bien
+      - PORT=4000
+      - DB_HOST=db # Apunta al contenedor mysql definido arriba
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASS=${DB_PASS:-tu_password_fuerte}
+      - DB_NAME=${DB_NAME:-abastible_ai}
+      - JWT_SECRET=${JWT_SECRET:-super_secreto_para_firma_jwt_abastible_123}
+      - FRONTEND_URL=https://oiem-abastible.inntek.cl
+    volumes:
+      - ./storage:/app/storage # Persistencia de archivos PDF/imágenes
+    depends_on:
+      - db
+
+  # Frontend Nginx/React
+  frontend:
+    build:
+      context: ./front
+      dockerfile: Dockerfile.front
+    container_name: oiem_abastible_front
+    restart: always
+    ports:
+      - "8080:80" # El VPS (Nginx Proxy Manager proxy pass point) internamente apuntará al 8080
+    environment:
+      - VITE_API_URL=https://oiem-abastible-api.inntek.cl/api # ESTA URL se inyecta en runtime al UI
+    depends_on:
+      - api
