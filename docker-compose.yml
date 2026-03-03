@@ -1,44 +1,44 @@
 version: '3.8'
 
 services:
-  # 1. Base de Datos (MySQL)
   db:
     image: mysql:8.0
     container_name: oiem_abastible_db
     restart: always
     environment:
-      # Recuerda que estas variables deben estar en el archivo .env del servidor
-      MYSQL_ROOT_PASSWORD: ${DB_PASS}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
     ports:
-      - "3376:3306" # Puerto externo 3376 para evitar conflictos
+      - "3376:3306"
     volumes:
       - ./mysql_data:/var/lib/mysql
     command: --default-authentication-plugin=mysql_native_password
 
-  # 2. Backend (Node.js API)
   api:
     image: ghcr.io/inntek15dev-lang/abastible-ai-api:latest
     container_name: oiem_abastible_api
     restart: always
     ports:
-      - "4000:4000"
+      - "4077:4077"
     environment:
+      - PORT=4077
       - DB_HOST=db
       - DB_PORT=3306
       - DB_USER=root
-      - DB_PASS=${DB_PASS}
+      - DB_PASS=${DB_ROOT_PASSWORD}
       - DB_NAME=${DB_NAME}
       - JWT_SECRET=${JWT_SECRET}
+      - NODE_ENV=preproduction
     depends_on:
       - db
 
-  # 3. Frontend (React/Nginx)
   frontend:
     image: ghcr.io/inntek15dev-lang/abastible-ai-front:latest
     container_name: oiem_abastible_front
     restart: always
     ports:
-      - "8087:80" # Puerto externo 8087 solicitado
+      - "8087:80"
+    environment:
+      - VITE_API_URL=http://23.81.206.147:4077/api
     depends_on:
       - api
