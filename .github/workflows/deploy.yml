@@ -31,5 +31,5 @@ deploy:
             # Levantar/Actualizar los contenedores
             docker compose up -d
             
-            # Limpiar imágenes antiguas para ahorrar espacio en el server
+            # Limpiar imágenes antiguas para ahorrar espacio en el serverL
             docker image prune -f
