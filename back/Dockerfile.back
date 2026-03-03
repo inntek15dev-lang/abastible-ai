@@ -1,0 +1,17 @@
+FROM node:18-alpine
+
+# Directorio de trabajo
+WORKDIR /app
+
+# Instalar dependencias
+COPY package*.json ./
+RUN npm install
+
+# Copiar el código fuente
+COPY . .
+
+# Exponer el puerto
+EXPOSE 4000
+
+# Comando por defecto (producción)
+CMD ["npm", "start"]

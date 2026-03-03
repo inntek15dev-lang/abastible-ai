@@ -757,7 +757,7 @@ export default function RegistroForm() {
                                                                 {act.evidencias.map(e => (
                                                                     <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                                         <a
-                                                                            href={`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/${e.ruta}`}
+                                                                            href={`${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${e.ruta}`}
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             style={{ fontSize: '0.7rem', color: '#3b82f6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0 }}
