@@ -6,39 +6,51 @@ services:
     container_name: oiem_abastible_db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${DB_NAME}
     ports:
-      - "3376:3306"
+      - "3376:3306" # Puerto externo para gestión (ej. DBeaver)
     volumes:
       - ./mysql_data:/var/lib/mysql
-    command: --default-authentication-plugin=mysql_native_password
+    networks:
+      - abastible_default
 
   api:
     image: ghcr.io/inntek15dev-lang/abastible-ai-api:latest
     container_name: oiem_abastible_api
     restart: always
+    environment:
+      - NODE_ENV=preproduction
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - PIZZA_API_URL=${PIZZA_API_URL}
+      - PIZZA_API_KEY=${PIZZA_API_KEY}
+      - PORT=4077
+    # Forzamos la lectura del .env que está en la raíz del servidor
+    env_file:
+      - .env
     ports:
       - "4077:4077"
-    environment:
-      - PORT=4077
-      - DB_HOST=db
-      - DB_PORT=3306
-      - DB_USER=root
-      - DB_PASS=${DB_ROOT_PASSWORD}
-      - DB_NAME=${DB_NAME}
-      - JWT_SECRET=${JWT_SECRET}
-      - NODE_ENV=preproduction
     depends_on:
       - db
+    networks:
+      - abastible_default
 
   frontend:
     image: ghcr.io/inntek15dev-lang/abastible-ai-front:latest
     container_name: oiem_abastible_front
     restart: always
-    ports:
-      - "8087:80"
     environment:
       - VITE_API_URL=http://23.81.206.147:4077/api
+    ports:
+      - "8087:80"
     depends_on:
       - api
+    networks:
+      - abastible_default
+
+networks:
+  abastible_default:
+    driver: bridge
