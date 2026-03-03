@@ -80,15 +80,11 @@ jobs:
             echo "Esperando 15 segundos a que los servicios estabilicen..."
             sleep 15
             
-            # Intentar correr migraciones si existen (si no, fallará silenciosamente)
-            echo "Ejecutando Migraciones..."
-            docker exec oiem_abastible_api npx sequelize-cli db:migrate --env preproduction || echo "No se encontraron migraciones pendientes."
-            
-            # Ejecutar tu script de Seed personalizado según tu estructura de archivos
-            echo "Ejecutando Seed personalizado (src/seed.js)..."
+            # Ejecutamos TU script de seed directamente (según tu estructura src/seed.js)
+            echo "Poblando base de datos con script personalizado..."
             docker exec oiem_abastible_api node src/seed.js
             
-            # Limpieza de imágenes antiguas
+            # Limpieza de imágenes antiguas para optimizar espacio
             docker image prune -f
             
-            echo "🚀 Despliegue de Preproducción finalizado con éxito."
+            echo "🚀 Sistema desplegado y base de datos actualizada."
