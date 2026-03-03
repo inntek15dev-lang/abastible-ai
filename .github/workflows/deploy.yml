@@ -21,4 +21,4 @@ jobs:
           script: |
             cd /home/DOCKERS-PREPROD/ABASTIBLE
             sudo docker ps
-            echo "Conexión exitosa desde GitHub Actions"
+            echo "Conexión exitosa desde GitHub Actions OK!"
