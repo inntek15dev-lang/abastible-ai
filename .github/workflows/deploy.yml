@@ -81,12 +81,13 @@ jobs:
             sleep 15
             
             echo "Ejecutando Migraciones (Estructura)..."
-            docker exec oiem_abastible_api npx sequelize-cli db:migrate
+            # Usamos el flag --env para que Sequelize lea la sección 'preproduction' de tu config
+            docker exec oiem_abastible_api npx sequelize-cli db:migrate --env preproduction
             
             echo "Ejecutando Seeders (Datos iniciales y Admin)..."
-            docker exec oiem_abastible_api npx sequelize-cli db:seed:all
+            docker exec oiem_abastible_api npx sequelize-cli db:seed:all --env preproduction
             
-            # Limpieza de imágenes huérfanas
+            # Limpieza de imágenes antiguas para ahorrar espacio en disco
             docker image prune -f
             
             echo "🚀 Despliegue de Preproducción finalizado con éxito."
