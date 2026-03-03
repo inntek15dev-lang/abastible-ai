@@ -1,35 +1,66 @@
-version: '3.8'
+name: CI/CD OIEM Abastible
 
-services:
-  db:
-    image: mysql:8.0
-    container_name: oiem_abastible_db
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASS}
-      MYSQL_DATABASE: ${DB_NAME}
-    ports:
-      - "3306:3306"
-    volumes:
-      - ./mysql_data:/var/lib/mysql
-    command: --default-authentication-plugin=mysql_native_password
+on:
+  push:
+    branches: [ "main" ]
 
-  api:
-    image: ghcr.io/tu-usuario/abastible-ai-api:latest # LA IMAGEN DE GITHUB
-    container_name: oiem_abastible_api
-    restart: always
-    ports:
-      - "4000:4000"
-    env_file: .env
-    depends_on:
-      - db
+env:
+  REGISTRY: ghcr.io
+  # Esto generará nombres como ghcr.io/tu-usuario/abastible-api
+  IMAGE_API: ghcr.io/${{ github.repository }}-api
+  IMAGE_FRONT: ghcr.io/${{ github.repository }}-front
 
-  frontend:
-    image: ghcr.io/tu-usuario/abastible-ai-front:latest # LA IMAGEN DE GITHUB
-    container_name: oiem_abastible_front
-    restart: always
-    ports:
-      - "8080:80"
-    env_file: .env
-    depends_on:
-      - api
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Log in al GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build y Push Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./back
+          file: ./back/Dockerfile.back
+          push: true
+          tags: ${{ env.IMAGE_API }}:latest
+
+      - name: Build y Push Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./front
+          file: ./front/Dockerfile.front
+          push: true
+          tags: ${{ env.IMAGE_FRONT }}:latest
+
+  deploy:
+    needs: build-and-push # Solo corre si el build sale bien
+    runs-on: ubuntu-latest
+    steps:
+      - name: Desplegar en Servidor vía SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/DOCKERS-PREPROD/ABASTIBLE
+            # Login en el servidor para poder bajar las imágenes
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            # Descargar solo lo nuevo
+            docker compose pull
+            # Reiniciar servicios con las nuevas imágenes
+            docker compose up -d
+            # Limpiar imágenes viejas para ahorrar espacio
+            docker image prune -f
