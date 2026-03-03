@@ -2,7 +2,7 @@ name: CD OIEM Abastible
 
 on:
   push:
-    branches: [ "main" ] # Se activa al subir cambios a main
+    branches: [ "main" ]
 
 jobs:
   deploy:
@@ -18,6 +18,8 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
+          # Esta línea evita que falle si GitHub no conoce la "firma" del servidor
+          script_stop: true
           script: |
             cd /home/DOCKERS-PREPROD/ABASTIBLE
             sudo docker ps
