@@ -106,7 +106,7 @@ export default function FileUpload({
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.5rem', width: '100%', flexWrap: 'wrap' }}>
                     {/* Template Download Button */}
                     <a
-                        href={templateUrl ? `${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${templateUrl}` : '#'}
+                        href={templateUrl ? `${dynamicApiUrl}/${templateUrl}` : '#'}
                         target={templateUrl ? "_blank" : undefined}
                         rel={templateUrl ? "noopener noreferrer" : undefined}
                         className={`template-download-btn ${!templateUrl ? 'disabled' : ''}`}

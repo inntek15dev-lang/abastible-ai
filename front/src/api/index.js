@@ -2,9 +2,12 @@
 import axios from 'axios';
 
 // Get API URL dynamically from Nginx injected window.ENV, then Vite build env, then fallback
-const dynamicApiUrl = (window.ENV && window.ENV.VITE_API_URL)
+const rawApiUrl = (window.ENV && window.ENV.VITE_API_URL)
     ? window.ENV.VITE_API_URL
     : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api');
+
+// Normalize: Remove trailing slash if exists
+const dynamicApiUrl = rawApiUrl.endsWith('/') ? rawApiUrl.slice(0, -1) : rawApiUrl;
 
 const api = axios.create({
     baseURL: dynamicApiUrl,
