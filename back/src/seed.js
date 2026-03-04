@@ -1,6 +1,8 @@
 // IEEE Trace: All Entities | seed.js
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
+const pathModule = require('path');
 const {
     sequelize,
     Role,
@@ -212,6 +214,75 @@ async function seed() {
         }
 
         console.log('📦 Creando privilegios...');
+
+        // ============= EVIDENCE TEMPLATES =============
+        console.log('📦 Cargando templates de evidencia...');
+        const evidenceMap = require('./data/evidence_map.json');
+        const templateSource = pathModule.resolve(__dirname, '..', 'storage', 'templates_evidencia');
+        const storageRoot = pathModule.resolve(__dirname, '../../storage');
+        const sanitizeStr = (str) => str.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+        // programas array indexes match evidence_map programIndex
+        const programaIds = programas.map(p => p.id);
+        let templatesLoaded = 0;
+
+        for (const entry of evidenceMap) {
+            if (!entry.templateFile) continue;
+
+            const programaId = programaIds[entry.programIndex];
+            if (!programaId) continue;
+
+            // Find activity by elemento's programa + codigo
+            let targetActividad = null;
+            for (const act of allActividades) {
+                if (act.codigo !== entry.codigo) continue;
+                const elem = await Elemento.findByPk(act.elemento_id);
+                if (elem && elem.programa_id === programaId) {
+                    targetActividad = act;
+                    break;
+                }
+            }
+
+            if (!targetActividad) continue;
+
+            // Get elemento for path construction
+            const elTarget = await Elemento.findByPk(targetActividad.elemento_id);
+            if (!elTarget) continue;
+
+            // Build storage path (same convention as actividadController)
+            const storageRelativePath = pathModule.join(
+                'programas',
+                String(programaId),
+                'evidencias',
+                `elemento_${sanitizeStr(String(elTarget.numero))}`,
+                `actividad_${sanitizeStr(String(targetActividad.codigo))}`
+            );
+
+            const targetDir = pathModule.join(storageRoot, storageRelativePath);
+            if (!fs.existsSync(targetDir)) {
+                fs.mkdirSync(targetDir, { recursive: true });
+            }
+
+            // Build filename: template_evidencia_actividad_{id}_{NOMBRE_EVIDENCIA}.xlsx
+            const evidSanitized = sanitizeStr(entry.evidenceName).substring(0, 50);
+            const fileName = `template_evidencia_actividad_${targetActividad.id}_${evidSanitized}.xlsx`;
+
+            // Copy template file
+            const sourcePath = pathModule.join(templateSource, entry.templateFile);
+            const destPath = pathModule.join(targetDir, fileName);
+
+            if (fs.existsSync(sourcePath)) {
+                fs.copyFileSync(sourcePath, destPath);
+
+                // Update Actividad.template_url (posix path for URL)
+                const templateUrl = ['storage', storageRelativePath.split(pathModule.sep).join('/'), fileName].join('/');
+                await targetActividad.update({ template_url: templateUrl });
+                templatesLoaded++;
+            }
+        }
+        console.log(`✅ ${templatesLoaded} templates de evidencia cargados`);
+
+
         await Privilegio.bulkCreate([
             { role_id: roles[0].id, ref_modulo: '*', read: 1, write: 1, excec: 1 },
             { role_id: roles[0].id, ref_modulo: 'Auditoria', read: 1, write: 1, excec: 1 },
