@@ -43,7 +43,7 @@ services:
     container_name: oiem_abastible_front
     restart: always
     environment:
-      - VITE_API_URL=https://oiem-abastible-api.inntek.cl:4077/api
+      - VITE_API_URL=https://oiem-abastible-api.inntek.cl/api
     ports:
       - "8087:80"
     depends_on:
