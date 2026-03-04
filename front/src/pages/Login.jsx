@@ -68,8 +68,8 @@ export default function Login() {
                 </form>
 
                 <div className="login-footer">
-                    <p>Credenciales de prueba:</p>
-                    <code>admin@abastible.cl / User123*</code>
+                    <p>Version 1.0</p>
+
                 </div>
             </div>
         </div>
