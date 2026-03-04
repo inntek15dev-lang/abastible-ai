@@ -26,7 +26,7 @@ export const MODULES = [
     },
     {
         id: 'matriz_cumplimiento',
-        label: 'Matriz de Cumplimiento',
+        label: 'Matriz',
         path: '/reportes/cumplimiento',
         icon: Building, // Using Building icon as before
         module: 'Reportes', // Keep same permission module

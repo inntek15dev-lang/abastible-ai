@@ -1,7 +1,7 @@
 ﻿import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getVisibleModules } from '../config/navigation';
-import { LogOut, ChevronDown, UserCircle, Menu as MenuIcon } from 'lucide-react';
+import { LogOut, ChevronDown, UserCircle, Menu as MenuIcon, HelpCircle } from 'lucide-react';
 import { Menu, MenuTrigger, Popover, Button, MenuItem } from 'react-aria-components';
 import { Fragment, useState, useEffect, useCallback } from 'react';
 import './NavbarModule.css';
@@ -90,9 +90,14 @@ export default function NavbarModule() {
                                     style={{
                                         '--module-color': module.color
                                     }}
+                                    title={module.id === 'tutoriales' ? module.label : undefined}
                                 >
                                     <module.icon size={18} />
-                                    <span>{module.label}</span>
+                                    {module.id === 'tutoriales' ? (
+                                        <HelpCircle size={18} />
+                                    ) : (
+                                        <span>{module.label}</span>
+                                    )}
                                 </NavLink>
                             )}
                         </div>
