@@ -1,6 +1,18 @@
-// IEEE Trace: REQ-007 | database/index
 const { Sequelize } = require('sequelize');
-const config = require('../config/database');
+const dbConfigs = require('../config/database');
+
+// Capturamos el ambiente o usamos 'development' por defecto
+const env = process.env.NODE_ENV || 'development';
+
+// IMPORTANTE: Verifica si existe la clave en el archivo de configuración
+const config = dbConfigs[env];
+
+if (!config || !config.dialect) {
+    console.error(`❌ ERROR: No se encontró configuración válida para el entorno: "${env}"`);
+    console.log('Configuraciones disponibles:', Object.keys(dbConfigs));
+    // Fallback de emergencia para evitar el crash del Dialect
+    process.exit(1);
+}
 
 const sequelize = new Sequelize(
     config.database,
@@ -8,12 +20,9 @@ const sequelize = new Sequelize(
     config.password,
     {
         host: config.host,
-        port: config.port,
-        dialect: config.dialect,
-        dialectOptions: config.dialectOptions,
+        dialect: config.dialect, // Aquí es donde fallaba antes
         logging: config.logging,
-        define: config.define,
-        pool: config.pool
+        port: config.port || 3306
     }
 );
 

@@ -1,0 +1,10 @@
+const path = require('path');
+
+module.exports = {
+  'config': path.resolve('src', 'config', 'database.js'),
+  'models-path': path.resolve('src', 'database', 'models'),
+  // Desactivamos estas rutas o las apuntamos a donde Sequelize CLI espera, 
+  // aunque parece que tú manejas la lógica de seed manualmente
+  'migrations-path': path.resolve('src', 'database', 'migrations'),
+  'seeders-path': path.resolve('src', 'database', 'seeders')
+};

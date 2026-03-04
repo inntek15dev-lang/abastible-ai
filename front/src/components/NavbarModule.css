@@ -188,6 +188,39 @@
     transform-origin: top right;
 } */
 
+/* Theme Circles */
+.theme-circles-container {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0 1rem;
+    margin-left: 0.5rem;
+    border-left: 1px solid #f3f4f6;
+}
+
+.theme-circle {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+    outline: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.theme-circle:hover {
+    transform: scale(1.15);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.theme-circle.active {
+    border-color: #fff;
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.2);
+    transform: scale(1.1);
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
     .navbar-brand {
