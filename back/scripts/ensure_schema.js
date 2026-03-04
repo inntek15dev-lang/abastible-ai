@@ -1,0 +1,56 @@
+/**
+ * ensure_schema.js
+ * Automatically checks for and adds missing columns to the database
+ * to match the model definitions. Use this to fix 500 errors on remote servers.
+ */
+const sequelize = require('../src/database');
+const models = require('../src/database/models');
+
+async function ensureSchema() {
+    console.log('🚀 Starting Database Schema Consistency Check...');
+    try {
+        await sequelize.authenticate();
+        console.log('✅ Connected to database.');
+
+        const tablesToFix = [
+            {
+                name: 'registros',
+                columns: [
+                    { name: 'programa_id', type: 'BIGINT UNSIGNED NULL', after: 'contratista_asignacion_id' },
+                    { name: 'dependencia_id', type: 'BIGINT UNSIGNED NULL', after: 'programa_id' }
+                ]
+            },
+            {
+                name: 'actividades',
+                columns: [
+                    { name: 'template_url', type: 'VARCHAR(255) NULL', after: 'criterios' }
+                ]
+            }
+        ];
+
+        for (const table of tablesToFix) {
+            console.log(`\nTable: ${table.name}`);
+            const [columns] = await sequelize.query(`SHOW COLUMNS FROM ${table.name}`);
+            const existingColumns = columns.map(c => c.Field);
+
+            for (const col of table.columns) {
+                if (!existingColumns.includes(col.name)) {
+                    console.log(`  ➕ Adding column [${col.name}]...`);
+                    const query = `ALTER TABLE ${table.name} ADD COLUMN ${col.name} ${col.type} ${col.after ? 'AFTER ' + col.after : ''}`;
+                    await sequelize.query(query);
+                    console.log(`  ✅ Column [${col.name}] added.`);
+                } else {
+                    console.log(`  ✔ Column [${col.name}] already exists.`);
+                }
+            }
+        }
+
+        console.log('\n✨ Schema verification completed successfully.');
+    } catch (error) {
+        console.error('\n❌ Error ensuring schema:', error.message);
+    } finally {
+        await sequelize.close();
+    }
+}
+
+ensureSchema();
