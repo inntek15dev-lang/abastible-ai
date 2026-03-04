@@ -1,5 +1,5 @@
 // IEEE Trace: REQ-002 | US-002 | pages/registros/RegistroForm.jsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
@@ -44,6 +44,74 @@ export default function RegistroForm() {
         title: '',
         message: ''
     });
+
+    // === Color Theme from Navbar Circles ===
+    const [registroTheme, setRegistroTheme] = useState('orange');
+
+    useEffect(() => {
+        const handler = (e) => setRegistroTheme(e.detail.theme);
+        window.addEventListener('registro-theme-change', handler);
+        return () => window.removeEventListener('registro-theme-change', handler);
+    }, []);
+
+    const themeColors = useMemo(() => {
+        switch (registroTheme) {
+            case 'blue':
+                return {
+                    headerBg: '#2563eb',
+                    pageBg: '#ffffff',
+                    cardBg: '#ffffff',
+                    textPrimary: '#111827',
+                    textSecondary: '#6b7280',
+                    textOnHeader: '#ffffff',
+                    border: '#e5e7eb',
+                    inputBg: '#f3f4f6',
+                    inputBorder: '#e5e7eb',
+                    inputText: '#374151',
+                    tableHeadBg: '#f9fafb',
+                    tableHeadColor: '#6b7280',
+                    footerBg: 'white',
+                    accentLight: '#eff6ff',
+                    progressTrackBg: '#f3f4f6',
+                };
+            case 'dark':
+                return {
+                    headerBg: '#374151',
+                    pageBg: '#111827',
+                    cardBg: '#1f2937',
+                    textPrimary: '#f9fafb',
+                    textSecondary: '#9ca3af',
+                    textOnHeader: '#f9fafb',
+                    border: '#374151',
+                    inputBg: '#374151',
+                    inputBorder: '#4b5563',
+                    inputText: '#f3f4f6',
+                    tableHeadBg: '#1f2937',
+                    tableHeadColor: '#9ca3af',
+                    footerBg: '#1f2937',
+                    accentLight: '#1e3a5f',
+                    progressTrackBg: '#374151',
+                };
+            default: // orange
+                return {
+                    headerBg: '#fe5000',
+                    pageBg: '#ffffff',
+                    cardBg: '#ffffff',
+                    textPrimary: '#111827',
+                    textSecondary: '#6b7280',
+                    textOnHeader: '#ffffff',
+                    border: '#e5e7eb',
+                    inputBg: '#f3f4f6',
+                    inputBorder: '#e5e7eb',
+                    inputText: '#374151',
+                    tableHeadBg: '#f9fafb',
+                    tableHeadColor: '#6b7280',
+                    footerBg: 'white',
+                    accentLight: '#eff6ff',
+                    progressTrackBg: '#f3f4f6',
+                };
+        }
+    }, [registroTheme]);
 
     // New State for Contractor Selection
     const [contractors, setContractors] = useState([]);
@@ -489,19 +557,19 @@ export default function RegistroForm() {
     const parsedCursor = (disabled) => disabled ? 'not-allowed' : 'pointer';
 
     const readOnlyStyle = {
-        backgroundColor: '#f3f4f6',
-        border: '1px solid #e5e7eb',
-        color: '#374151'
+        backgroundColor: themeColors.inputBg,
+        border: `1px solid ${themeColors.inputBorder}`,
+        color: themeColors.inputText
     };
 
     return (
-        <div className="page-container" style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px' }}>
+        <div className="page-container" style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px', backgroundColor: themeColors.pageBg, minHeight: '100vh', transition: 'background-color 0.3s ease' }}>
 
             {/* Header Title */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '1rem' }}>
-                <FileText size={24} color="#f97316" /> {/* Orange Icon */}
-                <h1 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#111827', margin: 0 }}>
-                    Registro Mensual de Cumplimiento {isReadOnly && <span style={{ fontSize: '0.8rem', backgroundColor: '#f3f4f6', padding: '2px 8px', borderRadius: '4px', border: '1px solid #e5e7eb', color: '#6b7280', marginLeft: '10px' }}>VISTA SOLO LECTURA</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: `1px solid ${themeColors.border}`, paddingBottom: '1rem' }}>
+                <FileText size={24} color={themeColors.headerBg} />
+                <h1 style={{ fontSize: '1.25rem', fontWeight: 600, color: themeColors.textPrimary, margin: 0 }}>
+                    Registro Mensual de Cumplimiento {isReadOnly && <span style={{ fontSize: '0.8rem', backgroundColor: themeColors.inputBg, padding: '2px 8px', borderRadius: '4px', border: `1px solid ${themeColors.inputBorder}`, color: themeColors.textSecondary, marginLeft: '10px' }}>VISTA SOLO LECTURA</span>}
                 </h1>
             </div>
 
@@ -510,33 +578,33 @@ export default function RegistroForm() {
             <form onSubmit={handleSubmit}>
 
                 {/* Information Card */}
-                <div style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '1.5rem' }}>
-                    <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#1f2937', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ width: '4px', height: '16px', backgroundColor: '#3b82f6', borderRadius: '2px' }}></span>
+                <div style={{ backgroundColor: themeColors.cardBg, borderRadius: '8px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '1.5rem', transition: 'background-color 0.3s ease' }}>
+                    <h2 style={{ fontSize: '1rem', fontWeight: 600, color: themeColors.textPrimary, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ width: '4px', height: '16px', backgroundColor: themeColors.headerBg, borderRadius: '2px' }}></span>
                         Información del Contratista
                     </h2>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', marginBottom: '1rem' }}>
                         {/* Row 1 */}
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Programa</label>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Programa</label>
                             <input type="text" className="form-control" style={readOnlyStyle} readOnly
                                 value={currentAssignment?.servicio?.programa?.nombre || 'Cargando...'} />
                         </div>
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Servicio</label>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Servicio</label>
                             <input type="text" className="form-control" style={readOnlyStyle} readOnly
                                 value={currentAssignment?.servicio?.nombre || ''} />
                         </div>
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Dependencia</label>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Dependencia</label>
                             <input type="text" className="form-control" style={readOnlyStyle} readOnly
                                 value={currentAssignment?.dependencia?.nombre || ''} />
                         </div>
 
                         {/* Row 2 */}
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Periodo *</label>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Periodo *</label>
                             <div style={{ display: 'flex', alignItems: 'center' }}>
                                 {/* Access Text representation of month if needed, or just the input */}
                                 <input
@@ -556,12 +624,12 @@ export default function RegistroForm() {
                             </div>
                         </div>
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Nombre EECC *</label>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Nombre EECC *</label>
                             <input type="text" className="form-control" style={readOnlyStyle} readOnly
                                 value={user?.contratistaEntidad?.nombre || user?.eecc_nombre || searchNombre || ''} />
                         </div>
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Dotación Total</label>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Dotación Total</label>
                             <input type="number" className="form-control"
                                 value={form.dotacion_total}
                                 disabled={isLocked}
@@ -571,7 +639,7 @@ export default function RegistroForm() {
 
                         {/* Row 3 */}
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Personas Nuevas</label>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Personas Nuevas</label>
                             <input type="number" className="form-control"
                                 value={form.personas_nuevas}
                                 disabled={isLocked}
@@ -579,7 +647,7 @@ export default function RegistroForm() {
                             />
                         </div>
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Supervisores</label>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Supervisores</label>
                             <input type="number" className="form-control"
                                 value={form.supervisores}
                                 disabled={isLocked}
@@ -587,7 +655,7 @@ export default function RegistroForm() {
                             />
                         </div>
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.25rem' }}>Prevencionistas</label>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Prevencionistas</label>
                             <input type="number" className="form-control"
                                 value={form.prevencionistas}
                                 disabled={isLocked}
@@ -598,23 +666,23 @@ export default function RegistroForm() {
                 </div>
 
                 {/* Progress Bar */}
-                <div style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '1rem 1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '1.5rem' }}>
+                <div style={{ backgroundColor: themeColors.cardBg, borderRadius: '8px', padding: '1rem 1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '1.5rem', transition: 'background-color 0.3s ease' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
-                        <span style={{ fontWeight: 600, color: '#374151' }}>Progreso de Cumplimiento</span>
+                        <span style={{ fontWeight: 600, color: themeColors.textPrimary }}>Progreso de Cumplimiento</span>
                         <span style={{ fontWeight: 700, color: totalProgress < 70 ? '#ef4444' : '#10b981' }}>{totalProgress}%</span>
                     </div>
-                    <div style={{ width: '100%', height: '8px', backgroundColor: '#f3f4f6', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: '100%', height: '8px', backgroundColor: themeColors.progressTrackBg, borderRadius: '4px', overflow: 'hidden' }}>
                         <div style={{ width: `${totalProgress}%`, height: '100%', backgroundColor: totalProgress < 70 ? '#ef4444' : '#10b981', transition: 'width 0.3s' }}></div>
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.5rem' }}>Meta: 85%</div>
+                    <div style={{ fontSize: '0.75rem', color: themeColors.textSecondary, marginTop: '0.5rem' }}>Meta: 85%</div>
                 </div>
 
                 {/* Activities Groups */}
                 {groupedActividades.map(group => (
-                    <div key={group.id} style={{ marginBottom: '2rem', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', backgroundColor: 'white' }}>
+                    <div key={group.id} style={{ marginBottom: '2rem', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', backgroundColor: themeColors.cardBg, transition: 'background-color 0.3s ease' }}>
                         {/* Element Header */}
-                        <div style={{ backgroundColor: '#fe5000', color: 'white', padding: '0.75rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, textTransform: 'uppercase', color: 'white' }}>
+                        <div style={{ backgroundColor: themeColors.headerBg, color: themeColors.textOnHeader, padding: '0.75rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background-color 0.3s ease' }}>
+                            <h3 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600, textTransform: 'uppercase', color: themeColors.textOnHeader }}>
                                 {group.name}
                             </h3>
                             <div style={{ fontSize: '0.8rem', opacity: 0.9 }}>
@@ -625,7 +693,7 @@ export default function RegistroForm() {
                         {/* Activities Table */}
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                                <thead style={{ backgroundColor: '#f9fafb', color: '#6b7280', fontSize: '0.75rem', textTransform: 'uppercase' }}>
+                                <thead style={{ backgroundColor: themeColors.tableHeadBg, color: themeColors.tableHeadColor, fontSize: '0.75rem', textTransform: 'uppercase' }}>
                                     <tr>
                                         <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '60px' }}>Código</th>
                                         <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '30%' }}>Actividad</th>
@@ -644,17 +712,17 @@ export default function RegistroForm() {
                                         const globalIndex = actividades.findIndex(a => a === act);
 
                                         return (
-                                            <tr key={act.id || act.actividad_id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                                                <td style={{ padding: '1rem', verticalAlign: 'top', color: '#3b82f6', fontWeight: 600 }}>
-                                                    <span style={{ backgroundColor: '#eff6ff', padding: '2px 6px', borderRadius: '4px' }}>{act.codigo}</span>
+                                            <tr key={act.id || act.actividad_id} style={{ borderBottom: `1px solid ${themeColors.border}` }}>
+                                                <td style={{ padding: '1rem', verticalAlign: 'top', color: themeColors.headerBg, fontWeight: 600 }}>
+                                                    <span style={{ backgroundColor: themeColors.accentLight, padding: '2px 6px', borderRadius: '4px' }}>{act.codigo}</span>
                                                 </td>
-                                                <td style={{ padding: '1rem', verticalAlign: 'top', color: '#374151' }}>
+                                                <td style={{ padding: '1rem', verticalAlign: 'top', color: themeColors.textPrimary }}>
                                                     <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>{act.descripcion}</div>
                                                 </td>
-                                                <td style={{ padding: '1rem', verticalAlign: 'top', color: '#6b7280', fontSize: '0.8rem' }}>
+                                                <td style={{ padding: '1rem', verticalAlign: 'top', color: themeColors.textSecondary, fontSize: '0.8rem' }}>
                                                     {act.criterios || '-'}
                                                 </td>
-                                                <td style={{ padding: '1rem', verticalAlign: 'top', textAlign: 'center', color: '#6b7280', fontSize: '0.8rem' }}>
+                                                <td style={{ padding: '1rem', verticalAlign: 'top', textAlign: 'center', color: themeColors.textSecondary, fontSize: '0.8rem' }}>
                                                     {act.frecuencia || 'Mensual'}
                                                 </td>
                                                 <td style={{ padding: '1rem', verticalAlign: 'top', textAlign: 'center' }}>
@@ -860,18 +928,19 @@ export default function RegistroForm() {
                     alignItems: 'center',
                     position: 'sticky',
                     bottom: 0,
-                    backgroundColor: 'white',
+                    backgroundColor: themeColors.footerBg,
                     padding: '1rem 1rem',
-                    borderTop: '1px solid #e5e7eb',
+                    borderTop: `1px solid ${themeColors.border}`,
                     zIndex: 10,
                     boxShadow: '0 -2px 10px rgba(0,0,0,0.05)',
                     marginLeft: '-20px',
-                    marginRight: '-20px'
+                    marginRight: '-20px',
+                    transition: 'background-color 0.3s ease'
                 }}>
                     <button
                         type="button"
                         onClick={handleBack}
-                        style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                        style={{ background: 'none', border: 'none', color: themeColors.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
                         ← Volver
                     </button>
 

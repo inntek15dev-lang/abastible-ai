@@ -3,13 +3,30 @@ import { useAuth } from '../context/AuthContext';
 import { getVisibleModules } from '../config/navigation';
 import { LogOut, ChevronDown, UserCircle, Menu as MenuIcon } from 'lucide-react';
 import { Menu, MenuTrigger, Popover, Button, MenuItem } from 'react-aria-components';
-import { Fragment } from 'react';
+import { Fragment, useState, useEffect, useCallback } from 'react';
 import './NavbarModule.css';
 
 export default function NavbarModule() {
     const { user, logout, canRead } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+
+    // Color theme circles — only visible on registro form routes
+    const isRegistroFormRoute = /^\/registros\/(new|\d+)/.test(location.pathname);
+    const [registroTheme, setRegistroTheme] = useState('orange');
+
+    const handleThemeChange = useCallback((theme) => {
+        setRegistroTheme(theme);
+        window.dispatchEvent(new CustomEvent('registro-theme-change', { detail: { theme } }));
+    }, []);
+
+    // Reset theme when navigating away from registro form
+    useEffect(() => {
+        if (isRegistroFormRoute) {
+            // Dispatch default theme on mount
+            window.dispatchEvent(new CustomEvent('registro-theme-change', { detail: { theme: registroTheme } }));
+        }
+    }, [isRegistroFormRoute]);
 
     const handleLogout = () => {
         logout();
@@ -81,6 +98,36 @@ export default function NavbarModule() {
                         </div>
                     ))}
                 </nav>
+
+                {/* Color Theme Circles — Only on Registro Form */}
+                {isRegistroFormRoute && (
+                    <div className="theme-circles-container">
+                        <button
+                            type="button"
+                            className={`theme-circle ${registroTheme === 'orange' ? 'active' : ''}`}
+                            style={{ backgroundColor: '#fe5000' }}
+                            onClick={() => handleThemeChange('orange')}
+                            title="Tema Naranja"
+                            aria-label="Tema Naranja"
+                        />
+                        <button
+                            type="button"
+                            className={`theme-circle ${registroTheme === 'blue' ? 'active' : ''}`}
+                            style={{ backgroundColor: '#2563eb' }}
+                            onClick={() => handleThemeChange('blue')}
+                            title="Tema Azul"
+                            aria-label="Tema Azul"
+                        />
+                        <button
+                            type="button"
+                            className={`theme-circle ${registroTheme === 'dark' ? 'active' : ''}`}
+                            style={{ backgroundColor: '#1f2937' }}
+                            onClick={() => handleThemeChange('dark')}
+                            title="Modo Oscuro"
+                            aria-label="Modo Oscuro"
+                        />
+                    </div>
+                )}
 
                 {/* User Profile */}
                 <div className="navbar-user">
