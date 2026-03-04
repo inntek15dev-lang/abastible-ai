@@ -1,4 +1,4 @@
-// IEEE Trace: REQ-001 | US-001 | pages/programas/ElementoList.jsx
+﻿// IEEE Trace: REQ-001 | US-001 | pages/programas/ElementoList.jsx
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -183,7 +183,7 @@ export default function ElementoList() {
                                                                     display: 'inline-flex',
                                                                     alignItems: 'center',
                                                                     justifyContent: 'center',
-                                                                    color: '#2563eb',
+                                                                    color: '#003594',
                                                                     textDecoration: 'none'
                                                                 }}
                                                             >

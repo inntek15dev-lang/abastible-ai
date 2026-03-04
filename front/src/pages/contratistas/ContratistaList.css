@@ -1,4 +1,4 @@
-/* ============================================
+﻿/* ============================================
    Theme: ContratistaManager
    Source: info/medias/vista-gestion-contratistas.png
    ============================================ */
@@ -11,7 +11,7 @@
     --color-bg-page: #F3F4F6;
     --color-card-bg: #FFFFFF;
 
-    --color-primary: #2563EB;
+    --color-primary: #003594;
     /* Blue actions */
     --color-primary-hover: #1D4ED8;
     --color-secondary: #F97316;
@@ -109,7 +109,7 @@
 .filter-input:focus {
     outline: none;
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+    box-shadow: 0 0 0 2px rgba(0, 53, 148, 0.1);
 }
 
 /* -----------------------------

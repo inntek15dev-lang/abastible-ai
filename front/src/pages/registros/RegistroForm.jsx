@@ -1,4 +1,4 @@
-// IEEE Trace: REQ-002 | US-002 | pages/registros/RegistroForm.jsx
+﻿// IEEE Trace: REQ-002 | US-002 | pages/registros/RegistroForm.jsx
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../../api';
@@ -58,7 +58,7 @@ export default function RegistroForm() {
         switch (registroTheme) {
             case 'blue':
                 return {
-                    headerBg: '#2563eb',
+                    headerBg: '#003594',
                     pageBg: '#ffffff',
                     cardBg: '#ffffff',
                     textPrimary: '#111827',

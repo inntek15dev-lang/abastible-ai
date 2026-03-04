@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Save, AlertTriangle, Info, CheckCircle, Clock } from 'lucide-react';
 import api from '../../api';
 import Modal from '../ui/Modal';
@@ -210,7 +210,7 @@ export default function HallazgoModal({ isOpen, onClose, onSuccess, registroId, 
                             top: '50%',
                             transform: 'translateY(-50%)',
                             pointerEvents: 'none',
-                            color: currentTypeConfig.color.includes('red') ? '#dc2626' : currentTypeConfig.color.includes('amber') ? '#d97706' : '#2563eb'
+                            color: currentTypeConfig.color.includes('red') ? '#dc2626' : currentTypeConfig.color.includes('amber') ? '#d97706' : '#003594'
                         }}>
                             <CurrentIcon size={18} />
                         </div>

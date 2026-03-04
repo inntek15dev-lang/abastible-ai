@@ -1,4 +1,4 @@
-// IEEE Trace: REQ-002 | US-002, US-050 | pages/registros/RegistroList.jsx
+﻿// IEEE Trace: REQ-002 | US-002, US-050 | pages/registros/RegistroList.jsx
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -859,7 +859,7 @@ export default function RegistroList() {
 
                                             if (status === 'auditando') {
                                                 label = 'En Proceso';
-                                                style = { background: '#eff6ff', color: '#2563eb', border: '1px solid #dbeafe' }; // Blue
+                                                style = { background: '#eff6ff', color: '#003594', border: '1px solid #dbeafe' }; // Blue
                                             } else if (status === 'auditada') {
                                                 label = 'Auditada';
                                                 style = { background: '#f0fdf4', color: '#16a34a', border: '1px solid #dcfce7' }; // Green

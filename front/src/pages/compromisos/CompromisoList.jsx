@@ -1,4 +1,4 @@
-// IEEE Trace: REQ-010 | US-010 | pages/compromisos/CompromisoList.jsx
+﻿// IEEE Trace: REQ-010 | US-010 | pages/compromisos/CompromisoList.jsx
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -177,7 +177,7 @@ export default function CompromisoList() {
             <header className="page-header" style={{ marginBottom: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ background: '#2563eb', color: 'white', padding: '10px', borderRadius: '12px', display: 'flex' }}>
+                        <div style={{ background: '#003594', color: 'white', padding: '10px', borderRadius: '12px', display: 'flex' }}>
                             <Shield size={24} />
                         </div>
                         <div>

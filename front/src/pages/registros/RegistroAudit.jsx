@@ -1,4 +1,4 @@
-// IEEE Trace: REQ-003 | US-003 | pages/registros/RegistroAudit.jsx
+﻿// IEEE Trace: REQ-003 | US-003 | pages/registros/RegistroAudit.jsx
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -379,19 +379,19 @@ export default function RegistroAudit() {
                                 style={{
                                     fontSize: '1.125rem',
                                     padding: '14px 32px',
-                                    background: 'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)',
+                                    background: 'linear-gradient(135deg, #003594 0%, #1e40af 100%)',
                                     border: 'none',
                                     borderRadius: '12px',
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '12px',
                                     fontWeight: 600,
-                                    boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                                    boxShadow: '0 4px 6px -1px rgba(0, 53, 148, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
                                     transition: 'transform 0.2s, box-shadow 0.2s',
                                     cursor: 'pointer'
                                 }}
-                                onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(37, 99, 235, 0.3)'; }}
-                                onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(37, 99, 235, 0.2)'; }}
+                                onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0, 53, 148, 0.3)'; }}
+                                onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 53, 148, 0.2)'; }}
                             >
                                 <Shield size={24} /> Iniciar Proceso de Auditoría
                             </button>
@@ -496,7 +496,7 @@ export default function RegistroAudit() {
                                                             iconColor = '#ef4444'; // red
                                                         } else if (['doc', 'docx', 'txt', 'rtf'].includes(ext)) {
                                                             IconComp = FileText;
-                                                            iconColor = '#2563eb'; // blue-dark
+                                                            iconColor = '#003594'; // blue-dark
                                                         } else if (['xls', 'xlsx', 'csv'].includes(ext)) {
                                                             IconComp = FileSpreadsheet;
                                                             iconColor = '#10b981'; // green
@@ -770,7 +770,7 @@ export default function RegistroAudit() {
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                background: '#2563eb',
+                                                background: '#003594',
                                                 border: 'none'
                                             }}
                                         >

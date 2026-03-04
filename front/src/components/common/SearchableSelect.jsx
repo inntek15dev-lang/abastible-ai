@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { Search, ChevronDown, X } from 'lucide-react';
 
 /**
@@ -141,7 +141,7 @@ export default function SearchableSelect({
                                     fontSize: '13px',
                                     cursor: 'pointer',
                                     background: value === 'todos' ? '#eff6ff' : 'transparent',
-                                    color: value === 'todos' ? '#2563eb' : '#475569',
+                                    color: value === 'todos' ? '#003594' : '#475569',
                                     fontWeight: value === 'todos' ? 600 : 400,
                                 }}
                                 className="hover:bg-slate-50"
@@ -159,7 +159,7 @@ export default function SearchableSelect({
                                         fontSize: '13px',
                                         cursor: 'pointer',
                                         background: String(value) === String(opt.id) ? '#eff6ff' : 'transparent',
-                                        color: String(value) === String(opt.id) ? '#2563eb' : '#475569',
+                                        color: String(value) === String(opt.id) ? '#003594' : '#475569',
                                         fontWeight: String(value) === String(opt.id) ? 600 : 400,
                                     }}
                                     className="hover:bg-slate-50"
