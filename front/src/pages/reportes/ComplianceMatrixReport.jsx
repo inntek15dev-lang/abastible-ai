@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react';
+﻿import { useState, useEffect, Fragment } from 'react';
 import { Monitor, MapPin, Briefcase, FileText, Filter, ChevronDown, Search, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
@@ -150,7 +150,7 @@ export default function ComplianceMatrixReport() {
             <div style={{ marginBottom: '2rem', marginTop: '1.5rem', display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <div style={{
                     padding: '10px', background: '#eff6ff', borderRadius: '12px',
-                    color: '#2563eb', boxShadow: '0 2px 4px rgba(37,99,235,0.1)'
+                    color: '#003594', boxShadow: '0 2px 4px rgba(0, 53, 148,0.1)'
                 }}>
                     <Monitor size={24} />
                 </div>
@@ -369,7 +369,7 @@ export default function ComplianceMatrixReport() {
                                             <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>{row.rut}</div>
                                         </td>
                                         <td style={tdStyle}>
-                                            <div style={{ color: '#2563eb', fontWeight: 600 }}>{row.programa}</div>
+                                            <div style={{ color: '#003594', fontWeight: 600 }}>{row.programa}</div>
                                             <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{row.servicio}</div>
                                         </td>
                                         <td style={tdStyle}>
@@ -472,7 +472,7 @@ export default function ComplianceMatrixReport() {
                                             borderColor: page === p ? '#3b82f6' : '#e2e8f0',
                                             borderRadius: '8px',
                                             background: page === p ? '#eff6ff' : '#fff',
-                                            color: page === p ? '#2563eb' : '#475569',
+                                            color: page === p ? '#003594' : '#475569',
                                             fontSize: '13px',
                                             fontWeight: 600,
                                             cursor: 'pointer',

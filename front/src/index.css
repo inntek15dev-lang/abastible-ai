@@ -1,4 +1,4 @@
-/* ============================================
+﻿/* ============================================
   @import '../.agent/themes/skin-abastible.css';
 
    Generated: 2026-02-06
@@ -836,7 +836,7 @@ select {
   flex-shrink: 0;
   height: 1rem;
   width: 1rem;
-  color: #2563eb;
+  color: #003594;
   background-color: #fff;
   border-color: #6b7280;
   border-width: 1px;
@@ -927,7 +927,7 @@ select {
 }
 
 .badge--percent-audit {
-  background-color: #2563eb;
+  background-color: #003594;
   color: white;
   font-weight: 700;
 }
@@ -1380,7 +1380,7 @@ select {
 
 .btn-modal-save {
   padding: 0.625rem 2.5rem;
-  background-color: #2563eb;
+  background-color: #003594;
   /* Blue */
   border: none;
   color: white;
@@ -1548,7 +1548,7 @@ select {
   border-radius: 0.25rem;
   border: 1px solid #d1d5db;
   cursor: pointer;
-  accent-color: #2563eb;
+  accent-color: #003594;
   /* blue-600 */
 }
 
@@ -1589,7 +1589,7 @@ select {
 
 .parko-btn-save {
   padding: 0.5rem 1.25rem;
-  background-color: #2563eb;
+  background-color: #003594;
   /* blue-600 */
   border: none;
   color: white;

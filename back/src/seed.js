@@ -219,6 +219,7 @@ async function seed() {
         console.log('📦 Cargando templates de evidencia...');
         const evidenceMap = require('./data/evidence_map.json');
         const templateSource = pathModule.resolve(__dirname, '..', 'storage', 'templates_evidencia');
+        const templateRawSource = pathModule.resolve(__dirname, '..', 'storage', 'templates_raw');
         const storageRoot = pathModule.resolve(__dirname, '../../storage');
         const sanitizeStr = (str) => str.replace(/[^a-z0-9]/gi, '_').toLowerCase();
 
@@ -263,12 +264,14 @@ async function seed() {
                 fs.mkdirSync(targetDir, { recursive: true });
             }
 
-            // Build filename: template_evidencia_actividad_{id}_{NOMBRE_EVIDENCIA}.xlsx
+            // Build filename: template_evidencia_actividad_{id}_{NOMBRE_EVIDENCIA}.ext
+            const ext = pathModule.extname(entry.templateFile) || '.xlsx';
             const evidSanitized = sanitizeStr(entry.evidenceName).substring(0, 50);
-            const fileName = `template_evidencia_actividad_${targetActividad.id}_${evidSanitized}.xlsx`;
+            const fileName = `template_evidencia_actividad_${targetActividad.id}_${evidSanitized}${ext}`;
 
             // Copy template file
-            const sourcePath = pathModule.join(templateSource, entry.templateFile);
+            const sourceDir = entry.isRaw ? templateRawSource : templateSource;
+            const sourcePath = pathModule.join(sourceDir, entry.templateFile);
             const destPath = pathModule.join(targetDir, fileName);
 
             if (fs.existsSync(sourcePath)) {

@@ -1,4 +1,4 @@
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+﻿import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getVisibleModules } from '../config/navigation';
 import { LogOut, ChevronDown, UserCircle, Menu as MenuIcon } from 'lucide-react';
@@ -113,7 +113,7 @@ export default function NavbarModule() {
                         <button
                             type="button"
                             className={`theme-circle ${registroTheme === 'blue' ? 'active' : ''}`}
-                            style={{ backgroundColor: '#2563eb' }}
+                            style={{ backgroundColor: '#003594' }}
                             onClick={() => handleThemeChange('blue')}
                             title="Tema Azul"
                             aria-label="Tema Azul"

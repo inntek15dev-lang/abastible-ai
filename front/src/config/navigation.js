@@ -1,4 +1,4 @@
-// IEEE Trace: REQ-007 | US-051 | config/navigation.js
+﻿// IEEE Trace: REQ-007 | US-051 | config/navigation.js
 import {
     Home,
     FileText,
@@ -82,7 +82,7 @@ export const MODULES = [
         id: 'tutoriales',
         label: 'Centro de Ayuda',
         icon: BookOpen,
-        color: '#2563EB', // Blue
+        color: '#003594', // Blue
         path: '/tutorials',
         module: 'Dashboard' // Accessible to everyone
     }

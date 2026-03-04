@@ -1,4 +1,4 @@
-// IEEE Trace: REQ-005 | components/forms/FileUpload.jsx
+﻿// IEEE Trace: REQ-005 | components/forms/FileUpload.jsx
 import { useState, useRef } from 'react';
 import api from '../../api';
 import { Upload, X, File, Image, FileText } from 'lucide-react';
@@ -117,10 +117,10 @@ export default function FileUpload({
                             justifyContent: 'center',
                             gap: '0.5rem',
                             fontSize: '0.75rem',
-                            color: templateUrl ? '#2563eb' : '#9ca3af',
+                            color: templateUrl ? '#003594' : '#9ca3af',
                             textDecoration: 'none',
                             padding: '0.5rem',
-                            border: `1px dashed ${templateUrl ? '#2563eb' : '#d1d5db'}`,
+                            border: `1px dashed ${templateUrl ? '#003594' : '#d1d5db'}`,
                             borderRadius: '4px',
                             backgroundColor: templateUrl ? '#eff6ff' : '#f3f4f6',
                             transition: 'all 0.2s',

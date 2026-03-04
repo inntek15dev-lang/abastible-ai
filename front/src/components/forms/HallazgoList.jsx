@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Edit2, Trash2, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import api from '../../api';
 
@@ -71,7 +71,7 @@ export default function HallazgoList({ hallazgos, onEdit, onDelete, onCompromiso
                                         onClick={() => onEdit(h)}
                                         className="p-1 hover:bg-white rounded text-blue-600 transition-colors"
                                         title="Editar"
-                                        style={{ padding: '4px', cursor: 'pointer', border: 'none', background: 'transparent', color: '#2563eb' }}
+                                        style={{ padding: '4px', cursor: 'pointer', border: 'none', background: 'transparent', color: '#003594' }}
                                     >
                                         <Edit2 size={16} />
                                     </button>
