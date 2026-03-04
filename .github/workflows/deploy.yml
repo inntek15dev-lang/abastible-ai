@@ -80,6 +80,10 @@ jobs:
             echo "Esperando 15 segundos a que los servicios estabilicen..."
             sleep 15
             
+            # Asegurar consistencia del esquema (Añadir columnas faltantes)
+            echo "Verificando consistencia del esquema..."
+            docker exec oiem_abastible_api node scripts/ensure_schema.js
+            
             # Ejecutamos TU script de seed directamente (según tu estructura src/seed.js)
             echo "Poblando base de datos con script personalizado..."
             docker exec oiem_abastible_api node src/seed.js

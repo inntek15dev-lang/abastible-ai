@@ -4,7 +4,8 @@
     "codigo": "1.1",
     "elementoNumero": "1",
     "evidenceName": "Registro +Seguridad",
-    "templateFile": "template_evidencia_registro_seguridad.xlsx"
+    "templateFile": "template_evidencia_envasado_1.1_registro__seguridad.emf",
+    "isRaw": true
   },
   {
     "programIndex": 0,
@@ -18,7 +19,8 @@
     "codigo": "1.3",
     "elementoNumero": "1",
     "evidenceName": "Registro de Asistencia",
-    "templateFile": "template_evidencia_registro_asistencia.xlsx"
+    "templateFile": "template_evidencia_envasado_1.3_registro_de_asistencia.png",
+    "isRaw": true
   },
   {
     "programIndex": 0,
@@ -46,7 +48,8 @@
     "codigo": "3.2",
     "elementoNumero": "3",
     "evidenceName": "Registro de Asistencia",
-    "templateFile": "template_evidencia_registro_asistencia.xlsx"
+    "templateFile": "template_evidencia_envasado_3.2_registro_de_asistencia.png",
+    "isRaw": true
   },
   {
     "programIndex": 0,
@@ -88,7 +91,8 @@
     "codigo": "5.3",
     "elementoNumero": "9",
     "evidenceName": "Registro de Asistencia",
-    "templateFile": "template_evidencia_registro_asistencia.xlsx"
+    "templateFile": "template_evidencia_envasado_5.3_registro_de_asistencia.png",
+    "isRaw": true
   },
   {
     "programIndex": 0,
