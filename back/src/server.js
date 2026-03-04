@@ -19,9 +19,8 @@ const allowedOrigins = [
     'http://127.0.0.1:3000',
     'http://oiem-abastible.inntek.cl',
     'https://oiem-abastible.inntek.cl',
-    'http://23.81.206.147',
-    'http://23.81.206.147:8087',
-    'http://23.81.206.147:4077'
+    'http://oiem-abastible-api.inntek.cl',
+    'https://oiem-abastible-api.inntek.cl'
 ];
 
 app.use(cors({
