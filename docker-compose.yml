@@ -9,7 +9,7 @@ services:
       - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
       - MYSQL_DATABASE=${DB_NAME}
     ports:
-      - "3376:3306" # Puerto externo para gestión (ej. DBeaver)
+      - "127.0.0.1:3376:3306" # Puerto externo para gestión (ej. DBeaver)
     volumes:
       - ./mysql_data:/var/lib/mysql
     networks:
@@ -43,7 +43,7 @@ services:
     container_name: oiem_abastible_front
     restart: always
     environment:
-      - VITE_API_URL=https://oiem-abastible-api.inntek.cl/api
+      - VITE_API_URL=${VITE_API_URL}
     ports:
       - "127.0.0.1:8087:80"
     depends_on:
