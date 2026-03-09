@@ -113,6 +113,7 @@ async function start() {
         });
     } catch (error) {
         console.error('❌ Error al iniciar servidor:', error);
+        console.error(`🔍 Configuración intentada: Host=${process.env.DB_HOST}, User=${process.env.DB_USER}, DB=${process.env.DB_NAME}`);
         process.exit(1);
     }
 }
