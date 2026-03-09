@@ -5,10 +5,10 @@ Este documento detalla los pasos para levantar la infraestructura completa de **
 ## Requisitos Previos en el Servidor (VPS)
 1. **Docker Engine y Docker Compose** instalados.
 2. **Git** instalado.
-3. Puertos libres: `4000` (Backend API), `8080` (Frontend Nginx).
+3. Puertos libres: `4077` (Backend API), `8087` (Frontend Nginx).
 4. Un proxy reservo (Nginx Proxy Manager, Traefik o Caddy) configurado para manejar los certificados SSL/TLS y apuntar los dominios a los puertos internos:
-   - `oiem-abastible.inntek.cl` -> `localhost:8080`
-   - `oiem-abastible-api.inntek.cl` -> `localhost:4000`
+   - `oiem-abastible.inntek.cl` -> `localhost:8087`
+   - `oiem-abastible-api.inntek.cl` -> `localhost:4077`
 
 ## Arquitectura de Entornos (Importante)
 El código utiliza un orquestador de **3 contenedores**:
