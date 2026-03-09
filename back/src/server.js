@@ -9,6 +9,9 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+// Trust Proxy (Required for Nginx/Load Balancers to handle CORS/IPs correctly)
+app.set('trust proxy', 1);
+
 // Middleware
 const allowedOrigins = [
     'http://localhost:5173',
@@ -25,16 +28,21 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: function (origin, callback) {
-        // Permitir peticiones sin origen (como herramientas de servidor o curl)
+        // Allow requests with no origin (like mobile apps or curl)
         if (!origin) return callback(null, true);
 
-        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+        // Normalize origin (remove trailing slashes for comparison)
+        const normalizedOrigin = origin.endsWith('/') ? origin.slice(0, -1) : origin;
+
+        if (allowedOrigins.indexOf(normalizedOrigin) !== -1 || process.env.NODE_ENV === 'development') {
             callback(null, true);
         } else {
+            console.warn(`🚨 CORS Blocked for origin: ${origin}`);
             callback(new Error('Not allowed by CORS'));
         }
     },
-    credentials: true
+    credentials: true,
+    optionsSuccessStatus: 200
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
