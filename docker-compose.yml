@@ -32,7 +32,7 @@ services:
     env_file:
       - .env
     ports:
-      - "127.0.0.1:4077:80"
+      - "127.0.0.1:4077:4077"
     depends_on:
       - db
     networks:
@@ -54,3 +54,4 @@ services:
 networks:
   abastible_default:
     driver: bridge
+
