@@ -8,6 +8,8 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
       - MYSQL_DATABASE=${DB_NAME}
+    env_file:
+      - .env
     ports:
       - "127.0.0.1:3376:3306" # Puerto externo para gestión (ej. DBeaver)
     volumes:
