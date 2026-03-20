@@ -17,13 +17,17 @@ const {
     ContratistaAsignacion,
     Contratista,
     Vinculacion,
-    Administracion
+    Administracion,
+    VinculacionUsuario,
+    Registro,
+    RegistroActividad,
+    RegistroLog,
+    Compromiso
 } = require('./database/models');
 
 async function seed() {
     try {
         console.log('🔄 Sincronizando base de datos (safe sync)...');
-        // Usamos sync() sin force: true para no borrar la data existente
         await sequelize.sync();
 
         // ============= ORDER 0: Base tables =============
@@ -168,7 +172,6 @@ async function seed() {
             });
         }
 
-        // Roles adicionales
         const dynamicPrivs = [
             { role: roles[1], modules: ['Dashboard', 'Registros', 'Contratistas', 'Reaperturas', 'Compromisos', 'Auditoria', 'Reportes', 'Registros_Exportar', 'Programas'] },
             { role: roles[2], modules: ['Dashboard', 'Registros', 'Evidencias', 'Reaperturas', 'Usuarios', 'Compromisos', 'Reportes', 'Registros_Exportar', 'Programas'] },
@@ -203,7 +206,6 @@ async function seed() {
         // ============= ORDER 3: Vinculaciones de MAFRAN =============
         console.log('📦 Sincronizando vinculaciones de MAFRAN...');
         const vinculacionesSource = [
-            // DISTRIBUCIÓN ENVASADO
             { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[0].id, numero_contrato: '265', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
             { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[1].id, numero_contrato: '277', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
             { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[2].id, numero_contrato: '297', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
@@ -212,7 +214,6 @@ async function seed() {
             { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[5].id, numero_contrato: '1208', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
             { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[6].id, numero_contrato: '1248', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
             { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[7].id, numero_contrato: '1320', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            // DISTRIBUCIÓN GRANEL
             { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[7].id, numero_contrato: '1397', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
             { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[8].id, numero_contrato: '1399', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
             { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[3].id, numero_contrato: '1400', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
@@ -236,39 +237,19 @@ async function seed() {
         console.log('📦 Sincronizando usuarios...');
         const hashedPassword = await bcrypt.hash('User123*', 10);
 
-        // 1. Admin OIEM (admin) - CASO ESPECIAL: Siempre se restaura
-        const [adminOiem, created] = await User.findOrCreate({
+        const [adminOiem, adminCreated] = await User.findOrCreate({
             where: { email: 'admin@abastible.cl' },
-            defaults: {
-                name: 'Administrador OIEM',
-                password: hashedPassword,
-                role: 'admin',
-                activo: 1
-            }
+            defaults: { name: 'Administrador OIEM', password: hashedPassword, role: 'admin', activo: 1 }
         });
+        if (!adminCreated) await adminOiem.update({ password: hashedPassword, activo: 1 });
 
-        if (!created) {
-            console.log('⚠️ Restaurando usuario administrador (admin@abastible.cl)...');
-            await adminOiem.update({
-                name: 'Administrador OIEM',
-                password: hashedPassword,
-                role: 'admin',
-                activo: 1
-            });
-        }
-
-        // Usuarios regulares (idempotentes)
         const regularUsers = [
             { name: 'Administrador de Contratos', email: 'administrador.contrato@abastible.cl', password: hashedPassword, role: 'administrador_contrato', activo: 1 },
             { name: 'Contratista Administrador', email: 'contratista.admin@demo.cl', password: hashedPassword, role: 'contratista_admin', contratista_id: mafran.id, activo: 1 }
         ];
-
         const usersCreated = { adminOiem };
         for (const u of regularUsers) {
-            const [user] = await User.findOrCreate({
-                where: { email: u.email },
-                defaults: u
-            });
+            const [user] = await User.findOrCreate({ where: { email: u.email }, defaults: u });
             if (u.role === 'administrador_contrato') usersCreated.adminContrato = user;
             if (u.role === 'contratista_admin') usersCreated.contratistaAdmin = user;
         }
@@ -287,33 +268,26 @@ async function seed() {
             }
         });
 
+        console.log('📦 Sincronizando VinculacionUsuario...');
+        await VinculacionUsuario.findOrCreate({
+            where: { vinculacion_id: vinculaciones[11].id, user_id: contratistaUser.id },
+            defaults: { activo: 1 }
+        });
+
         // ============= ORDER 5: Asignación y Administración =============
         console.log('📦 Sincronizando asignaciones y administración...');
         await ContratistaAsignacion.findOrCreate({
-            where: { 
-                user_id: usersCreated.contratistaAdmin.id,
-                tipo_contratista_id: tiposContratista[1].id,
-                dependencia_id: dependencias[9].id
-            },
-            defaults: {
-                administrador_contrato_id: usersCreated.adminContrato.id,
-                periodo_inicio: new Date('2026-02-01')
-            }
+            where: { user_id: usersCreated.contratistaAdmin.id, tipo_contratista_id: tiposContratista[1].id, dependencia_id: dependencias[9].id },
+            defaults: { administrador_contrato_id: usersCreated.adminContrato.id, periodo_inicio: new Date('2026-02-01') }
         });
 
         await Administracion.findOrCreate({
             where: { vinculacion_id: vinculaciones[11].id },
-            defaults: {
-                administrador_contrato_id: usersCreated.adminContrato.id,
-                activo: 1
-            }
+            defaults: { administrador_contrato_id: usersCreated.adminContrato.id, activo: 1 }
         });
 
         // ============= EVIDENCE TEMPLATES =============
         console.log('📦 Cargando templates de evidencia...');
-        // (La lógica existente de templates ya es bastante segura por el fs.existsSync y update idempotente)
-        // Pero vamos a envolverla o dejarla igual si consideramos que no rompe nada manual.
-        // El update de Actividad.template_url es directo, pero Actividad ya existe.
         const evidenceMap = require('./data/evidence_map.json');
         const templateSource = pathModule.resolve(__dirname, '..', 'storage', 'templates_evidencia');
         const templateRawSource = pathModule.resolve(__dirname, '..', 'storage', 'templates_raw');
@@ -327,10 +301,8 @@ async function seed() {
             if (!entry.templateFile) continue;
             const programaId = programaIds[entry.programIndex];
             if (!programaId) continue;
-
             const targetActividad = allActividades.find(act => act.codigo === entry.codigo);
             if (!targetActividad) continue;
-
             const elTarget = await Elemento.findByPk(targetActividad.elemento_id);
             if (!elTarget) continue;
 
@@ -339,28 +311,88 @@ async function seed() {
             if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
 
             const ext = pathModule.extname(entry.templateFile) || '.xlsx';
-            const evidSanitized = sanitizeStr(entry.evidenceName).substring(0, 50);
-            const fileName = `template_evidencia_actividad_${targetActividad.id}_${evidSanitized}${ext}`;
-
-            const sourceDir = entry.isRaw ? templateRawSource : templateSource;
-            const sourcePath = pathModule.join(sourceDir, entry.templateFile);
+            const fileName = `template_evidencia_actividad_${targetActividad.id}_${sanitizeStr(entry.evidenceName).substring(0, 50)}${ext}`;
+            const sourcePath = pathModule.join(entry.isRaw ? templateRawSource : templateSource, entry.templateFile);
             const destPath = pathModule.join(targetDir, fileName);
 
             if (fs.existsSync(sourcePath)) {
-                if (!fs.existsSync(destPath)) {
-                    fs.copyFileSync(sourcePath, destPath);
-                }
-                const templateUrl = ['storage', storageRelativePath.split(pathModule.sep).join('/'), fileName].join('/');
-                await targetActividad.update({ template_url: templateUrl });
+                if (!fs.existsSync(destPath)) fs.copyFileSync(sourcePath, destPath);
+                await targetActividad.update({ template_url: ['storage', storageRelativePath.split(pathModule.sep).join('/'), fileName].join('/') });
                 templatesLoaded++;
             }
         }
         console.log(`✅ ${templatesLoaded} templates de evidencia procesados`);
 
-        console.log('');
-        console.log('✅ Sincronización base completada exitosamente!');
-        console.log('📋 Nota: Solo el usuario admin@abastible.cl fue restaurado forzosamente.');
-        
+        // ============= SAMPLE DATA: Registros, Logs & Compromisos =============
+        console.log('🚀 Sincronizando data de muestra (Granel Mafran Osorno)...');
+        const sampleData = [
+            { period: '2025-10-01', estado: 'finalizado', avance: 100, personas: 15, dotacion: 20 },
+            { period: '2025-11-01', estado: 'finalizado', avance: 100, personas: 16, dotacion: 20 },
+            { period: '2025-12-01', estado: 'auditada', avance: 100, personas: 14, dotacion: 18 },
+            { period: '2026-01-01', estado: 'subsanado', avance: 80, personas: 15, dotacion: 19 },
+            { period: '2026-02-01', estado: 'pendiente', avance: 50, personas: 12, dotacion: 15 },
+            { period: '2026-03-01', estado: 'borrador', avance: 10, personas: 10, dotacion: 12 }
+        ];
+
+        const vinc = vinculaciones[11];
+        const activities = await Actividad.findAll({
+            include: [{ model: Elemento, as: 'elemento', where: { programa_id: programas[1].id } }]
+        });
+
+        for (const item of sampleData) {
+            const [registro, regCreated] = await Registro.findOrCreate({
+                where: { periodo: item.period, contratista_asignacion_id: vinc.id },
+                defaults: {
+                    user_id: contratistaUser.id,
+                    programa_id: programas[1].id,
+                    dependencia_id: vinc.dependencia_id,
+                    eecc_nombre: mafran.nombre,
+                    dependencia: 'PLANTA OSORNO',
+                    personas_nuevas: Math.floor(item.personas / 4),
+                    supervisores: 2, prevencionistas: 1, dotacion_total: item.dotacion,
+                    porcentaje_cumplimiento: item.avance,
+                    porcentaje_cumplimiento_auditor: item.estado === 'finalizado' ? item.avance : null,
+                    auditado: item.estado === 'finalizado' ? 1 : 0,
+                    cerrado: item.estado === 'finalizado' ? 1 : 0,
+                    estado_auditoria: item.estado === 'borrador' ? 'pendiente' : item.estado,
+                    auditado_por: (item.estado === 'finalizado' || item.estado === 'auditada') ? usersCreated.adminContrato.id : null,
+                    fecha_auditoria: (item.estado === 'finalizado' || item.estado === 'auditada') ? new Date() : null
+                }
+            });
+
+            if (regCreated && activities.length > 0) {
+                await RegistroActividad.bulkCreate(activities.map(act => ({
+                    registro_id: registro.id, actividad_id: act.id,
+                    cumple: item.avance > 50 ? 1 : (Math.random() > 0.3 ? 1 : 0),
+                    observacion: item.avance < 100 && Math.random() > 0.7 ? 'Observación de muestra' : null,
+                    no_aplica: 0
+                })));
+
+                const logs = [{ registro_id: registro.id, user_id: contratistaUser.id, accion: 'CREACION', descripcion: 'Registro mensual iniciado.', created_at: new Date(new Date(item.period).getTime() + 1000) }];
+                if (item.estado !== 'borrador' && item.estado !== 'pendiente') {
+                    logs.push({ registro_id: registro.id, user_id: contratistaUser.id, accion: 'ENVIO', descripcion: 'Registro enviado.', created_at: new Date(new Date(item.period).getTime() + 5 * 24 * 60 * 60 * 1000) });
+                    if (['auditada', 'finalizado', 'subsanado'].includes(item.estado)) {
+                        logs.push({ registro_id: registro.id, user_id: usersCreated.adminContrato.id, accion: 'INICIO_AUDITORIA', descripcion: 'Auditoría iniciada.', created_at: new Date(new Date(item.period).getTime() + 7 * 24 * 60 * 60 * 1000) });
+                    }
+                    if (item.estado === 'subsanado') {
+                        logs.push({ registro_id: registro.id, user_id: usersCreated.adminContrato.id, accion: 'OBSERVACION', descripcion: 'Observaciones emitidas.', created_at: new Date(new Date(item.period).getTime() + 10 * 24 * 60 * 60 * 1000) });
+                        logs.push({ registro_id: registro.id, user_id: contratistaUser.id, accion: 'SUBSANACION', descripcion: 'Correcciones realizadas.', created_at: new Date(new Date(item.period).getTime() + 15 * 24 * 60 * 60 * 1000) });
+                    }
+                    if (item.estado === 'finalizado') {
+                        logs.push({ registro_id: registro.id, user_id: usersCreated.adminContrato.id, accion: 'CIERRE_AUDITORIA', descripcion: 'Auditoría cerrada.', created_at: new Date(new Date(item.period).getTime() + 12 * 24 * 60 * 60 * 1000) });
+                    }
+                }
+                await RegistroLog.bulkCreate(logs);
+
+                if (item.period === '2026-01-01') {
+                    await Compromiso.create({ registro_id: registro.id, responsable_id: contratistaUser.id, creado_por_id: usersCreated.adminContrato.id, descripcion: 'Renovar licencias vencidas.', fecha_compromiso: '2026-02-15', estado: 'pendiente' });
+                } else if (item.period === '2025-10-01') {
+                    await Compromiso.create({ registro_id: registro.id, responsable_id: contratistaUser.id, creado_por_id: usersCreated.adminContrato.id, descripcion: 'Capacitación vial.', fecha_compromiso: '2025-11-15', estado: 'cumplido', fecha_cumplimiento: '2025-11-12', observacion_cumplimiento: 'Realizada.' });
+                }
+            }
+        }
+
+        console.log('\n✅ Sincronización completa exitosamente!');
         process.exit(0);
     } catch (error) {
         console.error('❌ Error en seed:', error);
