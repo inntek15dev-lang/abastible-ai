@@ -9,11 +9,13 @@ const evidenciaController = {
     // GET /api/evidencias?registro_actividad_id=X
     async index(req, res) {
         try {
-            const { registro_actividad_id, registro_id, periodo, contratista_id, programa_id } = req.query;
+            const { registro_actividad_id, registro_id, periodo, contratista_id, programa_id, elemento_id, actividad_id } = req.query;
             let where = {};
             let whereRegistro = {};
+            let whereRegistroActividad = {};
 
             if (registro_actividad_id) where.registro_actividad_id = registro_actividad_id;
+            if (actividad_id) whereRegistroActividad.actividad_id = actividad_id;
 
             if (registro_id) whereRegistro.id = registro_id;
             if (periodo) whereRegistro.periodo = periodo;
@@ -25,8 +27,16 @@ const evidenciaController = {
                     {
                         model: RegistroActividad,
                         as: 'registroActividad',
-                        required: (registro_id || periodo || programa_id || contratista_id) ? true : false,
+                        where: Object.keys(whereRegistroActividad).length > 0 ? whereRegistroActividad : undefined,
+                        required: (registro_id || periodo || programa_id || contratista_id || elemento_id || actividad_id) ? true : false,
                         include: [
+                            {
+                                model: Actividad,
+                                as: 'actividad',
+                                required: (elemento_id) ? true : false,
+                                where: elemento_id ? { elemento_id } : undefined,
+                                include: [{ model: Elemento, as: 'elemento' }]
+                            },
                             {
                                 model: Registro,
                                 as: 'registro',
@@ -57,10 +67,13 @@ const evidenciaController = {
     // GET /api/evidencias/bulk-download
     async downloadSelected(req, res) {
         try {
-            const { periodo, contratista_id, programa_id } = req.query;
+            const { periodo, contratista_id, programa_id, elemento_id, actividad_id } = req.query;
             let whereRegistro = {};
+            let whereRegistroActividad = {};
+
             if (periodo) whereRegistro.periodo = periodo;
             if (programa_id) whereRegistro.programa_id = programa_id;
+            if (actividad_id) whereRegistroActividad.actividad_id = actividad_id;
 
             const evidencias = await Evidencia.findAll({
                 include: [
@@ -68,7 +81,14 @@ const evidenciaController = {
                         model: RegistroActividad,
                         as: 'registroActividad',
                         required: true,
+                        where: Object.keys(whereRegistroActividad).length > 0 ? whereRegistroActividad : undefined,
                         include: [
+                            {
+                                model: Actividad,
+                                as: 'actividad',
+                                required: (elemento_id) ? true : false,
+                                where: elemento_id ? { elemento_id } : undefined
+                            },
                             {
                                 model: Registro,
                                 as: 'registro',

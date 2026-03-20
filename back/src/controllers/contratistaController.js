@@ -6,11 +6,16 @@ const contratistaController = {
     async index(req, res) {
         try {
             const { role, id, contratista_id } = req.user;
-            let whereContratista = { activo: 1 };
+            const { activo } = req.query;
+            
+            let whereContratista = {};
+            if (activo !== undefined) {
+                whereContratista.activo = activo === 'true' || activo === '1' ? 1 : 0;
+            }
+
             let includeVinculacion = {
                 model: Vinculacion,
                 as: 'vinculaciones',
-                where: { activo: 1 },
                 required: false,
                 include: [
                     { model: TipoContratista, as: 'servicio', include: [{ model: Programa, as: 'programa', attributes: ['id', 'nombre'] }] },

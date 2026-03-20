@@ -60,6 +60,16 @@ export default function ElementoList() {
         }
     };
 
+    const handleDeleteElement = async (id) => {
+        if (!window.confirm('¿Está seguro de eliminar este elemento? Se eliminarán todas sus actividades asociadas. Esta acción no se puede deshacer.')) return;
+        try {
+            await api.delete(`/elementos/${id}`);
+            fetchProgramData(); // Refresh list
+        } catch (err) {
+            alert('Error al eliminar el elemento. Verifique si tiene permisos.');
+        }
+    };
+
     if (loading) return <div className="loading">Cargando...</div>;
     if (error) return <div className="error-message">{error}</div>;
     if (!program) return <div className="error-message">Programa no encontrado</div>;
@@ -153,6 +163,12 @@ export default function ElementoList() {
                                             <Link to={`/elementos/${elem.id}/edit`} className="btn-edit-text">
                                                 <Pencil size={14} /> Editar
                                             </Link>
+                                            <button
+                                                className="btn-delete-text"
+                                                onClick={() => handleDeleteElement(elem.id)}
+                                            >
+                                                <Trash2 size={14} /> Eliminar
+                                            </button>
                                         </>
                                     )}
                                 </div>

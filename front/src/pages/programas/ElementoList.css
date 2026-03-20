@@ -274,6 +274,24 @@
     gap: 4px;
 }
 
+.btn-delete-text {
+    background: none;
+    border: none;
+    color: #DB3E34;
+    /* Red for delete */
+    cursor: pointer;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 500;
+}
+
+.btn-delete-text:hover {
+    color: #B22B22;
+    text-decoration: underline;
+}
+
 /* -----------------------------
    6. ACTIVITIES TABLE
    ----------------------------- */

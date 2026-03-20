@@ -800,10 +800,11 @@ const dashboardController = {
                 }
             }
 
-            // --- Date range for registros: last 6 months ---
-            const today = new Date();
-            const startMonth = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+            // --- Date range for registros: 6 months ending in 'periodo' or 'current' ---
+            const today = req.query.periodo ? new Date(req.query.periodo + '-01') : new Date();
+            // Move 'today' to the last day of THAT month to ensure between works
             const endMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            const startMonth = new Date(today.getFullYear(), today.getMonth() - 5, 1);
 
             // --- Tiene Registros filter via Subquery (for accurate pagination) ---
             if (tiene_registros === 'si' || tiene_registros === 'no') {

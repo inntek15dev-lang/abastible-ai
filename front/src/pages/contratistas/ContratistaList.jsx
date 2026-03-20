@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
-import { Building, Search, Plus, MapPin, Users, Edit, Trash2, RefreshCw, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Building, Search, Plus, MapPin, Users, Edit, Trash2, RefreshCw, X, ChevronDown, ChevronUp, Power } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import SyncContratistasModal from '../../components/modals/SyncContratistasModal';
 import VinculacionManager from '../../components/contratistas/VinculacionManager';
@@ -18,6 +18,7 @@ export default function ContratistaList() {
     const [expandedRows, setExpandedRows] = useState({}); // Track expanded rows
     const [potentialAdmins, setPotentialAdmins] = useState([]); // Users with role 'administrador_contrato'
     const [updatingAdmin, setUpdatingAdmin] = useState(null); // ID of contractor currently updating
+    const [usersCAdmin, setUsersCAdmin] = useState([]);
 
     const { canWrite, canExec } = useAuth();
 
@@ -33,6 +34,7 @@ export default function ContratistaList() {
     useEffect(() => {
         fetchContratistas();
         fetchAdmins();
+        fetchCAdmins();
     }, []);
 
     const fetchAdmins = async () => {
@@ -41,6 +43,15 @@ export default function ContratistaList() {
             setPotentialAdmins(response.data.data || []);
         } catch (err) {
             console.error('Error fetching admins', err);
+        }
+    };
+
+    const fetchCAdmins = async () => {
+        try {
+            const res = await api.get('/usuarios?role=contratista_admin');
+            setUsersCAdmin(res.data.data || []);
+        } catch (err) {
+            console.error("Error fetching CAdmins:", err);
         }
     };
 
@@ -55,7 +66,7 @@ export default function ContratistaList() {
         }
     };
 
-    const handleDelete = async (id, isCurrentlyActive) => {
+    const handleToggleStatus = async (id, isCurrentlyActive) => {
         const action = isCurrentlyActive ? 'desactivar' : 'activar';
         if (!confirm(`¿Está seguro de ${action} este contratista?`)) return;
         try {
@@ -64,6 +75,41 @@ export default function ContratistaList() {
             fetchContratistas();
         } catch (err) {
             toast.error('Error al cambiar estado del contratista');
+        }
+    };
+
+    const handleCAdminAdd = async (contratistaId, userId) => {
+        if (!userId) return;
+        setUpdatingAdmin(contratistaId);
+        try {
+            await api.put(`/usuarios/${userId}`, { contratista_id: contratistaId });
+            toast.success('Administrador asignado correctamente');
+            fetchContratistas();
+        } catch (err) {
+            toast.error('Error al asignar administrador');
+        } finally {
+            setUpdatingAdmin(null);
+        }
+    };
+
+    const handleCAdminRemove = async (userId) => {
+        try {
+            await api.put(`/usuarios/${userId}`, { contratista_id: null });
+            toast.success('Administrador removido correctamente');
+            fetchContratistas();
+        } catch (err) {
+            toast.error('Error al remover administrador');
+        }
+    };
+
+    const handleDeletePermanent = async (id) => {
+        if (!confirm('¿Está seguro de ELIMINAR permanentemente este contratista y todas sus vinculaciones?')) return;
+        try {
+            await api.delete(`/contratistas/${id}`);
+            toast.success('Contratista eliminado permanentemente');
+            fetchContratistas();
+        } catch (err) {
+            toast.error('Error al eliminar permanentemente');
         }
     };
 
@@ -103,7 +149,7 @@ export default function ContratistaList() {
 
             // Status Filter
             const matchesStatus = filters.estado === 'Todos' ||
-                (filters.estado === 'Activo' ? c.activo : !c.activo);
+                (filters.estado === 'Activo' ? c.activo === 1 : c.activo === 0);
 
             // Service Filter
             const matchesService = filters.servicio === 'Todos' ||
@@ -321,7 +367,7 @@ export default function ContratistaList() {
                         value={filters.estado}
                         onChange={e => setFilters({ ...filters, estado: e.target.value })}
                     >
-                        <option value="Todos">Activos</option>
+                        <option value="Todos">Todos</option>
                         <option value="Activo">Activos</option>
                         <option value="Inactivo">Inactivos</option>
                     </select>
@@ -350,7 +396,7 @@ export default function ContratistaList() {
                 <div>RUT</div>
                 <div>SERVICIO</div>
                 <div>DEPENDENCIA</div>
-                <div>ADMIN CONTRATO</div>
+                <div>CONTRATISTA ADMIN</div>
                 <div>INICIO CONT.</div>
                 <div>TÉRMINO CONT.</div>
                 <div style={{ textAlign: 'right' }}>ACCIONES</div>
@@ -393,7 +439,7 @@ export default function ContratistaList() {
                                         {getDependencyNames(c.vinculaciones)}
                                     </div>
                                     <div className="admin-tags-container" style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                        {getAdminObjects(c.vinculaciones).map(admin => (
+                                        {(c.usuarios || []).filter(u => u.role === 'contratista_admin').map(admin => (
                                             <div key={admin.id} className="admin-tag" style={{
                                                 display: 'flex',
                                                 alignItems: 'center',
@@ -408,7 +454,7 @@ export default function ContratistaList() {
                                                 {admin.name}
                                                 {canWrite('Configuración') && (
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); handleAdminRemove(c.id, admin.id); }}
+                                                        onClick={(e) => { e.stopPropagation(); handleCAdminRemove(admin.id); }}
                                                         style={{
                                                             marginLeft: '4px',
                                                             border: 'none',
@@ -432,7 +478,7 @@ export default function ContratistaList() {
                                                 <select
                                                     className="add-admin-select"
                                                     value=""
-                                                    onChange={(e) => handleAdminChange(c.id, e.target.value)}
+                                                    onChange={(e) => handleCAdminAdd(c.id, e.target.value)}
                                                     disabled={updatingAdmin === c.id}
                                                     style={{
                                                         padding: '2px 4px',
@@ -446,17 +492,15 @@ export default function ContratistaList() {
                                                     }}
                                                 >
                                                     <option value="">+ Añadir</option>
-                                                    {potentialAdmins
-                                                        .filter(pa => !getAdminObjects(c.vinculaciones).some(a => a.id === pa.id))
-                                                        .map(admin => (
-                                                            <option key={admin.id} value={admin.id}>
-                                                                {admin.name}
-                                                            </option>
+                                                    {usersCAdmin
+                                                        .filter(u => u.contratista_id !== c.id)
+                                                        .map(u => (
+                                                            <option key={u.id} value={u.id}>{u.name}</option>
                                                         ))}
                                                 </select>
                                             </div>
                                         )}
-                                        {getAdminObjects(c.vinculaciones).length === 0 && !canWrite('Configuración') && (
+                                        {((c.usuarios || []).filter(u => u.role === 'contratista_admin').length === 0) && !canWrite('Configuración') && (
                                             <span style={{ color: '#94A3B8', fontStyle: 'italic', fontSize: '0.75rem' }}>Sin asignar</span>
                                         )}
                                     </div>
@@ -477,16 +521,24 @@ export default function ContratistaList() {
 
                                         {canWrite('Configuración') && (
                                             <>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleToggleStatus(c.id, c.activo); }}
+                                                    className="action-btn"
+                                                    style={{ color: c.activo ? '#10B981' : '#F59E0B' }}
+                                                    title={c.activo ? "Desactivar" : "Activar"}
+                                                >
+                                                    <Power size={18} />
+                                                </button>
                                                 <Link to={`/contratistas/${c.id}`} className="action-btn" title="Editar">
                                                     <Edit size={18} />
                                                 </Link>
                                                 {canExec('Configuración') && (
                                                     <button
-                                                        onClick={() => handleDelete(c.id, c.activo)}
-                                                        className={`action-btn ${c.activo ? 'danger' : 'success'}`}
-                                                        title={c.activo ? "Desactivar" : "Activar"}
+                                                        onClick={(e) => { e.stopPropagation(); handleDeletePermanent(c.id); }}
+                                                        className="action-btn danger"
+                                                        title="Eliminar permanentemente"
                                                     >
-                                                        {c.activo ? <Trash2 size={18} /> : <RefreshCw size={18} />}
+                                                        <Trash2 size={18} />
                                                     </button>
                                                 )}
                                             </>

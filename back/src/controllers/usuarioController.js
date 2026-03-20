@@ -31,8 +31,14 @@ const usuarioController = {
                 const vincSearchWhere = { contratista_id: cId, activo: 1 };
 
                 if (isUser) {
+                    // Contratista User: only see users within their SAME vinculation (service/dependencia)
                     vincSearchWhere.servicio_id = req.user.tipo_contratista_id;
                     vincSearchWhere.dependencia_id = req.user.dependencia_id;
+                    
+                    // Also filter the User query to only show those with same service/dep
+                    where.tipo_contratista_id = req.user.tipo_contratista_id;
+                    where.dependencia_id = req.user.dependencia_id;
+                    where.contratista_id = req.user.contratista_id;
                 }
 
                 const admins = await Administracion.findAll({
@@ -169,10 +175,10 @@ const usuarioController = {
             let finalRole = role || 'contratista_user';
             let finalParentId = parent_id;
 
-            if (req.user.role === 'contratista_admin' || req.user.role === 'contratista_admin_eecc') {
-                // Contratistas admins can only create contratista_user under themselves
+            if (req.user.role === 'contratista_admin' || req.user.role === 'contratista_admin_eecc' || req.user.role === 'contratista_user') {
+                // Contractor roles can only create users under their same company/link
                 finalRole = 'contratista_user';
-                finalParentId = req.user.id;
+                finalParentId = req.user.parent_id || req.user.id; // Usually link to their admin or themselves
             } else if (req.user.role === 'administrador_contrato') {
                 // Admin contrato can create contratista_admin, contratista_admin_eecc or contratista_user
                 if (!['contratista_admin', 'contratista_admin_eecc', 'contratista_user'].includes(finalRole)) {
@@ -235,6 +241,7 @@ const usuarioController = {
     // PUT /api/usuarios/:id
     async update(req, res) {
         try {
+            const updateData = req.body;
             const usuario = await User.findByPk(req.params.id);
 
             if (!usuario) {
@@ -245,13 +252,17 @@ const usuarioController = {
             // Prevent unauthorized edits by roles with limited scope
             if (req.user.role === 'contratista_admin') {
                 // Can only edit themselves or their children (operativos)
-                if (usuario.id !== req.user.id && usuario.parent_id !== req.user.id) {
+                if (String(usuario.id) !== String(req.user.id) && String(usuario.parent_id) !== String(req.user.id)) {
                     return res.status(403).json({ success: false, message: 'No tiene permiso para editar este usuario' });
                 }
             } else if (req.user.role === 'contratista_user') {
-                // Can only edit themselves
-                if (usuario.id !== req.user.id) {
-                    return res.status(403).json({ success: false, message: 'Solo puede editar su propio perfil' });
+                // Can edit themselves OR users in their same company+service+dependencia
+                const isSameScope = String(usuario.contratista_id) === String(req.user.contratista_id) && 
+                                   String(usuario.tipo_contratista_id) === String(req.user.tipo_contratista_id) &&
+                                   String(usuario.dependencia_id) === String(req.user.dependencia_id);
+                                   
+                if (String(usuario.id) !== String(req.user.id) && !isSameScope) {
+                    return res.status(403).json({ success: false, message: 'No tiene permiso para editar este usuario' });
                 }
             } else if (req.user.role === 'administrador_contrato') {
                 // Ensure the user belongs to their assigned scope
@@ -273,7 +284,7 @@ const usuarioController = {
 
             // SECURITY SCOPE CHECK: Prevent self-deactivation
             if (updateData.activo === 0 || updateData.activo === false) {
-                if (usuario.id === req.user.id) {
+                if (String(usuario.id) === String(req.user.id)) {
                     return res.status(403).json({ success: false, message: 'No puede desactivar su propia cuenta' });
                 }
             }
@@ -302,8 +313,18 @@ const usuarioController = {
         try {
             const usuario = await User.findByPk(req.params.id);
 
-            if (usuario.id === req.user.id) {
+            if (String(usuario.id) === String(req.user.id)) {
                 return res.status(403).json({ success: false, message: 'No puede desactivar su propia cuenta' });
+            }
+            
+            // SECURITY SCOPE CHECK for Contratista User
+            if (req.user.role === 'contratista_user') {
+                 const isSameScope = String(usuario.contratista_id) === String(req.user.contratista_id) && 
+                                   String(usuario.tipo_contratista_id) === String(req.user.tipo_contratista_id) &&
+                                   String(usuario.dependencia_id) === String(req.user.dependencia_id);
+                if (!isSameScope) {
+                    return res.status(403).json({ success: false, message: 'No tiene permiso para desactivar este usuario' });
+                }
             }
 
             await usuario.update({ activo: 0 });

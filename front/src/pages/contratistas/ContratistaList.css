@@ -1,4 +1,4 @@
-﻿/* ============================================
+/* ============================================
    Theme: ContratistaManager
    Source: info/medias/vista-gestion-contratistas.png
    ============================================ */
@@ -14,7 +14,7 @@
     --color-primary: #003594;
     /* Blue actions */
     --color-primary-hover: #1D4ED8;
-    --color-secondary: #F97316;
+    --color-secondary: #fe5000;
     /* Orange accents */
 
     --color-text-main: #111827;
@@ -300,6 +300,10 @@
     color: #EF4444;
 }
 
+.action-btn.success {
+    color: #10B981;
+}
+
 .action-btn:hover {
     background-color: #F3F4F6;
 }
@@ -323,7 +327,7 @@
 
 .vinc-list-header {
     display: grid;
-    grid-template-columns: 1fr 1fr 1.5fr 1fr 1fr 40px;
+    grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) 1.5fr 1.5fr 1.5fr 100px 100px 100px 80px;
     padding: 0 12px;
     margin-bottom: 8px;
     font-size: 0.75rem;
@@ -334,7 +338,7 @@
 
 .vinc-item {
     display: grid;
-    grid-template-columns: 1fr 1fr 1.5fr 1fr 1fr 40px;
+    grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) 1.5fr 1.5fr 1.5fr 100px 100px 100px 80px;
     align-items: center;
     background: #FFFFFF;
     padding: 8px 12px;
@@ -366,4 +370,21 @@
     border-radius: 4px;
     font-size: 0.8rem;
     font-weight: 500;
+}
+
+/* Custom styles for vinculacion editing inputs */
+.add-vinc-admin-select {
+    border-radius: 10px;
+    background-color: #e0f2fe;
+    border: 1px solid #0376b0;
+    color: #0376b0;
+    font-size: 0.85rem;
+    padding: 4px 8px;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.add-vinc-admin-select:focus {
+    box-shadow: 0 0 0 2px rgba(3, 118, 176, 0.2);
+    border-color: #0284c7;
 }

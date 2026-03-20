@@ -1,5 +1,5 @@
-﻿import { useState, useEffect, Fragment } from 'react';
-import { Monitor, MapPin, Briefcase, FileText, Filter, ChevronDown, Search, XCircle } from 'lucide-react';
+import { useState, useEffect, Fragment } from 'react';
+import { Monitor, MapPin, Briefcase, FileText, Filter, ChevronDown, Search, XCircle, FileSpreadsheet } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
@@ -18,7 +18,8 @@ export default function ComplianceMatrixReport() {
         servicio_id: 'todos',
         dependencia_id: 'todas',
         programa_id: 'todos',
-        tiene_registros: 'todos'
+        tiene_registros: 'todos',
+        periodo: new Date().toISOString().slice(0, 7)
     });
 
     // Options for filters
@@ -76,41 +77,71 @@ export default function ComplianceMatrixReport() {
             servicio_id: user?.role === 'contratista_user' ? (user.tipo_contratista_id || 'todos') : 'todos',
             dependencia_id: user?.role === 'contratista_user' ? (user.dependencia_id || 'todas') : 'todas',
             programa_id: 'todos',
-            tiene_registros: 'todos'
+            tiene_registros: 'todos',
+            periodo: new Date().toISOString().slice(0, 7)
         });
         setPage(1);
     };
 
-    useEffect(() => {
-        const fetchMatrix = async () => {
-            setLoading(true);
-            try {
-                const params = new URLSearchParams();
-                if (filters.contratista_id !== 'todos') params.append('contratista_id', filters.contratista_id);
-                if (filters.servicio_id !== 'todos') params.append('servicio_id', filters.servicio_id);
-                if (filters.dependencia_id !== 'todas') params.append('dependencia_id', filters.dependencia_id);
-                if (filters.programa_id !== 'todos') params.append('programa_id', filters.programa_id);
-                if (filters.tiene_registros !== 'todos') params.append('tiene_registros', filters.tiene_registros);
+    const fetchMatrix = async () => {
+        setLoading(true);
+        try {
+            const params = new URLSearchParams();
+            if (filters.contratista_id !== 'todos') params.append('contratista_id', filters.contratista_id);
+            if (filters.servicio_id !== 'todos') params.append('servicio_id', filters.servicio_id);
+            if (filters.dependencia_id !== 'todas') params.append('dependencia_id', filters.dependencia_id);
+            if (filters.programa_id !== 'todos') params.append('programa_id', filters.programa_id);
+            if (filters.tiene_registros !== 'todos') params.append('tiene_registros', filters.tiene_registros);
+            if (filters.periodo) params.append('periodo', filters.periodo);
 
-                params.append('page', page);
-                params.append('limit', 5);
+            params.append('page', page);
+            params.append('limit', 5);
 
-                const response = await api.get(`/dashboard/matrix?${params.toString()}`);
-                if (response.data.success) {
-                    setData({
-                        columns: response.data.data.columns,
-                        rows: response.data.data.rows
-                    });
-                    setPagination(response.data.data.pagination);
-                }
-            } catch (error) {
-                console.error("Error fetching matrix:", error);
-            } finally {
-                setLoading(false);
+            const response = await api.get(`/dashboard/matrix?${params.toString()}`);
+            if (response.data.success) {
+                setData({
+                    columns: response.data.data.columns,
+                    rows: response.data.data.rows
+                });
+                setPagination(response.data.data.pagination);
             }
-        };
+        } catch (error) {
+            console.error("Error fetching matrix:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchMatrix();
-    }, [filters, page]);
+    }, [page]); // Only refetch on page change automatically
+
+    const handleFiltrar = () => {
+        setPage(1);
+        fetchMatrix();
+    };
+
+    const handleExportPdf = () => {
+        const params = new URLSearchParams();
+        if (filters.contratista_id !== 'todos') params.append('contratista_id', filters.contratista_id);
+        if (filters.servicio_id !== 'todos') params.append('servicio_id', filters.servicio_id);
+        if (filters.dependencia_id !== 'todas') params.append('dependencia_id', filters.dependencia_id);
+        if (filters.programa_id !== 'todos') params.append('programa_id', filters.programa_id);
+        if (filters.periodo) params.append('periodo', filters.periodo);
+        params.append('token', localStorage.getItem('token'));
+        window.open(`${api.defaults.baseURL}/reportes/matrix/pdf?${params.toString()}`, '_blank');
+    };
+
+    const handleExportExcel = () => {
+        const params = new URLSearchParams();
+        if (filters.contratista_id !== 'todos') params.append('contratista_id', filters.contratista_id);
+        if (filters.servicio_id !== 'todos') params.append('servicio_id', filters.servicio_id);
+        if (filters.dependencia_id !== 'todas') params.append('dependencia_id', filters.dependencia_id);
+        if (filters.programa_id !== 'todos') params.append('programa_id', filters.programa_id);
+        if (filters.periodo) params.append('periodo', filters.periodo);
+        params.append('token', localStorage.getItem('token'));
+        window.open(`${api.defaults.baseURL}/reportes/matrix/excel?${params.toString()}`, '_blank');
+    };
 
     const thStyle = {
         padding: '12px 16px', fontWeight: 600, fontSize: '11px',
@@ -253,8 +284,60 @@ export default function ComplianceMatrixReport() {
                     </div>
                 </div>
 
-                {/* Clear Filters Button */}
-                <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '2px' }}>
+                <div style={{ flex: '1 1 200px', minWidth: '150px' }}>
+                    <label style={{
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        fontSize: '11px', fontWeight: 600, color: '#64748b',
+                        marginBottom: '6px', textTransform: 'uppercase'
+                    }}>
+                        <Monitor size={12} className="text-slate-400" />
+                        Periodo (Hasta)
+                    </label>
+                    <input
+                        type="month"
+                        value={filters.periodo}
+                        onChange={(e) => setFilters(f => ({ ...f, periodo: e.target.value }))}
+                        style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            fontSize: '13px',
+                            color: '#1e293b',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            outline: 'none',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                            minHeight: '38px'
+                        }}
+                    />
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', flexWrap: 'wrap', paddingBottom: '2px' }}>
+                    <button
+                        onClick={handleFiltrar}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '10px 20px',
+                            background: '#003594',
+                            borderRadius: '10px',
+                            color: '#fff',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            height: '42px',
+                            border: 'none',
+                            boxShadow: '0 4px 6px -1px rgba(0, 53, 148, 0.2)'
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.background = '#002a75'}
+                        onMouseOut={(e) => e.currentTarget.style.background = '#003594'}
+                    >
+                        <Search size={16} />
+                        Filtrar
+                    </button>
+
                     <button
                         onClick={handleClearFilters}
                         title="Limpiar todos los filtros"
@@ -266,24 +349,68 @@ export default function ComplianceMatrixReport() {
                             background: '#fff',
                             border: '1px solid #e2e8f0',
                             borderRadius: '10px',
-                            color: '#e11d48', // rose-600
-                            fontSize: '12px',
+                            color: '#64748b',
+                            fontSize: '13px',
                             fontWeight: 600,
                             cursor: 'pointer',
                             transition: 'all 0.2s ease',
                             height: '42px'
                         }}
-                        onMouseOver={(e) => {
-                            e.currentTarget.style.background = '#fff1f2'; // rose-50
-                            e.currentTarget.style.borderColor = '#fecdd3';
-                        }}
-                        onMouseOut={(e) => {
-                            e.currentTarget.style.background = '#fff';
-                            e.currentTarget.style.borderColor = '#e2e8f0';
-                        }}
+                        onMouseOver={(e) => e.currentTarget.style.background = '#f8fafc'}
+                        onMouseOut={(e) => e.currentTarget.style.background = '#fff'}
                     >
                         <XCircle size={16} />
                         Limpiar
+                    </button>
+
+                    <div style={{ width: '1px', height: '30px', background: '#e2e8f0', margin: '0 4px' }}></div>
+
+                    <button
+                        onClick={handleExportPdf}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '10px 16px',
+                            background: '#fff',
+                            border: '1px solid #fee2e2',
+                            borderRadius: '10px',
+                            color: '#dc2626',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            height: '42px'
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.background = '#fef2f2'}
+                        onMouseOut={(e) => e.currentTarget.style.background = '#fff'}
+                    >
+                        <FileText size={16} />
+                        PDF
+                    </button>
+
+                    <button
+                        onClick={handleExportExcel}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '10px 16px',
+                            background: '#fff',
+                            border: '1px solid #dcfce7',
+                            borderRadius: '10px',
+                            color: '#16a34a',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            height: '42px'
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.background = '#f0fdf4'}
+                        onMouseOut={(e) => e.currentTarget.style.background = '#fff'}
+                    >
+                        <FileSpreadsheet size={16} />
+                        Excel
                     </button>
                 </div>
             </div>
@@ -406,13 +533,7 @@ export default function ComplianceMatrixReport() {
                                                                     </>
                                                                 )}
                                                             </div>
-                                                            vegetable                                                            <div style={{
-                                                                fontSize: '9px', color: '#94a3b8',
-                                                                textTransform: 'uppercase', marginTop: '4px',
-                                                                fontWeight: 600, letterSpacing: '0.025em'
-                                                            }}>
                                                                 {cell.estado?.replace('_', ' ')}
-                                                            </div>
                                                         </div>
                                                     ) : (
                                                         <span style={{ color: '#e2e8f0' }}>-</span>

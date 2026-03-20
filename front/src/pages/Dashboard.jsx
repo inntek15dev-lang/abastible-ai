@@ -1,5 +1,5 @@
 // IEEE Trace: REQ-010 | US-008 | pages/Dashboard.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import {
@@ -13,7 +13,8 @@ import {
     RefreshCcw,
     Calendar,
     Briefcase,
-    Building2
+    Building2,
+    X
 } from 'lucide-react';
 import ComplianceChart from '../components/charts/ComplianceChart';
 import ElementComplianceWidget from '../components/dashboard/ElementComplianceWidget';
@@ -58,6 +59,8 @@ export default function Dashboard() {
     // Matriz specific state
     const [matrixData, setMatrixData] = useState({ columns: [], rows: [] });
     const [loadingMatrix, setLoadingMatrix] = useState(false);
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 5, totalPages: 0 });
 
     useEffect(() => {
         const loadInitialData = async () => {
@@ -130,11 +133,13 @@ export default function Dashboard() {
             if (filters.gerencia_id !== 'todas') params.append('gerencia_id', filters.gerencia_id);
             if (filters.subgerencia_id !== 'todas') params.append('subgerencia_id', filters.subgerencia_id);
             if (filters.adc_id !== 'todos') params.append('adc_id', filters.adc_id);
-            params.append('limit', 50);
+            params.append('limit', 5);
+            params.append('page', page);
 
             const matrixRes = await api.get(`/dashboard/matrix?${params.toString()}`);
             if (matrixRes.data.success) {
                 setMatrixData(matrixRes.data.data);
+                setPagination(matrixRes.data.data.pagination);
             }
         } catch (error) {
             console.error("Error loading matrix:", error);
@@ -147,7 +152,12 @@ export default function Dashboard() {
         if (activeTab === 'matriz') {
             fetchMatrixData();
         }
-    }, [activeTab, filters]);
+    }, [activeTab, filters, page]);
+
+    // Reset page to 1 when filters change
+    useEffect(() => {
+        setPage(1);
+    }, [filters]);
 
     const handleFilterChange = (key, value) => {
         setFilters(prev => ({ ...prev, [key]: value }));
@@ -279,7 +289,7 @@ export default function Dashboard() {
             <div className="dashboard-filters-container">
                 <div className="filter-grid">
                     <div className="filter-group">
-                        <label><Calendar size={12} /> Periodo Inicio</label>
+                        <label>Periodo Inicio</label>
                         <input
                             type="month"
                             className="filter-control"
@@ -288,7 +298,7 @@ export default function Dashboard() {
                         />
                     </div>
                     <div className="filter-group">
-                        <label><Calendar size={12} /> Periodo Fin</label>
+                        <label>Periodo Fin</label>
                         <input
                             type="month"
                             className="filter-control"
@@ -297,7 +307,7 @@ export default function Dashboard() {
                         />
                     </div>
                     <div className="filter-group">
-                        <label><Search size={12} /> Búsqueda</label>
+                        <label>Búsqueda</label>
                         <input
                             type="text"
                             placeholder="Nombre EECC, RUT..."
@@ -307,7 +317,7 @@ export default function Dashboard() {
                         />
                     </div>
                     <div className="filter-group">
-                        <label><Briefcase size={12} /> Programa</label>
+                        <label>Programa</label>
                         <select
                             className="filter-control"
                             value={filters.programa_id}
@@ -318,7 +328,7 @@ export default function Dashboard() {
                         </select>
                     </div>
                     <div className="filter-group">
-                        <label><RefreshCcw size={12} /> Servicio</label>
+                        <label>Servicio</label>
                         <select
                             className="filter-control"
                             value={filters.servicio_id}
@@ -329,7 +339,7 @@ export default function Dashboard() {
                         </select>
                     </div>
                     <div className="filter-group">
-                        <label><Building2 size={12} /> Dependencia</label>
+                        <label>Dependencia</label>
                         <select
                             className="filter-control"
                             value={filters.dependencia_id}
@@ -341,7 +351,7 @@ export default function Dashboard() {
                     </div>
                     {/* Filtros Corporativos Extras */}
                     <div className="filter-group">
-                        <label><LayoutDashboard size={12} /> Gerencia</label>
+                        <label>Gerencia</label>
                         <select
                             className="filter-control"
                             value={filters.gerencia_id}
@@ -356,7 +366,7 @@ export default function Dashboard() {
                         </select>
                     </div>
                     <div className="filter-group">
-                        <label><LayoutDashboard size={12} /> Subgerencia</label>
+                        <label>Subgerencia</label>
                         <select
                             className="filter-control"
                             value={filters.subgerencia_id}
@@ -368,7 +378,7 @@ export default function Dashboard() {
                         </select>
                     </div>
                     <div className="filter-group">
-                        <label><Users size={12} /> Admin. Contrato</label>
+                        <label>Admin. Contrato</label>
                         <select
                             className="filter-control"
                             value={filters.adc_id}
@@ -379,8 +389,13 @@ export default function Dashboard() {
                             {adcs.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                         </select>
                     </div>
-                    <button onClick={clearFilters} className="clear-filters-btn">
-                        Limpiar Filtros
+                    
+                    <button onClick={fetchKpis} className="search-btn" title="Buscar">
+                        <Search size={20} />
+                    </button>
+
+                    <button onClick={clearFilters} className="clear-filters-btn" title="Limpiar Filtros">
+                        <X size={20} />
                     </button>
                 </div>
             </div>
@@ -468,11 +483,19 @@ export default function Dashboard() {
             {/* TAB: Matriz de Contratistas */}
             {activeTab === 'matriz' && (
                 <div className="dashboard-section-card pb-8">
-                    <div className="section-title-wrapper mb-6">
+                    <div className="section-title-wrapper mb-6" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h3 className="section-title">
                             <Users size={22} color="#3b82f6" />
                             {isContractor ? 'Evolutivo de Cumplimiento' : 'Matriz de Contratistas'}
                         </h3>
+                        {!loadingMatrix && pagination.total > 0 && (
+                            <span style={{
+                                fontSize: '0.75rem', color: '#3b82f6', fontWeight: 600,
+                                background: '#eff6ff', padding: '4px 12px', borderRadius: '99px'
+                            }}>
+                                {pagination.total} vinculaciones encontradas
+                            </span>
+                        )}
                     </div>
                     
                     {loadingMatrix ? (
@@ -537,6 +560,86 @@ export default function Dashboard() {
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                    )}
+
+                    {/* Pagination Controls */}
+                    {!loadingMatrix && matrixData.rows?.length > 0 && (
+                        <div style={{
+                            padding: '1rem 1.5rem',
+                            background: '#fff',
+                            borderTop: '1px solid #e2e8f0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginTop: '1rem'
+                        }}>
+                            <div style={{ fontSize: '13px', color: '#64748b' }}>
+                                Mostrando <span style={{ fontWeight: 600, color: '#1e293b' }}>{(page - 1) * pagination.limit + 1}</span> a <span style={{ fontWeight: 600, color: '#1e293b' }}>{Math.min(page * pagination.limit, pagination.total)}</span> de <span style={{ fontWeight: 600, color: '#1e293b' }}>{pagination.total}</span> registros
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1 || loadingMatrix}
+                                    style={{
+                                        padding: '6px 14px',
+                                        border: '1px solid #e2e8f0',
+                                        borderRadius: '8px',
+                                        background: '#fff',
+                                        color: page === 1 ? '#cbd5e1' : '#475569',
+                                        fontSize: '13px',
+                                        fontWeight: 500,
+                                        cursor: page === 1 ? 'not-allowed' : 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    Anterior
+                                </button>
+
+                                {/* Page Numbers */}
+                                {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
+                                    .filter(p => p === 1 || p === pagination.totalPages || (p >= page - 1 && p <= page + 1))
+                                    .map((p, i, arr) => (
+                                        <Fragment key={p}>
+                                            {i > 0 && arr[i - 1] !== p - 1 && <span style={{ padding: '0 8px', color: '#cbd5e1' }}>...</span>}
+                                            <button
+                                                onClick={() => setPage(p)}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    border: '1px solid',
+                                                    borderColor: page === p ? '#3b82f6' : '#e2e8f0',
+                                                    borderRadius: '8px',
+                                                    background: page === p ? '#eff6ff' : '#fff',
+                                                    color: page === p ? '#003594' : '#475569',
+                                                    fontSize: '13px',
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer',
+                                                    minWidth: '36px'
+                                                }}
+                                            >
+                                                {p}
+                                            </button>
+                                        </Fragment>
+                                    ))}
+
+                                <button
+                                    onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+                                    disabled={page === pagination.totalPages || loadingMatrix}
+                                    style={{
+                                        padding: '6px 14px',
+                                        border: '1px solid #e2e8f0',
+                                        borderRadius: '8px',
+                                        background: '#fff',
+                                        color: page === pagination.totalPages ? '#cbd5e1' : '#475569',
+                                        fontSize: '13px',
+                                        fontWeight: 500,
+                                        cursor: page === pagination.totalPages ? 'not-allowed' : 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    Siguiente
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>

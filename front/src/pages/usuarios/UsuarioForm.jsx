@@ -78,11 +78,13 @@ export default function UsuarioForm() {
                         activo: u.activo ?? true
                     });
                 } else {
-                    // Pre-fill for Contratista Admin creating a user
-                    if (currentUser.role === 'contratista_admin') {
+                    // Pre-fill for Contratista roles creating a user
+                    if (['contratista_admin', 'contratista_user'].includes(currentUser.role)) {
                         setForm(prev => ({
                             ...prev,
                             contratista_id: currentUser.contratista_id || currentUser.id,
+                            tipo_contratista_id: currentUser.tipo_contratista_id || '',
+                            dependencia_id: currentUser.dependencia_id || '',
                             role: 'contratista_user'
                         }));
                     }
@@ -260,11 +262,11 @@ export default function UsuarioForm() {
                                     className="select-field-usuario"
                                     value={form.role}
                                     onChange={e => setForm({ ...form, role: e.target.value })}
-                                    disabled={currentUser.role === 'contratista_admin' || (isEdit && String(id) === String(currentUser.id))}
+                                    disabled={['contratista_admin', 'contratista_user'].includes(currentUser.role) || (isEdit && String(id) === String(currentUser.id))}
                                 >
                                     <option value="">Seleccione Rol...</option>
                                     {roles.filter(r => {
-                                        if (currentUser.role === 'contratista_admin' || currentUser.role === 'contratista_admin_eecc') {
+                                        if (['contratista_admin', 'contratista_admin_eecc', 'contratista_user'].includes(currentUser.role)) {
                                             return r.name === 'contratista_user';
                                         }
                                         if (currentUser.role === 'administrador_contrato') {
@@ -353,7 +355,7 @@ export default function UsuarioForm() {
                                             value={form.tipo_contratista_id}
                                             onChange={val => setForm({ ...form, tipo_contratista_id: val })}
                                             placeholder="Seleccione Servicio..."
-                                            disabled={!form.contratista_id && currentUser.role !== 'contratista_admin'}
+                                            disabled={currentUser.role === 'contratista_user' || (!form.contratista_id && currentUser.role !== 'contratista_admin')}
                                             dropdownTop="calc(34% + 4px)"
                                             containerFlex="1 1 auto"
                                         />
@@ -365,7 +367,7 @@ export default function UsuarioForm() {
                                             value={form.dependencia_id}
                                             onChange={val => setForm({ ...form, dependencia_id: val })}
                                             placeholder="Seleccione Dependencia..."
-                                            disabled={!form.contratista_id && currentUser.role !== 'contratista_admin'}
+                                            disabled={currentUser.role === 'contratista_user' || (!form.contratista_id && currentUser.role !== 'contratista_admin')}
                                             dropdownTop="calc(34% + 4px)"
                                             containerFlex="1 1 auto"
                                         />

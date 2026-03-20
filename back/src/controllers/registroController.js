@@ -394,6 +394,27 @@ const registroController = {
             // Update actividades if provided
             if (actividades && actividades.length > 0) {
                 for (const act of actividades) {
+                    // PARKO Validation: If setting to "Cumple" and requires evidence, check presence
+                    if (act.cumple === true || act.cumple === 1) {
+                        const baseAct = await Actividad.findByPk(act.actividad_id);
+                        if (baseAct && baseAct.requiere_evidencia) {
+                            // Check if there are ALREADY evidences for this RA
+                            // If act.id is null (new RA during update?), then it definitely has no evidence yet.
+                            let evidenceExists = false;
+                            if (act.id) {
+                                const count = await Evidencia.count({ where: { registro_actividad_id: act.id } });
+                                evidenceExists = count > 0;
+                            }
+
+                            if (!evidenceExists) {
+                                return res.status(400).json({
+                                    success: false,
+                                    message: `La actividad ${baseAct.codigo} requiere evidencia para ser marcada como "Cumple".`
+                                });
+                            }
+                        }
+                    }
+
                     if (act.id) {
                         await RegistroActividad.update(act, { where: { id: act.id } });
                     } else {

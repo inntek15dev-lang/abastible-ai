@@ -1,6 +1,6 @@
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
-const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso, Elemento, Vinculacion, Administracion, sequelize, Contratista } = require('../database/models');
+const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso, Elemento, Vinculacion, Administracion, sequelize, Contratista, TipoContratista, Dependencia, Programa } = require('../database/models');
 const { Op } = require('sequelize');
 
 module.exports = {
@@ -333,6 +333,256 @@ module.exports = {
             console.error('Consolidated Excel Error:', error);
             res.status(500).json({ message: 'Error generando Excel consolidado' });
         }
+    },
+
+    async matrixPdf(req, res) {
+        try {
+            const matrixData = await this._getMatrixData(req);
+            const { columns, rows } = matrixData;
+
+            const doc = new PDFDocument({ margin: 30, layout: 'landscape' });
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=matriz-cumplimiento-${new Date().toISOString().slice(0, 10)}.pdf`);
+            doc.pipe(res);
+
+            // Header
+            doc.fontSize(18).text('Matriz de Cumplimiento OIEM', { align: 'center' });
+            doc.fontSize(10).text(`Fecha de Reporte: ${new Date().toLocaleDateString()}`, { align: 'center' });
+            doc.moveDown();
+
+            // Table Header Settings
+            const startX = 30;
+            let currentY = doc.y;
+            const colWidths = [150, 150, 80]; // Empresa, Programa, Dependencia
+            const totalWidth = 732; // landscape A4 is 792 - margins
+            const monthColWidth = (totalWidth - 380) / columns.length;
+
+            // Draw header backgrounds
+            doc.rect(startX, currentY, totalWidth, 25).fill('#f8fafc');
+            doc.fillColor('#475569').fontSize(8);
+
+            // Header Text
+            let currentX = startX;
+            doc.text('EMPRESA / CONTRATISTA', currentX + 5, currentY + 8, { width: 140 });
+            currentX += 150;
+            doc.text('PROGRAMA / SERVICIO', currentX + 5, currentY + 8, { width: 140 });
+            currentX += 150;
+            doc.text('DEPENDENCIA', currentX + 5, currentY + 8, { width: 70 });
+            currentX += 80;
+
+            columns.forEach(col => {
+                doc.text(col.label, currentX + 5, currentY + 8, { width: monthColWidth, align: 'center' });
+                currentX += monthColWidth;
+            });
+
+            doc.moveDown();
+            currentY += 25;
+
+            // Draw Rows
+            rows.forEach(row => {
+                if (currentY > 500) { // New page if near bottom
+                    doc.addPage({ layout: 'landscape' });
+                    currentY = 30;
+                }
+
+                doc.fillColor('#1e293b').fontSize(7);
+                let x = startX;
+
+                // Empresa
+                doc.font('Helvetica-Bold').text(row.contratista, x + 5, currentY + 5, { width: 140 });
+                doc.font('Helvetica').fontSize(6).text(row.rut, x + 5, currentY + 15);
+                x += 150;
+
+                // Programa
+                doc.fontSize(7).font('Helvetica-Bold').text(row.programa, x + 5, currentY + 5, { width: 140 });
+                doc.font('Helvetica').fontSize(6).text(row.servicio, x + 5, currentY + 15);
+                x += 150;
+
+                // Dependencia
+                doc.fontSize(7).text(row.dependencia, x + 5, currentY + 10, { width: 70 });
+                x += 80;
+
+                // Data Cells
+                columns.forEach(col => {
+                    const cell = row.data[col.key];
+                    if (cell) {
+                        const val = `${cell.declarado}%` + (cell.auditado !== null ? `|${cell.auditado}%` : '');
+                        doc.text(val, x, currentY + 5, { width: monthColWidth, align: 'center' });
+                        doc.fontSize(5).text(cell.estado ? cell.estado.replace('_', ' ').toUpperCase() : '', x, currentY + 15, { width: monthColWidth, align: 'center' });
+                        doc.fontSize(7);
+                    } else {
+                        doc.text('-', x, currentY + 10, { width: monthColWidth, align: 'center' });
+                    }
+                    x += monthColWidth;
+                });
+
+                // Line separator
+                currentY += 30;
+                doc.moveTo(startX, currentY).lineTo(startX + totalWidth, currentY).stroke('#e2e8f0');
+            });
+
+            doc.end();
+        } catch (error) {
+            console.error('Matrix PDF Error:', error);
+            res.status(500).json({ message: 'Error generando PDF de matriz' });
+        }
+    },
+
+    async matrixExcel(req, res) {
+        try {
+            const matrixData = await this._getMatrixData(req);
+            const { columns, rows } = matrixData;
+
+            const workbook = new ExcelJS.Workbook();
+            const sheet = workbook.addWorksheet('Matriz de Cumplimiento');
+
+            // Header Style
+            const headerStyle = {
+                font: { bold: true, color: { argb: 'FFFFFFFF' } },
+                fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF003594' } },
+                alignment: { vertical: 'middle', horizontal: 'center' }
+            };
+
+            // Define Columns
+            const sheetCols = [
+                { header: 'Empresa', key: 'contratista', width: 30 },
+                { header: 'RUT', key: 'rut', width: 15 },
+                { header: 'Programa', key: 'programa', width: 30 },
+                { header: 'Servicio', key: 'servicio', width: 30 },
+                { header: 'Dependencia', key: 'dependencia', width: 20 }
+            ];
+
+            columns.forEach(col => {
+                sheetCols.push({ header: col.label, key: col.key, width: 20 });
+            });
+
+            sheet.columns = sheetCols;
+
+            // Apply Header Style
+            sheet.getRow(1).eachCell(cell => {
+                cell.style = headerStyle;
+            });
+
+            // Add Rows
+            rows.forEach(row => {
+                const rowData = {
+                    contratista: row.contratista,
+                    rut: row.rut,
+                    programa: row.programa,
+                    servicio: row.servicio,
+                    dependencia: row.dependencia
+                };
+
+                columns.forEach(col => {
+                    const cell = row.data[col.key];
+                    if (cell) {
+                        rowData[col.key] = `${cell.declarado}%` + (cell.auditado !== null ? ` / ${cell.auditado}%` : '');
+                    } else {
+                        rowData[col.key] = '-';
+                    }
+                });
+
+                const addedRow = sheet.addRow(rowData);
+                addedRow.alignment = { vertical: 'middle', horizontal: 'left' };
+            });
+
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename=matriz-${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+            await workbook.xlsx.write(res);
+            res.end();
+        } catch (error) {
+            console.error('Matrix Excel Error:', error);
+            res.status(500).json({ message: 'Error generando Excel de matriz' });
+        }
+    },
+
+    async _getMatrixData(req) {
+        const user = req.user;
+        const { contratista_id, servicio_id, dependencia_id, programa_id, periodo } = req.query;
+
+        const whereVinculacion = { activo: 1 };
+
+        // 1. Role Scope
+        if (user.role === 'administrador_contrato') {
+            const adminRecords = await Administracion.findAll({
+                where: { administrador_contrato_id: user.id, activo: 1 },
+                attributes: ['vinculacion_id']
+            });
+            const vincIds = adminRecords.map(a => a.vinculacion_id);
+            whereVinculacion.id = vincIds.length > 0 ? { [Op.in]: vincIds } : -1;
+        } else if (['contratista_admin', 'contratista_user'].includes(user.role)) {
+            whereVinculacion.contratista_id = user.contratista_id;
+            if (user.role === 'contratista_user') {
+                whereVinculacion.servicio_id = user.tipo_contratista_id;
+                whereVinculacion.dependencia_id = user.dependencia_id;
+            }
+        }
+
+        // 2. Filters
+        if (contratista_id && contratista_id !== 'todos') whereVinculacion.contratista_id = contratista_id;
+        if (servicio_id && servicio_id !== 'todos') whereVinculacion.servicio_id = servicio_id;
+        if (dependencia_id && dependencia_id !== 'todas') whereVinculacion.dependencia_id = dependencia_id;
+
+        // 3. Date Range
+        const today = periodo ? new Date(periodo + '-01') : new Date();
+        const startMonth = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+        const endMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+        // 4. Fetch
+        const vinculaciones = await Vinculacion.findAll({
+            where: whereVinculacion,
+            include: [
+                { model: Contratista, as: 'contratista', attributes: ['nombre', 'rut'] },
+                {
+                    model: TipoContratista, as: 'servicio',
+                    include: [{
+                        model: Programa, as: 'programa',
+                        where: (programa_id && programa_id !== 'todos') ? { id: programa_id } : undefined
+                    }]
+                },
+                { model: Dependencia, as: 'dependencia', attributes: ['nombre'] },
+                {
+                    model: Registro, as: 'registros',
+                    required: false,
+                    where: { periodo: { [Op.between]: [startMonth, endMonth] } }
+                }
+            ],
+            order: [['id', 'ASC']]
+        });
+
+        // 5. Map Rows
+        const rows = vinculaciones.map(vinc => {
+            const row = {
+                contratista: vinc.contratista?.nombre || 'N/A',
+                rut: vinc.contratista?.rut || '-',
+                programa: vinc.servicio?.programa?.nombre || 'Sin Programa',
+                servicio: vinc.servicio?.nombre || '-',
+                dependencia: vinc.dependencia?.nombre || '-',
+                data: {}
+            };
+            vinc.registros.forEach(reg => {
+                const key = String(reg.periodo).substring(0, 7);
+                row.data[key] = {
+                    declarado: parseFloat(reg.porcentaje_cumplimiento || 0).toFixed(1),
+                    auditado: reg.porcentaje_cumplimiento_auditor !== null ? parseFloat(reg.porcentaje_cumplimiento_auditor).toFixed(1) : null,
+                    estado: reg.estado_auditoria
+                };
+            });
+            return row;
+        });
+
+        // 6. Columns
+        const columns = [];
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+            columns.push({
+                key: d.toISOString().slice(0, 7),
+                label: d.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }).toUpperCase()
+            });
+        }
+
+        return { columns, rows };
     },
 
     // Internal helper to avoid code duplication

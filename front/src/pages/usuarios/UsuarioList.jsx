@@ -1,15 +1,25 @@
-// IEEE Trace: REQ-007 | US-006 | pages/usuarios/UsuarioList.jsx
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
-import { Plus, Edit, UserX, UserCheck } from 'lucide-react';
+import { Plus, Edit, Search, RefreshCw, X } from 'lucide-react';
 import Toggle from '../../components/ui/Toggle';
+import './UsuarioList.css';
 
 export default function UsuarioList() {
     const [usuarios, setUsuarios] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [filters, setFilters] = useState({
+        search: '',
+        role: 'Todos',
+        status: 'Todos'
+    });
+    const [activeFilters, setActiveFilters] = useState({
+        search: '',
+        role: 'Todos',
+        status: 'Todos'
+    });
     const { canWrite, canExec } = useAuth();
 
     useEffect(() => {
@@ -41,24 +51,116 @@ export default function UsuarioList() {
             admin: 'primary',
             administrador_contrato: 'info',
             contratista_admin: 'warning',
-            contratista_admin_eecc: 'danger', // New role color
+            contratista_admin_eecc: 'danger', 
             contratista_user: 'secondary'
         };
         return colors[role] || 'default';
     };
+
+    const handleApplyFilters = () => {
+        setActiveFilters({ ...filters });
+    };
+
+    const handleClearFilters = () => {
+        const reset = {
+            search: '',
+            role: 'Todos',
+            status: 'Todos'
+        };
+        setFilters(reset);
+        setActiveFilters(reset);
+    };
+
+    const filteredUsuarios = usuarios.filter(u => {
+        const matchStatus = activeFilters.status === 'Todos' || 
+            (activeFilters.status === 'Activo' && (u.activo === 1 || u.activo === true)) ||
+            (activeFilters.status === 'Inactivo' && (u.activo === 0 || u.activo === false));
+        
+        const matchRole = activeFilters.role === 'Todos' || u.role === activeFilters.role;
+        
+        const matchSearch = !activeFilters.search || 
+            u.name.toLowerCase().includes(activeFilters.search.toLowerCase()) ||
+            u.email.toLowerCase().includes(activeFilters.search.toLowerCase());
+
+        return matchStatus && matchRole && matchSearch;
+    });
+
+    const uniqueRoles = ['admin', 'administrador_contrato', 'contratista_admin', 'contratista_admin_eecc', 'contratista_user'];
 
     if (loading) return <div className="loading">Cargando...</div>;
 
     return (
         <div className="page-container">
             <header className="page-header">
-                <h1>Usuarios</h1>
+                <div>
+                    <h1>Gestión de Usuarios</h1>
+                    <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', marginTop: 4 }}>
+                        Administra usuarios, roles y accesos del sistema.
+                    </p>
+                </div>
                 {canWrite('Usuarios') && (
                     <Link to="/usuarios/new" className="btn-primary">
                         <Plus size={18} /> Nuevo Usuario
                     </Link>
                 )}
             </header>
+
+            <div className="filters-bar">
+                <div className="filter-group" style={{ flex: '1 1 250px' }}>
+                    <label className="filter-label">Nombre / Email</label>
+                    <div style={{ position: 'relative' }}>
+                        <input
+                            list="user-search-list"
+                            type="text"
+                            className="filter-input"
+                            placeholder="Buscar por nombre o email..."
+                            value={filters.search}
+                            onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                            style={{ paddingLeft: '32px', width: '100%' }}
+                        />
+                        <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                        <datalist id="user-search-list">
+                            {usuarios.map(u => <option key={u.id} value={u.name} />)}
+                        </datalist>
+                    </div>
+                </div>
+
+                <div className="filter-group">
+                    <label className="filter-label">Rol</label>
+                    <select
+                        className={`filter-input role-select ${filters.role !== 'Todos' ? `role-select-${filters.role}` : ''}`}
+                        value={filters.role}
+                        onChange={e => setFilters({ ...filters, role: e.target.value })}
+                    >
+                        <option value="Todos">TODOS LOS ROLES</option>
+                        {uniqueRoles.map(role => (
+                            <option key={role} value={role}>{role.replace(/_/g, ' ').toUpperCase()}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="filter-group">
+                    <label className="filter-label">Estado</label>
+                    <select
+                        className="filter-input"
+                        value={filters.status}
+                        onChange={e => setFilters({ ...filters, status: e.target.value })}
+                    >
+                        <option value="Todos">TODOS</option>
+                        <option value="Activo">ACTIVOS</option>
+                        <option value="Inactivo">INACTIVOS</option>
+                    </select>
+                </div>
+
+                <div className="filter-actions">
+                    <button className="btn-filter" onClick={handleApplyFilters}>
+                        <Search size={16} /> Filtrar
+                    </button>
+                    <button className="btn-clear" onClick={handleClearFilters}>
+                        Limpiar
+                    </button>
+                </div>
+            </div>
 
             {error && <div className="error-message">{error}</div>}
 
@@ -75,12 +177,12 @@ export default function UsuarioList() {
                         </tr>
                     </thead>
                     <tbody>
-                        {usuarios.length === 0 ? (
+                        {filteredUsuarios.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="empty-row">No hay usuarios</td>
+                                <td colSpan={6} className="empty-row">No hay usuarios que coincidan con el filtro</td>
                             </tr>
                         ) : (
-                            usuarios.map((usuario) => (
+                            filteredUsuarios.map((usuario) => (
                                 <tr key={usuario.id}>
                                     <td>{usuario.name}</td>
                                     <td>{usuario.email}</td>

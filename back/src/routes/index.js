@@ -700,6 +700,8 @@ router.get('/reportes/registro/:id/pdf', auth, reporteController.registroPdf);
 router.get('/reportes/cumplimiento', auth, reporteController.cumplimientoGeneral);
 router.get('/reportes/cumplimiento/pdf', auth, reporteController.cumplimientoGeneralPdf);
 router.get('/reportes/cumplimiento/excel', auth, reporteController.cumplimientoGeneralExcel);
+router.get('/reportes/matrix/pdf', auth, reporteController.matrixPdf);
+router.get('/reportes/matrix/excel', auth, reporteController.matrixExcel);
 
 // ============= SPRINT 5: DOCUMENTOS =============
 // Documentos

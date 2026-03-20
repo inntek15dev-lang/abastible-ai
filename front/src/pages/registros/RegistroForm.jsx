@@ -305,14 +305,32 @@ export default function RegistroForm() {
         if (!window.confirm('¿Está seguro de eliminar esta evidencia? Esta acción no se puede deshacer.')) return;
         try {
             await api.delete(`/evidencias/${evidenciaId}`);
-            const updated = [...actividades];
-            updated[actividadIndex].evidencias = updated[actividadIndex].evidencias.filter(e => e.id !== evidenciaId);
-            setActividades(updated);
+            
+            setActividades(prev => prev.map((act, i) => {
+                if (i === actividadIndex) {
+                    const newEvidencias = act.evidencias.filter(e => e.id !== evidenciaId);
+                    // Special behavior: If it's the last evidence and it was required, user might want to change back to No Cumple
+                    // but we won't force it here, just update the list.
+                    return { ...act, evidencias: newEvidencias };
+                }
+                return act;
+            }));
+            
             toast.success('Evidencia eliminada correctamente');
         } catch (err) {
             console.error(err);
             toast.error('Error al eliminar la evidencia');
         }
+    };
+
+    const handlePendingFileDelete = (actividadIndex, fileIndex) => {
+        setActividades(prev => prev.map((act, i) => {
+            if (i === actividadIndex) {
+                const newFiles = act.pendingFiles.filter((_, idx) => idx !== fileIndex);
+                return { ...act, pendingFiles: newFiles };
+            }
+            return act;
+        }));
     };
 
     const fetchActividades = async (programaId) => {
@@ -812,7 +830,14 @@ export default function RegistroForm() {
                                                     <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
                                                         <button
                                                             type="button"
-                                                            onClick={() => !isLocked && handleActividadChange(globalIndex, 'cumple', true)}
+                                                            onClick={() => {
+                                                                if (isLocked) return;
+                                                                if (act.requiere_evidencia && (!act.evidencias?.length && !act.pendingFiles?.length)) {
+                                                                    toast.error('Esta actividad requiere evidencia obligatoria. Por favor, cárguela antes de marcar como "Cumple".');
+                                                                    return;
+                                                                }
+                                                                handleActividadChange(globalIndex, 'cumple', true);
+                                                            }}
                                                             style={{
                                                                 padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid', cursor: parsedCursor(isLocked),
                                                                 backgroundColor: act.cumple ? '#f0fdf4' : 'transparent',
@@ -881,14 +906,17 @@ export default function RegistroForm() {
                                                                     templateUrl={act.template_url}
                                                                     disabled={isLocked}
                                                                     onUploadComplete={(evidencia) => {
-                                                                        const updated = [...actividades];
-                                                                        if (!updated[globalIndex].evidencias) updated[globalIndex].evidencias = [];
-                                                                        updated[globalIndex].evidencias.push(evidencia);
-                                                                        // Parko: Auto-select "Cumple" if evidence is required/uploaded
-                                                                        if (act.requiere_evidencia) {
-                                                                            updated[globalIndex].cumple = true;
-                                                                        }
-                                                                        setActividades(updated);
+                                                                        setActividades(prev => prev.map((a, i) => {
+                                                                            if (i === globalIndex) {
+                                                                                const newEvidencias = [...(a.evidencias || []), evidencia];
+                                                                                return { 
+                                                                                    ...a, 
+                                                                                    evidencias: newEvidencias,
+                                                                                    cumple: a.requiere_evidencia ? true : a.cumple
+                                                                                };
+                                                                            }
+                                                                            return a;
+                                                                        }));
                                                                     }}
                                                                 />
                                                             </div>
@@ -899,14 +927,17 @@ export default function RegistroForm() {
                                                                     templateUrl={act.template_url}
                                                                     disabled={isLocked}
                                                                     onFileSelect={(file) => {
-                                                                        const updated = [...actividades];
-                                                                        if (!updated[globalIndex].pendingFiles) updated[globalIndex].pendingFiles = [];
-                                                                        updated[globalIndex].pendingFiles.push(file);
-                                                                        // Parko: Auto-select "Cumple" if evidence is required/selected
-                                                                        if (act.requiere_evidencia) {
-                                                                            updated[globalIndex].cumple = true;
-                                                                        }
-                                                                        setActividades(updated);
+                                                                        setActividades(prev => prev.map((a, i) => {
+                                                                            if (i === globalIndex) {
+                                                                                const newPending = [...(a.pendingFiles || []), file];
+                                                                                return { 
+                                                                                    ...a, 
+                                                                                    pendingFiles: newPending,
+                                                                                    cumple: a.requiere_evidencia ? true : a.cumple
+                                                                                };
+                                                                            }
+                                                                            return a;
+                                                                        }));
                                                                     }}
                                                                 />
                                                             </div>
@@ -959,7 +990,14 @@ export default function RegistroForm() {
                                                                 <small style={{ fontSize: '0.7rem', color: '#f59e0b' }}>Pendientes:</small>
                                                                 {act.pendingFiles.map((f, i) => (
                                                                     <div key={i} style={{ fontSize: '0.7rem', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                                        ⏳ {f.name.substring(0, 15)}...
+                                                                        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>⏳ {f.name}</span>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handlePendingFileDelete(globalIndex, i)}
+                                                                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0 2px' }}
+                                                                        >
+                                                                            <Trash2 size={10} />
+                                                                        </button>
                                                                     </div>
                                                                 ))}
                                                             </div>

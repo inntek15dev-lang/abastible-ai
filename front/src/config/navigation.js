@@ -48,7 +48,7 @@ export const MODULES = [
         id: 'operaciones',
         label: 'Operaciones',
         icon: FileText,
-        color: '#F97316', // Orange (Tailwind orange-500)
+        color: '#fe5000', // Abastible Orange
         module: 'Registros', // General check for the module
         items: [
             { path: '/registros', label: 'Registros y Cumplimiento', icon: FileText, module: 'Registros' },

@@ -1,4 +1,4 @@
-﻿/* ============================================
+/* ============================================
   @import '../.agent/themes/skin-abastible.css';
 
    Generated: 2026-02-06
@@ -716,8 +716,12 @@ a {
   outline: none;
 }
 
-.text-red-600 {
-  color: #dc2626;
+.text-brand-color {
+  color: #fe5000;
+}
+
+.brand-border {
+  border-color: #fe5000;
 }
 
 .bg-red-50 {
@@ -1449,7 +1453,7 @@ select {
 }
 
 .parko-title-icon {
-  color: #f97316;
+  color: #fe5000;
   /* orange-500 */
 }
 
@@ -1522,9 +1526,9 @@ select {
 .parko-select:focus,
 .parko-textarea:focus {
   outline: none;
-  border-color: #f97316;
+  border-color: #fe5000;
   /* orange-500 */
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+  box-shadow: 0 0 0 3px rgba(254, 80, 0, 0.1);
 }
 
 .parko-input::placeholder,
