@@ -1,4 +1,4 @@
-﻿// IEEE Trace: REQ-002 | US-002, US-050 | pages/registros/RegistroList.jsx
+// IEEE Trace: REQ-002 | US-002, US-050 | pages/registros/RegistroList.jsx
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -79,7 +79,6 @@ export default function RegistroList() {
         servicio: 'Todos',
         dependencia: 'Todas',
         programa: 'Todos',
-        auditoria: 'Todos',
         admin_contrato: 'Todos'
     });
 
@@ -238,6 +237,33 @@ export default function RegistroList() {
                 if (sortConfig.key === 'eecc_nombre') {
                     aValue = a.eecc_nombre || a.usuario?.eecc_nombre || '';
                     bValue = b.eecc_nombre || b.usuario?.eecc_nombre || '';
+                } else if (sortConfig.key === 'rut') {
+                    aValue = a.usuario?.rut || '';
+                    bValue = b.usuario?.rut || '';
+                } else if (sortConfig.key === 'programa') {
+                    aValue = a.programa?.nombre || '';
+                    bValue = b.programa?.nombre || '';
+                } else if (sortConfig.key === 'servicio') {
+                    aValue = a.vinculacionEntidad?.servicio?.nombre || '';
+                    bValue = b.vinculacionEntidad?.servicio?.nombre || '';
+                } else if (sortConfig.key === 'dependencia') {
+                    aValue = a.dependencia || '';
+                    bValue = b.dependencia || '';
+                } else if (sortConfig.key === 'estado_auditoria') {
+                    aValue = a.estado_auditoria || '';
+                    bValue = b.estado_auditoria || '';
+                } else if (sortConfig.key === 'created_at') {
+                    aValue = new Date(a.created_at).getTime();
+                    bValue = new Date(b.created_at).getTime();
+                } else if (sortConfig.key === 'porcentaje_cumplimiento') {
+                    aValue = parseFloat(a.porcentaje_cumplimiento) || 0;
+                    bValue = parseFloat(b.porcentaje_cumplimiento) || 0;
+                } else if (sortConfig.key === 'porcentaje_cumplimiento_auditor') {
+                    aValue = a.porcentaje_cumplimiento_auditor !== null ? parseFloat(a.porcentaje_cumplimiento_auditor) : -1;
+                    bValue = b.porcentaje_cumplimiento_auditor !== null ? parseFloat(b.porcentaje_cumplimiento_auditor) : -1;
+                } else if (sortConfig.key === 'periodo') {
+                    aValue = a.periodo || '';
+                    bValue = b.periodo || '';
                 }
 
                 if (aValue < bValue) {
@@ -743,7 +769,7 @@ export default function RegistroList() {
                 </button>
                 <button className="btn-secondary" style={{ height: '38px', padding: '0 12px', background: 'white', border: '1px solid #ccc' }}
                     onClick={() => {
-                        setFilters({ search: '', period: '', status: 'all', servicio: 'Todos', dependencia: 'Todas', programa: 'Todos', auditoria: 'Todos', admin_contrato: 'Todos' });
+                        setFilters({ search: '', period: '', status: 'all', servicio: 'Todos', dependencia: 'Todas', programa: 'Todos', admin_contrato: 'Todos' });
                         fetchDependencies();
                     }}
                     title="Limpiar Filtros"
@@ -767,19 +793,19 @@ export default function RegistroList() {
                             <th style={{ width: '40px' }}>#</th>
                             <th onClick={() => handleSort('periodo')} style={{ cursor: 'pointer' }}>MES INFORMADO {sortConfig.key === 'periodo' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
                             <th onClick={() => handleSort('eecc_nombre')} style={{ cursor: 'pointer' }}>CONTRATISTA {sortConfig.key === 'eecc_nombre' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
-                            <th>RUT</th>
-                            <th>PROGRAMA</th>
-                            <th>SERVICIO</th>
-                            <th>DEPENDENCIA</th>
+                            <th onClick={() => handleSort('rut')} style={{ cursor: 'pointer' }}>RUT {sortConfig.key === 'rut' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                            <th onClick={() => handleSort('programa')} style={{ cursor: 'pointer' }}>PROGRAMA {sortConfig.key === 'programa' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                            <th onClick={() => handleSort('servicio')} style={{ cursor: 'pointer' }}>SERVICIO {sortConfig.key === 'servicio' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                            <th onClick={() => handleSort('dependencia')} style={{ cursor: 'pointer' }}>DEPENDENCIA {sortConfig.key === 'dependencia' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
                             <th style={{ textAlign: 'center' }}>DOTACIÓN<br />TOTAL</th>
                             <th style={{ textAlign: 'center' }}>PERSONAS<br />NUEVAS</th>
-                            <th style={{ textAlign: 'center' }}>%<br />CONTRATISTA</th>
-                            <th style={{ textAlign: 'center' }}>%<br />AUDITORÍA</th>
+                            <th onClick={() => handleSort('porcentaje_cumplimiento')} style={{ textAlign: 'center', cursor: 'pointer' }}>%<br />CONTRATISTA {sortConfig.key === 'porcentaje_cumplimiento' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                            <th onClick={() => handleSort('porcentaje_cumplimiento_auditor')} style={{ textAlign: 'center', cursor: 'pointer' }}>%<br />AUDITORÍA {sortConfig.key === 'porcentaje_cumplimiento_auditor' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
                             <th style={{ textAlign: 'center' }}>% PROMEDIO<br />AÑO</th>
-                            <th>FECHA ENVÍO</th>
+                            <th onClick={() => handleSort('created_at')} style={{ cursor: 'pointer' }}>FECHA ENVÍO {sortConfig.key === 'created_at' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
                             <th>ADMIN<br />CONTRATO</th>
                             <th>AUDITORÍA</th>
-                            <th style={{ textAlign: 'center' }}>ESTADO</th>
+                            <th onClick={() => handleSort('estado_auditoria')} style={{ textAlign: 'center', cursor: 'pointer' }}>ESTADO {sortConfig.key === 'estado_auditoria' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
                             <th style={{ textAlign: 'right' }}>ACCIONES</th>
                         </tr>
                     </thead>

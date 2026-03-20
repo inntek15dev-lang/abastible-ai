@@ -1,4 +1,4 @@
-﻿// IEEE Trace: REQ-002 | US-002 | pages/registros/RegistroForm.jsx
+// IEEE Trace: REQ-002 | US-002 | pages/registros/RegistroForm.jsx
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../../api';
@@ -350,6 +350,7 @@ export default function RegistroForm() {
                 dotacion_total: data.dotacion_total,
                 tipo_auditoria: data.tipo_auditoria || 'sistema',
                 estado_auditoria: data.estado_auditoria,
+                fecha_limite_subsanacion: data.fecha_limite_subsanacion,
                 contratista_asignacion_id: data.contratista_asignacion_id // existing assignment
             });
             setRegistroCerrado(data.cerrado === 1 || data.cerrado === true);
@@ -404,15 +405,17 @@ export default function RegistroForm() {
         setLoading(true);
         setError('');
 
-        if (isEdit) {
+        if (isEdit && options.enviar) {
             const missingEvidence = actividades.filter(a =>
                 a.cumple &&
                 a.requiere_evidencia &&
-                (!a.evidencias || a.evidencias.length === 0)
+                (!a.evidencias || a.evidencias.length === 0) &&
+                (!a.pendingFiles || a.pendingFiles.length === 0)
             );
 
             if (missingEvidence.length > 0) {
-                setError(`Faltan evidencias obligatorias para: ${missingEvidence.map(a => a.codigo).join(', ')}`);
+                const codigos = missingEvidence.map(a => a.codigo).join(', ');
+                setError(`⚠️ No se puede enviar: Faltan evidencias obligatorias para las actividades [${codigos}]. Por favor, adjunte los documentos antes de continuar.`);
                 setLoading(false);
                 window.scrollTo(0, 0);
                 return;
@@ -429,6 +432,7 @@ export default function RegistroForm() {
         const payload = {
             ...form,
             terminar_subsanacion: options.terminar_subsanacion || false,
+            cerrado: options.enviar ? 1 : 0,
             contratista_id: selectedContractor, // Send selected Contratista company ID
             periodo: `${form.periodo}-01`,
             actividades: actividades.map(a => ({
@@ -562,6 +566,17 @@ export default function RegistroForm() {
         color: themeColors.inputText
     };
 
+    const isCompletable = useMemo(() => {
+        if (!actividades || actividades.length === 0) return false;
+        // Verify all activities that are 'cumple' & 'requiere_evidencia' have files
+        const missingEvidence = actividades.filter(a =>
+            a.cumple &&
+            a.requiere_evidencia &&
+            (!a.evidencias?.length && !a.pendingFiles?.length)
+        );
+        return missingEvidence.length === 0;
+    }, [actividades]);
+
     return (
         <div className="page-container" style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px', backgroundColor: themeColors.pageBg, minHeight: '100vh', transition: 'background-color 0.3s ease' }}>
 
@@ -585,21 +600,33 @@ export default function RegistroForm() {
                     </h2>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', marginBottom: '1rem' }}>
-                        {/* Row 1 */}
-                        <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Programa</label>
-                            <input type="text" className="form-control" style={readOnlyStyle} readOnly
-                                value={currentAssignment?.servicio?.programa?.nombre || 'Cargando...'} />
-                        </div>
-                        <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Servicio</label>
-                            <input type="text" className="form-control" style={readOnlyStyle} readOnly
-                                value={currentAssignment?.servicio?.nombre || ''} />
-                        </div>
-                        <div>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Dependencia</label>
-                            <input type="text" className="form-control" style={readOnlyStyle} readOnly
-                                value={currentAssignment?.dependencia?.nombre || ''} />
+                        {/* Selector de Asignación / Vinculación */}
+                        <div style={{ gridColumn: 'span 3' }}>
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Seleccione su Asignación (Servicio & Dependencia) *</label>
+                            {assignments.length > 0 ? (
+                                <select 
+                                    className="form-control"
+                                    value={form.contratista_asignacion_id || ''}
+                                    onChange={(e) => setForm({ ...form, contratista_asignacion_id: e.target.value })}
+                                    disabled={isLocked || assignments.length === 1}
+                                    style={{
+                                        ...((isLocked || assignments.length === 1) ? readOnlyStyle : {}),
+                                        padding: '0.5rem',
+                                        fontSize: '0.9rem'
+                                    }}
+                                >
+                                    <option value="">Seleccione una asignación de su contrato</option>
+                                    {assignments.map(a => (
+                                        <option key={a.id} value={a.id}>
+                                            {a.servicio?.programa?.nombre} » {a.servicio?.nombre} » {a.dependencia?.nombre}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <div style={{ fontSize: '0.85rem', color: '#ef4444', fontStyle: 'italic' }}>
+                                    No se encontraron asignaciones activas para este Contratista. Solicite a soporte vinculaciones para proceder.
+                                </div>
+                            )}
                         </div>
 
                         {/* Row 2 */}
@@ -662,6 +689,46 @@ export default function RegistroForm() {
                                 onChange={(e) => setForm({ ...form, prevencionistas: parseInt(e.target.value) || 0 })}
                             />
                         </div>
+
+                        {/* Row 4: Auditor Options & Deadlines */}
+                        <div style={{ gridColumn: 'span 3', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: `1px solid ${themeColors.border}` }}>
+                            {isAdminOrADC && (
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Tipo de Auditoría</label>
+                                    <select
+                                        className="form-control"
+                                        value={form.tipo_auditoria || 'sistema'}
+                                        onChange={(e) => setForm({ ...form, tipo_auditoria: e.target.value })}
+                                        disabled={isLocked}
+                                        style={{ ...isLocked ? readOnlyStyle : {}, padding: '0.5rem', fontSize: '0.9rem' }}
+                                    >
+                                        <option value="sistema">Sistémica</option>
+                                        <option value="terreno">De Terreno</option>
+                                    </select>
+                                </div>
+                            )}
+                            
+                            {form.fecha_limite_subsanacion && (
+                                <div style={{ gridColumn: isAdminOrADC ? 'span 2' : 'span 3' }}>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#ef4444', marginBottom: '0.25rem' }}>⚠️ Fecha Límite de Subsanación</label>
+                                    <div style={{ 
+                                        padding: '0.6rem 1rem', 
+                                        borderRadius: '6px', 
+                                        backgroundColor: '#fef2f2', 
+                                        border: '1px solid #fecaca', 
+                                        color: '#b91c1c',
+                                        fontSize: '0.9rem',
+                                        fontWeight: 600,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '10px'
+                                    }}>
+                                        <Clock size={18} />
+                                        El plazo para corregir este registro vence el: {new Date(form.fecha_limite_subsanacion).toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -703,6 +770,7 @@ export default function RegistroForm() {
                                         <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600, width: '100px', backgroundColor: '#f0f9ff', color: '#0369a1' }}>Auditor</th>
                                         <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '150px', backgroundColor: '#f0f9ff', color: '#0369a1' }}>Obs. Auditor</th>
                                         <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '150px' }}>Responsable</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '180px' }}>Obs. Contratista</th>
                                         <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '150px' }}>Evidencia</th>
                                     </tr>
                                 </thead>
@@ -718,6 +786,21 @@ export default function RegistroForm() {
                                                 </td>
                                                 <td style={{ padding: '1rem', verticalAlign: 'top', color: themeColors.textPrimary }}>
                                                     <div style={{ fontWeight: 500, marginBottom: '0.25rem' }}>{act.descripcion}</div>
+                                                    {act.requiere_evidencia && (
+                                                        <span style={{ 
+                                                            fontSize: '0.65rem', 
+                                                            backgroundColor: '#fee2e2', 
+                                                            color: '#dc2626', 
+                                                            padding: '2px 6px', 
+                                                            borderRadius: '10px', 
+                                                            fontWeight: 700,
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '3px'
+                                                        }}>
+                                                            <FileText size={10} /> EVIDENCIA OBLIGATORIA
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td style={{ padding: '1rem', verticalAlign: 'top', color: themeColors.textSecondary, fontSize: '0.8rem' }}>
                                                     {act.criterios || '-'}
@@ -774,6 +857,16 @@ export default function RegistroForm() {
                                                         value={act.responsable}
                                                         onChange={(e) => handleActividadChange(globalIndex, 'responsable', e.target.value)}
                                                         style={{ fontSize: '0.8rem', padding: '0.4rem', height: 'auto' }}
+                                                        disabled={isLocked}
+                                                    />
+                                                </td>
+                                                <td style={{ padding: '1rem', verticalAlign: 'top' }}>
+                                                    <textarea
+                                                        className="form-control"
+                                                        placeholder="Comentarios o justificaciones..."
+                                                        value={act.descripcion_contratista}
+                                                        onChange={(e) => handleActividadChange(globalIndex, 'descripcion_contratista', e.target.value)}
+                                                        style={{ fontSize: '0.8rem', padding: '0.4rem', minHeight: '60px', resize: 'vertical' }}
                                                         disabled={isLocked}
                                                     />
                                                 </td>
@@ -959,6 +1052,19 @@ export default function RegistroForm() {
                             </button>
                         )}
 
+                        {isEdit && (
+                            <button
+                                type="button"
+                                onClick={() => window.open(`${api.defaults.baseURL}/reportes/registro/${id}/pdf?token=${localStorage.getItem('token')}`, '_blank')}
+                                style={{
+                                    backgroundColor: '#f8fafc', color: '#475569', padding: '0.75rem 1.5rem', borderRadius: '6px', border: '1px solid #e2e8f0', fontWeight: 600, cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '0.5rem'
+                                }}
+                            >
+                                <FileText size={18} /> Ver Reporte PDF
+                            </button>
+                        )}
+
                         {!isLocked && (
                             <>
                                 {isContractor && form.estado_auditoria === 'reabierto' && (
@@ -975,15 +1081,33 @@ export default function RegistroForm() {
                                     </button>
                                 )}
                                 <button
-                                    type="submit"
+                                    type="button"
+                                    onClick={(e) => handleSubmit(e, { enviar: false })}
                                     disabled={loading}
                                     style={{
-                                        backgroundColor: '#10b981', color: 'white', padding: '0.75rem 2rem', borderRadius: '6px', border: 'none', fontWeight: 600, cursor: 'pointer',
-                                        display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                        backgroundColor: '#f3f4f6', color: '#374151', padding: '0.75rem 1.5rem', borderRadius: '6px', border: '1px solid #d1d5db', fontWeight: 600, cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', gap: '0.5rem'
                                     }}
                                 >
-                                    {loading ? <RefreshCw className="spin" size={20} /> : <Save size={20} />}
-                                    {isEdit ? 'Actualizar' : 'Guardar Registro'}
+                                    {loading ? <RefreshCw className="spin" size={18} /> : <Save size={18} />}
+                                    Guardar Borrador
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={(e) => handleSubmit(e, { enviar: true })}
+                                    disabled={loading || !isCompletable}
+                                    title={!isCompletable ? "Faltan evidencias en actividades obligatorias" : "Enviar registro para Auditoría"}
+                                    style={{
+                                        backgroundColor: isCompletable ? '#10b981' : '#d1d5db', 
+                                        color: isCompletable ? 'white' : '#6b7280', 
+                                        padding: '0.75rem 2rem', borderRadius: '6px', border: 'none', fontWeight: 600, 
+                                        cursor: isCompletable ? 'pointer' : 'not-allowed',
+                                        display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                        transition: 'background-color 0.3s'
+                                    }}
+                                >
+                                    <ClipboardCheck size={20} />
+                                    Enviar a Revisión
                                 </button>
                             </>
                         )}

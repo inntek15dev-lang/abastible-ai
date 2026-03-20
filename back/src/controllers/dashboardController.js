@@ -15,6 +15,8 @@ const {
     TipoContratista,
     Dependencia,
     Administracion,
+    Gerencia,
+    Subgerencia,
     sequelize
 } = require('../database/models');
 
@@ -72,7 +74,60 @@ const dashboardController = {
                 }
             }
 
-            const { fecha_inicio, fecha_fin, programa_id, servicio_id, dependencia_id, search, estado } = req.query;
+            const { fecha_inicio, fecha_fin, programa_id, servicio_id, dependencia_id, search, estado, gerencia_id, subgerencia_id, adc_id } = req.query;
+
+            // Filtros Avanzados (Intersección de Scope)
+            // 1. Filtro por ADC (Administrador de Contrato)
+            if (adc_id && adc_id !== 'todos') {
+                const adminRecords = await Administracion.findAll({
+                    where: { administrador_contrato_id: adc_id, activo: 1 },
+                    attributes: ['vinculacion_id']
+                });
+                const vincIdsFromADC = adminRecords.map(a => a.vinculacion_id);
+                if (whereRegistro.contratista_asignacion_id) {
+                    const existingIds = whereRegistro.contratista_asignacion_id[Op.in] || [];
+                    const intersection = existingIds.filter(id => vincIdsFromADC.includes(id));
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+                } else {
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: vincIdsFromADC.length > 0 ? vincIdsFromADC : [-1] };
+                }
+            }
+
+            // 2. Filtro por Gerencia / Subgerencia
+            if ((gerencia_id && gerencia_id !== 'todas') || (subgerencia_id && subgerencia_id !== 'todas')) {
+                const depWhere = {};
+                if (subgerencia_id && subgerencia_id !== 'todas') {
+                    depWhere.subgerencia_id = subgerencia_id;
+                } else if (gerencia_id && gerencia_id !== 'todas') {
+                    // Si se seleccionó gerencia pero no subgerencia, buscar todas las subgerencias de esa gerencia
+                    const subgs = await Subgerencia.findAll({
+                        where: { gerencia_id: gerencia_id, activo: 1 },
+                        attributes: ['id']
+                    });
+                    const subgIds = subgs.map(s => s.id);
+                    depWhere.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
+                }
+
+                const depsInGerencia = await Dependencia.findAll({
+                    where: depWhere,
+                    attributes: ['id']
+                });
+                const depIdsInGerencia = depsInGerencia.map(d => d.id);
+
+                const vincsInGerencia = await Vinculacion.findAll({
+                    where: { dependencia_id: { [Op.in]: depIdsInGerencia.length > 0 ? depIdsInGerencia : [-1] }, activo: 1 },
+                    attributes: ['id']
+                });
+                const vincIdsFromGerencia = vincsInGerencia.map(v => v.id);
+
+                if (whereRegistro.contratista_asignacion_id) {
+                    const existingIds = whereRegistro.contratista_asignacion_id[Op.in] || [];
+                    const intersection = existingIds.filter(id => vincIdsFromGerencia.includes(id));
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+                } else {
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: vincIdsFromGerencia.length > 0 ? vincIdsFromGerencia : [-1] };
+                }
+            }
 
             // Date Filter
             if (fecha_inicio || fecha_fin) {
@@ -212,6 +267,36 @@ const dashboardController = {
             // Contractors don't really manage users in this MVP scope except maybe their operatives.
             const usuariosActivos = isContractor ? 0 : await User.count({ where: { activo: true } });
 
+            // NUEVO KPI: % EECC con Registro (Empresas con al menos 1 registro en el periodo / Total Empresas Activas en el scope)
+            let totalEECCActivasEnScope = 0;
+            if (whereRegistro.contratista_asignacion_id) {
+                // Si hay un scope de IDs in (ej un filtro o rol)
+                const ids = whereRegistro.contratista_asignacion_id[Op.in] || [];
+                if (ids.length && ids[0] !== -1) {
+                    totalEECCActivasEnScope = ids.length;
+                }
+            } else {
+                // Scope global (Admin sin filtros de cascada específicos)
+                totalEECCActivasEnScope = await Vinculacion.count({ where: { activo: 1 } });
+            }
+
+            const eeccConRegistroDistinct = await Registro.count({
+                where: whereRegistro,
+                col: 'contratista_asignacion_id',
+                distinct: true
+            });
+
+            const porcentajeEmpresasConRegistro = totalEECCActivasEnScope > 0
+                ? ((eeccConRegistroDistinct / totalEECCActivasEnScope) * 100).toFixed(1)
+                : 0;
+
+            // Metadata de colores para leyenda (OK >= 85, Alerta < 85, Grave < 70)
+            const colorLegend = {
+                optimo: { label: 'Óptimo', color: '#10b981', min: 85 },
+                alerta: { label: 'Alerta', color: '#f59e0b', min: 70 },
+                critico: { label: 'Crítico', color: '#ef4444', min: 0 }
+            };
+
             res.json({
                 success: true,
                 data: {
@@ -225,10 +310,12 @@ const dashboardController = {
                     promedioCumplimientoAuditor: avgCumplimiento?.promedioAuditado !== null
                         ? parseFloat(avgCumplimiento.promedioAuditado).toFixed(1)
                         : null,
+                    porcentajeEmpresasConRegistro,
                     compromisosVencidos,
                     hallazgosAbiertos,
                     reapeturasPendientes,
                     usuariosActivos,
+                    colorLegend, // Enviar metadata de colores al front
                     roleView: isContractor ? 'Contractor' : isContractManager ? 'ContractManager' : 'Global'
                 }
             });
@@ -243,7 +330,9 @@ const dashboardController = {
         try {
             const user = req.user;
             let vincWhere = { activo: 1 };
+            const { gerencia_id, subgerencia_id, adc_id } = req.query;
 
+            // 1. Base Role
             if (user.role === 'administrador_contrato') {
                 const adminVincs = await Administracion.findAll({
                     where: { administrador_contrato_id: user.id, activo: 1 },
@@ -256,6 +345,51 @@ const dashboardController = {
                 vincWhere.contratista_id = user.contratista_id;
                 vincWhere.servicio_id = user.tipo_contratista_id;
                 vincWhere.dependencia_id = user.dependencia_id;
+            }
+
+            // 2. Filtros Avanzados
+            if (adc_id && adc_id !== 'todos') {
+                const adminRecords = await Administracion.findAll({
+                    where: { administrador_contrato_id: adc_id, activo: 1 },
+                    attributes: ['vinculacion_id']
+                });
+                const vincIdsFromADC = adminRecords.map(a => a.vinculacion_id);
+                if (vincWhere.id) {
+                    const existingIds = vincWhere.id[Op.in] || [];
+                    const intersection = existingIds.filter(id => vincIdsFromADC.includes(id));
+                    vincWhere.id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+                } else {
+                    vincWhere.id = { [Op.in]: vincIdsFromADC.length > 0 ? vincIdsFromADC : [-1] };
+                }
+            }
+
+            if ((gerencia_id && gerencia_id !== 'todas') || (subgerencia_id && subgerencia_id !== 'todas')) {
+                const depWhere = {};
+                if (subgerencia_id && subgerencia_id !== 'todas') {
+                    depWhere.subgerencia_id = subgerencia_id;
+                } else if (gerencia_id && gerencia_id !== 'todas') {
+                    const subgs = await Subgerencia.findAll({
+                        where: { gerencia_id: gerencia_id, activo: 1 },
+                        attributes: ['id']
+                    });
+                    const subgIds = subgs.map(s => s.id);
+                    depWhere.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
+                }
+
+                const depsInGerencia = await Dependencia.findAll({
+                    where: depWhere,
+                    attributes: ['id']
+                });
+                const depIdsInGerencia = depsInGerencia.map(d => d.id);
+                
+                if (vincWhere.dependencia_id) {
+                    // Si ya habia scope de dependencia, intersectamos (contratista_user)
+                    if (!depIdsInGerencia.includes(vincWhere.dependencia_id)) {
+                        vincWhere.dependencia_id = -1; // Filtro no concuerda
+                    }
+                } else {
+                    vincWhere.dependencia_id = { [Op.in]: depIdsInGerencia.length > 0 ? depIdsInGerencia : [-1] };
+                }
             }
 
             const data = await Registro.findAll({
@@ -288,6 +422,7 @@ const dashboardController = {
     async actividadReciente(req, res) {
         try {
             const user = req.user;
+            const { gerencia_id, subgerencia_id, adc_id } = req.query;
             const whereRegistro = {};
 
             // Same robust scoping as kpis
@@ -327,6 +462,56 @@ const dashboardController = {
                     else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
                 } else {
                     whereRegistro.id = -1;
+                }
+            }
+
+            // Filtros Avanzados
+            if (adc_id && adc_id !== 'todos') {
+                const adminRecords = await Administracion.findAll({
+                    where: { administrador_contrato_id: adc_id, activo: 1 },
+                    attributes: ['vinculacion_id']
+                });
+                const vincIdsFromADC = adminRecords.map(a => a.vinculacion_id);
+                if (whereRegistro.contratista_asignacion_id) {
+                    const existingIds = whereRegistro.contratista_asignacion_id[Op.in] || [];
+                    const intersection = existingIds.filter(id => vincIdsFromADC.includes(id));
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+                } else {
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: vincIdsFromADC.length > 0 ? vincIdsFromADC : [-1] };
+                }
+            }
+
+            if ((gerencia_id && gerencia_id !== 'todas') || (subgerencia_id && subgerencia_id !== 'todas')) {
+                const depWhere = {};
+                if (subgerencia_id && subgerencia_id !== 'todas') {
+                    depWhere.subgerencia_id = subgerencia_id;
+                } else if (gerencia_id && gerencia_id !== 'todas') {
+                    const subgs = await Subgerencia.findAll({
+                        where: { gerencia_id: gerencia_id, activo: 1 },
+                        attributes: ['id']
+                    });
+                    const subgIds = subgs.map(s => s.id);
+                    depWhere.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
+                }
+
+                const depsInGerencia = await Dependencia.findAll({
+                    where: depWhere,
+                    attributes: ['id']
+                });
+                const depIdsInGerencia = depsInGerencia.map(d => d.id);
+
+                const vincsInGerencia = await Vinculacion.findAll({
+                    where: { dependencia_id: { [Op.in]: depIdsInGerencia.length > 0 ? depIdsInGerencia : [-1] }, activo: 1 },
+                    attributes: ['id']
+                });
+                const vincIdsFromGerencia = vincsInGerencia.map(v => v.id);
+
+                if (whereRegistro.contratista_asignacion_id) {
+                    const existingIds = whereRegistro.contratista_asignacion_id[Op.in] || [];
+                    const intersection = existingIds.filter(id => vincIdsFromGerencia.includes(id));
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+                } else {
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: vincIdsFromGerencia.length > 0 ? vincIdsFromGerencia : [-1] };
                 }
             }
 
@@ -370,6 +555,7 @@ const dashboardController = {
     async historico(req, res) {
         try {
             const user = req.user;
+            const { gerencia_id, subgerencia_id, adc_id } = req.query;
             const whereRegistro = {};
 
             // Apply same filters as KPIs
@@ -409,6 +595,56 @@ const dashboardController = {
                     else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
                 } else {
                     whereRegistro.id = -1;
+                }
+            }
+
+            // Filtros Avanzados
+            if (adc_id && adc_id !== 'todos') {
+                const adminRecords = await Administracion.findAll({
+                    where: { administrador_contrato_id: adc_id, activo: 1 },
+                    attributes: ['vinculacion_id']
+                });
+                const vincIdsFromADC = adminRecords.map(a => a.vinculacion_id);
+                if (whereRegistro.contratista_asignacion_id) {
+                    const existingIds = whereRegistro.contratista_asignacion_id[Op.in] || [];
+                    const intersection = existingIds.filter(id => vincIdsFromADC.includes(id));
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+                } else {
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: vincIdsFromADC.length > 0 ? vincIdsFromADC : [-1] };
+                }
+            }
+
+            if ((gerencia_id && gerencia_id !== 'todas') || (subgerencia_id && subgerencia_id !== 'todas')) {
+                const depWhere = {};
+                if (subgerencia_id && subgerencia_id !== 'todas') {
+                    depWhere.subgerencia_id = subgerencia_id;
+                } else if (gerencia_id && gerencia_id !== 'todas') {
+                    const subgs = await Subgerencia.findAll({
+                        where: { gerencia_id: gerencia_id, activo: 1 },
+                        attributes: ['id']
+                    });
+                    const subgIds = subgs.map(s => s.id);
+                    depWhere.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
+                }
+
+                const depsInGerencia = await Dependencia.findAll({
+                    where: depWhere,
+                    attributes: ['id']
+                });
+                const depIdsInGerencia = depsInGerencia.map(d => d.id);
+
+                const vincsInGerencia = await Vinculacion.findAll({
+                    where: { dependencia_id: { [Op.in]: depIdsInGerencia.length > 0 ? depIdsInGerencia : [-1] }, activo: 1 },
+                    attributes: ['id']
+                });
+                const vincIdsFromGerencia = vincsInGerencia.map(v => v.id);
+
+                if (whereRegistro.contratista_asignacion_id) {
+                    const existingIds = whereRegistro.contratista_asignacion_id[Op.in] || [];
+                    const intersection = existingIds.filter(id => vincIdsFromGerencia.includes(id));
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+                } else {
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: vincIdsFromGerencia.length > 0 ? vincIdsFromGerencia : [-1] };
                 }
             }
 
@@ -477,7 +713,7 @@ const dashboardController = {
     async matrix(req, res) {
         try {
             const user = req.user;
-            const { contratista_id, servicio_id, dependencia_id, programa_id, tiene_registros, page = 1, limit = 5 } = req.query;
+            const { contratista_id, servicio_id, dependencia_id, programa_id, tiene_registros, gerencia_id, subgerencia_id, adc_id, page = 1, limit = 5 } = req.query;
 
             const offset = (page - 1) * limit;
 
@@ -517,6 +753,51 @@ const dashboardController = {
             }
             if (dependencia_id && dependencia_id !== 'todas') {
                 whereVinculacion.dependencia_id = dependencia_id;
+            }
+
+            // Filtros Avanzados (Intersección de Scope Vinculacion)
+            if (adc_id && adc_id !== 'todos') {
+                const adminRecords = await Administracion.findAll({
+                    where: { administrador_contrato_id: adc_id, activo: 1 },
+                    attributes: ['vinculacion_id']
+                });
+                const vincIdsFromADC = adminRecords.map(a => a.vinculacion_id);
+                if (whereVinculacion.id) {
+                    const existingIds = whereVinculacion.id[Op.in] || [];
+                    const intersection = existingIds.filter(id => vincIdsFromADC.includes(id));
+                    whereVinculacion.id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+                } else {
+                    whereVinculacion.id = { [Op.in]: vincIdsFromADC.length > 0 ? vincIdsFromADC : [-1] };
+                }
+            }
+
+            if ((gerencia_id && gerencia_id !== 'todas') || (subgerencia_id && subgerencia_id !== 'todas')) {
+                const depWhere = {};
+                if (subgerencia_id && subgerencia_id !== 'todas') {
+                    depWhere.subgerencia_id = subgerencia_id;
+                } else if (gerencia_id && gerencia_id !== 'todas') {
+                    const subgs = await Subgerencia.findAll({
+                        where: { gerencia_id: gerencia_id, activo: 1 },
+                        attributes: ['id']
+                    });
+                    const subgIds = subgs.map(s => s.id);
+                    depWhere.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
+                }
+
+                const depsInGerencia = await Dependencia.findAll({
+                    where: depWhere,
+                    attributes: ['id']
+                });
+                const depIdsInGerencia = depsInGerencia.map(d => d.id);
+                
+                if (whereVinculacion.dependencia_id) {
+                    // Interstellar scope vs chosen scope
+                    if (!depIdsInGerencia.includes(whereVinculacion.dependencia_id)) {
+                        whereVinculacion.dependencia_id = -1;
+                    }
+                } else {
+                    whereVinculacion.dependencia_id = { [Op.in]: depIdsInGerencia.length > 0 ? depIdsInGerencia : [-1] };
+                }
             }
 
             // --- Date range for registros: last 6 months ---

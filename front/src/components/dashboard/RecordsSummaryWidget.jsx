@@ -2,19 +2,31 @@ import { useState, useEffect } from 'react';
 import api from '../../api';
 import './RecordsSummaryWidget.css';
 
-export default function RecordsSummaryWidget({ period }) {
+export default function RecordsSummaryWidget({ filters }) {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         fetchData();
-    }, [period]);
+    }, [filters]);
 
     const fetchData = async () => {
         try {
             setLoading(true);
-            const queryPeriod = period || new Date().toISOString().slice(0, 7);
-            const response = await api.get(`/reportes/cumplimiento?periodo=${queryPeriod}`);
+            const params = new URLSearchParams();
+            if (filters.fecha_inicio) params.append('fecha_inicio', filters.fecha_inicio);
+            
+            const queryPeriod = filters.fecha_fin || new Date().toISOString().slice(0, 7);
+            params.append('periodo', queryPeriod);
+
+            if (filters.programa_id && filters.programa_id !== 'todos') params.append('programa_id', filters.programa_id);
+            if (filters.servicio_id && filters.servicio_id !== 'todos') params.append('servicio_id', filters.servicio_id);
+            if (filters.dependencia_id && filters.dependencia_id !== 'todas') params.append('dependencia_id', filters.dependencia_id);
+            if (filters.gerencia_id && filters.gerencia_id !== 'todas') params.append('gerencia_id', filters.gerencia_id);
+            if (filters.subgerencia_id && filters.subgerencia_id !== 'todas') params.append('subgerencia_id', filters.subgerencia_id);
+            if (filters.adc_id && filters.adc_id !== 'todos') params.append('adc_id', filters.adc_id);
+
+            const response = await api.get(`/reportes/cumplimiento?${params.toString()}`);
 
             if (response.data.success) {
                 setData(response.data.data.registros);

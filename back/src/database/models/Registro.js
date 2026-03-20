@@ -95,6 +95,10 @@ const Registro = sequelize.define('Registro', {
     observaciones_auditoria: {
         type: DataTypes.TEXT,
         allowNull: true
+    },
+    fecha_limite_subsanacion: {
+        type: DataTypes.DATE,
+        allowNull: true
     }
 }, {
     tableName: 'registros',

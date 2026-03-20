@@ -342,19 +342,16 @@ const registroController = {
             const oldData = registro.toJSON();
             const { actividades, terminar_subsanacion, ...registroData } = req.body;
 
-            // Transition to 'subsanado' if requested by contractor after reopening
-            if (terminar_subsanacion && registro.estado_auditoria === 'reabierto') {
+            // Transition to 'subsanado' automatically if edited while reopened
+            if (registro.estado_auditoria === 'reabierto') {
                 registroData.estado_auditoria = 'subsanado';
             }
 
             // CHECK: Mandatory Evidence before closing
             if (registroData.cerrado === 1 && oldData.cerrado === 0) {
-                // Get mandatory activities for this schema/program
-                // Since activities are dynamic per registro (copied to RegistroActividad), we check those.
-                // But wait, RegistroActividad doesn't have 'requiere_evidencia' flag, it comes from Actividad.
-
+                // Get mandatory activities
                 const actividadesRequeridas = await RegistroActividad.findAll({
-                    where: { registro_id: registro.id },
+                    where: { registro_id: registro.id, cumple: [1, true] }, // Only those marked as "Cumple"
                     include: [{
                         model: Actividad,
                         as: 'actividad',
@@ -363,32 +360,25 @@ const registroController = {
                 });
 
                 if (actividadesRequeridas.length > 0) {
-                    // Check if evidences exist for these activities OR generic evidences for the registro?
-                    // Rule says "Evidencia obligatoria para todas las actividades". 
-                    // Let's check if we have evidences linked to specific activities or if generic evidence is enough?
-                    // Strict interpretation: An evidence must be linked to the activity (actividad_id).
-                    // OR: At least one evidence for the registry if "evidencia_obligatoria" config is global.
-                    // Let's implement Strict: Specific evidence for specific activity.
-
-                    // Get evidences for this registro
+                    const reqActIds = actividadesRequeridas.map(a => a.id);
+                    
+                    // Get evidences linked directly to these RegistroActividad IDs
                     const evidencias = await Evidencia.findAll({
-                        where: { registro_id: registro.id }
+                        where: { registro_actividad_id: { [Op.in]: reqActIds } }
                     });
 
-                    // Map activity_ids covered by evidences
-                    const coveredActivityIds = evidencias
-                        .map(e => e.actividad_id)
-                        .filter(id => id !== null);
-
-                    const missingActivities = actividadesRequeridas.filter(ra => !coveredActivityIds.includes(ra.actividad_id));
-
-                    // Also check if RegistroActividad table has 'evidencia_url' usage (legacy?)
-                    // If your system uses 'Evidencia' model, strictly check that.
+                    // Map covered RegistroActividad IDs
+                    const coveredActIds = evidencias.map(e => e.registro_actividad_id);
+                    
+                    // Find if any required RegistroActividad ID lacks an evidence
+                    const missingActivities = actividadesRequeridas.filter(ra => !coveredActIds.includes(ra.id));
 
                     if (missingActivities.length > 0) {
+                        const codigosFaltantes = missingActivities.map(a => a.actividad.codigo).join(', ');
                         return res.status(400).json({
                             success: false,
-                            message: `Faltan evidencias para actividades obligatorias: ${missingActivities.map(a => a.actividad.codigo).join(', ')}`
+                            message: `⚠️ No se puede cerrar el registro: Faltan evidencias obligatorias para las actividades [${codigosFaltantes}]. Por favor, adjunte los documentos requeridos antes de finalizar.`,
+                            missingActivities: missingActivities.map(a => a.id)
                         });
                     }
                 }

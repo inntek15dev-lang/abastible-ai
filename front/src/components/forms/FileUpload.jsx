@@ -1,4 +1,4 @@
-﻿// IEEE Trace: REQ-005 | components/forms/FileUpload.jsx
+// IEEE Trace: REQ-005 | components/forms/FileUpload.jsx
 import { useState, useRef } from 'react';
 import api from '../../api';
 import { Upload, X, File, Image, FileText } from 'lucide-react';
@@ -15,6 +15,8 @@ export default function FileUpload({
     const [error, setError] = useState('');
     const [preview, setPreview] = useState(null);
     const fileInputRef = useRef(null);
+
+    const [uploadProgress, setUploadProgress] = useState(0);
 
     const canUpload = existingCount < maxFiles;
 
@@ -51,21 +53,29 @@ export default function FileUpload({
 
         // Upload
         setUploading(true);
+        setUploadProgress(0);
         const formData = new FormData();
         formData.append('archivo', file);
         formData.append('registro_actividad_id', registroActividadId);
 
         try {
             const response = await api.post('/evidencias', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+                headers: { 'Content-Type': 'multipart/form-data' },
+                onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    setUploadProgress(percentCompleted);
+                }
             });
 
             setPreview(null);
             if (onUploadComplete) {
                 onUploadComplete(response.data.data);
             }
+            setUploadProgress(100);
+            setTimeout(() => setUploadProgress(0), 2000);
         } catch (err) {
             setError(err.response?.data?.message || 'Error al subir archivo');
+            setUploadProgress(0);
         } finally {
             setUploading(false);
             if (fileInputRef.current) {
@@ -82,13 +92,17 @@ export default function FileUpload({
 
     return (
         <div className="file-upload">
-            {error && <div className="error-message small">{error}</div>}
+            {error && <div className="error-message small" style={{ color: '#ef4444', marginBottom: '4px', fontSize: '0.7rem' }}>{error}</div>}
 
             {preview && (
-                <div className="preview-container">
-                    <img src={preview} alt="Preview" className="preview-image" />
-                    <button className="btn-icon" onClick={() => setPreview(null)}>
-                        <X size={16} />
+                <div className="preview-container" style={{ position: 'relative', marginBottom: '8px' }}>
+                    <img src={preview} alt="Preview" className="preview-image" style={{ maxWidth: '100%', borderRadius: '4px', border: '1px solid #e5e7eb' }} />
+                    <button 
+                        className="btn-icon" 
+                        onClick={() => setPreview(null)}
+                        style={{ position: 'absolute', top: '-8px', right: '-8px', background: '#fff', borderRadius: '50%', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', border: '1px solid #e5e7eb', padding: '2px' }}
+                    >
+                        <X size={14} />
                     </button>
                 </div>
             )}
@@ -103,57 +117,91 @@ export default function FileUpload({
                     style={{ display: 'none' }}
                 />
 
-                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '0.5rem', width: '100%', flexWrap: 'wrap' }}>
-                    {/* Template Download Button */}
-                    <a
-                        href={templateUrl ? `${dynamicApiUrl}/${templateUrl}` : '#'}
-                        target={templateUrl ? "_blank" : undefined}
-                        rel={templateUrl ? "noopener noreferrer" : undefined}
-                        className={`template-download-btn ${!templateUrl ? 'disabled' : ''}`}
-                        onClick={(e) => !templateUrl && e.preventDefault()}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '0.5rem',
-                            fontSize: '0.75rem',
-                            color: templateUrl ? '#003594' : '#9ca3af',
-                            textDecoration: 'none',
-                            padding: '0.5rem',
-                            border: `1px dashed ${templateUrl ? '#003594' : '#d1d5db'}`,
-                            borderRadius: '4px',
-                            backgroundColor: templateUrl ? '#eff6ff' : '#f3f4f6',
-                            transition: 'all 0.2s',
-                            flex: 1,
-                            cursor: templateUrl ? 'pointer' : 'not-allowed',
-                            height: '38px', // Match standard button height
-                            whiteSpace: 'nowrap'
-                        }}
-                        onMouseEnter={(e) => {
-                            if (templateUrl) e.currentTarget.style.backgroundColor = '#dbeafe';
-                        }}
-                        onMouseLeave={(e) => {
-                            if (templateUrl) e.currentTarget.style.backgroundColor = '#eff6ff';
-                        }}
-                        title={!templateUrl ? "Sin plantilla disponible" : "Descargar Plantilla"}
-                    >
-                        <FileText size={14} />
-                        {templateUrl ? 'Descargar Plantilla' : 'Sin Plantilla'}
-                    </a>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
+                    <div style={{ display: 'flex', rowDirection: 'row', alignItems: 'center', gap: '0.5rem', width: '100%', flexWrap: 'wrap' }}>
+                        {/* Template Download Button */}
+                        <a
+                            href={templateUrl ? `${api.defaults.baseURL}/${templateUrl}` : '#'}
+                            target={templateUrl ? "_blank" : undefined}
+                            rel={templateUrl ? "noopener noreferrer" : undefined}
+                            className={`template-download-btn ${!templateUrl ? 'disabled' : ''}`}
+                            onClick={(e) => !templateUrl && e.preventDefault()}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.5rem',
+                                fontSize: '0.75rem',
+                                color: templateUrl ? '#003594' : '#9ca3af',
+                                textDecoration: 'none',
+                                padding: '0.5rem',
+                                border: `1px dashed ${templateUrl ? '#003594' : '#d1d5db'}`,
+                                borderRadius: '4px',
+                                backgroundColor: templateUrl ? '#eff6ff' : '#f3f4f6',
+                                transition: 'all 0.2s',
+                                flex: 1,
+                                cursor: templateUrl ? 'pointer' : 'not-allowed',
+                                height: '38px', // Match standard button height
+                                whiteSpace: 'nowrap'
+                            }}
+                            onMouseEnter={(e) => {
+                                if (templateUrl) e.currentTarget.style.backgroundColor = '#dbeafe';
+                            }}
+                            onMouseLeave={(e) => {
+                                if (templateUrl) e.currentTarget.style.backgroundColor = '#eff6ff';
+                            }}
+                            title={!templateUrl ? "Sin plantilla disponible" : "Descargar Plantilla"}
+                        >
+                            <FileText size={14} />
+                            {templateUrl ? 'Descargar Plantilla' : 'Sin Plantilla'}
+                        </a>
 
-                    <button
-                        type="button"
-                        className="upload-btn"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={!canUpload || uploading}
-                        style={{ flex: 1, height: '38px' }}
-                    >
-                        <Upload size={18} />
-                        {uploading ? 'Subiendo...' : 'Subir Evidencia'}
-                    </button>
+                        <button
+                            type="button"
+                            className="upload-btn"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={!canUpload || uploading}
+                            style={{ 
+                                flex: 1, 
+                                height: '38px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.5rem',
+                                background: uploading ? '#cbd5e1' : 'var(--color-brand-primary)',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: (!canUpload || uploading) ? 'not-allowed' : 'pointer'
+                            }}
+                        >
+                            <Upload size={18} />
+                            {uploading ? 'Subiendo...' : 'Subir Evidencia'}
+                        </button>
+                    </div>
+
+                    {/* Progress Bar */}
+                    {(uploading || uploadProgress > 0) && (
+                        <div style={{ width: '100%', background: '#e5e7eb', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
+                            <div 
+                                style={{ 
+                                    width: `${uploadProgress}%`, 
+                                    background: uploadProgress === 100 ? '#22c55e' : '#3b82f6', 
+                                    height: '100%', 
+                                    transition: 'width 0.3s ease-in-out' 
+                                }} 
+                            />
+                        </div>
+                    )}
+                    
+                    {uploadProgress === 100 && !uploading && (
+                        <div style={{ fontSize: '0.7rem', color: '#22c55e', textAlign: 'center', fontWeight: 600 }}>
+                            ✅ ¡Carga completada con éxito!
+                        </div>
+                    )}
                 </div>
 
-                <span className="upload-info">
+                <span className="upload-info" style={{ fontSize: '0.7rem', color: '#6b7280', marginTop: '4px', display: 'block', textAlign: 'right' }}>
                     {existingCount}/{maxFiles} archivos
                 </span>
             </div>

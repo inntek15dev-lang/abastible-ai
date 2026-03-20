@@ -1,9 +1,9 @@
-﻿// IEEE Trace: REQ-010 | US-010 | pages/compromisos/CompromisoList.jsx
+// IEEE Trace: REQ-010 | US-010 | pages/compromisos/CompromisoList.jsx
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
-import { CheckCircle, Clock, AlertCircle, Calendar, User, Edit, X, Save, Shield, Trash2 } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, Calendar, User, Edit, X, Save, Shield, Trash2, TrendingUp } from 'lucide-react';
 
 export default function CompromisoList() {
     const [searchParams] = useSearchParams();
@@ -265,6 +265,64 @@ export default function CompromisoList() {
                             {f.label}
                         </button>
                     ))}
+                </div>
+
+                {/* KPI Summary Section */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginTop: '8px' }}>
+                    <div style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Total compromisos</span>
+                            <div style={{ background: '#eff6ff', color: '#3b82f6', padding: '6px', borderRadius: '8px' }}><Shield size={18} /></div>
+                        </div>
+                        <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#1e293b' }}>{compromisos.length}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>Cargados en el periodo</div>
+                    </div>
+
+                    <div style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ color: '#059669', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Cumplidos</span>
+                            <div style={{ background: '#f0fdf4', color: '#10b981', padding: '6px', borderRadius: '8px' }}><CheckCircle size={18} /></div>
+                        </div>
+                        <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#065f46' }}>
+                            {compromisos.filter(c => c.estado === 'cumplido').length}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#10b981', marginTop: '4px', fontWeight: 600 }}>Acciones cerradas</div>
+                    </div>
+
+                    <div style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ color: '#b91c1c', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Pendientes / Vencidos</span>
+                            <div style={{ background: '#fef2f2', color: '#ef4444', padding: '6px', borderRadius: '8px' }}><Clock size={18} /></div>
+                        </div>
+                        <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#991b1b' }}>
+                            {compromisos.filter(c => c.estado !== 'cumplido').length}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '4px', fontWeight: 600 }}>Acciones abiertas</div>
+                    </div>
+
+                    <div style={{ background: 'linear-gradient(135deg, #003594 0%, #002466 100%)', padding: '20px', borderRadius: '16px', color: 'white', boxShadow: '0 10px 15px -3px rgba(0, 53, 148, 0.2)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Cierre Accountability</span>
+                            <TrendingUp size={18} />
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                            <div style={{ fontSize: '2rem', fontWeight: 800 }}>
+                                {compromisos.length > 0 ? Math.round((compromisos.filter(c => c.estado === 'cumplido').length / compromisos.length) * 100) : 0}
+                            </div>
+                            <div style={{ fontSize: '1rem', fontWeight: 600, opacity: 0.8 }}>%</div>
+                        </div>
+                        <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.2)', borderRadius: '10px', marginTop: '12px', overflow: 'hidden' }}>
+                            <div 
+                                style={{ 
+                                    width: `${compromisos.length > 0 ? (compromisos.filter(c => c.estado === 'cumplido').length / compromisos.length) * 100 : 0}%`, 
+                                    height: '100%', 
+                                    background: '#10b981', 
+                                    borderRadius: '10px',
+                                    transition: 'width 0.5s ease-out'
+                                }} 
+                            />
+                        </div>
+                    </div>
                 </div>
             </header>
 

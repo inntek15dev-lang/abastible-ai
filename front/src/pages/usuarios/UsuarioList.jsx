@@ -41,6 +41,7 @@ export default function UsuarioList() {
             admin: 'primary',
             administrador_contrato: 'info',
             contratista_admin: 'warning',
+            contratista_admin_eecc: 'danger', // New role color
             contratista_user: 'secondary'
         };
         return colors[role] || 'default';
@@ -85,7 +86,7 @@ export default function UsuarioList() {
                                     <td>{usuario.email}</td>
                                     <td>
                                         <span className={`badge ${getRoleBadge(usuario.role)}`}>
-                                            {usuario.role}
+                                            {usuario.role.replace(/_/g, ' ')}
                                         </span>
                                     </td>
                                     <td>{usuario.eecc_nombre || '-'}</td>
@@ -94,7 +95,8 @@ export default function UsuarioList() {
                                             <Toggle
                                                 checked={Boolean(usuario.activo)}
                                                 onChange={() => toggleActive(usuario.id, usuario.activo)}
-                                                disabled={!canExec('Usuarios')}
+                                                disabled={!canExec('Usuarios') || usuario.id === useAuth().user?.id}
+                                                title={usuario.id === useAuth().user?.id ? "No puede desactivar su propia cuenta" : ""}
                                             />
                                             <span style={{ fontSize: '0.85rem', color: usuario.activo ? 'var(--success)' : 'var(--text-secondary)' }}>
                                                 {usuario.activo ? 'Activo' : 'Inactivo'}

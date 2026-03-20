@@ -408,6 +408,7 @@ router.post('/registros/:id/comentarios', auth, auditoriaController.agregarComen
  *         description: List of evidences
  */
 router.get('/evidencias', auth, evidenciaController.index);
+router.get('/evidencias/bulk-download', auth, evidenciaController.downloadSelected);
 router.post('/evidencias', auth, upload.single('archivo'), evidenciaController.store);
 router.get('/evidencias/:id/download', auth, evidenciaController.download);
 router.delete('/evidencias/:id', auth, requirePrivilege('Evidencias', 'excec'), evidenciaController.destroy);
@@ -697,6 +698,8 @@ router.get('/reportes/registro/:id/pdf', auth, reporteController.registroPdf);
  *         description: Compliance report
  */
 router.get('/reportes/cumplimiento', auth, reporteController.cumplimientoGeneral);
+router.get('/reportes/cumplimiento/pdf', auth, reporteController.cumplimientoGeneralPdf);
+router.get('/reportes/cumplimiento/excel', auth, reporteController.cumplimientoGeneralExcel);
 
 // ============= SPRINT 5: DOCUMENTOS =============
 // Documentos
@@ -798,12 +801,45 @@ const resourceController = require('../controllers/resourceController');
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of services
+ *         description: List of types
+ * 
+ * /resources/gerencias:
+ *   get:
+ *     summary: List gerencias for dropdowns
+ *     tags: [Resources]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of gerencias
+ * 
+ * /resources/subgerencias:
+ *   get:
+ *     summary: List subgerencias for dropdowns
+ *     tags: [Resources]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of subgerencias
+ * 
+ * /resources/adc:
+ *   get:
+ *     summary: List Contract Managers
+ *     tags: [Resources]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of Administradores de Contrato
  */
 router.get('/resources/dependencias', auth, resourceController.dependencias);
+router.get('/resources/roles', auth, resourceController.roles);
 router.get('/resources/tipos-contratista', auth, resourceController.tiposContratista);
-
-
+router.get('/resources/gerencias', auth, resourceController.gerencias);
+router.get('/resources/subgerencias', auth, resourceController.subgerencias);
+router.get('/resources/adc', auth, resourceController.administradoresContrato);
+router.get('/resources/adc-scope', auth, resourceController.adcScope);
 
 // ============= SPRINT 7: GESTIÓN DE ROLES =============
 const roleController = require('../controllers/roleController');
@@ -1272,6 +1308,8 @@ router.get('/vinculaciones/:id', auth, requirePrivilege('Vinculaciones', 'read')
 router.post('/vinculaciones', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.store);
 router.post('/vinculaciones/:id/admin', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.assignAdmin);
 router.delete('/vinculaciones/:id/admin/:adminId', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.removeAdmin);
+router.post('/vinculaciones/:id/usuarios', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.assignUser);
+router.delete('/vinculaciones/:id/usuarios/:userId', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.removeUser);
 router.put('/vinculaciones/:id', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.update);
 router.delete('/vinculaciones/:id', auth, requirePrivilege('Vinculaciones', 'excec'), vinculacionController.destroy);
 

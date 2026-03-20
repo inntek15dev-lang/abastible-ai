@@ -117,7 +117,10 @@ const reaperturaController = {
     async aprobar(req, res) {
         try {
             const solicitud = await SolicitudReapertura.findByPk(req.params.id, {
-                include: [{ model: Registro, as: 'registro' }]
+                include: [
+                    { model: Registro, as: 'registro' },
+                    { model: User, as: 'solicitante', attributes: ['email'] }
+                ]
             });
 
             if (!solicitud) {
@@ -138,7 +141,8 @@ const reaperturaController = {
             // Reopen the registro
             await solicitud.registro.update({
                 estado_auditoria: 'reabierto',
-                cerrado: 0
+                cerrado: 0,
+                fecha_limite_subsanacion: req.body.fecha_limite || null
             });
 
             // Log
@@ -150,8 +154,10 @@ const reaperturaController = {
                 ip_address: req.ip
             });
 
-            // Notify Solicitor (Mock)
-            // await emailService.notifyReaperturaProcessed(solicitud.solicitante.email, solicitud.registro, 'aprobada', req.body.respuesta);
+            // Notify Solicitor (Real Mock/Service)
+            if (solicitud.solicitante?.email) {
+                await emailService.notifyReaperturaResult(solicitud, solicitud.registro, solicitud.solicitante.email);
+            }
             console.log(`[MOCK EMAIL] Reapertura Aprobada: ${solicitud.registro_id}`);
 
             res.json({ success: true, data: solicitud, message: 'Reapertura aprobada' });
@@ -173,7 +179,12 @@ const reaperturaController = {
                 });
             }
 
-            const solicitud = await SolicitudReapertura.findByPk(req.params.id);
+            const solicitud = await SolicitudReapertura.findByPk(req.params.id, {
+                include: [
+                    { model: Registro, as: 'registro' },
+                    { model: User, as: 'solicitante', attributes: ['email'] }
+                ]
+            });
 
             if (!solicitud) {
                 return res.status(404).json({ success: false, message: 'Solicitud no encontrada' });
@@ -206,6 +217,11 @@ const reaperturaController = {
                 descripcion: `Reapertura rechazada: ${respuesta}`,
                 ip_address: req.ip
             });
+
+            // Notify Solicitor
+            if (solicitud.solicitante?.email) {
+                await emailService.notifyReaperturaResult(solicitud, solicitud.registro, solicitud.solicitante.email);
+            }
 
             res.json({ success: true, data: solicitud, message: 'Reapertura rechazada' });
         } catch (error) {

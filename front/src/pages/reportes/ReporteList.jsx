@@ -1,23 +1,18 @@
-// IEEE Trace: REQ-008 | US-008, Sprint 4 | pages/reportes/ReporteList.jsx
+// IEEE Trace: REQ-008 | US-008, Sprint 5 | pages/reportes/ReporteList.jsx
 import { useState, useEffect } from 'react';
-import { FileText, FileSpreadsheet } from 'lucide-react';
+import { FileText, FileSpreadsheet, ExternalLink, TrendingUp, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import api from '../../api';
 import './Reportes.css';
 
 export default function ReporteList() {
     const { canRead } = useAuth();
     const navigate = useNavigate();
 
-    useEffect(() => {
-        if (!canRead('Reportes')) {
-            navigate('/');
-        }
-    }, [canRead, navigate]);
-
-
     const [loading, setLoading] = useState(true);
     const [filterPeriodo, setFilterPeriodo] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+    const [reportData, setReportData] = useState({ elementos: [], registros: [] });
 
     useEffect(() => {
         if (!canRead('Reportes')) {
@@ -30,14 +25,10 @@ export default function ReporteList() {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`http://localhost:4000/api/reportes/cumplimiento?periodo=${filterPeriodo}`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}` // Assuming token storage
-                }
-            });
-            const data = await response.json();
-
-
+            const response = await api.get(`/reportes/cumplimiento?periodo=${filterPeriodo}`);
+            if (response.data.success) {
+                setReportData(response.data.data);
+            }
         } catch (error) {
             console.error("Error fetching reports:", error);
         } finally {
@@ -45,47 +36,150 @@ export default function ReporteList() {
         }
     };
 
+    const handleExportPdf = async () => {
+        window.open(`${api.defaults.baseURL}/reportes/cumplimiento/pdf?periodo=${filterPeriodo}&token=${localStorage.getItem('token')}`, '_blank');
+    };
 
+    const handleExportExcel = async () => {
+        window.open(`${api.defaults.baseURL}/reportes/cumplimiento/excel?periodo=${filterPeriodo}&token=${localStorage.getItem('token')}`, '_blank');
+    };
 
+    const viewRegistroPdf = (id) => {
+        window.open(`${api.defaults.baseURL}/reportes/registro/${id}/pdf?token=${localStorage.getItem('token')}`, '_blank');
+    };
+
+    const getScoreColor = (score) => {
+        if (score >= 85) return '#10b981'; // Emerald
+        if (score >= 70) return '#f59e0b'; // Amber
+        return '#ef4444'; // Red
+    };
 
     return (
-        <div className="report-page-container">
-            {/* Header */}
-            <div className="report-header">
-                <div className="report-title">
-                    <FileText size={24} color="#6c757d" />
-                    Reportes
+        <div className="report-center-wrapper">
+            {/* Header Section */}
+            <div className="report-center-header">
+                <div className="header-info">
+                    <div className="header-icon">
+                        <TrendingUp size={24} />
+                    </div>
+                    <div>
+                        <h1>Dashboard de Reportes</h1>
+                        <p>Consolidado de cumplimiento y gestión de registros</p>
+                    </div>
                 </div>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <input
-                        type="month"
-                        id="filter-periodo-report"
-                        value={filterPeriodo}
-                        onChange={(e) => setFilterPeriodo(e.target.value)}
-                        className="form-control"
-                        style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ccc' }}
-                    />
-                    <div className="report-actions">
-                        <button id="btn-export-excel" className="btn-export excel">
+
+                <div className="header-controls">
+                    <div className="period-picker">
+                        <label>Periodo:</label>
+                        <input
+                            type="month"
+                            value={filterPeriodo}
+                            onChange={(e) => setFilterPeriodo(e.target.value)}
+                        />
+                    </div>
+                    <div className="header-actions">
+                        <button onClick={handleExportExcel} className="btn-export excel">
                             <FileSpreadsheet size={18} />
-                            Exportar Excel
+                            <span>Excel</span>
                         </button>
-                        <button id="btn-export-pdf" className="btn-export pdf">
+                        <button onClick={handleExportPdf} className="btn-export pdf">
                             <FileText size={18} />
-                            Exportar PDF
+                            <span>PDF</span>
                         </button>
                     </div>
                 </div>
             </div>
 
             {loading ? (
-                <div style={{ padding: 20, textAlign: 'center' }}>Cargando datos...</div>
+                <div className="report-loading">
+                    <div className="spinner"></div>
+                    <p>Calculando matrices de cumplimiento...</p>
+                </div>
             ) : (
-                <>
+                <div className="report-content-grid">
+                    {/* Element Summary Section */}
+                    <div className="report-card element-summary">
+                        <h3>Cumplimiento por Elemento</h3>
+                        <div className="element-grid">
+                            {reportData.elementos.length > 0 ? (
+                                reportData.elementos.map(item => (
+                                    <div key={item.id} className="element-score-card">
+                                        <div className="element-label">{item.name}</div>
+                                        <div className="score-viz">
+                                            <div className="progress-bar-bg">
+                                                <div 
+                                                    className="progress-bar-fill" 
+                                                    style={{ width: `${item.declarado}%`, backgroundColor: getScoreColor(item.declarado) }}
+                                                ></div>
+                                            </div>
+                                            <div className="score-labels">
+                                                <span className="score-val" style={{ color: getScoreColor(item.declarado) }}>
+                                                    {item.declarado}%
+                                                </span>
+                                                {item.auditado !== null && (
+                                                    <span className="audit-val">
+                                                        Auditor: {item.auditado}%
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="no-data-msg">No hay datos para este periodo</div>
+                            )}
+                        </div>
+                    </div>
 
-
-
-                </>
+                    {/* Detailed Log Table */}
+                    <div className="report-card registro-log">
+                        <h3>Registros del Periodo</h3>
+                        <div className="table-wrapper">
+                            <table className="report-table">
+                                <thead>
+                                    <tr>
+                                        <th>Empresa (EECC)</th>
+                                        <th>Cumplimiento</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {reportData.registros.length > 0 ? (
+                                        reportData.registros.map(reg => (
+                                            <tr key={reg.id}>
+                                                <td className="eecc-cell">
+                                                    <strong>{reg.eecc}</strong>
+                                                </td>
+                                                <td className="score-cell">
+                                                    <span className="badge-score" style={{ backgroundColor: getScoreColor(reg.cumplimiento) + '20', color: getScoreColor(reg.cumplimiento) }}>
+                                                        {reg.cumplimiento}%
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <div className={`status-pill ${reg.statusClass}`}>
+                                                        {reg.cumplimiento >= 85 ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+                                                        {reg.estado}
+                                                    </div>
+                                                </td>
+                                                <td className="actions-cell">
+                                                    <button onClick={() => viewRegistroPdf(reg.id)} title="Ver PDF Detallado">
+                                                        <ExternalLink size={16} />
+                                                        PDF
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="4" className="empty-table">Sin registros encontrados</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

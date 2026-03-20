@@ -1,5 +1,5 @@
 // IEEE Trace: REQ-009 | Vinculacion Controller
-const { Vinculacion, Contratista, TipoContratista, Dependencia, Administracion, User, sequelize } = require('../database/models');
+const { Vinculacion, Contratista, TipoContratista, Dependencia, Administracion, VinculacionUsuario, User, sequelize } = require('../database/models');
 
 const vinculacionController = {
     // GET /api/vinculaciones
@@ -26,6 +26,15 @@ const vinculacionController = {
                         include: [
                             { model: User, as: 'administradorContrato', attributes: ['id', 'name', 'email'] }
                         ]
+                    },
+                    {
+                        model: VinculacionUsuario,
+                        as: 'usuariosVinculados',
+                        where: { activo: 1 },
+                        required: false,
+                        include: [
+                            { model: User, as: 'usuario', attributes: ['id', 'name', 'email', 'role'] }
+                        ]
                     }
                 ]
             });
@@ -51,6 +60,15 @@ const vinculacionController = {
                         required: false,
                         include: [
                             { model: User, as: 'administradorContrato', attributes: ['id', 'name', 'email'] }
+                        ]
+                    },
+                    {
+                        model: VinculacionUsuario,
+                        as: 'usuariosVinculados',
+                        where: { activo: 1 },
+                        required: false,
+                        include: [
+                            { model: User, as: 'usuario', attributes: ['id', 'name', 'email', 'role'] }
                         ]
                     }
                 ]
@@ -173,6 +191,44 @@ const vinculacionController = {
         } catch (error) {
             console.error('Vinculacion removeAdmin error:', error);
             res.status(500).json({ success: false, message: 'Error al remover administrador' });
+        }
+    },
+
+    // POST /api/vinculaciones/:id/usuarios
+    async assignUser(req, res) {
+        try {
+            const { id } = req.params;
+            const { user_id } = req.body;
+
+            const vinculacion = await Vinculacion.findByPk(id);
+            if (!vinculacion) {
+                return res.status(404).json({ success: false, message: 'Vinculacion no encontrada' });
+            }
+
+            const [vUser, created] = await VinculacionUsuario.findOrCreate({
+                where: { vinculacion_id: id, user_id, activo: 1 },
+                defaults: { activo: 1 }
+            });
+
+            res.json({ success: true, message: 'Usuario asignado correctamente' });
+        } catch (error) {
+            console.error('Vinculacion assignUser error:', error);
+            res.status(500).json({ success: false, message: 'Error al asignar usuario' });
+        }
+    },
+
+    // DELETE /api/vinculaciones/:id/usuarios/:userId
+    async removeUser(req, res) {
+        try {
+            const { id, userId } = req.params;
+            await VinculacionUsuario.update(
+                { activo: 0 },
+                { where: { vinculacion_id: id, user_id: userId, activo: 1 } }
+            );
+            res.json({ success: true, message: 'Usuario removido correctamente' });
+        } catch (error) {
+            console.error('Vinculacion removeUser error:', error);
+            res.status(500).json({ success: false, message: 'Error al remover usuario' });
         }
     }
 };

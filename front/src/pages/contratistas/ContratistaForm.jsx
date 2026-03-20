@@ -17,6 +17,7 @@ export default function ContratistaForm() {
         direccion: '',
         telefono: '',
         email_contacto: '',
+        activo: true,
         vinculacion_inicial: { // Only for creation
             dependencia_id: '',
             servicio_id: '',
@@ -148,6 +149,22 @@ export default function ContratistaForm() {
                                 value={form.email_contacto}
                                 onChange={e => setForm({ ...form, email_contacto: e.target.value })}
                             />
+                        </div>
+
+                        <div style={{ marginTop: '16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input
+                                type="checkbox"
+                                id="activo"
+                                checked={form.activo}
+                                onChange={e => setForm({ ...form, activo: e.target.checked })}
+                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                            <label htmlFor="activo" style={{ cursor: 'pointer', fontWeight: '500', color: '#1e293b' }}>
+                                Empresa Activa
+                            </label>
+                            <small style={{ color: '#64748b', marginLeft: '8px' }}>
+                                (Si se desactiva, no aparecerá en los nuevos periodos)
+                            </small>
                         </div>
 
                         {/* Initial Vinculacion (Only Create) */}

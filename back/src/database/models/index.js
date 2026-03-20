@@ -5,6 +5,8 @@ const sequelize = require('../index');
 // Sprint 1
 const Role = require('./Role');
 const Privilegio = require('./Privilegio');
+const Gerencia = require('./Gerencia');
+const Subgerencia = require('./Subgerencia');
 const Dependencia = require('./Dependencia');
 const Programa = require('./Programa');
 const Configuracion = require('./Configuracion');
@@ -33,12 +35,21 @@ const Documento = require('./Documento');
 const Contratista = require('./Contratista');
 const Vinculacion = require('./Vinculacion');
 const Administracion = require('./Administracion');
+const VinculacionUsuario = require('./VinculacionUsuario');
 
 // ============= SPRINT 1 ASSOCIATIONS =============
 
 // Role -> Privilegios (1:N)
 Role.hasMany(Privilegio, { foreignKey: 'role_id', as: 'privilegios' });
 Privilegio.belongsTo(Role, { foreignKey: 'role_id', as: 'role' });
+
+// Gerencia -> Subgerencia (1:N)
+Gerencia.hasMany(Subgerencia, { foreignKey: 'gerencia_id', as: 'subgerencias' });
+Subgerencia.belongsTo(Gerencia, { foreignKey: 'gerencia_id', as: 'gerencia' });
+
+// Subgerencia -> Dependencia (1:N)
+Subgerencia.hasMany(Dependencia, { foreignKey: 'subgerencia_id', as: 'dependencias' });
+Dependencia.belongsTo(Subgerencia, { foreignKey: 'subgerencia_id', as: 'subgerencia' });
 
 // Programa -> TipoContratista (1:N)
 Programa.hasMany(TipoContratista, { foreignKey: 'programa_id', as: 'tiposContratista' });
@@ -215,11 +226,21 @@ Administracion.belongsTo(Vinculacion, { foreignKey: 'vinculacion_id', as: 'vincu
 User.hasMany(Administracion, { foreignKey: 'administrador_contrato_id', as: 'contratosAdministrados' });
 Administracion.belongsTo(User, { foreignKey: 'administrador_contrato_id', as: 'administradorContrato' });
 
+// VinculacionUsuario -> Vinculacion
+Vinculacion.hasMany(VinculacionUsuario, { foreignKey: 'vinculacion_id', as: 'usuariosVinculados' });
+VinculacionUsuario.belongsTo(Vinculacion, { foreignKey: 'vinculacion_id', as: 'vinculacion' });
+
+// VinculacionUsuario -> User
+User.hasMany(VinculacionUsuario, { foreignKey: 'user_id', as: 'vinculacionesAsignadas' });
+VinculacionUsuario.belongsTo(User, { foreignKey: 'user_id', as: 'usuario', attributes: ['id', 'name', 'email', 'role'] });
+
 module.exports = {
     sequelize,
     // Sprint 1
     Role,
     Privilegio,
+    Gerencia,
+    Subgerencia,
     Dependencia,
     Programa,
     Configuracion,
@@ -243,5 +264,6 @@ module.exports = {
     // Sprint 9 (Refactor)
     Contratista,
     Vinculacion,
-    Administracion
+    Administracion,
+    VinculacionUsuario
 };

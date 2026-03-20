@@ -1,4 +1,4 @@
-﻿// IEEE Trace: REQ-003 | US-003 | pages/registros/RegistroAudit.jsx
+// IEEE Trace: REQ-003 | US-003 | pages/registros/RegistroAudit.jsx
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -25,6 +25,9 @@ import {
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import HallazgoModal from '../../components/forms/HallazgoModal';
+import ConfirmationModal from '../../components/modals/ConfirmationModal';
+import { toast } from 'react-hot-toast';
 
 export default function RegistroAudit() {
     const { id } = useParams();
@@ -44,6 +47,8 @@ export default function RegistroAudit() {
     const [compromisos, setCompromisos] = useState([]);
     const [nuevoCompromiso, setNuevoCompromiso] = useState({ descripcion: '', fecha_compromiso: '' });
     const [loadingCompromisos, setLoadingCompromisos] = useState(false);
+    const [hallazgoModal, setHallazgoModal] = useState({ show: false, actividad: null, hallazgo: null });
+    const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', action: null });
 
     useEffect(() => {
         fetchRegistro();
@@ -179,12 +184,22 @@ export default function RegistroAudit() {
         try {
             await api.put(`/registros/${id}/actividades/${actividadId}/auditar`, {
                 cumple_auditor: auditState[actividadId]?.cumple,
-                observacion_auditor: auditState[actividadId]?.observacion
+                observacion_auditor: auditState[actividadId]?.observacion || ''
             });
-            // alert('Observación guardada'); // Feedback
+            // toast.success('Observación guardada');
         } catch (err) {
             setError('Error al guardar observación');
         }
+    };
+
+    const handleHallazgoSuccess = (newHallazgo) => {
+        toast.success('Hallazgo registrado exitosamente');
+        // Optionally update local activity state if it has a list of hallazgos
+        fetchRegistro(); 
+    };
+
+    const openHallazgoModal = (actividad, hallazgo = null) => {
+        setHallazgoModal({ show: true, actividad, hallazgo });
     };
 
     const handleFinalizarAuditoria = async () => {
@@ -613,6 +628,20 @@ export default function RegistroAudit() {
                                                     >
                                                         X NO CUMPLE
                                                     </button>
+                                                    <button
+                                                        onClick={() => openHallazgoModal(act)}
+                                                        className="btn-action"
+                                                        style={{
+                                                            marginTop: '4px',
+                                                            justifyContent: 'center',
+                                                            background: '#fef3c7',
+                                                            color: '#92400e',
+                                                            border: '1px solid #f59e0b',
+                                                            fontSize: '0.7rem'
+                                                        }}
+                                                    >
+                                                        <AlertTriangle size={12} /> Hallazgo
+                                                    </button>
                                                 </div>
                                             ) : (
                                                 <div className={`badge ${act.cumple_auditor ? 'success' : 'danger'}`} style={{ width: '100%', justifyContent: 'center' }}>
@@ -799,6 +828,24 @@ export default function RegistroAudit() {
                     </button>
                 </div>
             )}
+
+            {/* Modals */}
+            <HallazgoModal
+                isOpen={hallazgoModal.show}
+                onClose={() => setHallazgoModal({ show: false, actividad: null, hallazgo: null })}
+                onSuccess={handleHallazgoSuccess}
+                registroId={id}
+                actividad={hallazgoModal.actividad}
+                hallazgo={hallazgoModal.hallazgo}
+            />
+
+            <ConfirmationModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                onConfirm={confirmModal.action}
+            />
         </div>
     );
 }

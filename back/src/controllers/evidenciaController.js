@@ -1,18 +1,23 @@
 // IEEE Trace: REQ-005 | US-005 | evidenciaController.js
 const path = require('path');
 const fs = require('fs');
-const { Evidencia, RegistroActividad, Registro, Actividad, Elemento } = require('../database/models');
+const archiver = require('archiver');
+const { Evidencia, RegistroActividad, Registro, Actividad, Elemento, Vinculacion, Contratista } = require('../database/models');
+const { Op } = require('sequelize');
 
 const evidenciaController = {
     // GET /api/evidencias?registro_actividad_id=X
     async index(req, res) {
         try {
-            const { registro_actividad_id, registro_id } = req.query;
+            const { registro_actividad_id, registro_id, periodo, contratista_id, programa_id } = req.query;
             let where = {};
+            let whereRegistro = {};
 
-            if (registro_actividad_id) {
-                where.registro_actividad_id = registro_actividad_id;
-            }
+            if (registro_actividad_id) where.registro_actividad_id = registro_actividad_id;
+
+            if (registro_id) whereRegistro.id = registro_id;
+            if (periodo) whereRegistro.periodo = periodo;
+            if (programa_id) whereRegistro.programa_id = programa_id;
 
             const evidencias = await Evidencia.findAll({
                 where,
@@ -20,7 +25,23 @@ const evidenciaController = {
                     {
                         model: RegistroActividad,
                         as: 'registroActividad',
-                        where: registro_id ? { registro_id } : undefined
+                        required: (registro_id || periodo || programa_id || contratista_id) ? true : false,
+                        include: [
+                            {
+                                model: Registro,
+                                as: 'registro',
+                                where: Object.keys(whereRegistro).length > 0 ? whereRegistro : undefined,
+                                required: (contratista_id) ? true : false,
+                                include: contratista_id ? [
+                                    {
+                                        model: Vinculacion,
+                                        as: 'vinculacionEntidad',
+                                        where: { contratista_id },
+                                        required: true
+                                    }
+                                ] : []
+                            }
+                        ]
                     }
                 ],
                 order: [['created_at', 'DESC']]
@@ -30,6 +51,71 @@ const evidenciaController = {
         } catch (error) {
             console.error('Evidencias index error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener evidencias' });
+        }
+    },
+
+    // GET /api/evidencias/bulk-download
+    async downloadSelected(req, res) {
+        try {
+            const { periodo, contratista_id, programa_id } = req.query;
+            let whereRegistro = {};
+            if (periodo) whereRegistro.periodo = periodo;
+            if (programa_id) whereRegistro.programa_id = programa_id;
+
+            const evidencias = await Evidencia.findAll({
+                include: [
+                    {
+                        model: RegistroActividad,
+                        as: 'registroActividad',
+                        required: true,
+                        include: [
+                            {
+                                model: Registro,
+                                as: 'registro',
+                                where: Object.keys(whereRegistro).length > 0 ? whereRegistro : undefined,
+                                required: true,
+                                include: contratista_id ? [
+                                    {
+                                        model: Vinculacion,
+                                        as: 'vinculacionEntidad',
+                                        where: { contratista_id },
+                                        required: true
+                                    }
+                                ] : []
+                            }
+                        ]
+                    }
+                ]
+            });
+
+            if (evidencias.length === 0) {
+                return res.status(404).json({ success: false, message: 'No se encontraron evidencias con los criterios seleccionados' });
+            }
+
+            const archive = archiver('zip', { zlib: { level: 9 } });
+            res.attachment(`evidencias_${periodo || 'periodo'}_${contratista_id || 'todas'}.zip`);
+
+            archive.pipe(res);
+
+            const projectRoot = path.join(__dirname, '../../../');
+
+            evidencias.forEach(e => {
+                const absPath = path.join(projectRoot, e.ruta);
+                if (fs.existsSync(absPath)) {
+                    // Create a folder structure inside the zip: Periodo/Contratista/Elemento/Actividad/Archivo
+                    const subDir = e.registroActividad?.registro?.periodo || 'sin_periodo';
+                    const fileNameInZip = `${subDir}/${e.nombre_archivo}`;
+                    archive.file(absPath, { name: fileNameInZip });
+                }
+            });
+
+            await archive.finalize();
+
+        } catch (error) {
+            console.error('Bulk download error:', error);
+            if (!res.headersSent) {
+                res.status(500).json({ success: false, message: 'Error al generar descarga masiva' });
+            }
         }
     },
 

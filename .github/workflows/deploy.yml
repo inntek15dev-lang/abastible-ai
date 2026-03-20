@@ -2,7 +2,7 @@ name: CI/CD OIEM Abastible - Preprod
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "UAT-review-1" ]
 
 env:
   REGISTRY: ghcr.io

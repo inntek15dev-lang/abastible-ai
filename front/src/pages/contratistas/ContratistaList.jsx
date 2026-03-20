@@ -6,6 +6,7 @@ import { Building, Search, Plus, MapPin, Users, Edit, Trash2, RefreshCw, X, Chev
 import { useAuth } from '../../context/AuthContext';
 import SyncContratistasModal from '../../components/modals/SyncContratistasModal';
 import VinculacionManager from '../../components/contratistas/VinculacionManager';
+import AssociatedUsers from '../../components/contratistas/AssociatedUsers';
 import { toast } from 'react-hot-toast';
 import './ContratistaList.css';
 
@@ -54,13 +55,15 @@ export default function ContratistaList() {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!confirm('¿Está seguro de eliminar este contratista?')) return;
+    const handleDelete = async (id, isCurrentlyActive) => {
+        const action = isCurrentlyActive ? 'desactivar' : 'activar';
+        if (!confirm(`¿Está seguro de ${action} este contratista?`)) return;
         try {
-            await api.delete(`/contratistas/${id}`);
+            await api.put(`/contratistas/${id}`, { activo: !isCurrentlyActive });
+            toast.success(`Contratista ${isCurrentlyActive ? 'desactivado' : 'activado'} correctamente`);
             fetchContratistas();
         } catch (err) {
-            alert('Error al eliminar contratista');
+            toast.error('Error al cambiar estado del contratista');
         }
     };
 
@@ -265,10 +268,12 @@ export default function ContratistaList() {
                     <input
                         type="text"
                         className="filter-input"
-                        placeholder="Nombre, email, RUT..."
+                        placeholder="Buscar por Nombre, RUT, Servicio, Dependencia..."
                         value={filters.search}
                         onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                        style={{ paddingLeft: '32px' }}
                     />
+                    <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-10%)', color: '#94a3b8' }} />
                 </div>
 
                 <div className="filter-group">
@@ -477,11 +482,11 @@ export default function ContratistaList() {
                                                 </Link>
                                                 {canExec('Configuración') && (
                                                     <button
-                                                        onClick={() => handleDelete(c.id)}
-                                                        className="action-btn danger"
-                                                        title="Eliminar"
+                                                        onClick={() => handleDelete(c.id, c.activo)}
+                                                        className={`action-btn ${c.activo ? 'danger' : 'success'}`}
+                                                        title={c.activo ? "Desactivar" : "Activar"}
                                                     >
-                                                        <Trash2 size={18} />
+                                                        {c.activo ? <Trash2 size={18} /> : <RefreshCw size={18} />}
                                                     </button>
                                                 )}
                                             </>
@@ -489,10 +494,20 @@ export default function ContratistaList() {
                                     </div>
                                 </div>
 
-                                {/* Expanded Section */}
+                                 {/* Expanded Section */}
                                 {expandedRows[c.id] && (
-                                    <div className="assignments-section">
-                                        <VinculacionManager contratista={c} onUpdate={fetchContratistas} />
+                                    <div className="assignments-section" style={{ backgroundColor: '#fcfcfd', borderBottom: '1px solid #edf2f7', padding: '20px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '24px' }}>
+                                            <div>
+                                                <VinculacionManager contratista={c} onUpdate={fetchContratistas} />
+                                            </div>
+                                            <div style={{ borderLeft: '1px solid #edf2f7', paddingLeft: '24px' }}>
+                                                <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem', color: '#1e293b', marginBottom: '16px' }}>
+                                                    <Users size={16} /> Usuarios Asociados
+                                                </h4>
+                                                <AssociatedUsers contratistaId={c.id} />
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                             </div>

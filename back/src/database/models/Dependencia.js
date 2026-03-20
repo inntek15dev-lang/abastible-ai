@@ -16,6 +16,19 @@ const Dependencia = sequelize.define('Dependencia', {
         type: DataTypes.TINYINT(1),
         allowNull: false,
         defaultValue: 1
+    },
+    subgerencia_id: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: true,
+        references: {
+            model: 'subgerencias',
+            key: 'id'
+        }
+    },
+    nivel_faena: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        comment: 'Alineación con niveles faena de ASEM (Gerencia, Subgerencia, Planta, Almacén, etc.)'
     }
 }, {
     tableName: 'dependencias',

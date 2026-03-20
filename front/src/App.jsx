@@ -18,6 +18,7 @@ import ActividadForm from './pages/programas/ActividadForm';
 import RegistroList from './pages/registros/RegistroList';
 import RegistroForm from './pages/registros/RegistroForm';
 import UsuarioList from './pages/usuarios/UsuarioList';
+import Pendientes from './pages/Pendientes';
 
 // Sprint 2 Pages
 import RegistroAudit from './pages/registros/RegistroAudit';
@@ -104,6 +105,7 @@ function AppRoutes() {
         </ProtectedRoute>
       }>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/pendientes" element={<Pendientes />} />
 
         {/* Tutorials */}
         <Route path="/tutorials" element={<TutorialsPage />} />

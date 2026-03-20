@@ -1,5 +1,6 @@
 const PDFDocument = require('pdfkit');
-const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso, Elemento, Vinculacion, Administracion, sequelize } = require('../database/models');
+const ExcelJS = require('exceljs');
+const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso, Elemento, Vinculacion, Administracion, sequelize, Contratista } = require('../database/models');
 const { Op } = require('sequelize');
 
 module.exports = {
@@ -256,5 +257,143 @@ module.exports = {
             console.error('Reporte Cumplimiento Error:', error);
             res.status(500).json({ message: 'Error al obtener reporte' });
         }
+    },
+
+    async cumplimientoGeneralPdf(req, res) {
+        try {
+            const { periodo } = req.query;
+            // Re-using the logic from compliance general to fetch data
+            // (In a real app, I'd extract this to a service)
+            // For now, I'll do a quick version:
+            
+            // 1. Get stats
+            const statsRes = await module.exports._getStats(req, periodo);
+            const { elementos, registros } = statsRes;
+
+            const doc = new PDFDocument({ margin: 50 });
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=consolidado-${periodo || 'general'}.pdf`);
+            doc.pipe(res);
+
+            doc.fontSize(20).text('Reporte Consolidado de Cumplimiento', { align: 'center' });
+            doc.fontSize(12).text(`Periodo: ${periodo || 'Todos'}`, { align: 'center' });
+            doc.moveDown();
+
+            doc.fontSize(16).text('Cumplimiento por Elemento', { underline: true });
+            doc.moveDown(0.5);
+            elementos.forEach(e => {
+                doc.fontSize(12).text(`${e.name}: ${e.declarado}%` + (e.auditado !== null ? ` (Auditado: ${e.auditado}%)` : ''));
+            });
+            doc.moveDown();
+
+            doc.fontSize(16).text('Detalle de Empresas', { underline: true });
+            doc.moveDown(0.5);
+            registros.forEach(r => {
+                doc.fontSize(10).text(`${r.eecc}: ${r.cumplimiento}% - ${r.estado}`);
+            });
+
+            doc.end();
+        } catch (error) {
+            console.error('Consolidated PDF Error:', error);
+            res.status(500).json({ message: 'Error generando PDF consolidado' });
+        }
+    },
+
+    async cumplimientoGeneralExcel(req, res) {
+        try {
+            const { periodo } = req.query;
+            const statsRes = await module.exports._getStats(req, periodo);
+            const { registros } = statsRes;
+
+            const workbook = new ExcelJS.Workbook();
+            const sheet = workbook.addWorksheet('Cumplimiento');
+
+            sheet.columns = [
+                { header: 'Periodo', key: 'periodo', width: 15 },
+                { header: 'Empresa (EECC)', key: 'eecc', width: 30 },
+                { header: 'Cumplimiento %', key: 'cumplimiento', width: 15 },
+                { header: 'Estado', key: 'estado', width: 20 }
+            ];
+
+            registros.forEach(r => {
+                sheet.addRow({
+                    periodo: r.periodo,
+                    eecc: r.eecc,
+                    cumplimiento: r.cumplimiento,
+                    estado: r.estado
+                });
+            });
+
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename=cumplimiento-${periodo || 'general'}.xlsx`);
+
+            await workbook.xlsx.write(res);
+            res.end();
+        } catch (error) {
+            console.error('Consolidated Excel Error:', error);
+            res.status(500).json({ message: 'Error generando Excel consolidado' });
+        }
+    },
+
+    // Internal helper to avoid code duplication
+    async _getStats(req, periodo) {
+        // This logic is mostly copied from cumplimientoGeneral for this demo
+        const user = req.user;
+        const whereRegistro = {};
+        
+        // Unified scope logic (Simplified for helper)
+        if (user.role === 'administrador_contrato') {
+            const adminRecords = await Administracion.findAll({ where: { administrador_contrato_id: user.id, activo: 1 } });
+            whereRegistro.contratista_asignacion_id = { [Op.in]: adminRecords.map(a => a.vinculacion_id) };
+        }
+        
+        if (periodo) {
+            const startDate = new Date(periodo + '-01');
+            const endDate = new Date(new Date(startDate).setMonth(startDate.getMonth() + 1));
+            whereRegistro.periodo = { [Op.gte]: startDate, [Op.lt]: endDate };
+        }
+
+        const registros = await Registro.findAll({
+            where: whereRegistro,
+            attributes: ['id', 'periodo', 'eecc_nombre', 'porcentaje_cumplimiento', 'estado_auditoria'],
+            order: [['periodo', 'DESC']]
+        });
+
+        const registroIds = registros.map(r => r.id);
+        let elementosStats = [];
+        if (registroIds.length > 0) {
+            elementosStats = await RegistroActividad.findAll({
+                attributes: [
+                    [sequelize.col('actividad.elemento.id'), 'elemento_id'],
+                    [sequelize.col('actividad.elemento.nombre'), 'elemento_nombre'],
+                    [sequelize.literal(`SUM(CASE WHEN cumple != 2 THEN 1 ELSE 0 END)`), 'total_declarado'],
+                    [sequelize.literal(`SUM(CASE WHEN cumple = 1 THEN 1 ELSE 0 END)`), 'cumplidas_declarado'],
+                    [sequelize.literal(`SUM(CASE WHEN cumple_auditor != 2 AND cumple_auditor IS NOT NULL THEN 1 ELSE 0 END)`), 'total_auditado'],
+                    [sequelize.literal(`SUM(CASE WHEN cumple_auditor = 1 THEN 1 ELSE 0 END)`), 'cumplidas_auditado']
+                ],
+                include: [{ model: Actividad, as: 'actividad', include: [{ model: Elemento, as: 'elemento' }] }],
+                where: { registro_id: registroIds },
+                group: ['actividad.elemento.id', 'actividad.elemento.nombre'],
+                raw: true
+            });
+
+            elementosStats = elementosStats.map(e => ({
+                id: e['elemento_id'],
+                name: e['elemento_nombre'],
+                declarado: parseInt(e.total_declarado) > 0 ? Math.round((parseInt(e.cumplidas_declarado) / parseInt(e.total_declarado)) * 100) : 0,
+                auditado: parseInt(e.total_auditado) > 0 ? Math.round((parseInt(e.cumplidas_auditado) / parseInt(e.total_auditado)) * 100) : null
+            }));
+        }
+
+        return {
+            elementos: elementosStats,
+            registros: registros.map(r => ({
+                id: r.id,
+                periodo: r.periodo,
+                eecc: r.eecc_nombre || 'N/A',
+                cumplimiento: parseFloat(r.porcentaje_cumplimiento),
+                estado: parseFloat(r.porcentaje_cumplimiento) >= 85 ? 'Cumple meta' : 'Bajo meta'
+            }))
+        };
     }
 };

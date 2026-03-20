@@ -22,7 +22,10 @@ const sequelize = new Sequelize(
         host: config.host,
         dialect: config.dialect, // Aquí es donde fallaba antes
         logging: config.logging,
-        port: config.port || 3306
+        port: config.port || 3306,
+        dialectOptions: {
+            connectTimeout: 60000 // Aumentar a 60s por inestabilidad de red
+        }
     }
 );
 

@@ -148,6 +148,12 @@ const auditoriaController = {
                 fecha_auditoria: new Date()
             });
 
+            // Fetch contractor email
+            const contractor = await User.findByPk(registro.user_id);
+            if (contractor?.email) {
+                await emailService.notifyAuditoriaFinalizada(registro, contractor.email);
+            }
+
             if (comentario_general) {
                 await AuditoriaComentario.create({
                     registro_id: registro.id,
@@ -212,6 +218,12 @@ const auditoriaController = {
                 porcentaje_cumplimiento_auditor: porcentaje,
                 fecha_auditoria: new Date()
             });
+
+            // Fetch contractor email
+            const contractor = await User.findByPk(registro.user_id);
+            if (contractor?.email) {
+                await emailService.notifyAuditoriaFinalizada(registro, contractor.email);
+            }
 
             // Add general comment if provided
             if (comentario_general) {

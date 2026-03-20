@@ -170,9 +170,9 @@ async function seed() {
 
         // Roles adicionales
         const dynamicPrivs = [
-            { role: roles[1], modules: ['Dashboard', 'Registros', 'Contratistas', 'Reaperturas', 'Compromisos', 'Auditoria', 'Reportes', 'Registros_Exportar'] },
-            { role: roles[2], modules: ['Dashboard', 'Registros', 'Evidencias', 'Reaperturas', 'Usuarios', 'Compromisos', 'Reportes', 'Registros_Exportar'] },
-            { role: roles[3], modules: ['Dashboard', 'Registros', 'Evidencias', 'Registros_Exportar'] }
+            { role: roles[1], modules: ['Dashboard', 'Registros', 'Contratistas', 'Reaperturas', 'Compromisos', 'Auditoria', 'Reportes', 'Registros_Exportar', 'Programas'] },
+            { role: roles[2], modules: ['Dashboard', 'Registros', 'Evidencias', 'Reaperturas', 'Usuarios', 'Compromisos', 'Reportes', 'Registros_Exportar', 'Programas'] },
+            { role: roles[3], modules: ['Dashboard', 'Registros', 'Evidencias', 'Registros_Exportar', 'Programas'] }
         ];
 
         for (const dp of dynamicPrivs) {
@@ -184,8 +184,7 @@ async function seed() {
                         write: dp.role.name === 'administrador_contrato' ? (['Registros'].includes(mod) ? 0 : 1) : 
                                (dp.role.name === 'contratista_admin' ? (['Registros', 'Evidencias', 'Usuarios'].includes(mod) ? 1 : 0) : 
                                (['Registros', 'Evidencias'].includes(mod) ? 1 : 0)),
-                        excec: dp.role.name === 'administrador_contrato' ? (['Reaperturas'].includes(mod) ? 1 : 0) : 
-                               (dp.role.name === 'contratista_admin' ? (mod === 'Reaperturas' ? 1 : 0) : 0)
+                        excec: 0
                     }
                 });
             }

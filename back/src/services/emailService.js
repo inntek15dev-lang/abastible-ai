@@ -69,6 +69,32 @@ const emailService = {
             <a href="${process.env.FRONTEND_URL}/reaperturas">Gestionar Solicitudes</a>
         `;
         return this.sendMail({ to: adminEmail, subject, html });
+    },
+
+    async notifyReaperturaResult(solicitud, registro, contratistaEmail) {
+        const estado = solicitud.estado === 'aprobada' ? 'APROBADA' : 'RECHAZADA';
+        const subject = `Resultado de Solicitud de Reapertura: ${estado}`;
+        const html = `
+            <h3>Notificación de Reapertura</h3>
+            <p>Su solicitud para reabrir el registro <strong>${registro.periodo}</strong> ha sido <strong>${estado}</strong>.</p>
+            <p><strong>Comentarios de Administración:</strong> ${solicitud.respuesta || 'Sin comentarios'}</p>
+            ${solicitud.estado === 'aprobada' ? `<p><strong>Fecha Límite de Subsanación:</strong> ${registro.fecha_limite_subsanacion || 'No definida'}</p>` : ''}
+            <p>Por favor ingrese a la plataforma para coordinar los ajustes pendientes.</p>
+            <a href="${process.env.FRONTEND_URL}/registros/${registro.id}/auditar">Ver Registro</a>
+        `;
+        return this.sendMail({ to: contratistaEmail, subject, html });
+    },
+
+    async notifyAuditoriaFinalizada(registro, contratistaEmail) {
+        const subject = `Auditoría Finalizada: ${registro.periodo}`;
+        const html = `
+            <h3>Auditoría de Cumplimiento Finalizada</h3>
+            <p>Se ha completado la revisión de su registro del periodo <strong>${registro.periodo}</strong>.</p>
+            <p><strong>Resultado Final:</strong> ${registro.porcentaje_cumplimiento}% de cumplimiento.</p>
+            <p>Puede revisar los hallazgos y el informe detallado en su historial de registros.</p>
+            <a href="${process.env.FRONTEND_URL}/registros/${registro.id}/auditar">Ver Resultados</a>
+        `;
+        return this.sendMail({ to: contratistaEmail, subject, html });
     }
 };
 

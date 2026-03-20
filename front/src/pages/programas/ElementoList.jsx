@@ -1,4 +1,4 @@
-﻿// IEEE Trace: REQ-001 | US-001 | pages/programas/ElementoList.jsx
+// IEEE Trace: REQ-001 | US-001 | pages/programas/ElementoList.jsx
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -47,6 +47,16 @@ export default function ElementoList() {
             setError('Error al cargar datos del programa.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleDeleteActivity = async (id) => {
+        if (!window.confirm('¿Está seguro de eliminar esta actividad? Esta acción no se puede deshacer.')) return;
+        try {
+            await api.delete(`/actividades/${id}`);
+            fetchProgramData(); // Refresh list
+        } catch (err) {
+            alert('Error al eliminar la actividad. Verifique si tiene permisos o si la actividad tiene registros asociados.');
         }
     };
 
@@ -195,13 +205,22 @@ export default function ElementoList() {
                                                     </td>
                                                     <td>
                                                         {canWrite('Programas') && (
-                                                            <button
-                                                                className="btn-icon-only"
-                                                                onClick={() => navigate(`/actividades/${act.id}/edit`)}
-                                                                title="Editar actividad"
-                                                            >
-                                                                <Pencil size={14} className="text-gray-500 hover:text-blue-600" />
-                                                            </button>
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    className="btn-icon-only"
+                                                                    onClick={() => navigate(`/actividades/${act.id}/edit`)}
+                                                                    title="Editar actividad"
+                                                                >
+                                                                    <Pencil size={14} className="text-gray-500 hover:text-blue-600" />
+                                                                </button>
+                                                                <button
+                                                                    className="btn-icon-only"
+                                                                    onClick={() => handleDeleteActivity(act.id)}
+                                                                    title="Eliminar actividad"
+                                                                >
+                                                                    <Trash2 size={14} className="text-gray-500 hover:text-red-600" />
+                                                                </button>
+                                                            </div>
                                                         )}
                                                     </td>
                                                 </tr>

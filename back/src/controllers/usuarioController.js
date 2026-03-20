@@ -169,13 +169,13 @@ const usuarioController = {
             let finalRole = role || 'contratista_user';
             let finalParentId = parent_id;
 
-            if (req.user.role === 'contratista_admin') {
-                // Contratistas can only create contratista_user under themselves
+            if (req.user.role === 'contratista_admin' || req.user.role === 'contratista_admin_eecc') {
+                // Contratistas admins can only create contratista_user under themselves
                 finalRole = 'contratista_user';
                 finalParentId = req.user.id;
             } else if (req.user.role === 'administrador_contrato') {
-                // Admin contrato can create contratista_admin or contratista_user
-                if (!['contratista_admin', 'contratista_user'].includes(finalRole)) {
+                // Admin contrato can create contratista_admin, contratista_admin_eecc or contratista_user
+                if (!['contratista_admin', 'contratista_admin_eecc', 'contratista_user'].includes(finalRole)) {
                     finalRole = 'contratista_admin';
                 }
             }
@@ -271,7 +271,12 @@ const usuarioController = {
                 }
             }
 
-            const updateData = { ...req.body };
+            // SECURITY SCOPE CHECK: Prevent self-deactivation
+            if (updateData.activo === 0 || updateData.activo === false) {
+                if (usuario.id === req.user.id) {
+                    return res.status(403).json({ success: false, message: 'No puede desactivar su propia cuenta' });
+                }
+            }
 
             // Hash password if provided
             if (updateData.password) {
@@ -297,8 +302,8 @@ const usuarioController = {
         try {
             const usuario = await User.findByPk(req.params.id);
 
-            if (!usuario) {
-                return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+            if (usuario.id === req.user.id) {
+                return res.status(403).json({ success: false, message: 'No puede desactivar su propia cuenta' });
             }
 
             await usuario.update({ activo: 0 });

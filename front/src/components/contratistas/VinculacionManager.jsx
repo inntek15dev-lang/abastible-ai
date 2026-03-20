@@ -7,7 +7,9 @@ export default function VinculacionManager({ contratista, onUpdate }) {
     const [isAdding, setIsAdding] = useState(false);
     const [servicios, setServicios] = useState([]);
     const [dependencias, setDependencias] = useState([]);
-    const [users, setUsers] = useState([]);
+    const [usersAdmin, setUsersAdmin] = useState([]);
+    const [usersCAdmin, setUsersCAdmin] = useState([]);
+    const [usersCUser, setUsersCUser] = useState([]);
 
     // Form State
     const [newVinc, setNewVinc] = useState({
@@ -25,14 +27,18 @@ export default function VinculacionManager({ contratista, onUpdate }) {
 
     const loadResources = async () => {
         try {
-            const [servRes, depRes, userRes] = await Promise.all([
+            const [servRes, depRes, adminRes, cAdminRes, cUserRes] = await Promise.all([
                 api.get('/resources/tipos-contratista'),
                 api.get('/resources/dependencias'),
-                api.get('/usuarios?role=administrador_contrato&active=true') // Fetch potential admins
+                api.get('/usuarios?role=administrador_contrato&active=true'),
+                api.get('/usuarios?role=contratista_admin&contratista_id=null&active=true'), // Admins with no company yet
+                api.get(`/usuarios?role=contratista_user&contratista_id=${contratista.id}&active=true`)
             ]);
             setServicios(servRes.data.data || []);
             setDependencias(depRes.data.data || []);
-            setUsers(userRes.data.data || []);
+            setUsersAdmin(adminRes.data.data || []);
+            setUsersCAdmin(cAdminRes.data.data || []);
+            setUsersCUser(cUserRes.data.data || []);
         } catch (error) {
             console.error('Error loading resources', error);
         }
@@ -96,6 +102,50 @@ export default function VinculacionManager({ contratista, onUpdate }) {
         }
     };
 
+    const handleCAdminAdd = async (userId) => {
+        if (!userId) return;
+        try {
+            // Update user to belong to this company
+            await api.put(`/usuarios/${userId}`, { contratista_id: contratista.id });
+            toast.success('Administrador asignado a la empresa');
+            if (onUpdate) onUpdate();
+        } catch (error) {
+            toast.error('Error al asignar administrador');
+        }
+    };
+
+    const handleCAdminRemove = async (userId) => {
+        try {
+            // Unlink user from company
+            await api.put(`/usuarios/${userId}`, { contratista_id: null });
+            toast.success('Administrador removido de la empresa');
+            if (onUpdate) onUpdate();
+        } catch (error) {
+            toast.error('Error al remover administrador');
+        }
+    };
+
+    const handleUserAdd = async (vinculacionId, userId) => {
+        if (!userId) return;
+        try {
+            await api.post(`/vinculaciones/${vinculacionId}/usuarios`, { user_id: userId });
+            toast.success('Usuario asignado');
+            if (onUpdate) onUpdate();
+        } catch (error) {
+            toast.error('Error al asignar usuario');
+        }
+    };
+
+    const handleUserRemove = async (vinculacionId, userId) => {
+        try {
+            await api.delete(`/vinculaciones/${vinculacionId}/usuarios/${userId}`);
+            toast.success('Asignación removida');
+            if (onUpdate) onUpdate();
+        } catch (error) {
+            toast.error('Error al remover asignación');
+        }
+    };
+
     return (
         <div className="vinculacion-manager">
             <h4 className="vinculacion-title">
@@ -105,10 +155,12 @@ export default function VinculacionManager({ contratista, onUpdate }) {
             {/* List Existing */}
             <div className="vinc-list">
                 {/* Header Row */}
-                <div className="vinc-list-header" style={{ gridTemplateColumns: '1fr 1fr 1.5fr 1fr 1fr 1fr 40px' }}>
+                <div className="vinc-list-header" style={{ gridTemplateColumns: 'minmax(120px, 1fr) minmax(120px, 1fr) 1.5fr 1.5fr 1.5fr 100px 100px 100px 40px' }}>
                     <div>SERVICIO</div>
                     <div>DEPENDENCIA</div>
                     <div>ADMIN CONTRATO</div>
+                    <div>CONTRATISTA ADMIN</div>
+                    <div>CONTRATISTAS USUARIOS</div>
                     <div>N° CONTRATO</div>
                     <div>INICIO</div>
                     <div>TÉRMINO</div>
@@ -117,29 +169,20 @@ export default function VinculacionManager({ contratista, onUpdate }) {
 
                 {contratista.vinculaciones && contratista.vinculaciones.length > 0 ? (
                     contratista.vinculaciones.map(v => (
-                        <div key={v.id} className="vinc-item" style={{ gridTemplateColumns: '1fr 1fr 1.5fr 1fr 1fr 1fr 40px' }}>
+                        <div key={v.id} className="vinc-item" style={{ gridTemplateColumns: 'minmax(120px, 1fr) minmax(120px, 1fr) 1.5fr 1.5fr 1.5fr 100px 100px 100px 40px' }}>
                             <div>
                                 <span className="badge-service">{v.servicio?.nombre}</span>
                             </div>
                             <div>{v.dependencia?.nombre}</div>
+                            
+                            {/* ADMIN CONTRATO */}
                             <div className="admin-tags-cell">
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                                     {v.administraciones && v.administraciones.length > 0 ? (
                                         v.administraciones.map(a => (
-                                            <div key={a.id} className="admin-tag-small" style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                backgroundColor: '#F3F4F6',
-                                                padding: '2px 4px',
-                                                borderRadius: '4px',
-                                                fontSize: '0.75rem',
-                                                border: '1px solid #E5E7EB'
-                                            }}>
+                                            <div key={a.id} className="admin-tag-small" title={a.administradorContrato?.email}>
                                                 {a.administradorContrato?.name}
-                                                <button
-                                                    onClick={() => handleAdminRemove(v.id, a.administrador_contrato_id)}
-                                                    style={{ border: 'none', background: 'none', marginLeft: '4px', cursor: 'pointer', color: '#9CA3AF' }}
-                                                >
+                                                <button onClick={() => handleAdminRemove(v.id, a.administrador_contrato_id)}>
                                                     <X size={10} />
                                                 </button>
                                             </div>
@@ -151,18 +194,68 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                                         className="add-vinc-admin-select"
                                         value=""
                                         onChange={(e) => handleAdminAdd(v.id, e.target.value)}
-                                        style={{
-                                            border: '1px dashed #CBD5E1',
-                                            borderRadius: '4px',
-                                            fontSize: '0.7rem',
-                                            padding: '0 2px',
-                                            background: 'transparent',
-                                            color: '#64748B'
-                                        }}
                                     >
                                         <option value="">+ Añadir</option>
-                                        {users
+                                        {usersAdmin
                                             .filter(u => !(v.administraciones || []).some(a => a.administrador_contrato_id === u.id))
+                                            .map(u => (
+                                                <option key={u.id} value={u.id}>{u.name}</option>
+                                            ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* CONTRATISTA ADMIN - Company Wide */}
+                            <div className="admin-tags-cell">
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                    {contratista.usuarios && contratista.usuarios.filter(u => u.role === 'contratista_admin').length > 0 ? (
+                                        contratista.usuarios.filter(u => u.role === 'contratista_admin').map(u => (
+                                            <div key={u.id} className="admin-tag-small" style={{ backgroundColor: '#DBEAFE', borderColor: '#BFDBFE' }} title={u.email}>
+                                                {u.name}
+                                                <button onClick={() => handleCAdminRemove(u.id)}>
+                                                    <X size={10} />
+                                                </button>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <span className="text-muted" style={{ fontSize: '0.75rem' }}>Sin Asignar</span>
+                                    )}
+                                    <select
+                                        className="add-vinc-admin-select"
+                                        value=""
+                                        onChange={(e) => handleCAdminAdd(e.target.value)}
+                                    >
+                                        <option value="">+ Añadir</option>
+                                        {usersCAdmin.map(u => (
+                                            <option key={u.id} value={u.id}>{u.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* CONTRATISTAS USUARIOS - Vinculacion Specific */}
+                            <div className="admin-tags-cell">
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                    {v.usuariosVinculados && v.usuariosVinculados.filter(uv => uv.usuario?.role === 'contratista_user').length > 0 ? (
+                                        v.usuariosVinculados.filter(uv => uv.usuario?.role === 'contratista_user').map(uv => (
+                                            <div key={uv.id} className="admin-tag-small" style={{ backgroundColor: '#ECFDF5', borderColor: '#D1FAE5' }} title={uv.usuario?.email}>
+                                                {uv.usuario?.name}
+                                                <button onClick={() => handleUserRemove(v.id, uv.user_id)}>
+                                                    <X size={10} />
+                                                </button>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <span className="text-muted" style={{ fontSize: '0.75rem' }}>Sin Asignar</span>
+                                    )}
+                                    <select
+                                        className="add-vinc-admin-select"
+                                        value=""
+                                        onChange={(e) => handleUserAdd(v.id, e.target.value)}
+                                    >
+                                        <option value="">+ Añadir</option>
+                                        {usersCUser
+                                            .filter(u => !(v.usuariosVinculados || []).some(uv => uv.user_id === u.id))
                                             .map(u => (
                                                 <option key={u.id} value={u.id}>{u.name}</option>
                                             ))}
@@ -220,7 +313,7 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                         style={{ width: '100%' }}
                     >
                         <option value="">Admin...</option>
-                        {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        {usersAdmin.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                     </select>
 
                     <input
