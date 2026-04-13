@@ -64,6 +64,18 @@ async function seed() {
                 console.log('  🏗️ Creando nueva restricción hacia vinculaciones...');
                 await sequelize.query('ALTER TABLE registros ADD CONSTRAINT fk_registros_vinculacion FOREIGN KEY (contratista_asignacion_id) REFERENCES vinculaciones(id) ON DELETE SET NULL ON UPDATE CASCADE');
             }
+
+            // Check if column numero_contrato exists on table 'registros'
+            const [colCheck] = await sequelize.query(`
+                SELECT COLUMN_NAME 
+                FROM information_schema.COLUMNS 
+                WHERE TABLE_NAME = 'registros' AND COLUMN_NAME = 'numero_contrato'
+            `);
+            if (colCheck.length === 0) {
+                console.log('  🏗️ Añadiendo nueva columna "numero_contrato" a la tabla registros...');
+                await sequelize.query('ALTER TABLE registros ADD COLUMN numero_contrato VARCHAR(255) NULL AFTER contratista_asignacion_id');
+            }
+
             console.log('  ✅ Esquema alineado correctamente.');
         } catch (fkError) {
             console.warn('  ⚠️ Advertencia en alineación de esquema (posiblemente ya aplicado o conflictos):', fkError.message);
