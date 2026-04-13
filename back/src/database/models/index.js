@@ -51,6 +51,10 @@ Subgerencia.belongsTo(Gerencia, { foreignKey: 'gerencia_id', as: 'gerencia' });
 Subgerencia.hasMany(Dependencia, { foreignKey: 'subgerencia_id', as: 'dependencias' });
 Dependencia.belongsTo(Subgerencia, { foreignKey: 'subgerencia_id', as: 'subgerencia' });
 
+// Subgerencia -> TipoContratista (1:N)
+Subgerencia.hasMany(TipoContratista, { foreignKey: 'subgerencia_id', as: 'servicios' });
+TipoContratista.belongsTo(Subgerencia, { foreignKey: 'subgerencia_id', as: 'subgerencia' });
+
 // Programa -> TipoContratista (1:N)
 Programa.hasMany(TipoContratista, { foreignKey: 'programa_id', as: 'tiposContratista' });
 TipoContratista.belongsTo(Programa, { foreignKey: 'programa_id', as: 'programa' });

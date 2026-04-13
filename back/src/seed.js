@@ -7,6 +7,8 @@ const {
     sequelize,
     Role,
     Privilegio,
+    Gerencia,
+    Subgerencia,
     Dependencia,
     Programa,
     Configuracion,
@@ -62,18 +64,30 @@ async function seed() {
             });
         }
 
+        console.log('📦 Sincronizando Gerencias...');
+        const [gerenciaDistribucion] = await Gerencia.findOrCreate({
+            where: { nombre: 'GERENCIA DE DISTRIBUCIÓN' },
+            defaults: { activo: 1 }
+        });
+
+        console.log('📦 Sincronizando Subgerencias...');
+        const [subgerenciaOperaciones] = await Subgerencia.findOrCreate({
+            where: { nombre: 'SUBGERENCIA OPERACIONES DE DISTRIBUCIÓN' },
+            defaults: { gerencia_id: gerenciaDistribucion.id, activo: 1 }
+        });
+
         console.log('📦 Sincronizando dependencias...');
         const dependenciasData = [
-            { nombre: 'OFICINA CHILLAN', activo: 1 },
-            { nombre: 'OFICINA DISTRIBUCIÓN LENGA', activo: 1 },
-            { nombre: 'OFICINA TEMUCO', activo: 1 },
-            { nombre: 'OFICINA VILLARRICA', activo: 1 },
-            { nombre: 'OFICINA DISTRIBUCIÓN MAIPÚ', activo: 1 },
-            { nombre: 'OFICINA DISTRIBUCIÓN OSORNO', activo: 1 },
-            { nombre: 'PLANTA COYAHIQUE', activo: 1 },
-            { nombre: 'OFICINA LOS ANGELES', activo: 1 },
-            { nombre: 'PLANTA LENGA', activo: 1 },
-            { nombre: 'PLANTA OSORNO', activo: 1 }
+            { nombre: 'OFICINA CHILLAN', subgerencia_id: subgerenciaOperaciones.id, activo: 1 },
+            { nombre: 'OFICINA DISTRIBUCIÓN LENGA', subgerencia_id: subgerenciaOperaciones.id, activo: 1 },
+            { nombre: 'OFICINA TEMUCO', subgerencia_id: subgerenciaOperaciones.id, activo: 1 },
+            { nombre: 'OFICINA VILLARRICA', subgerencia_id: subgerenciaOperaciones.id, activo: 1 },
+            { nombre: 'OFICINA DISTRIBUCIÓN MAIPÚ', subgerencia_id: subgerenciaOperaciones.id, activo: 1 },
+            { nombre: 'OFICINA DISTRIBUCIÓN OSORNO', subgerencia_id: subgerenciaOperaciones.id, activo: 1 },
+            { nombre: 'PLANTA COYAHIQUE', subgerencia_id: subgerenciaOperaciones.id, activo: 1 },
+            { nombre: 'OFICINA LOS ANGELES', subgerencia_id: subgerenciaOperaciones.id, activo: 1 },
+            { nombre: 'PLANTA LENGA', subgerencia_id: subgerenciaOperaciones.id, activo: 1 },
+            { nombre: 'PLANTA OSORNO', subgerencia_id: subgerenciaOperaciones.id, activo: 1 }
         ];
         const dependencias = [];
         for (const d of dependenciasData) {
@@ -103,10 +117,10 @@ async function seed() {
         // ============= ORDER 1: Tables with FK to order 0 =============
         console.log('📦 Sincronizando tipos de contratista (servicios)...');
         const tiposContratistaData = [
-            { nombre: 'Distribución Envasado', descripcion: 'Contratista de distribución envasado', programa_id: programas[0].id, activo: 1 },
-            { nombre: 'Distribución Granel', descripcion: 'Contratista de distribución granel', programa_id: programas[1].id, activo: 1 },
-            { nombre: 'Distribución Envasado Acotado', descripcion: 'Contratista de distribución envasado acotado', programa_id: programas[2].id, activo: 1 },
-            { nombre: 'Producción Movilizado', descripcion: 'Asignación de producción movilizado', programa_id: programas[3].id, activo: 1 }
+            { nombre: 'Distribución Envasado', descripcion: 'Contratista de distribución envasado', programa_id: programas[0].id, subgerencia_id: subgerenciaOperaciones.id, activo: 1 },
+            { nombre: 'Distribución Granel', descripcion: 'Contratista de distribución granel', programa_id: programas[1].id, subgerencia_id: subgerenciaOperaciones.id, activo: 1 },
+            { nombre: 'Distribución Envasado Acotado', descripcion: 'Contratista de distribución envasado acotado', programa_id: programas[2].id, subgerencia_id: subgerenciaOperaciones.id, activo: 1 },
+            { nombre: 'Producción Movilizado', descripcion: 'Asignación de producción movilizado', programa_id: programas[3].id, subgerencia_id: subgerenciaOperaciones.id, activo: 1 }
         ];
         const tiposContratista = [];
         for (const t of tiposContratistaData) {
