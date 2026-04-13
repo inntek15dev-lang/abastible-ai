@@ -32,6 +32,43 @@ async function seed() {
         console.log('🔄 Sincronizando base de datos (safe sync)...');
         await sequelize.sync();
 
+        console.log('👷 Alineando esquema de base de datos (Fixing FKs)...');
+        try {
+            // Find legacy constraint to contratista_asignaciones
+            const [results] = await sequelize.query(`
+                SELECT CONSTRAINT_NAME 
+                FROM information_schema.KEY_COLUMN_USAGE 
+                WHERE TABLE_NAME = 'registros' 
+                AND COLUMN_NAME = 'contratista_asignacion_id' 
+                AND REFERENCED_TABLE_NAME = 'contratista_asignaciones'
+                LIMIT 1
+            `);
+
+            if (results.length > 0) {
+                const constraintName = results[0].CONSTRAINT_NAME;
+                console.log(`  🗑️ Eliminando restricción legacy: ${constraintName}...`);
+                await sequelize.query(`ALTER TABLE registros DROP FOREIGN KEY ${constraintName}`);
+            }
+
+            // Check if fix is already applied
+            const [newResults] = await sequelize.query(`
+                SELECT CONSTRAINT_NAME 
+                FROM information_schema.KEY_COLUMN_USAGE 
+                WHERE TABLE_NAME = 'registros' 
+                AND COLUMN_NAME = 'contratista_asignacion_id' 
+                AND REFERENCED_TABLE_NAME = 'vinculaciones'
+                LIMIT 1
+            `);
+
+            if (newResults.length === 0) {
+                console.log('  🏗️ Creando nueva restricción hacia vinculaciones...');
+                await sequelize.query('ALTER TABLE registros ADD CONSTRAINT fk_registros_vinculacion FOREIGN KEY (contratista_asignacion_id) REFERENCES vinculaciones(id) ON DELETE SET NULL ON UPDATE CASCADE');
+            }
+            console.log('  ✅ Esquema alineado correctamente.');
+        } catch (fkError) {
+            console.warn('  ⚠️ Advertencia en alineación de esquema (posiblemente ya aplicado o conflictos):', fkError.message);
+        }
+
         // ============= ORDER 0: Base tables =============
         console.log('📦 Sincronizando roles...');
         const rolesData = [
