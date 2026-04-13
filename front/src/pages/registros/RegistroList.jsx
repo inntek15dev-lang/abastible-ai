@@ -198,13 +198,13 @@ export default function RegistroList() {
             const matchesSearch = !searchText || contractorName.includes(searchText) || contractorRut.includes(searchText);
 
             // Dynamic Filters
-            const regService = reg.asignacion?.tipoContratista?.nombre || (reg.vinculacionEntidad?.servicio?.nombre) || 'GRANEL';
+            const regService = reg.asignacion?.servicio?.nombre || (reg.vinculacionEntidad?.servicio?.nombre) || 'GRANEL';
             const matchesService = !filters.servicio || filters.servicio === 'Todos' || regService === filters.servicio;
 
             const matchesDependency = !filters.dependencia || filters.dependencia === 'Todas' ||
-                reg.dependencia === filters.dependencia || (reg.vinculacionEntidad?.dependencia?.nombre === filters.dependencia);
+                reg.dependencia === filters.dependencia || (reg.vinculacionEntidad?.dependencia?.nombre === filters.dependencia) || (reg.asignacion?.dependencia?.nombre === filters.dependencia);
 
-            const regProgram = reg.programa?.nombre || 'Sin Programa';
+            const regProgram = reg.programa?.nombre || reg.asignacion?.servicio?.programa?.nombre || 'Sin Programa';
             const matchesProgram = !filters.programa || filters.programa === 'Todos' || regProgram === filters.programa;
 
             const matchesStatus = filters.status === 'all' || reg.estado_auditoria === filters.status;
@@ -244,11 +244,11 @@ export default function RegistroList() {
                     aValue = a.programa?.nombre || '';
                     bValue = b.programa?.nombre || '';
                 } else if (sortConfig.key === 'servicio') {
-                    aValue = a.vinculacionEntidad?.servicio?.nombre || '';
-                    bValue = b.vinculacionEntidad?.servicio?.nombre || '';
+                    aValue = a.asignacion?.servicio?.nombre || a.vinculacionEntidad?.servicio?.nombre || '';
+                    bValue = b.asignacion?.servicio?.nombre || b.vinculacionEntidad?.servicio?.nombre || '';
                 } else if (sortConfig.key === 'dependencia') {
-                    aValue = a.dependencia || '';
-                    bValue = b.dependencia || '';
+                    aValue = a.dependencia || a.asignacion?.dependencia?.nombre || '';
+                    bValue = b.dependencia || b.asignacion?.dependencia?.nombre || '';
                 } else if (sortConfig.key === 'estado_auditoria') {
                     aValue = a.estado_auditoria || '';
                     bValue = b.estado_auditoria || '';
@@ -379,8 +379,8 @@ export default function RegistroList() {
             // Summary Grid (Custom Implementation)
             const gridData = [
                 { label: 'CONTRATISTA', value: registro.eecc_nombre || registro.usuario?.eecc_nombre || 'N/A' },
-                { label: 'SERVICIO', value: registro.vinculacionEntidad?.servicio?.nombre || 'N/A' },
-                { label: 'DEPENDENCIA', value: registro.dependencia || 'N/A' },
+                { label: 'SERVICIO', value: registro.asignacion?.servicio?.nombre || registro.vinculacionEntidad?.servicio?.nombre || 'N/A' },
+                { label: 'DEPENDENCIA', value: registro.dependencia || registro.asignacion?.dependencia?.nombre || 'N/A' },
                 { label: 'PROGRAMA', value: registro.programa?.nombre || 'N/A' },
                 { label: 'ESTADO AUDITORÍA', value: registro.estado_auditoria?.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) },
                 { label: 'CUMPLIMIENTO DECLARADO', value: `${registro.porcentaje_cumplimiento}%`, isGreen: true }

@@ -321,7 +321,7 @@ export default function RegistroAudit() {
                     </div>
                     <div className="summary-card">
                         <div className="summary-label">DEPENDENCIA</div>
-                        <div className="summary-value" style={{ fontSize: '1rem' }}>{registro.dependencia}</div>
+                        <div className="summary-value" style={{ fontSize: '1rem' }}>{registro.dependencia || registro.asignacion?.dependencia?.nombre || registro.vinculacionEntidad?.dependencia?.nombre || 'N/A'}</div>
                     </div>
                     <div className="summary-card">
                         <div className="summary-label">PERIODO</div>
@@ -368,7 +368,7 @@ export default function RegistroAudit() {
                             <Shield size={18} /> Panel de Revisión y Auditoría
                         </div>
                         <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '4px' }}>
-                            PROGRAMA: OIEM DISTRIBUCIÓN GRANEL {/* Hardcoded */}
+                            PROGRAMA: {registro.programa?.nombre || registro.asignacion?.servicio?.programa?.nombre || 'N/A'}
                         </div>
                     </div>
                     <div>
@@ -478,7 +478,7 @@ export default function RegistroAudit() {
                                         <td style={{ verticalAlign: 'top' }}>
                                             <div style={{ fontWeight: 600, marginBottom: '4px' }}>{act.actividad?.descripcion}</div>
                                             <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '8px' }}>
-                                                {act.actividad?.verificadores}
+                                                {act.actividad?.verificadores || act.actividad?.criterios}
                                             </div>
 
                                             {/* Evidence Logic was here, removing it */}

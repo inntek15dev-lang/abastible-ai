@@ -108,10 +108,10 @@ const registroController = {
                     { model: User, as: 'auditor', attributes: ['id', 'name'] },
                     { model: Programa, as: 'programa', attributes: ['id', 'nombre'] },
                     {
-                        model: ContratistaAsignacion,
+                        model: Vinculacion,
                         as: 'asignacion',
                         include: [
-                            { model: TipoContratista, as: 'tipoContratista' },
+                            { model: TipoContratista, as: 'servicio' },
                             { model: Dependencia, as: 'dependencia' }
                         ]
                     },
@@ -150,10 +150,10 @@ const registroController = {
                     { model: Programa, as: 'programa', attributes: ['id', 'nombre'] },
                     { model: Vinculacion, as: 'vinculacionEntidad' },
                     {
-                        model: ContratistaAsignacion,
+                        model: Vinculacion,
                         as: 'asignacion',
                         include: [
-                            { model: TipoContratista, as: 'tipoContratista' },
+                            { model: TipoContratista, as: 'servicio' },
                             { model: Dependencia, as: 'dependencia' }
                         ]
                     },

@@ -110,6 +110,7 @@ Dependencia.hasMany(Registro, { foreignKey: 'dependencia_id', as: 'registros' })
 
 // Registro -> Vinculacion (new: FK now references vinculaciones table)
 Registro.belongsTo(Vinculacion, { foreignKey: 'contratista_asignacion_id', as: 'vinculacionEntidad' });
+Registro.belongsTo(Vinculacion, { foreignKey: 'contratista_asignacion_id', as: 'asignacion' }); // Legacy alias for backward compatibility
 Vinculacion.hasMany(Registro, { foreignKey: 'contratista_asignacion_id', as: 'registros' });
 
 // RegistroActividad -> Registro
