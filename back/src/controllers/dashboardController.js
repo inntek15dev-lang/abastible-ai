@@ -95,37 +95,30 @@ const dashboardController = {
 
             // 2. Filtro por Gerencia / Subgerencia
             if ((gerencia_id && gerencia_id !== 'todas') || (subgerencia_id && subgerencia_id !== 'todas')) {
-                const depWhere = {};
+                const vincWhere = { activo: 1 };
                 if (subgerencia_id && subgerencia_id !== 'todas') {
-                    depWhere.subgerencia_id = subgerencia_id;
+                    vincWhere.subgerencia_id = subgerencia_id;
                 } else if (gerencia_id && gerencia_id !== 'todas') {
-                    // Si se seleccionó gerencia pero no subgerencia, buscar todas las subgerencias de esa gerencia
                     const subgs = await Subgerencia.findAll({
-                        where: { gerencia_id: gerencia_id, activo: 1 },
+                        where: { gerencia_id, activo: 1 },
                         attributes: ['id']
                     });
                     const subgIds = subgs.map(s => s.id);
-                    depWhere.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
+                    vincWhere.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
                 }
 
-                const depsInGerencia = await Dependencia.findAll({
-                    where: depWhere,
+                const vincsInHierarchy = await Vinculacion.findAll({
+                    where: vincWhere,
                     attributes: ['id']
                 });
-                const depIdsInGerencia = depsInGerencia.map(d => d.id);
-
-                const vincsInGerencia = await Vinculacion.findAll({
-                    where: { dependencia_id: { [Op.in]: depIdsInGerencia.length > 0 ? depIdsInGerencia : [-1] }, activo: 1 },
-                    attributes: ['id']
-                });
-                const vincIdsFromGerencia = vincsInGerencia.map(v => v.id);
+                const vincIdsFromHierarchy = vincsInHierarchy.map(v => v.id);
 
                 if (whereRegistro.contratista_asignacion_id) {
                     const existingIds = whereRegistro.contratista_asignacion_id[Op.in] || [];
-                    const intersection = existingIds.filter(id => vincIdsFromGerencia.includes(id));
+                    const intersection = existingIds.filter(id => vincIdsFromHierarchy.includes(id));
                     whereRegistro.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
                 } else {
-                    whereRegistro.contratista_asignacion_id = { [Op.in]: vincIdsFromGerencia.length > 0 ? vincIdsFromGerencia : [-1] };
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: vincIdsFromHierarchy.length > 0 ? vincIdsFromHierarchy : [-1] };
                 }
             }
 
@@ -364,32 +357,18 @@ const dashboardController = {
             }
 
             if ((gerencia_id && gerencia_id !== 'todas') || (subgerencia_id && subgerencia_id !== 'todas')) {
-                const depWhere = {};
+            if ((gerencia_id && gerencia_id !== 'todas') || (subgerencia_id && subgerencia_id !== 'todas')) {
                 if (subgerencia_id && subgerencia_id !== 'todas') {
-                    depWhere.subgerencia_id = subgerencia_id;
+                    vincWhere.subgerencia_id = subgerencia_id;
                 } else if (gerencia_id && gerencia_id !== 'todas') {
                     const subgs = await Subgerencia.findAll({
                         where: { gerencia_id: gerencia_id, activo: 1 },
                         attributes: ['id']
                     });
                     const subgIds = subgs.map(s => s.id);
-                    depWhere.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
+                    vincWhere.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
                 }
-
-                const depsInGerencia = await Dependencia.findAll({
-                    where: depWhere,
-                    attributes: ['id']
-                });
-                const depIdsInGerencia = depsInGerencia.map(d => d.id);
-                
-                if (vincWhere.dependencia_id) {
-                    // Si ya habia scope de dependencia, intersectamos (contratista_user)
-                    if (!depIdsInGerencia.includes(vincWhere.dependencia_id)) {
-                        vincWhere.dependencia_id = -1; // Filtro no concuerda
-                    }
-                } else {
-                    vincWhere.dependencia_id = { [Op.in]: depIdsInGerencia.length > 0 ? depIdsInGerencia : [-1] };
-                }
+            }
             }
 
             const data = await Registro.findAll({
@@ -482,36 +461,30 @@ const dashboardController = {
             }
 
             if ((gerencia_id && gerencia_id !== 'todas') || (subgerencia_id && subgerencia_id !== 'todas')) {
-                const depWhere = {};
+                const vincWhere = { activo: 1 };
                 if (subgerencia_id && subgerencia_id !== 'todas') {
-                    depWhere.subgerencia_id = subgerencia_id;
+                    vincWhere.subgerencia_id = subgerencia_id;
                 } else if (gerencia_id && gerencia_id !== 'todas') {
                     const subgs = await Subgerencia.findAll({
                         where: { gerencia_id: gerencia_id, activo: 1 },
                         attributes: ['id']
                     });
                     const subgIds = subgs.map(s => s.id);
-                    depWhere.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
+                    vincWhere.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
                 }
 
-                const depsInGerencia = await Dependencia.findAll({
-                    where: depWhere,
+                const vincsInHierarchy = await Vinculacion.findAll({
+                    where: vincWhere,
                     attributes: ['id']
                 });
-                const depIdsInGerencia = depsInGerencia.map(d => d.id);
-
-                const vincsInGerencia = await Vinculacion.findAll({
-                    where: { dependencia_id: { [Op.in]: depIdsInGerencia.length > 0 ? depIdsInGerencia : [-1] }, activo: 1 },
-                    attributes: ['id']
-                });
-                const vincIdsFromGerencia = vincsInGerencia.map(v => v.id);
+                const vincIdsFromHierarchy = vincsInHierarchy.map(v => v.id);
 
                 if (whereRegistro.contratista_asignacion_id) {
                     const existingIds = whereRegistro.contratista_asignacion_id[Op.in] || [];
-                    const intersection = existingIds.filter(id => vincIdsFromGerencia.includes(id));
+                    const intersection = existingIds.filter(id => vincIdsFromHierarchy.includes(id));
                     whereRegistro.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
                 } else {
-                    whereRegistro.contratista_asignacion_id = { [Op.in]: vincIdsFromGerencia.length > 0 ? vincIdsFromGerencia : [-1] };
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: vincIdsFromHierarchy.length > 0 ? vincIdsFromHierarchy : [-1] };
                 }
             }
 
@@ -615,36 +588,30 @@ const dashboardController = {
             }
 
             if ((gerencia_id && gerencia_id !== 'todas') || (subgerencia_id && subgerencia_id !== 'todas')) {
-                const depWhere = {};
+                const vincWhere = { activo: 1 };
                 if (subgerencia_id && subgerencia_id !== 'todas') {
-                    depWhere.subgerencia_id = subgerencia_id;
+                    vincWhere.subgerencia_id = subgerencia_id;
                 } else if (gerencia_id && gerencia_id !== 'todas') {
                     const subgs = await Subgerencia.findAll({
                         where: { gerencia_id: gerencia_id, activo: 1 },
                         attributes: ['id']
                     });
                     const subgIds = subgs.map(s => s.id);
-                    depWhere.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
+                    vincWhere.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
                 }
 
-                const depsInGerencia = await Dependencia.findAll({
-                    where: depWhere,
+                const vincsInHierarchy = await Vinculacion.findAll({
+                    where: vincWhere,
                     attributes: ['id']
                 });
-                const depIdsInGerencia = depsInGerencia.map(d => d.id);
-
-                const vincsInGerencia = await Vinculacion.findAll({
-                    where: { dependencia_id: { [Op.in]: depIdsInGerencia.length > 0 ? depIdsInGerencia : [-1] }, activo: 1 },
-                    attributes: ['id']
-                });
-                const vincIdsFromGerencia = vincsInGerencia.map(v => v.id);
+                const vincIdsFromHierarchy = vincsInHierarchy.map(v => v.id);
 
                 if (whereRegistro.contratista_asignacion_id) {
                     const existingIds = whereRegistro.contratista_asignacion_id[Op.in] || [];
-                    const intersection = existingIds.filter(id => vincIdsFromGerencia.includes(id));
+                    const intersection = existingIds.filter(id => vincIdsFromHierarchy.includes(id));
                     whereRegistro.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
                 } else {
-                    whereRegistro.contratista_asignacion_id = { [Op.in]: vincIdsFromGerencia.length > 0 ? vincIdsFromGerencia : [-1] };
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: vincIdsFromHierarchy.length > 0 ? vincIdsFromHierarchy : [-1] };
                 }
             }
 
@@ -772,31 +739,15 @@ const dashboardController = {
             }
 
             if ((gerencia_id && gerencia_id !== 'todas') || (subgerencia_id && subgerencia_id !== 'todas')) {
-                const depWhere = {};
                 if (subgerencia_id && subgerencia_id !== 'todas') {
-                    depWhere.subgerencia_id = subgerencia_id;
+                    whereVinculacion.subgerencia_id = subgerencia_id;
                 } else if (gerencia_id && gerencia_id !== 'todas') {
                     const subgs = await Subgerencia.findAll({
                         where: { gerencia_id: gerencia_id, activo: 1 },
                         attributes: ['id']
                     });
                     const subgIds = subgs.map(s => s.id);
-                    depWhere.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
-                }
-
-                const depsInGerencia = await Dependencia.findAll({
-                    where: depWhere,
-                    attributes: ['id']
-                });
-                const depIdsInGerencia = depsInGerencia.map(d => d.id);
-                
-                if (whereVinculacion.dependencia_id) {
-                    // Interstellar scope vs chosen scope
-                    if (!depIdsInGerencia.includes(whereVinculacion.dependencia_id)) {
-                        whereVinculacion.dependencia_id = -1;
-                    }
-                } else {
-                    whereVinculacion.dependencia_id = { [Op.in]: depIdsInGerencia.length > 0 ? depIdsInGerencia : [-1] };
+                    whereVinculacion.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
                 }
             }
 

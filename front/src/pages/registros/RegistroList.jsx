@@ -70,6 +70,8 @@ export default function RegistroList() {
     const [services, setServices] = useState([]); // Tipos de Contratista
     const [programs, setPrograms] = useState([]);
     const [admins, setAdmins] = useState([]);
+    const [gerencias, setGerencias] = useState([]);
+    const [subgerenciasRaw, setSubgerenciasRaw] = useState([]);
 
     // Advanced Filters State (US-050)
     const [filters, setFilters] = useState({
@@ -79,7 +81,9 @@ export default function RegistroList() {
         servicio: 'Todos',
         dependencia: 'Todas',
         programa: 'Todos',
-        admin_contrato: 'Todos'
+        admin_contrato: 'Todos',
+        gerencia: 'Todas',
+        subgerencia: 'Todas'
     });
 
     useEffect(() => {
@@ -101,14 +105,18 @@ export default function RegistroList() {
 
     const fetchResources = async () => {
         try {
-            const [servRes, progRes, userRes] = await Promise.all([
+            const [servRes, progRes, userRes, gerRes, subgRes] = await Promise.all([
                 api.get('/resources/tipos-contratista'),
                 api.get('/programas'),
-                api.get('/usuarios?role=administrador_contrato')
+                api.get('/usuarios?role=administrador_contrato'),
+                api.get('/resources/gerencias'),
+                api.get('/resources/subgerencias')
             ]);
             setServices(servRes.data.data);
             setPrograms(progRes.data.data);
             setAdmins(userRes.data.data);
+            setGerencias(gerRes.data.data);
+            setSubgerenciasRaw(subgRes.data.data);
 
             // Initial load of all dependencies
             await fetchDependencies();
@@ -117,9 +125,14 @@ export default function RegistroList() {
         }
     };
 
-    const fetchRegistros = async () => {
+    const fetchRegistros = async (currentFilters = filters) => {
         try {
-            const response = await api.get('/registros');
+            setLoading(true);
+            const params = new URLSearchParams();
+            if (currentFilters.gerencia && currentFilters.gerencia !== 'Todas') params.append('gerencia_id', currentFilters.gerencia);
+            if (currentFilters.subgerencia && currentFilters.subgerencia !== 'Todas') params.append('subgerencia_id', currentFilters.subgerencia);
+            
+            const response = await api.get(`/registros?${params.toString()}`);
             setRegistros(response.data.data);
         } catch (err) {
             setError('Error al cargar registros');
@@ -180,6 +193,16 @@ export default function RegistroList() {
         return averages;
     }, [registros]);
 
+    const filteredSubgerencias = useMemo(() => {
+        if (!filters.gerencia || filters.gerencia === 'Todas') return subgerenciasRaw;
+        return subgerenciasRaw.filter(s => String(s.gerencia_id) === String(filters.gerencia));
+    }, [filters.gerencia, subgerenciasRaw]);
+
+    // Trigger fetch on hierarchy change
+    useEffect(() => {
+        fetchRegistros();
+    }, [filters.gerencia, filters.subgerencia]);
+
     const getAnnualAverage = (reg) => {
         if (!reg.periodo) return 0;
         const year = reg.periodo.substring(0, 4);
@@ -212,8 +235,16 @@ export default function RegistroList() {
 
             const adminsInVinc = reg.vinculacionEntidad?.administraciones?.map(a => a.administrador_contrato_id.toString()) || [];
             const matchesAdmin = !filters.admin_contrato || filters.admin_contrato === 'Todos' || adminsInVinc.includes(filters.admin_contrato);
+            
+            // Note: gerencia/subgerencia are now filtered server-side in fetchRegistros
+            // But if we want local check too for consistency:
+            const regGerenciaId = reg.vinculacionEntidad?.dependencia?.subgerencia?.gerencia_id;
+            const regSubgerenciaId = reg.vinculacionEntidad?.dependencia?.subgerencia_id;
+            
+            const matchesGerencia = filters.gerencia === 'Todas' || String(regGerenciaId) === String(filters.gerencia);
+            const matchesSubgerencia = filters.subgerencia === 'Todas' || String(regSubgerenciaId) === String(filters.subgerencia);
 
-            return matchesSearch && matchesStatus && matchesPeriod && matchesService && matchesDependency && matchesProgram && matchesAdmin;
+            return matchesSearch && matchesStatus && matchesPeriod && matchesService && matchesDependency && matchesProgram && matchesAdmin && matchesGerencia && matchesSubgerencia;
         });
     }, [registros, filters]);
 
@@ -245,10 +276,10 @@ export default function RegistroList() {
                     bValue = b.programa?.nombre || '';
                 } else if (sortConfig.key === 'servicio') {
                     aValue = a.asignacion?.servicio?.nombre || a.vinculacionEntidad?.servicio?.nombre || '';
-                    bValue = b.asignacion?.servicio?.nombre || b.vinculacionEntidad?.servicio?.nombre || '';
+                    bValue = b.asignacion?.servicio?.nombre || a.vinculacionEntidad?.servicio?.nombre || '';
                 } else if (sortConfig.key === 'dependencia') {
                     aValue = a.dependencia || a.asignacion?.dependencia?.nombre || '';
-                    bValue = b.dependencia || b.asignacion?.dependencia?.nombre || '';
+                    bValue = b.dependencia || a.asignacion?.dependencia?.nombre || '';
                 } else if (sortConfig.key === 'estado_auditoria') {
                     aValue = a.estado_auditoria || '';
                     bValue = b.estado_auditoria || '';
@@ -678,12 +709,36 @@ export default function RegistroList() {
                 )}
             </header>
 
-            {/* Filters Bar (Mockup Style) */}
-            <div className="filters-bar" style={{
-                background: 'white', padding: '16px', borderRadius: '8px',
-                border: '1px solid var(--border-color)', marginBottom: '20px',
-                display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'end'
+            {/* Filters Bar */}
+            <div className="filters-grid" style={{ 
+                display: 'flex', 
+                flexWrap: 'wrap', 
+                gap: '12px', 
+                alignItems: 'flex-end', 
+                background: '#f9fafb', 
+                padding: '16px', 
+                borderRadius: '8px', 
+                marginBottom: '20px',
+                border: '1px solid #e5e7eb' 
             }}>
+                <div className="form-group" style={{ width: '180px' }}>
+                    <label>Gerencia</label>
+                    <select id="filter-gerencia" className="form-control" value={filters.gerencia} onChange={e => setFilters({ ...filters, gerencia: e.target.value, subgerencia: 'Todas' })}>
+                        <option value="Todas">Todas</option>
+                        {gerencias.map(g => (
+                            <option key={g.id} value={g.id}>{g.nombre}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="form-group" style={{ width: '180px' }}>
+                    <label>Subgerencia</label>
+                    <select id="filter-subgerencia" className="form-control" value={filters.subgerencia} onChange={e => setFilters({ ...filters, subgerencia: e.target.value })}>
+                        <option value="Todas">Todas</option>
+                        {filteredSubgerencias.map(s => (
+                            <option key={s.id} value={s.id}>{s.nombre}</option>
+                        ))}
+                    </select>
+                </div>
                 <div className="form-group" style={{ flex: '1 1 200px' }}>
                     <label>Contratista / RUT</label>
                     <input
@@ -771,7 +826,11 @@ export default function RegistroList() {
                 </button>
                 <button className="btn-secondary" style={{ height: '38px', padding: '0 12px', background: 'white', border: '1px solid #ccc' }}
                     onClick={() => {
-                        setFilters({ search: '', period: '', status: 'all', servicio: 'Todos', dependencia: 'Todas', programa: 'Todos', admin_contrato: 'Todos' });
+                        setFilters({ 
+                            search: '', period: '', status: 'all', servicio: 'Todos', 
+                            dependencia: 'Todas', programa: 'Todos', admin_contrato: 'Todos',
+                            gerencia: 'Todas', subgerencia: 'Todas'
+                        });
                         fetchDependencies();
                     }}
                     title="Limpiar Filtros"

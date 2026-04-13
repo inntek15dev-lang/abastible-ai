@@ -101,6 +101,41 @@ const registroController = {
             }
             // Admin sees all (no filter)
 
+            // hierarchy filters (Gerencia - Subgerencia)
+            const { gerencia_id, subgerencia_id } = req.query;
+            if (subgerencia_id && subgerencia_id !== 'todas') {
+                const subVincs = await Vinculacion.findAll({
+                    where: { subgerencia_id, activo: 1 },
+                    attributes: ['id']
+                });
+                const subVincIds = subVincs.map(v => v.id);
+                if (where.contratista_asignacion_id) {
+                    const currentIds = where.contratista_asignacion_id[Op.in] || [];
+                    const intersection = currentIds.filter(id => subVincIds.includes(id));
+                    where.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+                } else {
+                    where.contratista_asignacion_id = { [Op.in]: subVincIds.length > 0 ? subVincIds : [-1] };
+                }
+            } else if (gerencia_id && gerencia_id !== 'todas') {
+                const subs = await Subgerencia.findAll({
+                    where: { gerencia_id, activo: 1 },
+                    attributes: ['id']
+                });
+                const subIds = subs.map(s => s.id);
+                const subVincs = await Vinculacion.findAll({
+                    where: { subgerencia_id: { [Op.in]: subIds.length > 0 ? subIds : [-1] }, activo: 1 },
+                    attributes: ['id']
+                });
+                const gerVincIds = subVincs.map(v => v.id);
+                if (where.contratista_asignacion_id) {
+                    const currentIds = where.contratista_asignacion_id[Op.in] || [];
+                    const intersection = currentIds.filter(id => gerVincIds.includes(id));
+                    where.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+                } else {
+                    where.contratista_asignacion_id = { [Op.in]: gerVincIds.length > 0 ? gerVincIds : [-1] };
+                }
+            }
+
             const registros = await Registro.findAll({
                 where,
                 include: [
@@ -120,7 +155,15 @@ const registroController = {
                         as: 'vinculacionEntidad',
                         include: [
                             { model: TipoContratista, as: 'servicio' },
-                            { model: Dependencia, as: 'dependencia' },
+                            { 
+                                model: Dependencia, 
+                                as: 'dependencia',
+                                include: [{
+                                    model: Subgerencia,
+                                    as: 'subgerencia',
+                                    include: [{ model: Gerencia, as: 'gerencia' }]
+                                }]
+                            },
                             {
                                 model: Administracion,
                                 as: 'administraciones',
