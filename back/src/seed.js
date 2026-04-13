@@ -32,54 +32,6 @@ async function seed() {
         console.log('🔄 Sincronizando base de datos (FORCE SYNC: DROP ALL TABLES)...');
         await sequelize.sync({ force: true });
 
-        console.log('👷 Alineando esquema de base de datos (Fixing FKs)...');
-        try {
-            // Find legacy constraint to contratista_asignaciones
-            const [results] = await sequelize.query(`
-                SELECT CONSTRAINT_NAME 
-                FROM information_schema.KEY_COLUMN_USAGE 
-                WHERE TABLE_NAME = 'registros' 
-                AND COLUMN_NAME = 'contratista_asignacion_id' 
-                AND REFERENCED_TABLE_NAME = 'contratista_asignaciones'
-                LIMIT 1
-            `);
-
-            if (results.length > 0) {
-                const constraintName = results[0].CONSTRAINT_NAME;
-                console.log(`  🗑️ Eliminando restricción legacy: ${constraintName}...`);
-                await sequelize.query(`ALTER TABLE registros DROP FOREIGN KEY ${constraintName}`);
-            }
-
-            // Check if fix is already applied
-            const [newResults] = await sequelize.query(`
-                SELECT CONSTRAINT_NAME 
-                FROM information_schema.KEY_COLUMN_USAGE 
-                WHERE TABLE_NAME = 'registros' 
-                AND COLUMN_NAME = 'contratista_asignacion_id' 
-                AND REFERENCED_TABLE_NAME = 'vinculaciones'
-                LIMIT 1
-            `);
-
-            if (newResults.length === 0) {
-                console.log('  🏗️ Creando nueva restricción hacia vinculaciones...');
-                await sequelize.query('ALTER TABLE registros ADD CONSTRAINT fk_registros_vinculacion FOREIGN KEY (contratista_asignacion_id) REFERENCES vinculaciones(id) ON DELETE SET NULL ON UPDATE CASCADE');
-            }
-
-            // Check if column numero_contrato exists on table 'registros'
-            const [colCheck] = await sequelize.query(`
-                SELECT COLUMN_NAME 
-                FROM information_schema.COLUMNS 
-                WHERE TABLE_NAME = 'registros' AND COLUMN_NAME = 'numero_contrato'
-            `);
-            if (colCheck.length === 0) {
-                console.log('  🏗️ Añadiendo nueva columna "numero_contrato" a la tabla registros...');
-                await sequelize.query('ALTER TABLE registros ADD COLUMN numero_contrato VARCHAR(255) NULL AFTER contratista_asignacion_id');
-            }
-
-            console.log('  ✅ Esquema alineado correctamente.');
-        } catch (fkError) {
-            console.warn('  ⚠️ Advertencia en alineación de esquema (posiblemente ya aplicado o conflictos):', fkError.message);
-        }
 
         // ============= ORDER 0: Base tables =============
         console.log('📦 Sincronizando roles...');
