@@ -29,8 +29,9 @@ const {
 
 async function seed() {
     try {
-        console.log('🔄 Sincronizando base de datos (safe sync)...');
-        await sequelize.sync();
+        const forceSync = process.argv.includes('--force');
+        console.log(`🔄 Sincronizando base de datos (${forceSync ? 'FORCE SYNC: DROP ALL TABLES' : 'safe sync'})...`);
+        await sequelize.sync(forceSync ? { force: true } : {});
 
         console.log('👷 Alineando esquema de base de datos (Fixing FKs)...');
         try {
