@@ -71,6 +71,10 @@ docker compose logs -f db
    ```bash
    docker exec -it oiem_abastible_api npm run seed
    ```
+   **[NUEVO] Reset Destructivo (Misión Crítica):** Si la base de datos presenta datos huérfanos, inconsistencias de versión, o necesitas limpiar un ambiente Preprod por completo para regenerarlo desde cero (borrará TODAS las tablas definidas), utiliza el flag forzado:
+   ```bash
+   docker exec -it oiem_abastible_api node src/seed.js --force
+   ```
 
 ## Mantenimiento
 
