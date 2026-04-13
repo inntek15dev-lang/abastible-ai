@@ -16,7 +16,9 @@ const {
     Hallazgo, // Import Hallazgo model
     Contratista,
     Vinculacion,
-    Administracion
+    Administracion,
+    Gerencia,
+    Subgerencia
 } = require('../database/models');
 const emailService = require('../services/emailService'); // Import emailService
 
@@ -109,8 +111,8 @@ const registroController = {
                     attributes: ['id']
                 });
                 const subVincIds = subVincs.map(v => v.id);
-                if (where.contratista_asignacion_id) {
-                    const currentIds = where.contratista_asignacion_id[Op.in] || [];
+                if (where.contratista_asignacion_id && where.contratista_asignacion_id[Op.in]) {
+                    const currentIds = where.contratista_asignacion_id[Op.in];
                     const intersection = currentIds.filter(id => subVincIds.includes(id));
                     where.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
                 } else {
@@ -127,8 +129,8 @@ const registroController = {
                     attributes: ['id']
                 });
                 const gerVincIds = subVincs.map(v => v.id);
-                if (where.contratista_asignacion_id) {
-                    const currentIds = where.contratista_asignacion_id[Op.in] || [];
+                if (where.contratista_asignacion_id && where.contratista_asignacion_id[Op.in]) {
+                    const currentIds = where.contratista_asignacion_id[Op.in];
                     const intersection = currentIds.filter(id => gerVincIds.includes(id));
                     where.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
                 } else {
