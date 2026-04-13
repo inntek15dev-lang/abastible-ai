@@ -206,7 +206,7 @@ const reaperturaController = {
 
             // Revert registro estado to finalizado as per business rule (reopening rejected)
             const registro = await Registro.findByPk(solicitud.registro_id);
-            if (registro && registro.estado_auditoria === 'reapertura_solicitada') {
+            if (registro) {
                 await registro.update({
                     estado_auditoria: 'finalizado'
                 });
