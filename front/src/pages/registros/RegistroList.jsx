@@ -672,7 +672,7 @@ export default function RegistroList() {
                     Registros de Cumplimiento
                 </h1>
                 {canWrite('Registros') && (
-                    <Link to="/registros/new" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+                    <Link id="btn-nuevo-registro" to="/registros/new" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
                         <Plus size={18} /> Nuevo Registro
                     </Link>
                 )}
@@ -687,6 +687,7 @@ export default function RegistroList() {
                 <div className="form-group" style={{ flex: '1 1 200px' }}>
                     <label>Contratista / RUT</label>
                     <input
+                        id="filter-search"
                         type="text"
                         className="form-control"
                         placeholder="Buscar por nombre o RUT..."
@@ -698,7 +699,7 @@ export default function RegistroList() {
 
                 <div className="form-group" style={{ width: '150px' }}>
                     <label>Servicio</label>
-                    <select className="form-control" value={filters.servicio || 'Todos'}
+                    <select id="filter-servicio" className="form-control" value={filters.servicio || 'Todos'}
                         onChange={e => {
                             const val = e.target.value;
                             setFilters({ ...filters, servicio: val, dependencia: 'Todas' });
@@ -713,7 +714,7 @@ export default function RegistroList() {
 
                 <div className="form-group" style={{ width: '180px' }}>
                     <label>Dependencia</label>
-                    <select className="form-control" value={filters.dependencia || 'Todas'} onChange={e => setFilters({ ...filters, dependencia: e.target.value })}>
+                    <select id="filter-dependencia" className="form-control" value={filters.dependencia || 'Todas'} onChange={e => setFilters({ ...filters, dependencia: e.target.value })}>
                         <option value="Todas">Todas</option>
                         {dependencies.map(d => (
                             <option key={d.id} value={d.nombre}>{d.nombre}</option>
@@ -723,7 +724,7 @@ export default function RegistroList() {
 
                 <div className="form-group" style={{ width: '150px' }}>
                     <label>Programa</label>
-                    <select className="form-control" value={filters.programa || 'Todos'} onChange={e => setFilters({ ...filters, programa: e.target.value })}>
+                    <select id="filter-programa" className="form-control" value={filters.programa || 'Todos'} onChange={e => setFilters({ ...filters, programa: e.target.value })}>
                         <option value="Todos">Todos</option>
                         {programs.map(p => (
                             <option key={p.id} value={p.nombre}>{p.nombre}</option>
@@ -732,7 +733,7 @@ export default function RegistroList() {
                 </div>
                 <div className="form-group" style={{ width: '140px' }}>
                     <label>Estado Auditoría</label>
-                    <select className="form-control" value={filters.status || 'all'} onChange={e => setFilters({ ...filters, status: e.target.value })}>
+                    <select id="filter-status" className="form-control" value={filters.status || 'all'} onChange={e => setFilters({ ...filters, status: e.target.value })}>
                         <option value="all">Todos</option>
                         <option value="pendiente">Pendiente</option>
                         <option value="auditando">Auditando</option>
@@ -748,6 +749,7 @@ export default function RegistroList() {
                 <div className="form-group" style={{ width: '160px' }}>
                     <label>Periodo</label>
                     <input
+                        id="filter-period"
                         type="month"
                         className="form-control"
                         value={filters.period}
@@ -756,7 +758,7 @@ export default function RegistroList() {
                 </div>
                 <div className="form-group" style={{ width: '140px' }}>
                     <label>Admin Contrato</label>
-                    <select className="form-control" value={filters.admin_contrato || 'Todos'} onChange={e => setFilters({ ...filters, admin_contrato: e.target.value })}>
+                    <select id="filter-admin" className="form-control" value={filters.admin_contrato || 'Todos'} onChange={e => setFilters({ ...filters, admin_contrato: e.target.value })}>
                         <option value="Todos">Todos</option>
                         {admins.map(a => (
                             <option key={a.id} value={a.id}>{a.name}</option> // ID or Name? Filter logic above uses ID maybe? logic above says 'Todos' or true. Updated to assume ID match if implemented later.
@@ -816,7 +818,7 @@ export default function RegistroList() {
                             </tr>
                         ) : (
                             sortedRegistros.map((registro, idx) => (
-                                <tr key={registro.id}>
+                                <tr key={registro.id} id={`row-${registro.id}`} data-status={registro.estado_auditoria}>
                                     <td style={{ fontWeight: 500, color: '#6b7280', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {idx + 1}
                                     </td>
@@ -917,7 +919,7 @@ export default function RegistroList() {
                                         <div className="flex flex-col gap-1 items-end">
                                             {/* Action: Audit (US-003) - Admin Contrato Only & Pending Status */}
                                             {user?.role === 'administrador_contrato' && ['pendiente', 'subsanado', 'auditando', 'en_revision'].includes(registro.estado_auditoria) && (
-                                                <Link to={`/registros/${registro.id}/auditar`} className="btn-action btn-auditar" title="Auditar Registro">
+                                                <Link id={`btn-audit-${registro.id}`} to={`/registros/${registro.id}/auditar`} className="btn-action btn-auditar" title="Auditar Registro">
                                                     <ClipboardCheck size={14} /> <span>Auditar</span>
                                                 </Link>
                                             )}
@@ -925,7 +927,7 @@ export default function RegistroList() {
                                             {/* Action: Edit - Contractor Only & Pending/Reopened Status */}
                                             {['contratista_admin', 'contratista_user'].includes(user?.role) &&
                                                 (registro.estado_auditoria === 'pendiente' || registro.estado_auditoria === 'reabierto' || registro.estado_auditoria === 'reapertura_pendiente') && (
-                                                    <Link to={`/registros/${registro.id}`} className="btn-action" title="Editar Registro">
+                                                    <Link id={`btn-edit-${registro.id}`} to={`/registros/${registro.id}`} className="btn-action" title="Editar Registro">
                                                         <Edit2 size={14} /> <span>Editar</span>
                                                     </Link>
                                                 )}

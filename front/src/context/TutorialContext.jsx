@@ -20,13 +20,14 @@ export function TutorialProvider({ children }) {
             showProgress: true,
             animate: true,
             allowClose: true,
-            stagePadding: 4,
-            overlayColor: '#000000',
-            overlayOpacity: 0.6,
-            doneBtnText: 'Finalizar',
-            closeBtnText: 'Cerrar',
-            nextBtnText: 'Siguiente',
-            prevBtnText: 'Anterior',
+            stagePadding: 8,
+            overlayColor: '#003594',
+            overlayOpacity: 0.75,
+            doneBtnText: 'Entendido',
+            closeBtnText: 'X',
+            nextBtnText: 'Continuar →',
+            prevBtnText: '← Volver',
+            popoverClass: 'theme_mode_tutorial',
             onDestroy: () => setActiveTutorial(null),
         });
         setDriverObj(dObj);
@@ -34,10 +35,10 @@ export function TutorialProvider({ children }) {
 
     // Helper to find elements, including dynamic "first of status X" logic
     const resolveElement = (step) => {
+        if (!step.element) return null;
         if (typeof step.element === 'string') {
             // Check for dynamic syntax: ">> row-status:pendiente"
             if (step.element.startsWith('>> row-status:')) {
-                // syntax: ">> row-status:pendiente .my-class"
                 const parts = step.element.replace('>> row-status:', '').trim().split(' ');
                 const status = parts[0];
                 const innerSelector = parts.slice(1).join(' ');
@@ -45,144 +46,103 @@ export function TutorialProvider({ children }) {
                 // Find first row with this status
                 const row = document.querySelector(`tr[data-status="${status}"]`);
                 if (row) {
-                    if (innerSelector) {
-                        return row.querySelector(innerSelector) || row;
-                    }
-                    // Default behavior: try to find primary action
-                    const actionBtn = row.querySelector('.btn-icon') || row.querySelector('.btn-action') || row.querySelector('a') || row;
-                    return actionBtn;
+                    if (innerSelector) return row.querySelector(innerSelector) || row;
+                    return row.querySelector('.btn-icon') || row.querySelector('.btn-action') || row.querySelector('a') || row;
                 }
                 return null;
             }
+            return document.querySelector(step.element);
         }
-        return document.querySelector(step.element);
+        return step.element;
     };
 
     const performAction = (element, action) => {
         if (!element || !action) return;
-
         setTimeout(() => {
             if (action.type === 'input') {
                 element.value = action.value;
                 element.dispatchEvent(new Event('input', { bubbles: true }));
                 element.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-            if (action.type === 'click') {
+            } else if (action.type === 'click') {
                 element.click();
-            }
-            if (action.type === 'focus') {
+            } else if (action.type === 'focus') {
                 element.focus();
-            }
-            // Navigate if action is 'navigate'
-            if (action.type === 'navigate') {
-                // logic handled by router usually, but if we need to force it:
-                // window.location.href = action.value;
             }
         }, 300);
     };
 
-
-    const startTutorial = (tutorialId) => {
+    const startTutorial = (tutorialId, stepIndex = 0) => {
         if (!driverObj) return;
 
         const tutorial = tutorialsData.find(t => t.id === tutorialId);
-        if (!tutorial) {
-            console.error(`Tutorial ${tutorialId} not found`);
-            return;
-        }
-
-        // Check compatibility if user role is defined
-        if (user && tutorial.role && user.role !== tutorial.role && user.role !== 'admin') {
-            console.warn(`Tutorial ${tutorialId} is for ${tutorial.role}, user is ${user.role}`);
-        }
+        if (!tutorial) return;
 
         setActiveTutorial(tutorial);
 
-        // Navigation Helper
-        const startDriver = () => {
-            const steps = tutorial.steps.map(step => ({
+        const startDriver = (startIndex = 0) => {
+            const steps = tutorial.steps.map((step, idx) => ({
                 element: step.element,
-                popover: step.popover,
-                onHighlightStarted: (element, stepOpt, options) => {
-                    // Dynamic Resolution at runtime (in case list changed or page loaded)
-                    // Driver.js doesn't natively support dynamic element re-evaluation easily in v1 without mapped steps
-                    // BUT we can use the 'element' property if we pass the DOM element directly, 
-                    // however driver v3/v1 expects selector string usually.
+                popover: {
+                    ...step.popover,
+                    onNextClick: () => {
+                        // If this step triggers a navigation or action that requires a reload
+                        if (step.action?.waitForReload) {
+                            localStorage.setItem('pending_tutorial', tutorialId);
+                            localStorage.setItem('pending_step', idx + 1);
+                        }
+                        
+                        // Handle manual navigation steps in actions
+                        if (step.action?.type === 'navigate') {
+                            window.location.href = step.action.value;
+                            return;
+                        }
 
-                    // Actually, let's try to resolve it *before* passing to driver if possible, 
-                    // OR rely on driver's ability to take a DOM element.
-                    // For now, we will rely on strict selectors. 
-                    // IF we use our custom 'resolveElement', we need to run it before creating the step config.
-
-                    if (!element) return; // Should not happen if driver found it
-
-                    element.classList.add('tutorial-target-active');
-                    element.style.setProperty('outline', '3px solid #ff00ea', 'important');
-                    element.style.setProperty('outline-offset', '2px', 'important');
-                    element.style.setProperty('z-index', '1000000002', 'important');
-                    element.style.setProperty('position', 'relative', 'important');
-                    element.style.setProperty('background-color', '#fff9c4', 'important');
-
-                    if (step.action) {
-                        performAction(element, step.action);
+                        driverObj.moveNext();
                     }
                 },
-                onDeselected: (element) => {
-                    if (element) {
-                        element.classList.remove('tutorial-target-active');
-                        element.style.removeProperty('outline');
-                        element.style.removeProperty('outline-offset');
-                        element.style.removeProperty('z-index');
-                        element.style.removeProperty('position');
-                        element.style.removeProperty('background-color');
-                    }
+                onHighlightStarted: (element) => {
+                    if (step.action) performAction(element, step.action);
                 }
             }));
 
-            // Pre-resolve dynamic elements
-            const resolvedSteps = steps.map(s => {
-                const stepDef = tutorial.steps.find(ts => ts.popover.title === s.popover.title); // match by title/id
+            // Pre-resolve dynamic elements for the driver
+            const resolvedSteps = steps.map((s, idx) => {
+                const stepDef = tutorial.steps[idx];
                 if (stepDef && typeof stepDef.element === 'string' && stepDef.element.startsWith('>>')) {
                     const el = resolveElement(stepDef);
-                    if (el) {
-                        return { ...s, element: el };
-                    } else {
-                        console.warn('Dynamic element not found:', stepDef.element);
-                        // Fallback? or keep mostly to let driver fail?
-                        // Driver fails if element is null.
-                        // Let's create a dummy element to avoid crash or just omit?
-                        // Better to warn.
-                        return s;
-                    }
+                    return el ? { ...s, element: el } : s;
                 }
                 return s;
             });
 
-            // If we have a Create Missing Component logic?
-            // "si no existe el componente Parco crea el componente faltante"
-            // This suggests IF the selector fails, we might need to inject a DOM element? 
-            // That's risky for React. We should ensure the React components HAVE the elements.
-            // I will assume the 'Missing Component' part of the prompt refers to the CODE (adding buttons to JSX), not runtime injection.
-
             driverObj.setSteps(resolvedSteps);
-            driverObj.drive();
+            driverObj.drive(startIndex);
         };
 
-        if (tutorial.startUrl && window.location.pathname !== tutorial.startUrl) {
-            window.location.href = tutorial.startUrl;
+        // Initial navigation if startUrl is defined and we are not there
+        if (stepIndex === 0 && tutorial.startUrl && window.location.pathname !== tutorial.startUrl) {
             localStorage.setItem('pending_tutorial', tutorialId);
+            localStorage.setItem('pending_step', 0);
+            window.location.href = tutorial.startUrl;
             return;
         }
 
-        startDriver();
+        startDriver(stepIndex);
     };
 
     // Effect to resume tutorial after navigation
     useEffect(() => {
         const pendingTutorialId = localStorage.getItem('pending_tutorial');
+        const pendingStep = parseInt(localStorage.getItem('pending_step') || '0');
+        
         if (pendingTutorialId && driverObj) {
             localStorage.removeItem('pending_tutorial');
-            startTutorial(pendingTutorialId);
+            localStorage.removeItem('pending_step');
+            
+            // Short delay to ensure DOM is ready on new page
+            setTimeout(() => {
+                startTutorial(pendingTutorialId, pendingStep);
+            }, 500);
         }
     }, [driverObj]);
 

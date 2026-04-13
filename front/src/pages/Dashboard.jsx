@@ -194,6 +194,7 @@ export default function Dashboard() {
 
     const kpiCards = kpis ? [
         {
+            id: 'card-sync-status',
             title: '% EECC CON REGISTRO',
             value: `${kpis.porcentajeEmpresasConRegistro || 0}%`,
             subtitle: 'Empesas con reportes válidos (vinc. activas)',
@@ -202,6 +203,7 @@ export default function Dashboard() {
             icon: <Building2 size={20} color="#0ea5e9" title="Empresas con reporte al día" />
         },
         {
+            id: 'card-performance-avg',
             title: 'TENDENCIA',
             value: (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -224,6 +226,7 @@ export default function Dashboard() {
             icon: <TrendingUp size={20} color="#10b981" title="Tendencia del periodo en evaluación" />
         },
         {
+            id: 'card-audit-progress',
             title: 'AUDITADOS',
             value: `${pctAuditados}%`,
             subtitle: `${kpis.auditados || 0} de ${kpis.totalRegistros || 0} completados`,
@@ -232,6 +235,7 @@ export default function Dashboard() {
             icon: <CheckCircle2 size={20} color="#3b82f6" title="Porcentaje de registros que ya pasaron por auditoría" />
         },
         {
+            id: 'card-hallazgos-count',
             title: 'HALLAZGOS',
             value: kpis.hallazgosAbiertos,
             subtitle: 'Alertas críticas detectadas',
@@ -269,7 +273,7 @@ export default function Dashboard() {
         <div className="dashboard-page">
             <header className="page-header">
                 <div>
-                    <h1>Dashboard</h1>
+                    <h1 id="dashboard-title">Dashboard</h1>
                     <span className="subtitle">{kpiTitle}</span>
                 </div>
                 <div className="user-badge">
@@ -403,7 +407,7 @@ export default function Dashboard() {
             {/* KPI Cards Section */}
             <div className="kpi-grid">
                 {kpiCards.map((kpi, index) => (
-                    <div key={index} className="kpi-card-polished">
+                    <div id={kpi.id} key={index} className="kpi-card-polished">
                         <div className="kpi-card-icon-wrapper" style={{ backgroundColor: kpi.bg }}>
                             {kpi.icon}
                         </div>
@@ -419,18 +423,21 @@ export default function Dashboard() {
             {/* Main Content Section - TABS */}
             <div className="dashboard-tabs">
                 <button 
+                    id="tab-monitor"
                     className={`tab-button ${activeTab === 'monitor' ? 'active' : ''}`}
                     onClick={() => setActiveTab('monitor')}
                 >
                     <LayoutDashboard size={16} /> Visión Monitor
                 </button>
                 <button 
+                    id="tab-matriz"
                     className={`tab-button ${activeTab === 'matriz' ? 'active' : ''}`}
                     onClick={() => setActiveTab('matriz')}
                 >
                     <Users size={16} /> {isContractor ? 'Mis Contratos' : 'Matriz Contratistas'}
                 </button>
                 <button 
+                    id="tab-pendientes"
                     className={`tab-button ${activeTab === 'pendientes' ? 'active' : ''}`}
                     onClick={() => setActiveTab('pendientes')}
                 >

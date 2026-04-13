@@ -623,6 +623,7 @@ export default function RegistroForm() {
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Seleccione su Asignación (Servicio & Dependencia) *</label>
                             {assignments.length > 0 ? (
                                 <select 
+                                    id="form-assignment"
                                     className="form-control"
                                     value={form.contratista_asignacion_id || ''}
                                     onChange={(e) => setForm({ ...form, contratista_asignacion_id: e.target.value })}
@@ -675,7 +676,7 @@ export default function RegistroForm() {
                         </div>
                         <div>
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Dotación Total</label>
-                            <input type="number" className="form-control"
+                            <input id="form-dotacion-total" type="number" className="form-control"
                                 value={form.dotacion_total}
                                 disabled={isLocked}
                                 onChange={(e) => setForm({ ...form, dotacion_total: parseInt(e.target.value) || 0 })}
@@ -685,7 +686,7 @@ export default function RegistroForm() {
                         {/* Row 3 */}
                         <div>
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Personas Nuevas</label>
-                            <input type="number" className="form-control"
+                            <input id="form-personas-nuevas" type="number" className="form-control"
                                 value={form.personas_nuevas}
                                 disabled={isLocked}
                                 onChange={(e) => setForm({ ...form, personas_nuevas: parseInt(e.target.value) || 0 })}
@@ -1107,6 +1108,7 @@ export default function RegistroForm() {
                             <>
                                 {isContractor && form.estado_auditoria === 'reabierto' && (
                                     <button
+                                        id="btn-end-subsanacion"
                                         type="button"
                                         onClick={(e) => handleSubmit(e, { terminar_subsanacion: true })}
                                         disabled={loading}
@@ -1119,6 +1121,7 @@ export default function RegistroForm() {
                                     </button>
                                 )}
                                 <button
+                                    id="btn-save-draft"
                                     type="button"
                                     onClick={(e) => handleSubmit(e, { enviar: false })}
                                     disabled={loading}
@@ -1131,6 +1134,7 @@ export default function RegistroForm() {
                                     Guardar Borrador
                                 </button>
                                 <button
+                                    id="btn-send-review"
                                     type="button"
                                     onClick={(e) => handleSubmit(e, { enviar: true })}
                                     disabled={loading || !isCompletable}

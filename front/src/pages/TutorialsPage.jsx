@@ -2,11 +2,12 @@
 import React from 'react';
 import { useTutorial } from '../context/TutorialContext';
 import { useAuth } from '../context/AuthContext';
-import { PlayCircle, BookOpen, CheckCircle } from 'lucide-react';
+import { PlayCircle, BookOpen, CheckCircle, Video, X } from 'lucide-react';
 
 export default function TutorialsPage() {
     const { tutorials, startTutorial } = useTutorial();
     const { user } = useAuth();
+    const [selectedVideo, setSelectedVideo] = React.useState(null);
 
     // Filter tutorials based on role if needed
     // For now, show all valid ones
@@ -51,26 +52,44 @@ export default function TutorialsPage() {
                                 {moduleTutorials.map((tutorial) => (
                                     <div
                                         key={tutorial.id}
-                                        className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow cursor-pointer group bg-white hover:border-blue-300"
-                                        onClick={() => startTutorial(tutorial.id)}
+                                        className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow bg-white hover:border-blue-300 flex flex-col"
                                     >
                                         <div className="flex justify-between items-start mb-3">
-                                            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                            <div 
+                                                className="p-2 bg-blue-50 text-blue-600 rounded-lg cursor-pointer hover:bg-blue-600 hover:text-white transition-colors"
+                                                onClick={() => startTutorial(tutorial.id)}
+                                                title="Iniciar guía interactiva"
+                                            >
                                                 <PlayCircle size={24} />
                                             </div>
-                                            {tutorial.role && (
-                                                <span className="text-[10px] uppercase font-bold text-gray-400 border border-gray-200 px-2 py-1 rounded">
-                                                    {tutorial.role}
-                                                </span>
-                                            )}
+                                            <div className="flex flex-col items-end gap-1">
+                                                {tutorial.role && (
+                                                    <span className="text-[10px] uppercase font-bold text-gray-400 border border-gray-200 px-2 py-1 rounded">
+                                                        {tutorial.role}
+                                                    </span>
+                                                )}
+                                                {tutorial.videoUrl && (
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedVideo(tutorial.videoUrl);
+                                                        }}
+                                                        className="flex items-center gap-1 text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded hover:bg-orange-100 transition-colors"
+                                                    >
+                                                        <Video size={12} /> CÁPSULA
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
-                                        <h3 className="font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                                            {tutorial.title}
-                                        </h3>
-                                        <p className="text-sm text-gray-500 mb-4 line-clamp-2">
-                                            {tutorial.description}
-                                        </p>
-                                        <div className="flex items-center text-xs text-gray-400 gap-1">
+                                        <div onClick={() => startTutorial(tutorial.id)} className="cursor-pointer flex-1">
+                                            <h3 className="font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                                                {tutorial.title}
+                                            </h3>
+                                            <p className="text-sm text-gray-500 mb-4 line-clamp-2">
+                                                {tutorial.description}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center text-xs text-gray-400 gap-1 pt-4 border-t border-gray-100">
                                             <CheckCircle size={12} />
                                             <span>{tutorial.steps.length} pasos</span>
                                         </div>
@@ -79,6 +98,37 @@ export default function TutorialsPage() {
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+            {/* Video Modal */}
+            {selectedVideo && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="relative w-full max-w-4xl bg-gray-900 rounded-2xl overflow-hidden shadow-2xl border border-white/10">
+                        <div className="absolute top-4 right-4 z-10">
+                            <button 
+                                onClick={() => setSelectedVideo(null)}
+                                className="p-2 bg-black/50 hover:bg-black/80 text-white rounded-full transition-colors"
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+                        
+                        <div className="aspect-video bg-black flex items-center justify-center">
+                            <video 
+                                src={selectedVideo} 
+                                controls 
+                                autoPlay
+                                className="w-full h-full"
+                            >
+                                Tu navegador no soporta el tag de video.
+                            </video>
+                        </div>
+                        
+                        <div className="p-6 bg-gray-900 border-t border-white/5">
+                            <h3 className="text-xl font-bold text-white">Visualización de Tutorial</h3>
+                            <p className="text-gray-400 text-sm mt-1">Cápsula de video generada automáticamente para este flujo.</p>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

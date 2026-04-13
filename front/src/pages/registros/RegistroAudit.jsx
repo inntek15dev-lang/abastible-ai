@@ -601,6 +601,7 @@ export default function RegistroAudit() {
                                             {(isAuditando || isEnRevision) && canWrite('Auditoria') ? (
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                     <button
+                                                        id={`btn-cumple-${act.id}`}
                                                         onClick={() => handleAuditarActividad(act.id, true)}
                                                         className={`btn-action`}
                                                         style={{
@@ -615,6 +616,7 @@ export default function RegistroAudit() {
                                                         ✓ CUMPLE
                                                     </button>
                                                     <button
+                                                        id={`btn-nocumple-${act.id}`}
                                                         onClick={() => handleAuditarActividad(act.id, false)}
                                                         className={`btn-action`}
                                                         style={{
@@ -693,6 +695,7 @@ export default function RegistroAudit() {
                                 Observaciones Generales del Auditor
                             </label>
                             <textarea
+                                id="audit-comentario-general"
                                 className="form-control"
                                 rows={6}
                                 placeholder="Escriba sus conclusiones generales aquí..."
@@ -818,6 +821,7 @@ export default function RegistroAudit() {
                 <div style={{ marginTop: '32px', padding: '24px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px' }}>
                     <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Revise los datos antes de finalizar el proceso oficial.</span>
                     <button
+                        id="btn-finalizar-auditoria"
                         className="btn-primary"
                         onClick={isEnRevision ? handleFinalizarRevision : handleFinalizarAuditoria}
                         disabled={saving}

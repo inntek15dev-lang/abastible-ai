@@ -1,6 +1,7 @@
 // IEEE Trace: REQ-007 | US-051 | components/Layout.jsx
 import { Outlet } from 'react-router-dom';
 import NavbarModule from './NavbarModule';
+import '../styles/tutorial.css';
 
 export default function Layout() {
     return (
