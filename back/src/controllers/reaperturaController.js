@@ -88,8 +88,8 @@ const reaperturaController = {
                 estado_previo: registro.estado_auditoria
             });
 
-            // Mark registro as reapertura_pendiente
-            await registro.update({ estado_auditoria: 'reapertura_pendiente' });
+            // Mark registro as reapertura_solicitada
+            await registro.update({ estado_auditoria: 'reapertura_solicitada' });
 
             // Log
             await RegistroLog.create({
@@ -140,7 +140,7 @@ const reaperturaController = {
 
             // Reopen the registro
             await solicitud.registro.update({
-                estado_auditoria: 'reabierto',
+                estado_auditoria: 'pendiente_subsanacion',
                 cerrado: 0,
                 fecha_limite_subsanacion: req.body.fecha_limite || null
             });
@@ -201,11 +201,11 @@ const reaperturaController = {
                 fecha_respuesta: new Date()
             });
 
-            // Revert registro estado to previous state
+            // Revert registro estado to finalizado as per business rule (reopening rejected)
             const registro = await Registro.findByPk(solicitud.registro_id);
-            if (registro && registro.estado_auditoria === 'reapertura_pendiente') {
+            if (registro && registro.estado_auditoria === 'reapertura_solicitada') {
                 await registro.update({
-                    estado_auditoria: solicitud.estado_previo || 'auditada'
+                    estado_auditoria: 'finalizado'
                 });
             }
 

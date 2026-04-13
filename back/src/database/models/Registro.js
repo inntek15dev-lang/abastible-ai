@@ -16,6 +16,10 @@ const Registro = sequelize.define('Registro', {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: true
     },
+    numero_contrato: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
     programa_id: {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: true
@@ -76,7 +80,7 @@ const Registro = sequelize.define('Registro', {
         defaultValue: 0
     },
     estado_auditoria: {
-        type: DataTypes.ENUM('pendiente', 'auditando', 'auditada', 'reabierto', 'subsanado', 'reapertura_pendiente', 'en_revision', 'finalizado'),
+        type: DataTypes.ENUM('pendiente', 'auditando', 'auditada', 'reabierto', 'subsanado', 'reapertura_pendiente', 'reapertura_solicitada', 'pendiente_subsanacion', 'en_revision', 'finalizado'),
         allowNull: false,
         defaultValue: 'pendiente'
     },

@@ -736,13 +736,13 @@ export default function RegistroList() {
                     <select id="filter-status" className="form-control" value={filters.status || 'all'} onChange={e => setFilters({ ...filters, status: e.target.value })}>
                         <option value="all">Todos</option>
                         <option value="pendiente">Pendiente</option>
-                        <option value="auditando">Auditando</option>
+                        <option value="auditando">En Proceso</option>
                         <option value="auditada">Auditada</option>
-                        <option value="reabierto">Reabierto</option>
+                        <option value="pendiente_subsanacion">Pendiente Subsanación</option>
                         <option value="subsanado">Subsanado</option>
                         <option value="en_revision">En Revisión</option>
                         <option value="finalizado">Finalizado</option>
-                        <option value="reapertura_pendiente">Reapertura Pendiente</option>
+                        <option value="reapertura_solicitada">Reapertura Solicitada</option>
                     </select>
                 </div>
 
@@ -903,9 +903,12 @@ export default function RegistroList() {
                                             } else if (status === 'finalizado') {
                                                 label = 'Finalizado';
                                                 style = { background: '#f0fdf4', color: '#16a34a', border: '1px solid #dcfce7' }; // Green
-                                            } else if (status === 'reapertura_pendiente') {
-                                                label = 'Solicitud Reapertura';
+                                            } else if (status === 'reapertura_solicitada' || status === 'reapertura_pendiente') {
+                                                label = 'Reapertura Solicitada';
                                                 style = { background: '#fef2f2', color: '#dc2626', border: '1px solid #fee2e2' }; // Red
+                                            } else if (status === 'pendiente_subsanacion' || status === 'reabierto') {
+                                                label = 'Pendiente Subsanación';
+                                                style = { background: '#fff7ed', color: '#ea580c', border: '1px solid #ffedd5' }; // Orange
                                             }
 
                                             return (
@@ -924,11 +927,11 @@ export default function RegistroList() {
                                                 </Link>
                                             )}
 
-                                            {/* Action: Edit - Contractor Only & Pending/Reopened Status */}
+                                            {/* Action: Edit - Contractor Only & Allowed states */}
                                             {['contratista_admin', 'contratista_user'].includes(user?.role) &&
-                                                (registro.estado_auditoria === 'pendiente' || registro.estado_auditoria === 'reabierto' || registro.estado_auditoria === 'reapertura_pendiente') && (
+                                                (registro.estado_auditoria === 'pendiente' || registro.estado_auditoria === 'pendiente_subsanacion' || registro.estado_auditoria === 'reabierto') && (
                                                     <Link id={`btn-edit-${registro.id}`} to={`/registros/${registro.id}`} className="btn-action" title="Editar Registro">
-                                                        <Edit2 size={14} /> <span>Editar</span>
+                                                        <Edit2 size={14} /> <span>{registro.estado_auditoria === 'pendiente' ? 'Editar' : 'Subsanar'}</span>
                                                     </Link>
                                                 )}
 

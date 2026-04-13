@@ -125,7 +125,7 @@ export default function ReaperturaList() {
                                     <td>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                             {getEstadoIcon(s.estado)}
-                                            <span className={`badge ${s.estado}`}>{s.estado}</span>
+                                            <span className={`badge ${s.estado}`}>{s.estado === 'pendiente' ? 'Reapertura Solicitada' : s.estado}</span>
                                         </div>
                                     </td>
                                     <td>
@@ -185,7 +185,7 @@ export default function ReaperturaList() {
                     {actionType === 'rechazar' && (
                         <div className="bg-red-50 text-red-700 p-3 rounded-md flex items-center gap-2 text-sm">
                             <AlertTriangle size={16} />
-                            <span>Esta acción es irreversible. El contratista deberá corregir y volver a enviar.</span>
+                            <span>Esta acción es irreversible. El registro quedará en estado "Finalizado" y no podrá ser modificado.</span>
                         </div>
                     )}
 

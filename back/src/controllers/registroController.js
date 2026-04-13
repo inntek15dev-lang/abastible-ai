@@ -331,18 +331,32 @@ const registroController = {
                 return res.status(404).json({ success: false, message: 'Registro no encontrado' });
             }
 
-            // Can't edit if already audited (unless reabierto)
-            if (['auditada'].includes(registro.estado_auditoria)) {
+            // Can't edit if already audited (unless in creation or subsanation phase)
+            // Contractors only allowed in 'pendiente' or 'pendiente_subsanacion'
+            const isContractor = ['contratista_admin', 'contratista_user'].includes(req.user.role);
+            if (isContractor && !['pendiente', 'pendiente_subsanacion'].includes(registro.estado_auditoria)) {
                 return res.status(403).json({
                     success: false,
-                    message: 'No se puede editar un registro auditado'
+                    message: 'No se puede editar el registro en el estado actual'
+                });
+            }
+
+            if (['auditada', 'finalizado'].includes(registro.estado_auditoria) && !isContractor) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'No se puede editar un registro finalizado'
                 });
             }
 
             const oldData = registro.toJSON();
             const { actividades, terminar_subsanacion, ...registroData } = req.body;
 
-            // Transition to 'subsanado' automatically if edited while reopened
+            // Transition to 'subsanado' automatically if edited while in subsanation phase
+            if (registro.estado_auditoria === 'pendiente_subsanacion') {
+                registroData.estado_auditoria = 'subsanado';
+            }
+            
+            // Compatibility for old 'reabierto' state if any exists
             if (registro.estado_auditoria === 'reabierto') {
                 registroData.estado_auditoria = 'subsanado';
             }

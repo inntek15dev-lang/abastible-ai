@@ -37,7 +37,7 @@ export default function RegistroForm() {
     const [reaperturaModal, setReaperturaModal] = useState({ show: false });
     const [errorModal, setErrorModal] = useState({ show: false, message: '' });
     const [registroCerrado, setRegistroCerrado] = useState(false);
-    const isLocked = registroCerrado || isReadOnly;
+    const isLocked = (registroCerrado && !['pendiente_subsanacion', 'reabierto'].includes(form.estado_auditoria)) || isReadOnly;
     const [confirmModal, setConfirmModal] = useState({
         isOpen: false,
         action: null,
