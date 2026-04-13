@@ -61,7 +61,7 @@ const reaperturaController = {
                 return res.status(404).json({ success: false, message: 'Registro no encontrado' });
             }
 
-            if (!['auditado', 'auditada', 'AUDITADA', 'cerrado'].includes(registro.estado_auditoria)) {
+            if (!['auditado', 'auditada', 'AUDITADA', 'cerrado', 'finalizado'].includes(registro.estado_auditoria)) {
                 return res.status(400).json({
                     success: false,
                     message: 'El registro no está en un estado que permita reapertura'
@@ -138,11 +138,14 @@ const reaperturaController = {
                 fecha_respuesta: new Date()
             });
 
+            let fLimite = req.body.fecha_limite ? String(req.body.fecha_limite).trim() : null;
+            if (fLimite === '' || fLimite === 'null' || fLimite === 'undefined') fLimite = null;
+
             // Reopen the registro
             await solicitud.registro.update({
                 estado_auditoria: 'pendiente_subsanacion',
                 cerrado: 0,
-                fecha_limite_subsanacion: req.body.fecha_limite || null
+                fecha_limite_subsanacion: fLimite
             });
 
             // Log
@@ -245,7 +248,7 @@ const reaperturaController = {
             }
 
             // Verify state
-            if (!['auditado', 'auditada', 'AUDITADA', 'cerrado', 'reapertura_pendiente'].includes(registro.estado_auditoria)) {
+            if (!['auditado', 'auditada', 'AUDITADA', 'cerrado', 'reapertura_pendiente', 'finalizado'].includes(registro.estado_auditoria)) {
                 return res.status(400).json({
                     success: false,
                     message: 'El registro no está en un estado que permita reapertura'
