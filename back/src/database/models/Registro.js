@@ -16,10 +16,7 @@ const Registro = sequelize.define('Registro', {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: true
     },
-    numero_contrato: {
-        type: DataTypes.STRING,
-        allowNull: true
-    },
+
     programa_id: {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: true

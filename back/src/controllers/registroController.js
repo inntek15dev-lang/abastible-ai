@@ -214,7 +214,7 @@ const registroController = {
             let eeccNombre = null;
             let depNombre = null;
             let depId = null;
-            let numeroContrato = null;
+            let depId = null;
 
             // Accept contratista_id (company entity) from the form
             const contratistaId = req.body.contratista_id;
@@ -242,7 +242,7 @@ const registroController = {
                 }
                 depNombre = vinculacion.dependencia?.nombre || null;
                 depId = vinculacion.dependencia_id || null;
-                numeroContrato = vinculacion.numero_contrato || null;
+
                 if (!eeccNombre && vinculacion.contratista_id) {
                     const emp = await Contratista.findByPk(vinculacion.contratista_id);
                     eeccNombre = emp?.nombre || null;
@@ -265,7 +265,7 @@ const registroController = {
             const registro = await Registro.create({
                 user_id: targetUserId,
                 contratista_asignacion_id,
-                numero_contrato: numeroContrato,
+
                 programa_id: req.body.programa_id || null,
                 dependencia_id: depId || req.body.dependencia_id || null,
                 periodo,

@@ -102,24 +102,12 @@ const compromisoController = {
             const responsable_id = req.user.id;
             const creado_por_id = req.user.id;
 
-            let numeroContrato = null;
-
-            // Fetch numero_contrato from Vinculacion linked to Registro
-            const registro = await Registro.findByPk(registro_id);
-            if (registro && registro.contratista_asignacion_id) {
-                // registro.contratista_asignacion_id points to Vinculacion table ID
-                const vinculacion = await Vinculacion.findByPk(registro.contratista_asignacion_id);
-                if (vinculacion) {
-                    numeroContrato = vinculacion.numero_contrato;
-                }
-            }
-
             const compromiso = await Compromiso.create({
                 registro_id,
                 hallazgo_id: hallazgo_id || null,
                 responsable_id,
                 creado_por_id,
-                numero_contrato: numeroContrato,
+
                 descripcion,
                 fecha_compromiso,
                 estado: 'pendiente'

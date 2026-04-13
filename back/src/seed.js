@@ -366,7 +366,6 @@ async function seed() {
                     user_id: contratistaUser.id,
                     programa_id: programas[1].id,
                     dependencia_id: vinc.dependencia_id,
-                    numero_contrato: vinc.numero_contrato,
                     eecc_nombre: mafran.nombre,
                     dependencia: 'PLANTA OSORNO',
                     personas_nuevas: Math.floor(item.personas / 4),
@@ -406,9 +405,9 @@ async function seed() {
                 await RegistroLog.bulkCreate(logs);
 
                 if (item.period === '2026-01-01') {
-                    await Compromiso.create({ registro_id: registro.id, responsable_id: contratistaUser.id, creado_por_id: usersCreated.adminContrato.id, numero_contrato: vinc.numero_contrato, descripcion: 'Renovar licencias vencidas.', fecha_compromiso: '2026-02-15', estado: 'pendiente' });
+                    await Compromiso.create({ registro_id: registro.id, responsable_id: contratistaUser.id, creado_por_id: usersCreated.adminContrato.id, descripcion: 'Renovar licencias vencidas.', fecha_compromiso: '2026-02-15', estado: 'pendiente' });
                 } else if (item.period === '2025-10-01') {
-                    await Compromiso.create({ registro_id: registro.id, responsable_id: contratistaUser.id, creado_por_id: usersCreated.adminContrato.id, numero_contrato: vinc.numero_contrato, descripcion: 'Capacitación vial.', fecha_compromiso: '2025-11-15', estado: 'cumplido', fecha_cumplimiento: '2025-11-12', observacion_cumplimiento: 'Realizada.' });
+                    await Compromiso.create({ registro_id: registro.id, responsable_id: contratistaUser.id, creado_por_id: usersCreated.adminContrato.id, descripcion: 'Capacitación vial.', fecha_compromiso: '2025-11-15', estado: 'cumplido', fecha_cumplimiento: '2025-11-12', observacion_cumplimiento: 'Realizada.' });
                 }
             }
         }

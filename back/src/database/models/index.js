@@ -113,9 +113,7 @@ Registro.belongsTo(Vinculacion, { foreignKey: 'contratista_asignacion_id', as: '
 Registro.belongsTo(Vinculacion, { foreignKey: 'contratista_asignacion_id', as: 'asignacion' }); // Legacy alias for backward compatibility
 Vinculacion.hasMany(Registro, { foreignKey: 'contratista_asignacion_id', as: 'registros' });
 
-// Registro -> Vinculacion (Documental via numero_contrato)
-Registro.belongsTo(Vinculacion, { foreignKey: 'numero_contrato', targetKey: 'numero_contrato', as: 'vinculacionContrato' });
-Vinculacion.hasMany(Registro, { foreignKey: 'numero_contrato', sourceKey: 'numero_contrato', as: 'registrosContrato' });
+
 
 // RegistroActividad -> Registro
 RegistroActividad.belongsTo(Registro, { foreignKey: 'registro_id', as: 'registro' });
@@ -166,9 +164,7 @@ Compromiso.belongsTo(User, { foreignKey: 'responsable_id', as: 'responsable' });
 // Compromiso -> User (creador)
 Compromiso.belongsTo(User, { foreignKey: 'creado_por_id', as: 'creadoPor' });
 
-// Compromiso -> Vinculacion (Documental via numero_contrato N:1)
-Compromiso.belongsTo(Vinculacion, { foreignKey: 'numero_contrato', targetKey: 'numero_contrato', as: 'vinculacionContrato' });
-Vinculacion.hasMany(Compromiso, { foreignKey: 'numero_contrato', sourceKey: 'numero_contrato', as: 'compromisos' });
+
 // AuditoriaComentario -> Registro
 AuditoriaComentario.belongsTo(Registro, { foreignKey: 'registro_id', as: 'registro' });
 Registro.hasMany(AuditoriaComentario, { foreignKey: 'registro_id', as: 'comentarios' });
