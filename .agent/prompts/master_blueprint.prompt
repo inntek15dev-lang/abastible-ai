@@ -511,11 +511,11 @@
         {
           "table_name": "registros",
           "execution_order_index": 4,
-          "depends_on": ["users", "contratista_asignaciones"],
+          "depends_on": ["users", "vinculaciones"],
           "schema": [
             {"name": "id", "type": "BIGINT UNSIGNED", "is_pii": false, "constraints": ["PK", "AUTO_INCREMENT"]},
             {"name": "user_id", "type": "BIGINT UNSIGNED", "is_pii": false, "constraints": ["FK", "NN"]},
-            {"name": "contratista_asignacion_id", "type": "BIGINT UNSIGNED", "is_pii": false, "constraints": ["FK"]},
+            {"name": "contratista_asignacion_id", "type": "BIGINT UNSIGNED", "is_pii": false, "constraints": ["FK"], "description": "References vinculaciones table (Contract link)"},
             {"name": "periodo", "type": "DATE", "is_pii": false, "constraints": ["NN"]},
             {"name": "eecc_nombre", "type": "VARCHAR(255)", "is_pii": true, "constraints": []},
             {"name": "programa_id", "type": "BIGINT UNSIGNED", "is_pii": false, "constraints": ["FK"]},

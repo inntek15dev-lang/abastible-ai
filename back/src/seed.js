@@ -295,6 +295,11 @@ async function seed() {
             defaults: { administrador_contrato_id: usersCreated.adminContrato.id, periodo_inicio: new Date('2026-02-01') }
         });
 
+        await ContratistaAsignacion.findOrCreate({
+            where: { user_id: contratistaUser.id, tipo_contratista_id: tiposContratista[1].id, dependencia_id: dependencias[9].id },
+            defaults: { administrador_contrato_id: usersCreated.adminContrato.id, periodo_inicio: new Date('2026-02-01') }
+        });
+
         await Administracion.findOrCreate({
             where: { vinculacion_id: vinculaciones[11].id },
             defaults: { administrador_contrato_id: usersCreated.adminContrato.id, activo: 1 }
