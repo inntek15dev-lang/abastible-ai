@@ -257,6 +257,46 @@ const auditoriaController = {
         }
     },
 
+    // PUT /api/registros/:id/guardar-avance-auditoria
+    async guardarAvance(req, res) {
+        try {
+            const { id } = req.params;
+            const { comentario_general } = req.body;
+
+            const registro = await Registro.findByPk(id);
+            if (!registro) {
+                return res.status(404).json({ success: false, message: 'Registro no encontrado' });
+            }
+
+            // Allow saving if in auditing or review phase
+            const validStates = ['auditando', 'en_revision', 'pendiente_subsanacion'];
+            if (!validStates.includes(registro.estado_auditoria)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'El registro no se encuentra en una fase que permita guardar avance de auditoría'
+                });
+            }
+
+            await registro.update({
+                comentario_general
+            });
+
+            // Log save activity (optional but good for traceability)
+            await RegistroLog.create({
+                registro_id: registro.id,
+                user_id: req.user.id,
+                accion: 'GUARDAR_AVANCE_AUDITORIA',
+                descripcion: 'Avance de auditoría guardado (comentario general)',
+                ip_address: req.ip
+            });
+
+            res.json({ success: true, data: registro, message: 'Avance guardado correctamente' });
+        } catch (error) {
+            console.error('Guardar avance auditoria error:', error);
+            res.status(500).json({ success: false, message: 'Error al guardar avance de auditoría' });
+        }
+    },
+
     // POST /api/registros/:id/comentarios
     async agregarComentario(req, res) {
         try {

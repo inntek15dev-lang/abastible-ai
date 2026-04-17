@@ -195,7 +195,7 @@ export default function RegistroAudit() {
     const handleSaveProgress = async () => {
         setSaving(true);
         try {
-            await api.put(`/registros/${id}`, {
+            await api.put(`/registros/${id}/guardar-avance-auditoria`, {
                 comentario_general: comentarioGeneral
             });
             toast.success('Progreso guardado correctamente');
