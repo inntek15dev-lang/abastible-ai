@@ -55,10 +55,10 @@
   /* Typography */
   --font-family-base: 'Inter', system-ui, -apple-system, sans-serif;
   --font-family-heading: 'Ubuntu', sans-serif;
-  --font-size-xs: 12px;
-  --font-size-sm: 14px;
-  --font-size-base: 16px;
-  --font-size-lg: 18px;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-lg: 16px;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-bold: 600;
@@ -66,9 +66,9 @@
   /* Spacing System */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
+  --spacing-md: 12px;
+  --spacing-lg: 18px;
+  --spacing-xl: 24px;
 
   /* Borders & Radius */
   --border-radius-sm: 4px;
@@ -84,7 +84,7 @@
   --shadow-depth: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 
   /* Navbar Height */
-  --header-height: 64px;
+  --header-height: 54px;
 }
 
 /* -----------------------------

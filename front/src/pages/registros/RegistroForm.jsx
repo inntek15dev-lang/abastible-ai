@@ -621,13 +621,13 @@ export default function RegistroForm() {
             <form onSubmit={handleSubmit}>
 
                 {/* Information Card */}
-                <div style={{ backgroundColor: themeColors.cardBg, borderRadius: '8px', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '1.5rem', transition: 'background-color 0.3s ease' }}>
+                <div style={{ backgroundColor: themeColors.cardBg, borderRadius: '8px', padding: '1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '1rem', transition: 'background-color 0.3s ease' }}>
                     <h2 style={{ fontSize: '1rem', fontWeight: 600, color: themeColors.textPrimary, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span style={{ width: '4px', height: '16px', backgroundColor: themeColors.headerBg, borderRadius: '2px' }}></span>
                         Información del Contratista
                     </h2>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', marginBottom: '1rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                         {/* Visualización de Asignación / Vinculación (Solo Lectura) */}
                         <div style={{ gridColumn: 'span 3' }}>
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Asignación Vinculada (Servicio & Dependencia)</label>
@@ -639,8 +639,8 @@ export default function RegistroForm() {
                                 fontWeight: 500,
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '10px',
-                                minHeight: '42px',
+                                gap: '8px',
+                                minHeight: '36px',
                                 backgroundColor: '#f8fafc',
                                 border: '1px solid #e2e8f0'
                             }}>
@@ -753,7 +753,7 @@ export default function RegistroForm() {
                 </div>
 
                 {/* Progress Bar */}
-                <div style={{ backgroundColor: themeColors.cardBg, borderRadius: '8px', padding: '1rem 1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '1.5rem', transition: 'background-color 0.3s ease' }}>
+                <div style={{ backgroundColor: themeColors.cardBg, borderRadius: '8px', padding: '0.75rem 1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', marginBottom: '1rem', transition: 'background-color 0.3s ease' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
                         <span style={{ fontWeight: 600, color: themeColors.textPrimary }}>Progreso de Cumplimiento</span>
                         <span style={{ fontWeight: 700, color: totalProgress < 70 ? '#ef4444' : '#10b981' }}>{totalProgress}%</span>
