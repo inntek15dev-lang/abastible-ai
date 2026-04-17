@@ -3,12 +3,20 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api';
 import { Save, ArrowLeft, Pencil } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import './ElementoForm.css';
 
 export default function ElementoForm() {
     const { id } = useParams();
+    const { user } = useAuth();
     const navigate = useNavigate();
     const isEdit = Boolean(id);
+
+    useEffect(() => {
+        if (user?.role === 'administrador_contrato') {
+            navigate('/programas');
+        }
+    }, [user, navigate]);
 
     const [form, setForm] = useState({
         programa_id: '',

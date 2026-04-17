@@ -9,10 +9,15 @@ const evidenciaController = {
     // GET /api/evidencias?registro_actividad_id=X
     async index(req, res) {
         try {
-            const { registro_actividad_id, registro_id, periodo, contratista_id, programa_id, elemento_id, actividad_id } = req.query;
+            const { registro_actividad_id, registro_id, periodo, contratista_id, programa_id, elemento_id, actividad_id, status_filter } = req.query;
             let where = {};
             let whereRegistro = {};
             let whereRegistroActividad = {};
+
+            if (status_filter === 'pending') {
+                whereRegistro.estado_auditoria = { [Op.in]: ['pendiente', 'auditando', 'subsanado', 'en_revision'] };
+                whereRegistroActividad.cumple_auditor = null;
+            }
 
             if (registro_actividad_id) where.registro_actividad_id = registro_actividad_id;
             if (actividad_id) whereRegistroActividad.actividad_id = actividad_id;

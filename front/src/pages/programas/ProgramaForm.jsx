@@ -7,8 +7,15 @@ import './ProgramaForm.css';
 
 export default function ProgramaForm() {
     const { id } = useParams();
+    const { user } = useAuth();
     const navigate = useNavigate();
     const isEdit = Boolean(id);
+
+    useEffect(() => {
+        if (user?.role === 'administrador_contrato') {
+            navigate('/programas');
+        }
+    }, [user, navigate]);
 
     const [form, setForm] = useState({
         codigo: '',

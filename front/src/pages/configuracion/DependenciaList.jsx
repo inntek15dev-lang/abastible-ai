@@ -9,7 +9,8 @@ export default function DependenciaList() {
     const [dependencias, setDependencias] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filterNivel, setFilterNivel] = useState('Todos');
-    const { canWrite, canExec } = useAuth();
+    const { user, canWrite, canExec } = useAuth();
+    const isADC = user?.role === 'administrador_contrato';
 
     useEffect(() => {
         fetchDependencias();
@@ -50,7 +51,7 @@ export default function DependenciaList() {
                     <h1>Dependencias</h1>
                     <p className="text-secondary">Gestión de plantas y unidades territoriales.</p>
                 </div>
-                {canWrite('Programas') && ( // Reusing Programas privilege for now
+                {canWrite('Programas') && !isADC && ( // Reusing Programas privilege for now
                     <Link to="/dependencias/new" className="btn-primary">
                         <Plus size={18} /> Nueva Dependencia
                     </Link>
@@ -102,18 +103,18 @@ export default function DependenciaList() {
                                     </span>
                                 </td>
                                 <td>
-                                    <div className="btn-icon-group">
-                                        {canWrite('Programas') && (
-                                            <Link to={`/dependencias/${dep.id}/edit`} className="btn-icon">
-                                                <Edit size={18} />
-                                            </Link>
-                                        )}
-                                        {canExec('Programas') && (
-                                            <button onClick={() => handleDelete(dep.id)} className="btn-icon delete">
-                                                <Trash2 size={18} />
-                                            </button>
-                                        )}
-                                    </div>
+                                     <div className="btn-icon-group">
+                                         {canWrite('Programas') && !isADC && (
+                                             <Link to={`/dependencias/${dep.id}/edit`} className="btn-icon">
+                                                 <Edit size={18} />
+                                             </Link>
+                                         )}
+                                         {canExec('Programas') && !isADC && (
+                                             <button onClick={() => handleDelete(dep.id)} className="btn-icon delete">
+                                                 <Trash2 size={18} />
+                                             </button>
+                                         )}
+                                     </div>
                                 </td>
                             </tr>
                         ))}

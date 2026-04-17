@@ -138,6 +138,16 @@ const registroController = {
                 }
             }
 
+            // Filter by status if provided
+            const { estado_auditoria } = req.query;
+            if (estado_auditoria) {
+                if (estado_auditoria.includes(',')) {
+                    where.estado_auditoria = { [Op.in]: estado_auditoria.split(',') };
+                } else {
+                    where.estado_auditoria = estado_auditoria;
+                }
+            }
+
             const registros = await Registro.findAll({
                 where,
                 include: [

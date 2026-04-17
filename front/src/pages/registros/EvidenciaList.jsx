@@ -6,7 +6,7 @@ import { FileText, Search, Filter, Eye, Download, CreditCard, Building, Calendar
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
-export default function EvidenciaList() {
+    const { user } = useAuth();
     const [evidencias, setEvidencias] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -95,6 +95,10 @@ export default function EvidenciaList() {
             if (filters.programa_id) params.programa_id = filters.programa_id;
             if (filters.elemento_id) params.elemento_id = filters.elemento_id;
             if (filters.actividad_id) params.actividad_id = filters.actividad_id;
+            
+            if (user?.role === 'administrador_contrato') {
+                params.status_filter = 'pending';
+            }
 
             const response = await api.get('/evidencias', { params });
             setEvidencias(response.data.data || []);

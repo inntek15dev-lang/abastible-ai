@@ -192,6 +192,20 @@ export default function RegistroAudit() {
         }
     };
 
+    const handleSaveProgress = async () => {
+        setSaving(true);
+        try {
+            await api.put(`/registros/${id}`, {
+                comentario_general: comentarioGeneral
+            });
+            toast.success('Progreso guardado correctamente');
+        } catch (err) {
+            toast.error('Error al guardar progreso');
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleHallazgoSuccess = (newHallazgo) => {
         toast.success('Hallazgo registrado exitosamente');
         // Optionally update local activity state if it has a list of hallazgos
@@ -821,13 +835,27 @@ export default function RegistroAudit() {
                 <div style={{ marginTop: '32px', padding: '24px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px' }}>
                     <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Revise los datos antes de finalizar el proceso oficial.</span>
                     <button
+                        id="btn-save-progress"
+                        type="button"
+                        onClick={handleSaveProgress}
+                        disabled={saving}
+                        style={{ 
+                            backgroundColor: '#f3f4f6', color: '#374151', padding: '0.75rem 1.5rem', borderRadius: '10px', 
+                            border: '1px solid #d1d5db', fontWeight: 600, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '0.5rem'
+                        }}
+                    >
+                        <Save size={18} />
+                        {saving ? 'Guardando...' : 'Guardar Avance'}
+                    </button>
+                    <button
                         id="btn-finalizar-auditoria"
                         className="btn-primary"
                         onClick={isEnRevision ? handleFinalizarRevision : handleFinalizarAuditoria}
                         disabled={saving}
-                        style={{ background: '#10b981', padding: '12px 32px', fontSize: '1rem', fontWeight: 600, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}
+                        style={{ background: '#10b981', padding: '0.75rem 2rem', fontSize: '1rem', fontWeight: 600, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', border: 'none', color: 'white', cursor: 'pointer' }}
                     >
-                        <Save size={20} />
+                        <Check size={20} />
                         {saving ? 'Cerrando...' : isEnRevision ? 'Finalizar Revisión de Subsanación' : 'Finalizar Auditoría'}
                     </button>
                 </div>

@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
 import api from '../../api';
 import { Trash2, Plus, Save, X, Building, Pencil } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
 
 export default function VinculacionManager({ contratista, onUpdate }) {
+    const { user } = useAuth();
+    const isADC = user?.role === 'administrador_contrato';
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [servicios, setServicios] = useState([]);
@@ -254,26 +256,30 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                                                 v.administraciones.map(a => (
                                                     <div key={a.id} className="admin-tag-small" title={a.administradorContrato?.email}>
                                                         {a.administradorContrato?.name}
-                                                        <button onClick={() => handleAdminRemove(v.id, a.administrador_contrato_id)}>
-                                                            <X size={10} />
-                                                        </button>
+                                                        {!isADC && (
+                                                            <button onClick={() => handleAdminRemove(v.id, a.administrador_contrato_id)}>
+                                                                <X size={10} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 ))
                                             ) : (
                                                 <span className="text-muted" style={{ fontSize: '0.75rem' }}>Sin Asignar</span>
                                             )}
-                                            <select
-                                                className="add-vinc-admin-select"
-                                                value=""
-                                                onChange={(e) => handleAdminAdd(v.id, e.target.value)}
-                                            >
-                                                <option value="">+ Añadir</option>
-                                                {usersAdmin
-                                                    .filter(u => !(v.administraciones || []).some(a => a.administrador_contrato_id === u.id))
-                                                    .map(u => (
-                                                        <option key={u.id} value={u.id}>{u.name}</option>
-                                                    ))}
-                                            </select>
+                                            {!isADC && (
+                                                <select
+                                                    className="add-vinc-admin-select"
+                                                    value=""
+                                                    onChange={(e) => handleAdminAdd(v.id, e.target.value)}
+                                                >
+                                                    <option value="">+ Añadir</option>
+                                                    {usersAdmin
+                                                        .filter(u => !(v.administraciones || []).some(a => a.administrador_contrato_id === u.id))
+                                                        .map(u => (
+                                                            <option key={u.id} value={u.id}>{u.name}</option>
+                                                        ))}
+                                                </select>
+                                            )}
                                         </div>
                                     </div>
 
@@ -286,26 +292,30 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                                                 v.usuariosVinculados.filter(uv => uv.usuario?.role === 'contratista_user').map(uv => (
                                                     <div key={uv.id} className="admin-tag-small" style={{ backgroundColor: '#ECFDF5', borderColor: '#D1FAE5' }} title={uv.usuario?.email}>
                                                         {uv.usuario?.name}
-                                                        <button onClick={() => handleUserRemove(v.id, uv.user_id)}>
-                                                            <X size={10} />
-                                                        </button>
+                                                        {!isADC && (
+                                                            <button onClick={() => handleUserRemove(v.id, uv.user_id)}>
+                                                                <X size={10} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 ))
                                             ) : (
                                                 <span className="text-muted" style={{ fontSize: '0.75rem' }}>Sin Asignar</span>
                                             )}
-                                            <select
-                                                className="add-vinc-admin-select"
-                                                value=""
-                                                onChange={(e) => handleUserAdd(v.id, e.target.value)}
-                                            >
-                                                <option value="">+ Añadir</option>
-                                                {usersCUser
-                                                    .filter(u => !(v.usuariosVinculados || []).some(uv => uv.user_id === u.id))
-                                                    .map(u => (
-                                                        <option key={u.id} value={u.id}>{u.name}</option>
-                                                    ))}
-                                            </select>
+                                            {!isADC && (
+                                                <select
+                                                    className="add-vinc-admin-select"
+                                                    value=""
+                                                    onChange={(e) => handleUserAdd(v.id, e.target.value)}
+                                                >
+                                                    <option value="">+ Añadir</option>
+                                                    {usersCUser
+                                                        .filter(u => !(v.usuariosVinculados || []).some(uv => uv.user_id === u.id))
+                                                        .map(u => (
+                                                            <option key={u.id} value={u.id}>{u.name}</option>
+                                                        ))}
+                                                </select>
+                                            )}
                                         </div>
                                     </div>
                                     <div>{v.numero_contrato || '-'}</div>
@@ -316,12 +326,16 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                                         {v.fecha_termino_contrato ? new Date(v.fecha_termino_contrato).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : 'Indefinido'}
                                     </div>
                                     <div className="flex gap-1" style={{ justifyContent: 'flex-end' }}>
-                                        <button onClick={() => handleEdit(v)} className="action-btn" title="Editar">
-                                            <Pencil size={16} />
-                                        </button>
-                                        <button onClick={() => handleDelete(v.id)} className="action-btn danger" title="Desvincular">
-                                            <Trash2 size={16} />
-                                        </button>
+                                        {!isADC && (
+                                            <>
+                                                <button onClick={() => handleEdit(v)} className="action-btn" title="Editar">
+                                                    <Pencil size={16} />
+                                                </button>
+                                                <button onClick={() => handleDelete(v.id)} className="action-btn danger" title="Desvincular">
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </>
+                                        )}
                                     </div>
                                 </>
                             )}
@@ -404,23 +418,25 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                     </div>
                 </div>
             ) : (
-                <button
-                    onClick={() => setIsAdding(true)}
-                    className="btn-text"
-                    style={{
-                        marginTop: '12px',
-                        color: 'var(--color-primary)',
-                        fontWeight: 500,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer'
-                    }}
-                >
-                    <Plus size={16} /> Nueva Asignación
-                </button>
+                {!isADC && (
+                    <button
+                        onClick={() => setIsAdding(true)}
+                        className="btn-text"
+                        style={{
+                            marginTop: '12px',
+                            color: 'var(--color-primary)',
+                            fontWeight: 500,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        <Plus size={16} /> Nueva Asignación
+                    </button>
+                )}
             )}
         </div>
     );

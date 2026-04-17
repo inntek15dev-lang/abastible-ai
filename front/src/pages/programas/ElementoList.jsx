@@ -15,7 +15,8 @@ export default function ElementoList() {
     const [elementos, setElementos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const { canWrite, canExec } = useAuth();
+    const { user, canWrite, canExec } = useAuth();
+    const isADC = user?.role === 'administrador_contrato';
 
     // Modal states (reused from previous logic, simplified for brevity here)
     // In a real refactor, these should be separate components or keep existing modal logic.
@@ -92,7 +93,7 @@ export default function ElementoList() {
                         </h1>
                     </div>
                 </div>
-                {canWrite('Programas') && (
+                {canWrite('Programas') && !isADC && (
                     <Link to={`/programas/${program.id}/edit`} className="btn-edit-program">
                         <Pencil size={16} /> Editar Programa
                     </Link>
@@ -126,7 +127,7 @@ export default function ElementoList() {
                     <FolderOpen size={20} />
                     <span>Elementos y Actividades</span>
                 </div>
-                {canWrite('Programas') && (
+                {canWrite('Programas') && !isADC && (
                     <Link to={`/elementos/new?programa_id=${program.id}`} className="btn-new-element">
                         <Plus size={16} /> Nuevo Elemento
                     </Link>
@@ -152,7 +153,7 @@ export default function ElementoList() {
                                     </div>
                                 </div>
                                 <div className="element-actions">
-                                    {canWrite('Programas') && (
+                                    {canWrite('Programas') && !isADC && (
                                         <>
                                             <button
                                                 className="btn-add-activity"
@@ -220,7 +221,7 @@ export default function ElementoList() {
                                                         )}
                                                     </td>
                                                     <td>
-                                                        {canWrite('Programas') && (
+                                                        {canWrite('Programas') && !isADC && (
                                                             <div className="flex gap-2">
                                                                 <button
                                                                     className="btn-icon-only"

@@ -14,7 +14,8 @@ export default function ActividadList() {
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const { canWrite, canExec } = useAuth();
+    const { user, canWrite, canExec } = useAuth();
+    const isADC = user?.role === 'administrador_contrato';
 
     // Load initial programs
     useEffect(() => {
@@ -74,7 +75,7 @@ export default function ActividadList() {
                     <h1>Actividades del Programa</h1>
                     <p className="text-secondary">Gestión de puntos de verificación y auditoría</p>
                 </div>
-                {canWrite('Programas') && (
+                {canWrite('Programas') && !isADC && (
                     <Link to="/actividades/new" className="btn-primary">
                         <Plus size={18} /> Nueva Actividad
                     </Link>
@@ -153,12 +154,12 @@ export default function ActividadList() {
                                             {act.requiere_evidencia ? '📷' : '-'}
                                         </td>
                                         <td className="actions-cell">
-                                            {canWrite('Programas') && (
+                                            {canWrite('Programas') && !isADC && (
                                                 <Link to={`/actividades/${act.id}/edit`} className="btn-icon">
                                                     <Edit size={18} />
                                                 </Link>
                                             )}
-                                            {canExec('Programas') && (
+                                            {canExec('Programas') && !isADC && (
                                                 <button onClick={() => handleDelete(act.id)} className="btn-icon danger">
                                                     <Trash2 size={18} />
                                                 </button>

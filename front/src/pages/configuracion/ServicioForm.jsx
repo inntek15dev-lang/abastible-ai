@@ -3,11 +3,19 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api';
 import { Save, ArrowLeft, Edit } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 export default function ServicioForm() {
     const { id } = useParams();
+    const { user } = useAuth();
     const navigate = useNavigate();
     const isEdit = Boolean(id);
+
+    useEffect(() => {
+        if (user?.role === 'administrador_contrato') {
+            navigate('/servicios');
+        }
+    }, [user, navigate]);
 
     const [form, setForm] = useState({
         nombre: '',

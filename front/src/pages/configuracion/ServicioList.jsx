@@ -9,7 +9,8 @@ export default function ServicioList() {
     const [servicios, setServicios] = useState([]);
     const [programas, setProgramas] = useState([]);
     const [loading, setLoading] = useState(true);
-    const { canWrite, canExec } = useAuth();
+    const { user, canWrite, canExec } = useAuth();
+    const isADC = user?.role === 'administrador_contrato';
 
     // Filters
     const [searchTerm, setSearchTerm] = useState('');
@@ -76,7 +77,7 @@ export default function ServicioList() {
                             Catálogo de Servicios
                         </h1>
                     </div>
-                    {canWrite('Programas') && (
+                    {canWrite('Programas') && !isADC && (
                         <Link
                             to="/servicios/new"
                             className="btn-primary shadow-sm"
@@ -166,27 +167,27 @@ export default function ServicioList() {
                                 </div>
 
                                 {/* Actions */}
-                                <div className="service-actions">
-                                    {canWrite('Programas') && (
-                                        <Link
-                                            to={`/servicios/${serv.id}/edit`}
-                                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                            title="Editar"
-                                        >
-                                            <Edit size={18} />
-                                        </Link>
-                                    )}
-
-                                    {canExec('Programas') && (
-                                        <button
-                                            onClick={() => handleDelete(serv.id)}
-                                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                            title="Eliminar"
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
-                                    )}
-                                </div>
+                                 <div className="service-actions">
+                                     {canWrite('Programas') && !isADC && (
+                                         <Link
+                                             to={`/servicios/${serv.id}/edit`}
+                                             className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                             title="Editar"
+                                         >
+                                             <Edit size={18} />
+                                         </Link>
+                                     )}
+ 
+                                     {canExec('Programas') && !isADC && (
+                                         <button
+                                             onClick={() => handleDelete(serv.id)}
+                                             className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                             title="Eliminar"
+                                         >
+                                             <Trash2 size={18} />
+                                         </button>
+                                     )}
+                                 </div>
                             </div>
                         ))
                     )}

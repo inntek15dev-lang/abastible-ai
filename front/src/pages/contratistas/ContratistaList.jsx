@@ -20,7 +20,8 @@ export default function ContratistaList() {
     const [updatingAdmin, setUpdatingAdmin] = useState(null); // ID of contractor currently updating
     const [usersCAdmin, setUsersCAdmin] = useState([]);
 
-    const { canWrite, canExec } = useAuth();
+    const { user, canWrite, canExec } = useAuth();
+    const isADC = user?.role === 'administrador_contrato';
 
     // Filters State
     const [filters, setFilters] = useState({
@@ -291,7 +292,7 @@ export default function ContratistaList() {
                         Empresas externas, servicios y vinculaciones activas.
                     </p>
                 </div>
-                {canWrite('Configuración') && (
+                {canWrite('Configuración') && !isADC && (
                     <div className="flex gap-2">
                         <button
                             onClick={() => setIsSyncModalOpen(true)}
@@ -452,7 +453,7 @@ export default function ContratistaList() {
                                                 border: '1px solid #BAE6FD'
                                             }}>
                                                 {admin.name}
-                                                {canWrite('Configuración') && (
+                                                {canWrite('Configuración') && !isADC && (
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); handleCAdminRemove(admin.id); }}
                                                         style={{
@@ -473,7 +474,7 @@ export default function ContratistaList() {
                                                 )}
                                             </div>
                                         ))}
-                                        {canWrite('Configuración') && (
+                                        {canWrite('Configuración') && !isADC && (
                                             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                                 <select
                                                     className="add-admin-select"
@@ -519,7 +520,7 @@ export default function ContratistaList() {
                                             {expandedRows[c.id] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                                         </button>
 
-                                        {canWrite('Configuración') && (
+                                        {canWrite('Configuración') && !isADC && (
                                             <>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleToggleStatus(c.id, c.activo); }}
