@@ -598,6 +598,13 @@ export default function RegistroForm() {
         return missingEvidence.length === 0;
     }, [actividades]);
 
+    const selectedAssignmentLabel = useMemo(() => {
+        if (!form.contratista_asignacion_id || assignments.length === 0) return 'No seleccionado';
+        const a = assignments.find(assign => String(assign.id) === String(form.contratista_asignacion_id));
+        if (!a) return 'No seleccionado';
+        return `${a.servicio?.programa?.nombre || ''} » ${a.servicio?.nombre || ''} » ${a.dependencia?.nombre || ''}`;
+    }, [form.contratista_asignacion_id, assignments]);
+
     return (
         <div className="page-container" style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px', backgroundColor: themeColors.pageBg, minHeight: '100vh', transition: 'background-color 0.3s ease' }}>
 
@@ -621,34 +628,25 @@ export default function RegistroForm() {
                     </h2>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', marginBottom: '1rem' }}>
-                        {/* Selector de Asignación / Vinculación */}
+                        {/* Visualización de Asignación / Vinculación (Solo Lectura) */}
                         <div style={{ gridColumn: 'span 3' }}>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Seleccione su Asignación (Servicio & Dependencia) *</label>
-                            {assignments.length > 0 ? (
-                                <select 
-                                    id="form-assignment"
-                                    className="form-control"
-                                    value={form.contratista_asignacion_id || ''}
-                                    onChange={(e) => setForm({ ...form, contratista_asignacion_id: e.target.value })}
-                                    disabled={isLocked || assignments.length === 1}
-                                    style={{
-                                        ...((isLocked || assignments.length === 1) ? readOnlyStyle : {}),
-                                        padding: '0.5rem',
-                                        fontSize: '0.9rem'
-                                    }}
-                                >
-                                    <option value="">Seleccione una asignación de su contrato</option>
-                                    {assignments.map(a => (
-                                        <option key={a.id} value={a.id}>
-                                            {a.servicio?.programa?.nombre} » {a.servicio?.nombre} » {a.dependencia?.nombre}
-                                        </option>
-                                    ))}
-                                </select>
-                            ) : (
-                                <div style={{ fontSize: '0.85rem', color: '#ef4444', fontStyle: 'italic' }}>
-                                    No se encontraron asignaciones activas para este Contratista. Solicite a soporte vinculaciones para proceder.
-                                </div>
-                            )}
+                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Asignación Vinculada (Servicio & Dependencia)</label>
+                            <div style={{
+                                ...readOnlyStyle,
+                                padding: '0.6rem 1rem',
+                                borderRadius: '6px',
+                                fontSize: '0.9rem',
+                                fontWeight: 500,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                minHeight: '42px',
+                                backgroundColor: '#f8fafc',
+                                border: '1px solid #e2e8f0'
+                            }}>
+                                <ClipboardCheck size={18} color={themeColors.headerBg} />
+                                {selectedAssignmentLabel}
+                            </div>
                         </div>
 
                         {/* Row 2 */}
