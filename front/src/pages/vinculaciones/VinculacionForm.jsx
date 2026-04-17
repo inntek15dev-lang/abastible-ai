@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import { Save, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
+export default function VinculacionForm() {
     const { user } = useAuth();
     const { id } = useParams();
     const navigate = useNavigate();
