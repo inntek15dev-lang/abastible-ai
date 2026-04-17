@@ -1,5 +1,5 @@
 // IEEE Trace: REQ-009 | Vinculacion Controller
-const { Vinculacion, Contratista, TipoContratista, Dependencia, Administracion, VinculacionUsuario, User, sequelize } = require('../database/models');
+const { Vinculacion, Contratista, TipoContratista, Dependencia, Subgerencia, Gerencia, Administracion, VinculacionUsuario, User, sequelize } = require('../database/models');
 
 const vinculacionController = {
     // GET /api/vinculaciones
@@ -18,6 +18,8 @@ const vinculacionController = {
                     { model: Contratista, as: 'contratista' },
                     { model: TipoContratista, as: 'servicio' },
                     { model: Dependencia, as: 'dependencia' },
+                    { model: Subgerencia, as: 'subgerencia' },
+                    { model: Gerencia, as: 'gerencia' },
                     {
                         model: Administracion,
                         as: 'administraciones',
@@ -53,6 +55,8 @@ const vinculacionController = {
                     { model: Contratista, as: 'contratista' },
                     { model: TipoContratista, as: 'servicio' },
                     { model: Dependencia, as: 'dependencia' },
+                    { model: Subgerencia, as: 'subgerencia' },
+                    { model: Gerencia, as: 'gerencia' },
                     {
                         model: Administracion,
                         as: 'administraciones',
@@ -89,6 +93,18 @@ const vinculacionController = {
         try {
             const { contratista_id, servicio_id, dependencia_id, fecha_inicio_contrato, fecha_termino_contrato, administrador_contrato_id, numero_contrato } = req.body;
 
+            // Fetch Dependency to deduce Subgerencia and Gerencia
+            const depInfo = await Dependencia.findByPk(dependencia_id, {
+                include: [{ model: Subgerencia, as: 'subgerencia' }]
+            });
+
+            if (!depInfo || !depInfo.subgerencia) {
+                return res.status(400).json({ success: false, message: 'La Dependencia seleccionada no tiene una Subgerencia/Gerencia válida.' });
+            }
+
+            const subgerencia_id = depInfo.subgerencia_id;
+            const gerencia_id = depInfo.subgerencia.gerencia_id;
+
             // Validation: Check duplicate
             const existing = await Vinculacion.findOne({
                 where: { contratista_id, servicio_id, dependencia_id, activo: 1 }
@@ -102,6 +118,8 @@ const vinculacionController = {
                 contratista_id,
                 servicio_id,
                 dependencia_id,
+                subgerencia_id,
+                gerencia_id,
                 fecha_inicio_contrato: fecha_inicio_contrato || null,
                 fecha_termino_contrato: fecha_termino_contrato || null,
                 numero_contrato

@@ -702,7 +702,7 @@ export default function RegistroList() {
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--color-brand-secondary)' }}>
                     Registros de Cumplimiento
                 </h1>
-                {canWrite('Registros') && (
+                {canWrite('Registros') && !isContractor && (
                     <Link id="btn-nuevo-registro" to="/registros/new" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
                         <Plus size={18} /> Nuevo Registro
                     </Link>

@@ -68,7 +68,7 @@
 11. **Auditoría**: **ADC puede auditar/aprobar pero NO eliminar registros** (Privilegio separado)
 12. **Datos Maestros**: **Users EXCLUSIVO para usuarios**. Contratistas deben tener su propia entidad (Entidad `Contratista`).
 13. **Matriz de Cumplimiento**: Reporte matricial por vinculación (contrato/servicio/dependencia) con filtros avanzados, autocompletado (SearchableSelect) y visibilidad por rol.
-14. **Vinculación**: Contratistas se vinculan a Servicio/Dependencia mediante entidad `Vinculacion`.
+14. **Vinculación**: Contratistas se vinculan a Servicio/Dependencia mediante entidad `Vinculacion`, la cual **DEBE obligatoriamente** trazar y persistir `gerencia_id` y `subgerencia_id` dentro de todos los formularios, vistas y APIs por Ley de Trazabilidad Total.
     - **Regla**: Todo contratista debe tener al menos UNA vinculación activa.
     - **Regla**: `User` operativo se vincula a `Contratista` (FK). Admin/ADC NO tienen `contratista_id` (pero ADC tiene `asignaciones`).
 15. **Administración**: Admin Contrato se asigna a `Vinculacion` mediante entidad `Administracion`.
@@ -80,6 +80,7 @@
 21. **UX/UI**: En el formulario de usuario, los campos de selección de entidades (Contratista, Servicio, Dependencia) deben usar `SearchableSelect` para permitir autocompletado/búsqueda.
 22. **UX/UI**: En el formulario de usuario, los dropdowns de `SearchableSelect` deben tener un posicionamiento vertical específico: `top: calc(34% + 4px)`.
 23. **UX/UI**: En el formulario de usuario, los contenedores de `SearchableSelect` deben usar `flex: 1 1 auto`.
+24. **UX/UI**: En la vista principal de registros, el botón "Nuevo Registro" debe estar oculto para los contratistas, obligando a crear desde los botones de "Registro Pendiente".
 
 ---
 

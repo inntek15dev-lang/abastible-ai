@@ -223,6 +223,10 @@ Vinculacion.belongsTo(Dependencia, { foreignKey: 'dependencia_id', as: 'dependen
 Subgerencia.hasMany(Vinculacion, { foreignKey: 'subgerencia_id', as: 'vinculaciones' });
 Vinculacion.belongsTo(Subgerencia, { foreignKey: 'subgerencia_id', as: 'subgerencia' });
 
+// Vinculacion -> Gerencia
+Gerencia.hasMany(Vinculacion, { foreignKey: 'gerencia_id', as: 'gerenciaVinculaciones' });
+Vinculacion.belongsTo(Gerencia, { foreignKey: 'gerencia_id', as: 'gerencia' });
+
 // Administracion -> Vinculacion
 Vinculacion.hasMany(Administracion, { foreignKey: 'vinculacion_id', as: 'administraciones' });
 Administracion.belongsTo(Vinculacion, { foreignKey: 'vinculacion_id', as: 'vinculacion' });

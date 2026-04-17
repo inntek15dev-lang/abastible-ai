@@ -242,9 +242,10 @@ async function seed() {
                     servicio_id: v.servicio_id, 
                     dependencia_id: v.dependencia_id,
                     subgerencia_id: v.subgerencia_id,
+                    gerencia_id: gerenciaDistribucion.id,
                     numero_contrato: v.numero_contrato
                 },
-                defaults: v
+                defaults: { ...v, gerencia_id: gerenciaDistribucion.id }
             });
             vinculaciones.push(vinculacion);
         }
@@ -284,9 +285,27 @@ async function seed() {
             }
         });
 
+        const [contratistaUser2] = await User.findOrCreate({
+            where: { email: 'contratista.usuario2@demo.cl' },
+            defaults: {
+                name: 'Contratista Usuario Dos',
+                password: hashedPassword,
+                role: 'contratista_user',
+                contratista_id: mafran.id,
+                tipo_contratista_id: tiposContratista[1].id,
+                dependencia_id: dependencias[3].id,
+                parent_id: usersCreated.contratistaAdmin.id,
+                activo: 1
+            }
+        });
+
         console.log('📦 Sincronizando VinculacionUsuario...');
         await VinculacionUsuario.findOrCreate({
             where: { vinculacion_id: vinculaciones[11].id, user_id: contratistaUser.id },
+            defaults: { activo: 1 }
+        });
+        await VinculacionUsuario.findOrCreate({
+            where: { vinculacion_id: vinculaciones[10].id, user_id: contratistaUser2.id },
             defaults: { activo: 1 }
         });
 
@@ -299,6 +318,11 @@ async function seed() {
 
         await ContratistaAsignacion.findOrCreate({
             where: { user_id: contratistaUser.id, tipo_contratista_id: tiposContratista[1].id, dependencia_id: dependencias[9].id },
+            defaults: { administrador_contrato_id: usersCreated.adminContrato.id, periodo_inicio: new Date('2026-02-01') }
+        });
+
+        await ContratistaAsignacion.findOrCreate({
+            where: { user_id: contratistaUser2.id, tipo_contratista_id: tiposContratista[1].id, dependencia_id: dependencias[3].id },
             defaults: { administrador_contrato_id: usersCreated.adminContrato.id, periodo_inicio: new Date('2026-02-01') }
         });
 
@@ -347,12 +371,12 @@ async function seed() {
         // ============= SAMPLE DATA: Registros, Logs & Compromisos =============
         console.log('🚀 Sincronizando data de muestra (Granel Mafran Osorno)...');
         const sampleData = [
-            { period: '2025-10-01', estado: 'finalizado', avance: 100, personas: 15, dotacion: 20 },
-            { period: '2025-11-01', estado: 'finalizado', avance: 100, personas: 16, dotacion: 20 },
-            { period: '2025-12-01', estado: 'auditada', avance: 100, personas: 14, dotacion: 18 },
-            { period: '2026-01-01', estado: 'subsanado', avance: 80, personas: 15, dotacion: 19 },
-            { period: '2026-02-01', estado: 'pendiente', avance: 50, personas: 12, dotacion: 15 },
-            { period: '2026-03-01', estado: 'borrador', avance: 10, personas: 10, dotacion: 12 }
+            { period: '2025-08-01', estado: 'finalizado', avance: 100, personas: 15, dotacion: 20 },
+            { period: '2025-09-01', estado: 'finalizado', avance: 100, personas: 16, dotacion: 20 },
+            { period: '2025-10-01', estado: 'auditada', avance: 100, personas: 14, dotacion: 18 },
+            { period: '2025-11-01', estado: 'subsanado', avance: 80, personas: 15, dotacion: 19 },
+            { period: '2025-12-01', estado: 'pendiente', avance: 50, personas: 12, dotacion: 15 },
+            { period: '2026-01-01', estado: 'borrador', avance: 10, personas: 10, dotacion: 12 }
         ];
 
         const vinc = vinculaciones[11];
@@ -406,10 +430,10 @@ async function seed() {
                 }
                 await RegistroLog.bulkCreate(logs);
 
-                if (item.period === '2026-01-01') {
-                    await Compromiso.create({ registro_id: registro.id, responsable_id: contratistaUser.id, creado_por_id: usersCreated.adminContrato.id, descripcion: 'Renovar licencias vencidas.', fecha_compromiso: '2026-02-15', estado: 'pendiente' });
-                } else if (item.period === '2025-10-01') {
-                    await Compromiso.create({ registro_id: registro.id, responsable_id: contratistaUser.id, creado_por_id: usersCreated.adminContrato.id, descripcion: 'Capacitación vial.', fecha_compromiso: '2025-11-15', estado: 'cumplido', fecha_cumplimiento: '2025-11-12', observacion_cumplimiento: 'Realizada.' });
+                if (item.period === '2025-11-01') {
+                    await Compromiso.create({ registro_id: registro.id, responsable_id: contratistaUser.id, creado_por_id: usersCreated.adminContrato.id, descripcion: 'Renovar licencias vencidas.', fecha_compromiso: '2025-12-15', estado: 'pendiente' });
+                } else if (item.period === '2025-08-01') {
+                    await Compromiso.create({ registro_id: registro.id, responsable_id: contratistaUser.id, creado_por_id: usersCreated.adminContrato.id, descripcion: 'Capacitación vial.', fecha_compromiso: '2025-09-15', estado: 'cumplido', fecha_cumplimiento: '2025-09-12', observacion_cumplimiento: 'Realizada.' });
                 }
             }
         }

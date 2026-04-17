@@ -20,6 +20,10 @@ const Vinculacion = sequelize.define('Vinculacion', {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: false
     },
+    gerencia_id: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: false
+    },
     subgerencia_id: {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: false

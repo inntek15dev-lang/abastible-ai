@@ -145,7 +145,7 @@ export default function VinculacionManager({ contratista, onUpdate }) {
         }
     };
 
-    const gridLayout = "minmax(120px, 1fr) minmax(120px, 1fr) 1.5fr 1.5fr 100px 100px 100px 80px";
+    const gridLayout = "minmax(100px, 1fr) minmax(100px, 1fr) minmax(100px, 1fr) minmax(100px, 1fr) 1.5fr 1.5fr 100px 100px 100px 80px";
 
     return (
         <div className="vinculacion-manager">
@@ -157,6 +157,8 @@ export default function VinculacionManager({ contratista, onUpdate }) {
             <div className="vinc-list">
                 {/* Header Row */}
                 <div className="vinc-list-header" style={{ gridTemplateColumns: gridLayout }}>
+                    <div>GERENCIA</div>
+                    <div>SUBGERENCIA</div>
                     <div>SERVICIO</div>
                     <div>DEPENDENCIA</div>
                     <div>ADMIN CONTRATO</div>
@@ -172,6 +174,8 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                         <div key={v.id} className="vinc-item" style={{ gridTemplateColumns: gridLayout }}>
                             {editingId === v.id ? (
                                 <>
+                                    <div>-</div>
+                                    <div>-</div>
                                     <div>
                                         <select
                                             className="add-vinc-admin-select"
@@ -232,6 +236,12 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                                 </>
                             ) : (
                                 <>
+                                    <div>
+                                        <span className="badge-service" style={{ backgroundColor: '#F3E8FF', color: '#6B21A8' }}>{v.gerencia?.nombre}</span>
+                                    </div>
+                                    <div>
+                                        <span className="badge-service" style={{ backgroundColor: '#E0E7FF', color: '#3730A3' }}>{v.subgerencia?.nombre}</span>
+                                    </div>
                                     <div>
                                         <span className="badge-service">{v.servicio?.nombre}</span>
                                     </div>
@@ -326,7 +336,9 @@ export default function VinculacionManager({ contratista, onUpdate }) {
 
             {/* Add New Section */}
             {isAdding ? (
-                <div className="add-vinc-form" style={{ gridTemplateColumns: '1fr 1fr 1.5fr 1fr 1fr 1fr auto' }}>
+                <div className="add-vinc-form" style={{ gridTemplateColumns: 'minmax(100px, 1fr) minmax(100px, 1fr) 1.5fr 1fr 1fr 1fr auto' }}>
+                    <div style={{ color: 'var(--color-text-light)', fontSize: '0.8rem', fontStyle: 'italic', display: 'flex', alignItems: 'center' }}>Automático</div>
+                    <div style={{ color: 'var(--color-text-light)', fontSize: '0.8rem', fontStyle: 'italic', display: 'flex', alignItems: 'center' }}>Automático</div>
                     <select
                         className="filter-input"
                         value={newVinc.servicio_id}
