@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
-import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock, CheckCircle, Trash2 } from 'lucide-react';
+import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock, CheckCircle, Trash2, Clock } from 'lucide-react';
 import FileUpload from '../../components/forms/FileUpload';
 import HallazgoModal from '../../components/forms/HallazgoModal';
 import HallazgoList from '../../components/forms/HallazgoList';
