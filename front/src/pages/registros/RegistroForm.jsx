@@ -21,6 +21,9 @@ export default function RegistroForm() {
     const isEdit = Boolean(id);
     const isReadOnly = location.state?.readonly || false;
 
+    const isContractor = ['contratista_admin', 'contratista_user'].includes(user?.role);
+    const isAdminOrADC = isAdmin || user?.role === 'administrador_contrato';
+
     const [form, setForm] = useState({
         periodo: new Date().toISOString().slice(0, 7), // YYYY-MM format
         personas_nuevas: 0,
@@ -520,9 +523,6 @@ export default function RegistroForm() {
             setLoading(false);
         }
     };
-
-    const isContractor = ['contratista_admin', 'contratista_user'].includes(user?.role);
-    const isAdminOrADC = isAdmin || user?.role === 'administrador_contrato';
 
     const handleReabrirDirecto = () => {
         setConfirmModal({
