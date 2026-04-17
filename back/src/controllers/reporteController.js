@@ -337,7 +337,7 @@ module.exports = {
 
     async matrixPdf(req, res) {
         try {
-            const matrixData = await this._getMatrixData(req);
+            const matrixData = await module.exports._getMatrixData(req);
             const { columns, rows } = matrixData;
 
             const doc = new PDFDocument({ margin: 30, layout: 'landscape' });
@@ -430,7 +430,7 @@ module.exports = {
 
     async matrixExcel(req, res) {
         try {
-            const matrixData = await this._getMatrixData(req);
+            const matrixData = await module.exports._getMatrixData(req);
             const { columns, rows } = matrixData;
 
             const workbook = new ExcelJS.Workbook();
@@ -519,10 +519,10 @@ module.exports = {
             }
         }
 
-        // 2. Filters
-        if (contratista_id && contratista_id !== 'todos') whereVinculacion.contratista_id = contratista_id;
-        if (servicio_id && servicio_id !== 'todos') whereVinculacion.servicio_id = servicio_id;
-        if (dependencia_id && dependencia_id !== 'todas') whereVinculacion.dependencia_id = dependencia_id;
+        // 2. Filters (Case-insensitive check for "todos" or "todas")
+        if (contratista_id && String(contratista_id).toLowerCase() !== 'todos') whereVinculacion.contratista_id = contratista_id;
+        if (servicio_id && String(servicio_id).toLowerCase() !== 'todos') whereVinculacion.servicio_id = servicio_id;
+        if (dependencia_id && String(dependencia_id).toLowerCase() !== 'todas') whereVinculacion.dependencia_id = dependencia_id;
 
         // 3. Date Range
         const today = periodo ? new Date(periodo + '-01') : new Date();
