@@ -55,10 +55,10 @@
   /* Typography */
   --font-family-base: 'Inter', system-ui, -apple-system, sans-serif;
   --font-family-heading: 'Ubuntu', sans-serif;
-  --font-size-xs: 11px;
-  --font-size-sm: 12px;
-  --font-size-base: 14px;
-  --font-size-lg: 16px;
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-bold: 600;
@@ -90,6 +90,20 @@
 /* -----------------------------
    2. BASE ELEMENTS
    ----------------------------- */
+
+html {
+  zoom: 0.85; /* Replicates browser zoom at 85% */
+  box-sizing: border-box;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
+/* Fix flex/grid items overflow */
+.flex > *, .grid > *, [style*="display: flex"] > *, [style*="display: grid"] > * {
+  min-width: 0;
+}
 
 body {
   background: var(--color-bg-body);
