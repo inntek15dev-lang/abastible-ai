@@ -222,6 +222,7 @@ export default function RegistroAudit() {
             await api.post(`/registros/${id}/finalizar-auditoria`, {
                 comentario_general: comentarioGeneral
             });
+            toast.success('Auditoría finalizada y registro cerrado exitosamente');
             navigate('/registros');
         } catch (err) {
             setError(err.response?.data?.message || 'Error al finalizar auditoría');

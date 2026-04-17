@@ -240,7 +240,7 @@ export default function ProgramaList() {
                                                 <div key={act.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '2px', padding: '2px 0', borderBottom: '1px dashed #eee' }}>
                                                     <span title={act.descripcion}>{act.codigo} - {act.actividad || act.descripcion?.substring(0, 30)}</span>
                                                     <div style={{ display: 'flex', gap: '5px' }}>
-                                                        {act.template_url && <span title="Plantilla disponible">📎</span>}
+                                                        {act.template_url && !isADC && <span title="Plantilla disponible">📎</span>}
                                                         {canWrite('Programas') && !isADC && <Edit size={12} className="text-primary cursor-pointer" onClick={() => openEditActModal(act)} />}
                                                         {canExec('Programas') && !isADC && <Trash2 size={12} className="text-danger cursor-pointer" onClick={() => handleDeleteActivity(act.id)} />}
                                                     </div>

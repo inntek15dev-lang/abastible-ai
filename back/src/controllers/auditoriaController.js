@@ -7,7 +7,8 @@ const {
     Hallazgo,
     Compromiso,
     Actividad,
-    AuditoriaComentario
+    AuditoriaComentario,
+    User
 } = require('../database/models');
 const emailService = require('../services/emailService');
 

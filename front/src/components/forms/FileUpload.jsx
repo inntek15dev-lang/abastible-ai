@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react';
 import api from '../../api';
 import { Upload, X, File, Image, FileText } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 export default function FileUpload({
     registroActividadId,
@@ -11,6 +12,8 @@ export default function FileUpload({
     templateUrl = null, // New prop for template
     onFileSelect = null // New prop for pending uploads
 }) {
+    const { user } = useAuth();
+    const isADC = user?.role === 'administrador_contrato';
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState('');
     const [preview, setPreview] = useState(null);
@@ -120,64 +123,68 @@ export default function FileUpload({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
                     <div style={{ display: 'flex', rowDirection: 'row', alignItems: 'center', gap: '0.5rem', width: '100%', flexWrap: 'wrap' }}>
                         {/* Template Download Button */}
-                        <a
-                            href={templateUrl ? `${api.defaults.baseURL}/${templateUrl}` : '#'}
-                            target={templateUrl ? "_blank" : undefined}
-                            rel={templateUrl ? "noopener noreferrer" : undefined}
-                            className={`template-download-btn ${!templateUrl ? 'disabled' : ''}`}
-                            onClick={(e) => !templateUrl && e.preventDefault()}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '0.5rem',
-                                fontSize: '0.75rem',
-                                color: templateUrl ? '#003594' : '#9ca3af',
-                                textDecoration: 'none',
-                                padding: '0.5rem',
-                                border: `1px dashed ${templateUrl ? '#003594' : '#d1d5db'}`,
-                                borderRadius: '4px',
-                                backgroundColor: templateUrl ? '#eff6ff' : '#f3f4f6',
-                                transition: 'all 0.2s',
-                                flex: 1,
-                                cursor: templateUrl ? 'pointer' : 'not-allowed',
-                                height: '38px', // Match standard button height
-                                whiteSpace: 'nowrap'
-                            }}
-                            onMouseEnter={(e) => {
-                                if (templateUrl) e.currentTarget.style.backgroundColor = '#dbeafe';
-                            }}
-                            onMouseLeave={(e) => {
-                                if (templateUrl) e.currentTarget.style.backgroundColor = '#eff6ff';
-                            }}
-                            title={!templateUrl ? "Sin plantilla disponible" : "Descargar Plantilla"}
-                        >
-                            <FileText size={14} />
-                            {templateUrl ? 'Descargar Plantilla' : 'Sin Plantilla'}
-                        </a>
+                        {!isADC && (
+                            <a
+                                href={templateUrl ? `${api.defaults.baseURL}/${templateUrl}` : '#'}
+                                target={templateUrl ? "_blank" : undefined}
+                                rel={templateUrl ? "noopener noreferrer" : undefined}
+                                className={`template-download-btn ${!templateUrl ? 'disabled' : ''}`}
+                                onClick={(e) => !templateUrl && e.preventDefault()}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.5rem',
+                                    fontSize: '0.75rem',
+                                    color: templateUrl ? '#003594' : '#9ca3af',
+                                    textDecoration: 'none',
+                                    padding: '0.5rem',
+                                    border: `1px dashed ${templateUrl ? '#003594' : '#d1d5db'}`,
+                                    borderRadius: '4px',
+                                    backgroundColor: templateUrl ? '#eff6ff' : '#f3f4f6',
+                                    transition: 'all 0.2s',
+                                    flex: 1,
+                                    cursor: templateUrl ? 'pointer' : 'not-allowed',
+                                    height: '38px', // Match standard button height
+                                    whiteSpace: 'nowrap'
+                                }}
+                                onMouseEnter={(e) => {
+                                    if (templateUrl) e.currentTarget.style.backgroundColor = '#dbeafe';
+                                }}
+                                onMouseLeave={(e) => {
+                                    if (templateUrl) e.currentTarget.style.backgroundColor = '#eff6ff';
+                                }}
+                                title={!templateUrl ? "Sin plantilla disponible" : "Descargar Plantilla"}
+                            >
+                                <FileText size={14} />
+                                {templateUrl ? 'Descargar Plantilla' : 'Sin Plantilla'}
+                            </a>
+                        )}
 
-                        <button
-                            type="button"
-                            className="upload-btn"
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={!canUpload || uploading}
-                            style={{ 
-                                flex: 1, 
-                                height: '38px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '0.5rem',
-                                background: uploading ? '#cbd5e1' : 'var(--color-brand-primary)',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: (!canUpload || uploading) ? 'not-allowed' : 'pointer'
-                            }}
-                        >
-                            <Upload size={18} />
-                            {uploading ? 'Subiendo...' : 'Subir Evidencia'}
-                        </button>
+                        {!isADC && (
+                            <button
+                                type="button"
+                                className="upload-btn"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={!canUpload || uploading}
+                                style={{ 
+                                    flex: 1, 
+                                    height: '38px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.5rem',
+                                    background: uploading ? '#cbd5e1' : 'var(--color-brand-primary)',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: (!canUpload || uploading) ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                <Upload size={18} />
+                                {uploading ? 'Subiendo...' : 'Subir Evidencia'}
+                            </button>
+                        )}
                     </div>
 
                     {/* Progress Bar */}

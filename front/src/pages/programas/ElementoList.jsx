@@ -199,7 +199,7 @@ export default function ElementoList() {
                                                     <td>{act.criterios || '-'}</td>
                                                     <td>{act.frecuencia}</td>
                                                     <td style={{ textAlign: 'center' }}>
-                                                        {act.template_url ? (
+                                                        {!isADC && act.template_url ? (
                                                             <a
                                                                 href={`${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${act.template_url}`}
                                                                 target="_blank"
@@ -217,7 +217,7 @@ export default function ElementoList() {
                                                                 <Paperclip size={16} />
                                                             </a>
                                                         ) : (
-                                                            (act.requiere_evidencia ? <span title="Requiere evidencia, sin plantilla" style={{ color: '#d1d5db' }}>-</span> : <span style={{ color: '#9ca3af' }}>-</span>)
+                                                            <span style={{ color: '#9ca3af' }}>-</span>
                                                         )}
                                                     </td>
                                                     <td>
