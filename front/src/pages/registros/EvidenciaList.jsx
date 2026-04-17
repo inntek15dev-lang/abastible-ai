@@ -6,6 +6,7 @@ import { FileText, Search, Filter, Eye, Download, CreditCard, Building, Calendar
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
+export default function EvidenciaList() {
     const { user } = useAuth();
     const [evidencias, setEvidencias] = useState([]);
     const [loading, setLoading] = useState(true);
