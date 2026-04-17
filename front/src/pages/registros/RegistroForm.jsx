@@ -26,7 +26,8 @@ export default function RegistroForm() {
         personas_nuevas: 0,
         supervisores: 0,
         prevencionistas: 0,
-        dotacion_total: 0
+        dotacion_total: 0,
+        eecc_nombre: ''
     });
     // ... (rest of state items are same)
     const [actividades, setActividades] = useState([]);
@@ -184,9 +185,7 @@ export default function RegistroForm() {
             }
         };
 
-        if (!isEdit) {
-            initData();
-        }
+        initData();
 
         fetchActividades();
         if (isEdit) {
@@ -369,7 +368,8 @@ export default function RegistroForm() {
                 tipo_auditoria: data.tipo_auditoria || 'sistema',
                 estado_auditoria: data.estado_auditoria,
                 fecha_limite_subsanacion: data.fecha_limite_subsanacion,
-                contratista_asignacion_id: data.contratista_asignacion_id // existing assignment
+                contratista_asignacion_id: data.contratista_asignacion_id, // existing assignment
+                eecc_nombre: data.eecc_nombre || ''
             });
             setRegistroCerrado(data.cerrado === 1 || data.cerrado === true);
             setReviewComments(data.comentario_general || '');
@@ -384,7 +384,8 @@ export default function RegistroForm() {
 
             // If Admin/ADC, set selected contractor so dropdown populates
             if (user?.role === 'admin' || user?.role === 'administrador_contrato') {
-                setSelectedContractor(data.user_id);
+                const cId = data.vinculacionEntidad?.contratista_id || data.asignacion?.contratista_id;
+                if (cId) setSelectedContractor(cId);
             }
 
             if (data.actividades) {
@@ -672,7 +673,7 @@ export default function RegistroForm() {
                         <div>
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Nombre EECC *</label>
                             <input type="text" className="form-control" style={readOnlyStyle} readOnly
-                                value={user?.contratistaEntidad?.nombre || user?.eecc_nombre || searchNombre || ''} />
+                                value={form.eecc_nombre || user?.contratistaEntidad?.nombre || user?.eecc_nombre || searchNombre || ''} />
                         </div>
                         <div>
                             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Dotación Total</label>
