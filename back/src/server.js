@@ -12,45 +12,38 @@ const PORT = process.env.PORT || 4000;
 // Trust Proxy (Required for Nginx/Load Balancers to handle CORS/IPs correctly)
 app.set('trust proxy', 1);
 
-// Middleware
-const allowedOrigins = [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:3000',
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:5174',
-    'http://127.0.0.1:3000',
-    'http://oiem-abastible.inntek.cl',
-    'https://oiem-abastible.inntek.cl',
-    'http://oiem-abastible-api.inntek.cl',
-    'https://oiem-abastible-api.inntek.cl'
-];
+// Middleware de CORS Atómico (Robustecimiento Definitivo)
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+        'http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000',
+        'http://oiem-abastible.inntek.cl', 'https://oiem-abastible.inntek.cl',
+        'http://oiem-abastible-api.inntek.cl', 'https://oiem-abastible-api.inntek.cl'
+    ];
 
-app.use(cors({
-    origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl)
-        if (!origin) return callback(null, true);
-
-        // Normalize origin for comparison (remove trailing slashes and lowercase)
+    if (origin) {
         const normalizedOrigin = origin.toLowerCase().replace(/\/$/, "");
-
         const isAllowed = allowedOrigins.includes(normalizedOrigin) || 
                          /\.inntek\.cl$/.test(normalizedOrigin) || 
                          process.env.NODE_ENV === 'development';
 
         if (isAllowed) {
-            callback(null, true);
-        } else {
-            console.warn(`🚨 CORS Blocked for origin: ${origin}`);
-            // Return null, false to avoid throwing an error that might strip headers in some setups
-            callback(null, false);
+            res.setHeader('Access-Control-Allow-Origin', origin);
+            res.setHeader('Access-Control-Allow-Credentials', 'true');
         }
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-    credentials: true,
-    optionsSuccessStatus: 200
-}));
+    }
+
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+
+    // Manejo Inmediato de Preflight (OPTIONS)
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+    next();
+});
+
+// Middleware estándar para parsing (Después de CORS para asegurar headers en errores de parsing)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
