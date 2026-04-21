@@ -12,38 +12,35 @@ const PORT = process.env.PORT || 4000;
 // Trust Proxy (Required for Nginx/Load Balancers to handle CORS/IPs correctly)
 app.set('trust proxy', 1);
 
-// Middleware de CORS Atómico (Robustecimiento Definitivo)
+// Middleware de CORS Atómico (OPCIÓN NUCLEAR - Misión Crítica)
 app.use((req, res, next) => {
     const origin = req.headers.origin;
-    const allowedOrigins = [
-        'http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000',
-        'http://oiem-abastible.inntek.cl', 'https://oiem-abastible.inntek.cl',
-        'http://oiem-abastible-api.inntek.cl', 'https://oiem-abastible-api.inntek.cl'
-    ];
-
+    
+    // Loguear solo en desarrollo para no saturar logs de prod, 
+    // pero habilitar headers para cualquier subdominio de inntek.cl
     if (origin) {
-        const normalizedOrigin = origin.toLowerCase().replace(/\/$/, "");
-        const isAllowed = allowedOrigins.includes(normalizedOrigin) || 
-                         /\.inntek\.cl$/.test(normalizedOrigin) || 
-                         process.env.NODE_ENV === 'development';
+        const isInntek = origin.toLowerCase().includes('inntek.cl') || 
+                         origin.includes('localhost') || 
+                         origin.includes('127.0.0.1');
 
-        if (isAllowed) {
+        if (isInntek) {
             res.setHeader('Access-Control-Allow-Origin', origin);
             res.setHeader('Access-Control-Allow-Credentials', 'true');
         }
     }
 
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Api-Key');
+    res.setHeader('X-CORS-Status', 'Nuclear-Applied'); // Header de depuración
 
-    // Manejo Inmediato de Preflight (OPTIONS)
+    // Manejo Inmediato y Agresivo de Preflight (OPTIONS)
     if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
+        return res.status(200).end();
     }
     next();
 });
 
-// Middleware estándar para parsing (Después de CORS para asegurar headers en errores de parsing)
+// Middleware de parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
