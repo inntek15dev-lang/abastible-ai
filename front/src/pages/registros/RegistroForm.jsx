@@ -429,9 +429,9 @@ export default function RegistroForm() {
         setLoading(true);
         setError('');
 
-        if (isEdit && options.enviar) {
+        if (isEdit && (options.enviar || options.terminar_subsanacion)) {
             const missingEvidence = actividades.filter(a =>
-                a.cumple &&
+                (a.cumple === 1 || a.cumple === true) &&
                 a.requiere_evidencia &&
                 (!a.evidencias || a.evidencias.length === 0) &&
                 (!a.pendingFiles || a.pendingFiles.length === 0)
@@ -439,7 +439,8 @@ export default function RegistroForm() {
 
             if (missingEvidence.length > 0) {
                 const codigos = missingEvidence.map(a => a.codigo).join(', ');
-                setError(`⚠️ No se puede enviar: Faltan evidencias obligatorias para las actividades [${codigos}]. Por favor, adjunte los documentos antes de continuar.`);
+                const context = options.terminar_subsanacion ? 'enviar la subsanación' : 'enviar el registro';
+                setError(`⚠️ No se puede ${context}: Faltan evidencias obligatorias para las actividades [${codigos}]. Por favor, adjunte los documentos antes de continuar.`);
                 setLoading(false);
                 window.scrollTo(0, 0);
                 return;

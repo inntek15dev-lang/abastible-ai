@@ -422,46 +422,43 @@ const registroController = {
                 registroData.estado_auditoria = 'subsanado';
             }
 
-            // CHECK: Mandatory Evidence before closing
-            if (registroData.cerrado === 1 && oldData.cerrado === 0) {
-                // Get mandatory activities
-                const actividadesRequeridas = await RegistroActividad.findAll({
-                    where: { registro_id: registro.id, cumple: [1, true] }, // Only those marked as "Cumple"
-                    include: [{
-                        model: Actividad,
-                        as: 'actividad',
-                        where: { requiere_evidencia: 1 }
-                    }]
+            // CHECK: Mandatory Evidence before closing OR Finishing Subsanacion (PARKO)
+            if ((registroData.cerrado === 1 && oldData.cerrado === 0) || 
+                (registroData.estado_auditoria === 'subsanado' && oldData.estado_auditoria !== 'subsanado')) {
+                
+                // Get all current activities for this registration
+                const currentActividades = await RegistroActividad.findAll({
+                    where: { registro_id: registro.id },
+                    include: [{ model: Actividad, as: 'actividad' }]
                 });
 
-                if (actividadesRequeridas.length > 0) {
-                    const reqActIds = actividadesRequeridas.map(a => a.id);
-                    
-                    // Get evidences linked directly to these RegistroActividad IDs
+                // Identify those that require evidence and are marked as "Cumple"
+                const reqActividades = currentActividades.filter(ra => 
+                    (ra.cumple === 1 || ra.cumple === true) && 
+                    ra.actividad?.requiere_evidencia
+                );
+
+                if (reqActividades.length > 0) {
+                    const raIds = reqActividades.map(a => a.id);
                     const evidencias = await Evidencia.findAll({
-                        where: { registro_actividad_id: { [Op.in]: reqActIds } }
+                        where: { registro_actividad_id: { [Op.in]: raIds } },
+                        attributes: ['registro_actividad_id']
                     });
+                    const raIdsWithEvidence = evidencias.map(e => e.registro_actividad_id);
+                    const missing = reqActividades.filter(ra => !raIdsWithEvidence.includes(ra.id));
 
-                    // Map covered RegistroActividad IDs
-                    const coveredActIds = evidencias.map(e => e.registro_actividad_id);
-                    
-                    // Find if any required RegistroActividad ID lacks an evidence
-                    const missingActivities = actividadesRequeridas.filter(ra => !coveredActIds.includes(ra.id));
-
-                    if (missingActivities.length > 0) {
-                        const codigosFaltantes = missingActivities.map(a => a.actividad.codigo).join(', ');
+                    if (missing.length > 0) {
+                        const codigos = missing.map(m => m.actividad?.codigo).join(', ');
+                        const context = registroData.estado_auditoria === 'subsanado' ? 'enviar la subsanación' : 'cerrar el registro';
                         return res.status(400).json({
                             success: false,
-                            message: `⚠️ No se puede cerrar el registro: Faltan evidencias obligatorias para las actividades [${codigosFaltantes}]. Por favor, adjunte los documentos requeridos antes de finalizar.`,
-                            missingActivities: missingActivities.map(a => a.id)
+                            message: `⚠️ No se puede ${context}: Faltan evidencias obligatorias para las actividades [${codigos}]. Por favor, adjunte los documentos requeridos antes de finalizar.`
                         });
                     }
                 }
 
                 // Notify Auditor (Simulated: Send to generic auditor or fetch based on assignment if possible)
-                // For MVP, we send to a fixed auditor email or admin
-                console.log(`[MOCK EMAIL] Registro Enviado/Cerrado: ${registro.periodo}`);
-                await emailService.notifyRegistroEnviado(registro, 'ana.auditora@abastible.cl');
+                console.log(`[MOCK EMAIL] Registro Enviado/Subsanado: ${registro.periodo}`);
             }
 
             await registro.update(registroData);

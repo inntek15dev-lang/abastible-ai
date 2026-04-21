@@ -60,7 +60,7 @@
 3. **5.21** Usuarios operativos: **Los 3 perfiles pueden crear** (Contratista Admin restringido a su empresa/jerarquía)
 4. **2.11** Reabrir sin solicitud: **Admin Y Admin Contrato pueden (endpoint /reaperturas/directa)**
 5. **2.12** Botón "Eliminar Registro": **Solo Admin (Dios)**
-6. **Evidencias**: **Obligatorio para TODAS las actividades**
+6. **Evidencias**: **Bloqueo estricto**. Es obligatorio contar con evidencias cargadas para poder finalizar auditorías, cerrar registros o enviar subsanaciones en todas las actividades marcadas como obligatorias (`requiere_evidencia = 1`).
 7. **12.4** Email auditoría completada: **SÍ**
 8. **12.5** Email recordatorio fecha límite: **SÍ**
 9. **12.6** Email envío registro: **SÍ** (pendiente definir hito de envío)
@@ -232,7 +232,7 @@
             "AC-01: Puedo seleccionar periodo (mes/año) y asignación",
             "AC-02: Puedo marcar cumple/no cumple por actividad",
             "AC-03: Puedo agregar responsable y observaciones por actividad",
-            "AC-04: Debo subir evidencia para TODAS las actividades (obligatorio)",
+            "AC-04: Debo subir evidencia para todas las actividades obligatorias para poder CERRAR el registro o ENVIAR una subsanación (Bloqueo de API).",
             "AC-04b: En modo edición puedo eliminar una evidencia cargada para reemplazarla (disponible cuando el registro no está bloqueado)",
             "AC-05: Puedo editar el registro mientras no esté auditado",
             "AC-06-SEC: Solo veo mis propios registros"
@@ -249,7 +249,7 @@
             "AC-01: Puedo ver solo registros de contratistas asignados a mí",
             "AC-02: Puedo marcar cumple/no cumple/NA por actividad (NA excluye de cálculo)",
             "AC-03: Puedo agregar observación de auditor",
-            "AC-04: Panel de Auditoría para seleccionar tipo (sistema/terreno) y estado",
+            "AC-04: Panel de Auditoría para seleccionar tipo (sistema/terreno) y estado. No puede FINALIZAR si faltan evidencias obligatorias.",
             "AC-05: Puedo pausar y continuar auditoría después",
             "AC-06: Creación inmediata de Hallazgo vía Modal al rechazar actividad",
             "AC-07-SEC: No puedo auditar contratistas no asignados"

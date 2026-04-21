@@ -8,6 +8,7 @@ const {
     Compromiso,
     Actividad,
     AuditoriaComentario,
+    Evidencia,
     User
 } = require('../database/models');
 const emailService = require('../services/emailService');
@@ -123,7 +124,11 @@ const auditoriaController = {
             const { comentario_general } = req.body;
 
             const registro = await Registro.findByPk(id, {
-                include: [{ model: RegistroActividad, as: 'actividades' }]
+                include: [{ 
+                    model: RegistroActividad, 
+                    as: 'actividades',
+                    include: [{ model: Actividad, as: 'actividad' }]
+                }]
             });
 
             if (!registro) {
@@ -135,6 +140,36 @@ const auditoriaController = {
                     success: false,
                     message: 'El registro no está en proceso de revisión'
                 });
+            }
+
+            // 1. Mandatory Evidence Check (PARKO)
+            const actividades = registro.actividades || [];
+            const actividadesRequeridas = actividades.filter(a =>
+                (a.cumple_auditor === true || a.cumple_auditor === 1 || a.cumple === true || a.cumple === 1) &&
+                a.actividad?.requiere_evidencia
+            );
+
+            if (actividadesRequeridas.length > 0) {
+                const raIds = actividadesRequeridas.map(a => a.id);
+                const evidenciasCount = await Evidencia.count({
+                    where: { registro_actividad_id: raIds }
+                });
+
+                // Detailed check to identify WHICH one is missing
+                const evidencias = await Evidencia.findAll({
+                    where: { registro_actividad_id: raIds },
+                    attributes: ['registro_actividad_id']
+                });
+                const raIdsWithEvidence = evidencias.map(e => e.registro_actividad_id);
+                const missing = actividadesRequeridas.filter(ra => !raIdsWithEvidence.includes(ra.id));
+
+                if (missing.length > 0) {
+                    const codigos = missing.map(m => m.actividad?.codigo).join(', ');
+                    return res.status(400).json({
+                        success: false,
+                        message: `No se puede finalizar la revisión: Faltan evidencias para actividades obligatorias [${codigos}]`
+                    });
+                }
             }
 
             // Recalculate percentage (same logic as finalizarAuditoria)
@@ -187,7 +222,11 @@ const auditoriaController = {
             const { comentario_general } = req.body;
 
             const registro = await Registro.findByPk(id, {
-                include: [{ model: RegistroActividad, as: 'actividades' }]
+                include: [{ 
+                    model: RegistroActividad, 
+                    as: 'actividades',
+                    include: [{ model: Actividad, as: 'actividad' }]
+                }]
             });
 
             if (!registro) {
@@ -199,6 +238,31 @@ const auditoriaController = {
                     success: false,
                     message: 'El registro no está en proceso de auditoría'
                 });
+            }
+
+            // 1. Mandatory Evidence Check (PARKO)
+            const actividades = registro.actividades || [];
+            const actividadesRequeridas = actividades.filter(a =>
+                (a.cumple_auditor === true || a.cumple_auditor === 1 || a.cumple === true || a.cumple === 1) &&
+                a.actividad?.requiere_evidencia
+            );
+
+            if (actividadesRequeridas.length > 0) {
+                const raIds = actividadesRequeridas.map(a => a.id);
+                const evidencias = await Evidencia.findAll({
+                    where: { registro_actividad_id: raIds },
+                    attributes: ['registro_actividad_id']
+                });
+                const raIdsWithEvidence = evidencias.map(e => e.registro_actividad_id);
+                const missing = actividadesRequeridas.filter(ra => !raIdsWithEvidence.includes(ra.id));
+
+                if (missing.length > 0) {
+                    const codigos = missing.map(m => m.actividad?.codigo).join(', ');
+                    return res.status(400).json({
+                        success: false,
+                        message: `No se puede finalizar la auditoría: Faltan evidencias en actividades obligatorias [${codigos}]`
+                    });
+                }
             }
 
             // Calculate auditor percentage: Exclude N/A (2) and handle nulls

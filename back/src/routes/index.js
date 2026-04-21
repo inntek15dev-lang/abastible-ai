@@ -343,6 +343,8 @@ router.delete('/registros/:id', auth, requirePrivilege('Registros', 'excec'), re
  *     responses:
  *       200:
  *         description: Audit finalized
+ *       400:
+ *         description: Missing mandatory evidence
  *
  * /registros/{id}/comentarios:
  *   post:
