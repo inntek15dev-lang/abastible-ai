@@ -169,6 +169,30 @@ export default function ContratistaList() {
             return matchesSearch && matchesStatus && matchesService && matchesDependency && matchesAdmin;
         });
     }, [contratistas, filters]);
+    
+    // Helper to get only relevant vinculaciones based on active filters and role
+    const getVisibleVinculaciones = (c) => {
+        if (!c.vinculaciones) return [];
+        let filtered = c.vinculaciones;
+
+        // If user is ADC, backend already filters, but we can double check or just return all
+        // If user is Admin, apply UI filters
+        if (filters.adminContrato !== 'Todos') {
+            filtered = filtered.filter(v =>
+                v.administraciones?.some(a => a.administrador_contrato_id.toString() === filters.adminContrato)
+            );
+        }
+        
+        if (filters.servicio !== 'Todos') {
+            filtered = filtered.filter(v => v.servicio?.nombre === filters.servicio);
+        }
+
+        if (filters.dependencia !== 'Todas') {
+            filtered = filtered.filter(v => v.dependencia?.nombre === filters.dependencia);
+        }
+
+        return filtered;
+    };
 
     // Helpers
     const getServiceNames = (vinculaciones) => {
@@ -411,7 +435,8 @@ export default function ContratistaList() {
                     </div>
                 ) : (
                     filteredContratistas.map((c) => {
-                        const { start: startDate, end: endDate } = getContractDates(c.vinculaciones);
+                        const visibleVinc = getVisibleVinculaciones(c);
+                        const { start: startDate, end: endDate } = getContractDates(visibleVinc);
                         return (
                             <div
                                 key={c.id}
@@ -434,10 +459,10 @@ export default function ContratistaList() {
                                         {c.rut || '-'}
                                     </div>
                                     <div style={{ fontSize: '0.85rem' }}>
-                                        {getServiceNames(c.vinculaciones)}
+                                        {getServiceNames(visibleVinc)}
                                     </div>
                                     <div style={{ fontSize: '0.85rem' }}>
-                                        {getDependencyNames(c.vinculaciones)}
+                                        {getDependencyNames(visibleVinc)}
                                     </div>
                                     <div className="admin-tags-container" style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                                         {(c.usuarios || []).filter(u => u.role === 'contratista_admin').map(admin => (
@@ -552,7 +577,10 @@ export default function ContratistaList() {
                                     <div className="assignments-section" style={{ backgroundColor: '#fcfcfd', borderBottom: '1px solid #edf2f7', padding: '20px' }}>
                                         <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '24px' }}>
                                             <div>
-                                                <VinculacionManager contratista={c} onUpdate={fetchContratistas} />
+                                                <VinculacionManager 
+                                                    contratista={{...c, vinculaciones: visibleVinc}} 
+                                                    onUpdate={fetchContratistas} 
+                                                />
                                             </div>
                                             <div style={{ borderLeft: '1px solid #edf2f7', paddingLeft: '24px' }}>
                                                 <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem', color: '#1e293b', marginBottom: '16px' }}>

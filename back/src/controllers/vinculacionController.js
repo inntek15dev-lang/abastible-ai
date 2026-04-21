@@ -6,11 +6,27 @@ const vinculacionController = {
     async index(req, res) {
         try {
             const { contratista_id, servicio_id, dependencia_id } = req.query;
+            const { role, id: userId } = req.user;
             const where = { activo: 1 };
 
             if (contratista_id) where.contratista_id = contratista_id;
             if (servicio_id) where.servicio_id = servicio_id;
             if (dependencia_id) where.dependencia_id = dependencia_id;
+
+            let includeAdmin = {
+                model: Administracion,
+                as: 'administraciones',
+                where: { activo: 1 },
+                required: false,
+                include: [
+                    { model: User, as: 'administradorContrato', attributes: ['id', 'name', 'email'] }
+                ]
+            };
+
+            if (role === 'administrador_contrato') {
+                includeAdmin.required = true;
+                includeAdmin.where.administrador_contrato_id = userId;
+            }
 
             const vinculaciones = await Vinculacion.findAll({
                 where,
@@ -20,15 +36,7 @@ const vinculacionController = {
                     { model: Dependencia, as: 'dependencia' },
                     { model: Subgerencia, as: 'subgerencia' },
                     { model: Gerencia, as: 'gerencia' },
-                    {
-                        model: Administracion,
-                        as: 'administraciones',
-                        where: { activo: 1 },
-                        required: false,
-                        include: [
-                            { model: User, as: 'administradorContrato', attributes: ['id', 'name', 'email'] }
-                        ]
-                    },
+                    includeAdmin,
                     {
                         model: VinculacionUsuario,
                         as: 'usuariosVinculados',
