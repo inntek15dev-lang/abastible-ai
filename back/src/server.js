@@ -31,16 +31,23 @@ app.use(cors({
         // Allow requests with no origin (like mobile apps or curl)
         if (!origin) return callback(null, true);
 
-        // Normalize origin (remove trailing slashes for comparison)
-        const normalizedOrigin = origin.endsWith('/') ? origin.slice(0, -1) : origin;
+        // Normalize origin for comparison (remove trailing slashes and lowercase)
+        const normalizedOrigin = origin.toLowerCase().replace(/\/$/, "");
 
-        if (allowedOrigins.indexOf(normalizedOrigin) !== -1 || process.env.NODE_ENV === 'development') {
+        const isAllowed = allowedOrigins.includes(normalizedOrigin) || 
+                         /\.inntek\.cl$/.test(normalizedOrigin) || 
+                         process.env.NODE_ENV === 'development';
+
+        if (isAllowed) {
             callback(null, true);
         } else {
             console.warn(`🚨 CORS Blocked for origin: ${origin}`);
-            callback(new Error('Not allowed by CORS'));
+            // Return null, false to avoid throwing an error that might strip headers in some setups
+            callback(null, false);
         }
     },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
     credentials: true,
     optionsSuccessStatus: 200
 }));
