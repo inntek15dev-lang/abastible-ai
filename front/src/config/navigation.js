@@ -52,7 +52,6 @@ export const MODULES = [
         module: 'Registros', // General check for the module
         items: [
             { path: '/registros', label: 'Registros y Cumplimiento', icon: FileText, module: 'Registros' },
-            { path: '/evidencias', label: 'Evidencias de Auditoría', icon: Search, module: 'Registros', restrictedTo: ['admin', 'administrador_contrato'] },
             { path: '/reaperturas', label: 'Solicitudes de Reapertura', icon: RefreshCw, module: 'Reaperturas' },
             { path: '/compromisos', label: 'Compromisos', icon: CheckSquare, module: 'Compromisos' }
         ]

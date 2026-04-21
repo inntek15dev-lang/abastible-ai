@@ -37,7 +37,6 @@ import ComplianceMatrixReport from './pages/reportes/ComplianceMatrixReport';
 import UsuarioForm from './pages/usuarios/UsuarioForm';
 
 // Sprint 8 Pages (US-051)
-import EvidenciaList from './pages/registros/EvidenciaList';
 import ContratistaList from './pages/contratistas/ContratistaList';
 import ContratistaForm from './pages/contratistas/ContratistaForm';
 import VinculacionList from './pages/vinculaciones/VinculacionList';
@@ -150,7 +149,6 @@ function AppRoutes() {
         {/* <Route path="/mis-postulaciones" element={<PostulacionList />} /> */}
 
         {/* Sprint 8: Nuevos Módulos US-051 */}
-        <Route path="/evidencias" element={<EvidenciaList />} />
         <Route path="/contratistas" element={<ContratistaList />} />
         <Route path="/contratistas/new" element={<ContratistaForm />} />
         <Route path="/contratistas/:id" element={<ContratistaForm />} />

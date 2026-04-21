@@ -13,7 +13,6 @@ const SYSTEM_MODULES = [
     'Actividades',
     'Registros',
     'Registros_Exportar', // Granular
-    'Evidencias',
     'Auditoria',
     'Hallazgos',
     'Compromisos',
