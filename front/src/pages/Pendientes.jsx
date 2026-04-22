@@ -16,7 +16,9 @@ import {
     X,
     User,
     ClipboardIcon,
-    ArrowUpRight
+    ArrowUpRight,
+    AlertCircle,
+    PlusCircle
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import ConfirmationModal from '../components/modals/ConfirmationModal';
@@ -31,11 +33,46 @@ export default function Pendientes() {
     const [porRevisar, setPorRevisar] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [vinculaciones, setVinculaciones] = useState([]);
+    const [pendientesCreacion, setPendientesCreacion] = useState([]);
     
     // Modal state for Reopening Requests
     const [actionModal, setActionModal] = useState({ show: false, solicitud: null, type: '' });
     const [responseText, setResponseText] = useState('');
     const [fechaLimite, setFechaLimite] = useState('');
+
+    const calculatePendingPeriods = (vincs, allRegs) => {
+        const pending = [];
+        const now = new Date();
+        
+        vincs.forEach(v => {
+            if (!v.fecha_inicio_contrato) return;
+            
+            let current = new Date(v.fecha_inicio_contrato);
+            // Reset to first day of month
+            current = new Date(current.getFullYear(), current.getMonth(), 1);
+            
+            while (current <= now) {
+                const year = current.getFullYear();
+                const month = String(current.getMonth() + 1).padStart(2, '0');
+                const periodStr = `${year}-${month}`;
+                
+                const exists = allRegs.some(r => r.periodo && r.periodo.startsWith(periodStr) && r.vinculacion_id === v.id);
+                
+                if (!exists) {
+                    pending.push({
+                        periodo: periodStr,
+                        date: new Date(current),
+                        vinculacion: v
+                    });
+                }
+                
+                current.setMonth(current.getMonth() + 1);
+            }
+        });
+        
+        setPendientesCreacion(pending.sort((a, b) => a.date - b.date));
+    };
 
     useEffect(() => {
         fetchAllData();
@@ -51,17 +88,35 @@ export default function Pendientes() {
                 ? 'subsanado,en_revision' 
                 : 'pendiente_subsanacion,subsanado,en_revision';
 
-            const [kpiRes, solRes, auditRes, reviewRes] = await Promise.all([
+            const promises = [
                 api.get('/dashboard/kpis'),
                 api.get('/reaperturas?estado=pendiente'),
                 api.get(`/registros?estado_auditoria=${auditParams}`),
                 api.get(`/registros?estado_auditoria=${reviewParams}`)
-            ]);
+            ];
+
+            // If contractor, also fetch vinculaciones and full registry history to find gaps
+            if (!isAdminOrADC) {
+                promises.push(api.get('/vinculaciones'));
+                promises.push(api.get('/registros')); // Full history for the contractor
+            }
+
+            const results = await Promise.all(promises);
+            
+            const [kpiRes, solRes, auditRes, reviewRes] = results;
 
             setKpis(kpiRes.data.data);
             setSolicitudes(solRes.data.data);
             setPorAuditar(auditRes.data.data);
             setPorRevisar(reviewRes.data.data);
+
+            if (!isAdminOrADC && results[4] && results[5]) {
+                const vincs = results[4].data.data;
+                const allRegs = results[5].data.data;
+                setVinculaciones(vincs);
+                calculatePendingPeriods(vincs, allRegs);
+            }
+
             setLoading(false);
         } catch (err) {
             console.error(err);
@@ -212,6 +267,58 @@ export default function Pendientes() {
                                 ))}
                             </div>
                         )}
+                    </section>
+                )}
+
+                {/* 2. Registros Pendientes de Creación - Solo Contratistas */}
+                {!isAdminOrADC && pendientesCreacion.length > 0 && (
+                    <section className="dashboard-section-card" style={{ padding: '1.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '1rem' }}>
+                            <div style={{ backgroundColor: '#fff7ed', p: '8px', borderRadius: '8px' }}>
+                                <AlertCircle size={20} color="#f97316" />
+                            </div>
+                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#374151' }}>Registros Pendientes de Creación</h3>
+                            <span style={{ backgroundColor: '#f97316', color: 'white', borderRadius: '12px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }}>{pendientesCreacion.length}</span>
+                        </div>
+
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ textAlign: 'left', borderBottom: '2px solid #f3f4f6' }}>
+                                        <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>PERIODO</th>
+                                        <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>SERVICIO / DEPENDENCIA</th>
+                                        <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700, textAlign: 'right' }}>ACCIÓN</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {pendientesCreacion.map((item, idx) => (
+                                        <tr key={`${item.periodo}-${idx}`} style={{ borderBottom: '1px solid #f9fafb' }}>
+                                            <td style={{ padding: '1rem 0.75rem' }}>
+                                                <div style={{ fontWeight: 600, color: '#f97316', textTransform: 'capitalize' }}>
+                                                    {item.date.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: '1rem 0.75rem' }}>
+                                                <div style={{ color: '#374151', fontWeight: 500 }}>{item.vinculacion?.servicio?.nombre}</div>
+                                                <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>{item.vinculacion?.dependencia?.nombre}</div>
+                                            </td>
+                                            <td style={{ padding: '1rem 0.75rem', textAlign: 'right' }}>
+                                                <button 
+                                                    onClick={() => navigate(`/registros/new?periodo=${item.periodo}&vinculacion_id=${item.vinculacion.id}`)}
+                                                    style={{ 
+                                                        backgroundColor: '#f97316', color: 'white', border: 'none', 
+                                                        padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
+                                                        display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600
+                                                    }}
+                                                >
+                                                    <PlusCircle size={14} /> Crear Registro
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </section>
                 )}
 
