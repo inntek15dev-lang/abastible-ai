@@ -271,7 +271,10 @@ export default function Pendientes() {
                                                     </button>
                                                 ) : (
                                                     <button 
-                                                        onClick={() => navigate(`/registros/${reg.id}`)}
+                                                        onClick={() => {
+                                                            const isEditable = ['abierto', 'reabierto'].includes(reg.estado_auditoria);
+                                                            navigate(`/registros/${reg.id}`, { state: isEditable ? {} : { readonly: true } });
+                                                        }}
                                                         style={{ 
                                                             backgroundColor: '#eff6ff', color: '#3b82f6', border: '1px solid #bfdbfe', 
                                                             padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
@@ -341,7 +344,10 @@ export default function Pendientes() {
                                                     </button>
                                                 ) : (
                                                     <button 
-                                                        onClick={() => navigate(`/registros/${reg.id}`)}
+                                                        onClick={() => {
+                                                            const isEditable = reg.estado_auditoria === 'pendiente_subsanacion';
+                                                            navigate(`/registros/${reg.id}`, { state: isEditable ? {} : { readonly: true } });
+                                                        }}
                                                         style={{ 
                                                             backgroundColor: '#eff6ff', color: '#3b82f6', border: '1px solid #bfdbfe', 
                                                             padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
