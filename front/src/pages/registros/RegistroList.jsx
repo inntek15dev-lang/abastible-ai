@@ -843,7 +843,7 @@ export default function RegistroList() {
 
             {/* Pending Registers Widget (Only for Contractor User) */}
             {user?.role === 'contratista_user' && myVinculacion && (
-                <PendingRegistersWidget vinculacion={myVinculacion} existingRegistros={registros} />
+                <PendingRegistersWidget vinculacion={myVinculacion} />
             )}
 
             {/* Data Table */}

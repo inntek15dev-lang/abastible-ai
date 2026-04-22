@@ -1,8 +1,28 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertCircle, PlusCircle, ArrowRight } from 'lucide-react';
+import api from '../../api';
 
-export default function PendingRegistersWidget({ vinculacion, existingRegistros = [] }) {
+export default function PendingRegistersWidget({ vinculacion }) {
+    const [history, setHistory] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchHistory = async () => {
+            if (!vinculacion) return;
+            try {
+                setLoading(true);
+                // Fetch full history for this contractor to check for gaps
+                const res = await api.get('/registros');
+                setHistory(res.data.data || []);
+            } catch (err) {
+                console.error("Error fetching history for widget", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchHistory();
+    }, [vinculacion]);
 
     const pendingPeriods = useMemo(() => {
         if (!vinculacion || !vinculacion.fecha_inicio_contrato) return [];
@@ -12,16 +32,19 @@ export default function PendingRegistersWidget({ vinculacion, existingRegistros 
         const periods = [];
 
         // Normalize start date to first day of month to avoid issues
-        const current = new Date(start.getFullYear(), start.getMonth(), 1);
+        let current = new Date(start.getFullYear(), start.getMonth(), 1);
 
         while (current <= end) {
             const year = current.getFullYear();
             const month = String(current.getMonth() + 1).padStart(2, '0');
             const periodStr = `${year}-${month}`;
 
-            // Check if register exists for this period
-            // We check against the list of existing registers passed as prop
-            const exists = existingRegistros.some(r => r.periodo.startsWith(periodStr));
+            // Check if register exists for this period AND this specific vinculacion
+            const exists = history.some(r => 
+                r.periodo && 
+                r.periodo.startsWith(periodStr) && 
+                r.vinculacion_id === vinculacion.id
+            );
 
             if (!exists) {
                 periods.push({
@@ -35,12 +58,12 @@ export default function PendingRegistersWidget({ vinculacion, existingRegistros 
             current.setMonth(current.getMonth() + 1);
         }
 
-        // Return latest first? Or oldest first? Usually pending is oldest first to catch up.
+        // Return oldest first to catch up
         return periods.sort((a, b) => a.date - b.date);
-    }, [vinculacion, existingRegistros]);
+    }, [vinculacion, history]);
 
-    if (!vinculacion) return null;
-    if (pendingPeriods.length === 0) return null; // Nothing pending
+    if (!vinculacion || (loading && history.length === 0)) return null;
+    if (pendingPeriods.length === 0) return null;
 
     return (
         <div className="pending-registers-widget" style={{
