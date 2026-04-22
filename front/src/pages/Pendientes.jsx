@@ -57,15 +57,32 @@ export default function Pendientes() {
                 const month = String(current.getMonth() + 1).padStart(2, '0');
                 const periodStr = `${year}-${month}`;
                 
-                const exists = allRegs.some(r => r.periodo && r.periodo.startsWith(periodStr) && r.vinculacion_id === v.id);
+                // Match by period AND correct FK field (contratista_asignacion_id refers to Vinculacion)
+                const existingRecord = allRegs.find(r => 
+                    r.periodo && 
+                    r.periodo.startsWith(periodStr) && 
+                    (r.contratista_asignacion_id === v.id || r.vinculacion_id === v.id)
+                );
                 
-                if (!exists) {
+                if (!existingRecord) {
+                    // State 1: Missing
                     pending.push({
                         periodo: periodStr,
                         date: new Date(current),
-                        vinculacion: v
+                        vinculacion: v,
+                        action: 'create'
+                    });
+                } else if (existingRecord.cerrado === 0 || existingRecord.cerrado === false) {
+                    // State 2: Draft (Created but not submitted)
+                    pending.push({
+                        periodo: periodStr,
+                        date: new Date(current),
+                        vinculacion: v,
+                        action: 'complete',
+                        recordId: existingRecord.id
                     });
                 }
+                // State 3: Closed (cerrado: 1) -> Do not include in this widget
                 
                 current.setMonth(current.getMonth() + 1);
             }
@@ -301,7 +318,11 @@ export default function Pendientes() {
                                     {pendientesCreacion.map((item, idx) => (
                                         <tr key={`${item.periodo}-${idx}`} style={{ borderBottom: '1px solid #f9fafb' }}>
                                             <td style={{ padding: '1rem 0.75rem' }}>
-                                                <div style={{ fontWeight: 600, color: '#f97316', textTransform: 'capitalize' }}>
+                                                <div style={{ 
+                                                    fontWeight: 600, 
+                                                    color: item.action === 'create' ? '#f97316' : '#3b82f6', 
+                                                    textTransform: 'capitalize' 
+                                                }}>
                                                     {item.date.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}
                                                 </div>
                                             </td>
@@ -310,16 +331,29 @@ export default function Pendientes() {
                                                 <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>{item.vinculacion?.dependencia?.nombre}</div>
                                             </td>
                                             <td style={{ padding: '1rem 0.75rem', textAlign: 'right' }}>
-                                                <button 
-                                                    onClick={() => navigate(`/registros/new?periodo=${item.periodo}&vinculacion_id=${item.vinculacion.id}`)}
-                                                    style={{ 
-                                                        backgroundColor: '#f97316', color: 'white', border: 'none', 
-                                                        padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
-                                                        display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600
-                                                    }}
-                                                >
-                                                    <PlusCircle size={14} /> Crear Registro
-                                                </button>
+                                                {item.action === 'complete' ? (
+                                                    <button 
+                                                        onClick={() => navigate(`/registros/${item.recordId}/edit`)}
+                                                        style={{ 
+                                                            backgroundColor: '#3b82f6', color: 'white', border: 'none', 
+                                                            padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
+                                                            display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600
+                                                        }}
+                                                    >
+                                                        <ArrowRight size={14} /> Completar Registro
+                                                    </button>
+                                                ) : (
+                                                    <button 
+                                                        onClick={() => navigate(`/registros/new?periodo=${item.periodo}&vinculacion_id=${item.vinculacion.id}`)}
+                                                        style={{ 
+                                                            backgroundColor: '#f97316', color: 'white', border: 'none', 
+                                                            padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
+                                                            display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600
+                                                        }}
+                                                    >
+                                                        <PlusCircle size={14} /> Crear Registro
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}

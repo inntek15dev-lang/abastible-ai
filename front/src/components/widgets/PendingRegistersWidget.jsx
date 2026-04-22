@@ -40,17 +40,26 @@ export default function PendingRegistersWidget({ vinculacion }) {
             const periodStr = `${year}-${month}`;
 
             // Check if register exists for this period AND this specific vinculacion
-            const exists = history.some(r => 
+            const existingRecord = history.find(r => 
                 r.periodo && 
                 r.periodo.startsWith(periodStr) && 
-                r.vinculacion_id === vinculacion.id
+                (r.vinculacion_id === vinculacion.id || r.contratista_asignacion_id === vinculacion.id)
             );
 
-            if (!exists) {
+            if (!existingRecord) {
                 periods.push({
                     periodo: periodStr,
-                    date: new Date(current), // Clone
-                    vinculacionId: vinculacion.id
+                    date: new Date(current),
+                    vinculacionId: vinculacion.id,
+                    action: 'create'
+                });
+            } else if (existingRecord.cerrado === 0 || existingRecord.cerrado === false) {
+                periods.push({
+                    periodo: periodStr,
+                    date: new Date(current),
+                    vinculacionId: vinculacion.id,
+                    action: 'complete',
+                    recordId: existingRecord.id
                 });
             }
 
@@ -111,7 +120,7 @@ export default function PendingRegistersWidget({ vinculacion }) {
                         <tbody>
                             {pendingPeriods.map((item) => (
                                 <tr key={item.periodo}>
-                                    <td style={{ fontWeight: 600, color: '#c2410c' }}>
+                                    <td style={{ fontWeight: 600, color: item.action === 'create' ? '#c2410c' : '#2563eb' }}>
                                         {item.date.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
                                     </td>
                                     <td>
@@ -123,16 +132,30 @@ export default function PendingRegistersWidget({ vinculacion }) {
                                         </div>
                                     </td>
                                     <td style={{ textAlign: 'right' }}>
-                                        <Link
-                                            to={`/registros/new?periodo=${item.periodo}&vinculacion_id=${vinculacion.id}`}
-                                            className="btn-primary"
-                                            style={{
-                                                display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                                padding: '4px 12px', fontSize: '0.8rem'
-                                            }}
-                                        >
-                                            <PlusCircle size={14} /> Crear Registro
-                                        </Link>
+                                        {item.action === 'complete' ? (
+                                            <Link
+                                                to={`/registros/${item.recordId}/edit`}
+                                                className="btn-primary"
+                                                style={{
+                                                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                                    padding: '4px 12px', fontSize: '0.8rem',
+                                                    backgroundColor: '#2563eb', borderColor: '#2563eb'
+                                                }}
+                                            >
+                                                <ArrowRight size={14} /> Completar Registro
+                                            </Link>
+                                        ) : (
+                                            <Link
+                                                to={`/registros/new?periodo=${item.periodo}&vinculacion_id=${vinculacion.id}`}
+                                                className="btn-primary"
+                                                style={{
+                                                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                                    padding: '4px 12px', fontSize: '0.8rem'
+                                                }}
+                                            >
+                                                <PlusCircle size={14} /> Crear Registro
+                                            </Link>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
