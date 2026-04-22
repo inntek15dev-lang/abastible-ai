@@ -173,7 +173,7 @@ const auditoriaController = {
             }
 
             // Recalculate percentage (same logic as finalizarAuditoria)
-            const actividades = registro.actividades || [];
+            // recalculate activities using existing definition
             const auditables = actividades.filter(a => a.cumple_auditor !== null && a.cumple_auditor !== 2);
             const cumplidas = auditables.filter(a => a.cumple_auditor === true || a.cumple_auditor === 1).length;
             const porcentaje = auditables.length > 0 ? ((cumplidas / auditables.length) * 100).toFixed(2) : 0;
@@ -266,7 +266,6 @@ const auditoriaController = {
             }
 
             // Calculate auditor percentage: Exclude N/A (2) and handle nulls
-            const actividades = registro.actividades || [];
             // Filter only applicable and audited activities (not null and not 2)
             const auditables = actividades.filter(a => a.cumple_auditor !== null && a.cumple_auditor !== 2);
             // Numerator: count those that are true/1
