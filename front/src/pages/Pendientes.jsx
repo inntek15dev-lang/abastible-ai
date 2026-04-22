@@ -97,7 +97,14 @@ export default function Pendientes() {
 
             // If contractor, also fetch vinculaciones and full registry history to find gaps
             if (!isAdminOrADC) {
-                promises.push(api.get('/vinculaciones'));
+                const vincParams = new URLSearchParams();
+                if (user?.role === 'contratista_user') {
+                    if (user.contratista_id) vincParams.append('contratista_id', user.contratista_id);
+                    if (user.tipo_contratista_id) vincParams.append('servicio_id', user.tipo_contratista_id);
+                    if (user.dependencia_id) vincParams.append('dependencia_id', user.dependencia_id);
+                }
+                
+                promises.push(api.get(`/vinculaciones?${vincParams.toString()}`));
                 promises.push(api.get('/registros')); // Full history for the contractor
             }
 
