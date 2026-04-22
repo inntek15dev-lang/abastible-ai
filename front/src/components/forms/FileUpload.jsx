@@ -121,7 +121,7 @@ export default function FileUpload({
                 />
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
-                    <div style={{ display: 'flex', rowDirection: 'row', alignItems: 'center', gap: '0.5rem', width: '100%', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
                         {/* Template Download Button */}
                         {!isADC && (
                             <a
@@ -138,15 +138,17 @@ export default function FileUpload({
                                     fontSize: '0.75rem',
                                     color: templateUrl ? '#003594' : '#9ca3af',
                                     textDecoration: 'none',
-                                    padding: '0.5rem',
+                                    padding: '0.4rem 0.5rem',
                                     border: `1px dashed ${templateUrl ? '#003594' : '#d1d5db'}`,
                                     borderRadius: '4px',
                                     backgroundColor: templateUrl ? '#eff6ff' : '#f3f4f6',
                                     transition: 'all 0.2s',
-                                    flex: 1,
+                                    width: '100%',
                                     cursor: templateUrl ? 'pointer' : 'not-allowed',
-                                    height: '38px', // Match standard button height
-                                    whiteSpace: 'nowrap'
+                                    height: 'auto',
+                                    minHeight: '38px',
+                                    textAlign: 'center',
+                                    lineHeight: '1.1'
                                 }}
                                 onMouseEnter={(e) => {
                                     if (templateUrl) e.currentTarget.style.backgroundColor = '#dbeafe';
@@ -157,7 +159,11 @@ export default function FileUpload({
                                 title={!templateUrl ? "Sin plantilla disponible" : "Descargar Plantilla"}
                             >
                                 <FileText size={14} />
-                                {templateUrl ? 'Descargar Plantilla' : 'Sin Plantilla'}
+                                <div style={{ textAlign: 'center' }}>
+                                    {templateUrl ? (
+                                        <>Descargar<br/>Plantilla</>
+                                    ) : 'Sin Plantilla'}
+                                </div>
                             </a>
                         )}
 
@@ -168,7 +174,7 @@ export default function FileUpload({
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={!canUpload || uploading}
                                 style={{ 
-                                    flex: 1, 
+                                    width: '100%', 
                                     height: '38px',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -178,10 +184,11 @@ export default function FileUpload({
                                     color: '#fff',
                                     border: 'none',
                                     borderRadius: '4px',
-                                    cursor: (!canUpload || uploading) ? 'not-allowed' : 'pointer'
+                                    cursor: (!canUpload || uploading) ? 'not-allowed' : 'pointer',
+                                    fontSize: '0.75rem'
                                 }}
                             >
-                                <Upload size={18} />
+                                <Upload size={14} />
                                 {uploading ? 'Subiendo...' : 'Subir Evidencia'}
                             </button>
                         )}

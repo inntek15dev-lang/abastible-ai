@@ -783,7 +783,7 @@ export default function RegistroForm() {
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                                 <thead style={{ backgroundColor: themeColors.tableHeadBg, color: themeColors.tableHeadColor, fontSize: '0.75rem', textTransform: 'uppercase' }}>
                                     <tr>
-                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '60px' }}>Código</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '60px' }}>N°</th>
                                         <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '30%' }}>Actividad</th>
                                         <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, width: '15%' }}>Criterios de Aceptar</th>
                                         <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600, width: '80px' }}>Frecuencia</th>
@@ -829,8 +829,8 @@ export default function RegistroForm() {
                                                 <td style={{ padding: '1rem', verticalAlign: 'top', textAlign: 'center', color: themeColors.textSecondary, fontSize: '0.8rem' }}>
                                                     {act.frecuencia || 'Mensual'}
                                                 </td>
-                                                <td style={{ padding: '1rem', verticalAlign: 'top', textAlign: 'center' }}>
-                                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                                <td style={{ padding: '0.5rem', verticalAlign: 'top', textAlign: 'center' }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>
                                                         <button
                                                             type="button"
                                                             onClick={() => {
@@ -861,7 +861,9 @@ export default function RegistroForm() {
                                                                 borderColor: !act.cumple ? '#ef4444' : '#e5e7eb',
                                                                 color: !act.cumple ? '#b91c1c' : '#9ca3af',
                                                                 fontWeight: !act.cumple ? 600 : 400,
-                                                                opacity: isLocked ? 0.6 : 1
+                                                                opacity: isLocked ? 0.6 : 1,
+                                                                width: '100%',
+                                                                minWidth: '95px'
                                                             }}
                                                         >
                                                             ✕ No Cumple
