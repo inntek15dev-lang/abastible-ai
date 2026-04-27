@@ -203,6 +203,10 @@ Documento.belongsTo(User, { foreignKey: 'user_id', as: 'uploader' });
 
 // ============= SPRINT 9 ASSOCIATIONS =============
 
+// Contratista -> Gerencias (N gerencias a 1 contratista)
+Contratista.hasMany(Gerencia, { foreignKey: 'contratista_id', as: 'gerencias' });
+Gerencia.belongsTo(Contratista, { foreignKey: 'contratista_id', as: 'contratista' });
+
 // Contratista -> Users (Operativos)
 Contratista.hasMany(User, { foreignKey: 'contratista_id', as: 'usuarios' });
 User.belongsTo(Contratista, { foreignKey: 'contratista_id', as: 'contratistaEntidad' });

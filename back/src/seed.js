@@ -65,15 +65,25 @@ async function seed() {
             });
         }
 
+        // ============= ORDER 2: Empresa Contratista (MOVED UP) =============
+        console.log('📦 Sincronizando empresa contratista...');
+        const [mafran] = await Contratista.findOrCreate({
+            where: { rut: '76169976-8' },
+            defaults: {
+                nombre: 'SOC DE TRANSPORTE MAFRAN LTDA',
+                activo: 1
+            }
+        });
+
         console.log('📦 Sincronizando Gerencias...');
         const [gerenciaDistribucion] = await Gerencia.findOrCreate({
-            where: { nombre: 'GERENCIA DE DISTRIBUCIÓN' },
-            defaults: { activo: 1 }
+            where: { nombre: 'GERENCIA DE DISTRIBUCION' },
+            defaults: { activo: 1, contratista_id: mafran.id }
         });
 
         console.log('📦 Sincronizando Subgerencias...');
         const [subgerenciaOperaciones] = await Subgerencia.findOrCreate({
-            where: { nombre: 'SUBGERENCIA OPERACIONES DE DISTRIBUCIÓN' },
+            where: { nombre: 'OPERACIONES Y DISTRIBUCION' },
             defaults: { gerencia_id: gerenciaDistribucion.id, activo: 1 }
         });
 
@@ -118,9 +128,9 @@ async function seed() {
         // ============= ORDER 1: Tables with FK to order 0 =============
         console.log('📦 Sincronizando tipos de contratista (servicios)...');
         const tiposContratistaData = [
-            { nombre: 'Distribución Envasado', descripcion: 'Contratista de distribución envasado', programa_id: programas[0].id, subgerencia_id: subgerenciaOperaciones.id, activo: 1 },
-            { nombre: 'Distribución Granel', descripcion: 'Contratista de distribución granel', programa_id: programas[1].id, subgerencia_id: subgerenciaOperaciones.id, activo: 1 },
-            { nombre: 'Distribución Envasado Acotado', descripcion: 'Contratista de distribución envasado acotado', programa_id: programas[2].id, subgerencia_id: subgerenciaOperaciones.id, activo: 1 },
+            { nombre: 'Distribucion Envasado', descripcion: 'Contratista de distribución envasado', programa_id: programas[0].id, subgerencia_id: subgerenciaOperaciones.id, activo: 1 },
+            { nombre: 'Distribucion Granel', descripcion: 'Contratista de distribución granel', programa_id: programas[1].id, subgerencia_id: subgerenciaOperaciones.id, activo: 1 },
+            { nombre: 'Distribucion Envasado Acotado', descripcion: 'Contratista de distribución envasado acotado', programa_id: programas[2].id, subgerencia_id: subgerenciaOperaciones.id, activo: 1 },
             { nombre: 'Producción Movilizado', descripcion: 'Asignación de producción movilizado', programa_id: programas[3].id, subgerencia_id: subgerenciaOperaciones.id, activo: 1 }
         ];
         const tiposContratista = [];
@@ -208,15 +218,7 @@ async function seed() {
             }
         }
 
-        // ============= ORDER 2: Empresa Contratista =============
-        console.log('📦 Sincronizando empresa contratista...');
-        const [mafran] = await Contratista.findOrCreate({
-            where: { rut: '76169976-8' },
-            defaults: {
-                nombre: 'SOC DE TRANSPORTE MAFRAN LTDA',
-                activo: 1
-            }
-        });
+        // mafran already created above and linked to gerencias
 
         // ============= ORDER 3: Vinculaciones de MAFRAN =============
         console.log('📦 Sincronizando vinculaciones de MAFRAN...');

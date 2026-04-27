@@ -67,7 +67,7 @@ export const MODULES = [
             { path: '/programas', label: 'Programas y Estándares', icon: FolderOpen, module: 'Programas' },
             { path: '/contratistas', label: 'Empresas Contratistas', icon: Building, module: 'Gestion_Configuracion' },
             { path: '/dependencias', label: 'Dependencias y Plantas', icon: Building, module: 'Gestion_Configuracion' },
-            { path: '/servicios', label: 'Servicios y Tipos', icon: Settings, module: 'Gestion_Configuracion' }
+            { path: '/servicios', label: 'Gerencias, Subgerencias y Servicios', icon: Settings, module: 'Gestion_Configuracion' }
         ]
     },
     {

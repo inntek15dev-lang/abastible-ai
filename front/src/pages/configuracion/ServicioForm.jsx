@@ -21,14 +21,25 @@ export default function ServicioForm() {
         nombre: '',
         descripcion: '',
         programa_id: '',
+        subgerencia_id: '',
         activo: 1
     });
     const [programas, setProgramas] = useState([]);
+    const [subgerencias, setSubgerencias] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
     useEffect(() => {
         fetchProgramas();
+        fetchSubgerencias();
+        
+        // Handle subgerencia_id from URL query params
+        const params = new URLSearchParams(window.location.search);
+        const subId = params.get('subgerencia_id');
+        if (subId && !isEdit) {
+            setForm(prev => ({ ...prev, subgerencia_id: subId }));
+        }
+
         if (isEdit) {
             fetchServicio();
         }
@@ -43,6 +54,15 @@ export default function ServicioForm() {
         }
     };
 
+    const fetchSubgerencias = async () => {
+        try {
+            const response = await api.get('/resources/subgerencias');
+            setSubgerencias(response.data.data);
+        } catch (err) {
+            console.error('Error loading subgerencias');
+        }
+    };
+
     const fetchServicio = async () => {
         try {
             const response = await api.get(`/servicios/${id}`);
@@ -51,6 +71,7 @@ export default function ServicioForm() {
                 nombre: data.nombre || '',
                 descripcion: data.descripcion || '',
                 programa_id: data.programa_id || '',
+                subgerencia_id: data.subgerencia_id || '',
                 activo: data.activo
             });
         } catch (err) {
@@ -154,6 +175,21 @@ export default function ServicioForm() {
                                     <option value="">Seleccione un programa...</option>
                                     {programas.map(p => (
                                         <option key={p.id} value={p.id}>{p.nombre}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div style={styles.field}>
+                                <label style={styles.label}>Subgerencia Responsable</label>
+                                <select
+                                    style={styles.select}
+                                    value={form.subgerencia_id}
+                                    onChange={(e) => setForm({ ...form, subgerencia_id: e.target.value })}
+                                    required
+                                >
+                                    <option value="">Seleccione una subgerencia...</option>
+                                    {subgerencias.map(s => (
+                                        <option key={s.id} value={s.id}>{s.nombre}</option>
                                     ))}
                                 </select>
                             </div>

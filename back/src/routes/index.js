@@ -1106,12 +1106,22 @@ router.delete('/dependencias/:id', auth, requirePrivilege('Gestion_Configuracion
  *       200:
  *         description: Deleted
  */
-// Servicios
+// Servicios & Jerarquía
 router.get('/servicios', auth, servicioController.index);
+router.get('/servicios/hierarchy', auth, servicioController.hierarchy);
 router.get('/servicios/:id', auth, servicioController.show);
 router.post('/servicios', auth, requirePrivilege('Gestion_Configuracion', 'write'), servicioController.store);
 router.put('/servicios/:id', auth, requirePrivilege('Gestion_Configuracion', 'write'), servicioController.update);
 router.delete('/servicios/:id', auth, requirePrivilege('Gestion_Configuracion', 'excec'), servicioController.destroy);
+
+// CRUD Gerencias y Subgerencias (desde módulo jerárquico)
+router.post('/gerencias', auth, requirePrivilege('Gestion_Configuracion', 'write'), servicioController.storeGerencia);
+router.put('/gerencias/:id', auth, requirePrivilege('Gestion_Configuracion', 'write'), servicioController.updateGerencia);
+router.delete('/gerencias/:id', auth, requirePrivilege('Gestion_Configuracion', 'excec'), servicioController.destroyGerencia);
+
+router.post('/subgerencias', auth, requirePrivilege('Gestion_Configuracion', 'write'), servicioController.storeSubgerencia);
+router.put('/subgerencias/:id', auth, requirePrivilege('Gestion_Configuracion', 'write'), servicioController.updateSubgerencia);
+router.delete('/subgerencias/:id', auth, requirePrivilege('Gestion_Configuracion', 'excec'), servicioController.destroySubgerencia);
 
 // ============= SPRINT 9 REFACTOR: CONTRATISTAS =============
 const contratistaController = require('../controllers/contratistaController');
