@@ -19,7 +19,8 @@ export default function ComplianceMatrixReport() {
         dependencia_id: 'todas',
         programa_id: 'todos',
         tiene_registros: 'todos',
-        periodo: new Date().toISOString().slice(0, 7)
+        periodo_desde: new Date().toISOString().slice(0, 7),
+        periodo_hasta: new Date().toISOString().slice(0, 7)
     });
 
     // Options for filters
@@ -78,7 +79,8 @@ export default function ComplianceMatrixReport() {
             dependencia_id: user?.role === 'contratista_user' ? (user.dependencia_id || 'todas') : 'todas',
             programa_id: 'todos',
             tiene_registros: 'todos',
-            periodo: new Date().toISOString().slice(0, 7)
+            periodo_desde: new Date().toISOString().slice(0, 7),
+            periodo_hasta: new Date().toISOString().slice(0, 7)
         });
         setPage(1);
     };
@@ -92,7 +94,8 @@ export default function ComplianceMatrixReport() {
             if (filters.dependencia_id !== 'todas') params.append('dependencia_id', filters.dependencia_id);
             if (filters.programa_id !== 'todos') params.append('programa_id', filters.programa_id);
             if (filters.tiene_registros !== 'todos') params.append('tiene_registros', filters.tiene_registros);
-            if (filters.periodo) params.append('periodo', filters.periodo);
+            if (filters.periodo_desde) params.append('periodo_desde', filters.periodo_desde);
+            if (filters.periodo_hasta) params.append('periodo_hasta', filters.periodo_hasta);
 
             params.append('page', page);
             params.append('limit', 5);
@@ -127,7 +130,8 @@ export default function ComplianceMatrixReport() {
         if (filters.servicio_id !== 'todos') params.append('servicio_id', filters.servicio_id);
         if (filters.dependencia_id !== 'todas') params.append('dependencia_id', filters.dependencia_id);
         if (filters.programa_id !== 'todos') params.append('programa_id', filters.programa_id);
-        if (filters.periodo) params.append('periodo', filters.periodo);
+        if (filters.periodo_desde) params.append('periodo_desde', filters.periodo_desde);
+        if (filters.periodo_hasta) params.append('periodo_hasta', filters.periodo_hasta);
         params.append('token', localStorage.getItem('token'));
         window.open(`${api.defaults.baseURL}/reportes/matrix/pdf?${params.toString()}`, '_blank');
     };
@@ -138,7 +142,8 @@ export default function ComplianceMatrixReport() {
         if (filters.servicio_id !== 'todos') params.append('servicio_id', filters.servicio_id);
         if (filters.dependencia_id !== 'todas') params.append('dependencia_id', filters.dependencia_id);
         if (filters.programa_id !== 'todos') params.append('programa_id', filters.programa_id);
-        if (filters.periodo) params.append('periodo', filters.periodo);
+        if (filters.periodo_desde) params.append('periodo_desde', filters.periodo_desde);
+        if (filters.periodo_hasta) params.append('periodo_hasta', filters.periodo_hasta);
         params.append('token', localStorage.getItem('token'));
         window.open(`${api.defaults.baseURL}/reportes/matrix/excel?${params.toString()}`, '_blank');
     };
@@ -291,12 +296,39 @@ export default function ComplianceMatrixReport() {
                         marginBottom: '6px', textTransform: 'uppercase'
                     }}>
                         <Monitor size={12} className="text-slate-400" />
+                        Periodo (Desde)
+                    </label>
+                    <input
+                        type="month"
+                        value={filters.periodo_desde}
+                        onChange={(e) => setFilters(f => ({ ...f, periodo_desde: e.target.value, periodo_hasta: e.target.value }))}
+                        style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            fontSize: '13px',
+                            color: '#1e293b',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            outline: 'none',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                            minHeight: '38px'
+                        }}
+                    />
+                </div>
+
+                <div style={{ flex: '1 1 200px', minWidth: '150px' }}>
+                    <label style={{
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        fontSize: '11px', fontWeight: 600, color: '#64748b',
+                        marginBottom: '6px', textTransform: 'uppercase'
+                    }}>
+                        <Monitor size={12} className="text-slate-400" />
                         Periodo (Hasta)
                     </label>
                     <input
                         type="month"
-                        value={filters.periodo}
-                        onChange={(e) => setFilters(f => ({ ...f, periodo: e.target.value }))}
+                        value={filters.periodo_hasta}
+                        onChange={(e) => setFilters(f => ({ ...f, periodo_hasta: e.target.value }))}
                         style={{
                             width: '100%',
                             padding: '8px 12px',

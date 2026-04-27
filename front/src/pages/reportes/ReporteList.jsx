@@ -11,7 +11,8 @@ export default function ReporteList() {
     const navigate = useNavigate();
 
     const [loading, setLoading] = useState(true);
-    const [filterPeriodo, setFilterPeriodo] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+    const [periodoDesde, setPeriodoDesde] = useState(new Date().toISOString().slice(0, 7));
+    const [periodoHasta, setPeriodoHasta] = useState(new Date().toISOString().slice(0, 7));
     const [reportData, setReportData] = useState({ elementos: [], registros: [] });
 
     useEffect(() => {
@@ -20,12 +21,12 @@ export default function ReporteList() {
             return;
         }
         fetchData();
-    }, [canRead, navigate, filterPeriodo]);
+    }, [canRead, navigate, periodoDesde, periodoHasta]);
 
     const fetchData = async () => {
         try {
             setLoading(true);
-            const response = await api.get(`/reportes/cumplimiento?periodo=${filterPeriodo}`);
+            const response = await api.get(`/reportes/cumplimiento?periodo_desde=${periodoDesde}&periodo_hasta=${periodoHasta}`);
             if (response.data.success) {
                 setReportData(response.data.data);
             }
@@ -37,11 +38,16 @@ export default function ReporteList() {
     };
 
     const handleExportPdf = async () => {
-        window.open(`${api.defaults.baseURL}/reportes/cumplimiento/pdf?periodo=${filterPeriodo}&token=${localStorage.getItem('token')}`, '_blank');
+        window.open(`${api.defaults.baseURL}/reportes/cumplimiento/pdf?periodo_desde=${periodoDesde}&periodo_hasta=${periodoHasta}&token=${localStorage.getItem('token')}`, '_blank');
     };
 
     const handleExportExcel = async () => {
-        window.open(`${api.defaults.baseURL}/reportes/cumplimiento/excel?periodo=${filterPeriodo}&token=${localStorage.getItem('token')}`, '_blank');
+        window.open(`${api.defaults.baseURL}/reportes/cumplimiento/excel?periodo_desde=${periodoDesde}&periodo_hasta=${periodoHasta}&token=${localStorage.getItem('token')}`, '_blank');
+    };
+
+    const handleDesdeChange = (val) => {
+        setPeriodoDesde(val);
+        setPeriodoHasta(val); // Automatic replication
     };
 
     const viewRegistroPdf = (id) => {
@@ -69,13 +75,23 @@ export default function ReporteList() {
                 </div>
 
                 <div className="header-controls">
-                    <div className="period-picker">
-                        <label>Periodo:</label>
-                        <input
-                            type="month"
-                            value={filterPeriodo}
-                            onChange={(e) => setFilterPeriodo(e.target.value)}
-                        />
+                    <div className="period-picker-group" style={{ display: 'flex', gap: '12px' }}>
+                        <div className="period-picker">
+                            <label>Desde:</label>
+                            <input
+                                type="month"
+                                value={periodoDesde}
+                                onChange={(e) => handleDesdeChange(e.target.value)}
+                            />
+                        </div>
+                        <div className="period-picker">
+                            <label>Hasta:</label>
+                            <input
+                                type="month"
+                                value={periodoHasta}
+                                onChange={(e) => setPeriodoHasta(e.target.value)}
+                            />
+                        </div>
                     </div>
                     <div className="header-actions">
                         <button onClick={handleExportExcel} className="btn-export excel">

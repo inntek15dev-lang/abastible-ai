@@ -110,7 +110,7 @@ module.exports = {
 
     async cumplimientoGeneral(req, res) {
         try {
-            const { periodo } = req.query; // Format YYYY-MM
+            const { periodo, periodo_desde, periodo_hasta } = req.query; 
             const user = req.user;
             const whereRegistro = {};
 
@@ -154,9 +154,12 @@ module.exports = {
                 }
             }
 
-            if (periodo) {
-                const startDate = new Date(periodo + '-01');
-                const endDate = new Date(new Date(startDate).setMonth(startDate.getMonth() + 1));
+            if (periodo_desde || periodo_hasta || periodo) {
+                const startDate = new Date((periodo_desde || periodo) + '-01');
+                const endDate = periodo_hasta 
+                    ? new Date(new Date(periodo_hasta + '-01').setMonth(new Date(periodo_hasta + '-01').getMonth() + 1))
+                    : new Date(new Date(startDate).setMonth(startDate.getMonth() + 1));
+                    
                 whereRegistro.periodo = {
                     [Op.gte]: startDate,
                     [Op.lt]: endDate
@@ -499,7 +502,7 @@ module.exports = {
 
     async _getMatrixData(req) {
         const user = req.user;
-        const { contratista_id, servicio_id, dependencia_id, programa_id, periodo } = req.query;
+        const { contratista_id, servicio_id, dependencia_id, programa_id, periodo, periodo_desde, periodo_hasta } = req.query;
 
         const whereVinculacion = { activo: 1 };
 
@@ -525,9 +528,15 @@ module.exports = {
         if (dependencia_id && String(dependencia_id).toLowerCase() !== 'todas') whereVinculacion.dependencia_id = dependencia_id;
 
         // 3. Date Range
-        const today = periodo ? new Date(periodo + '-01') : new Date();
-        const startMonth = new Date(today.getFullYear(), today.getMonth() - 5, 1);
-        const endMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        let startMonth, endMonth;
+        if (periodo_desde && periodo_hasta) {
+            startMonth = new Date(periodo_desde + '-01');
+            endMonth = new Date(new Date(periodo_hasta + '-01').setMonth(new Date(periodo_hasta + '-01').getMonth() + 1, 0));
+        } else {
+            const today = periodo ? new Date(periodo + '-01') : new Date();
+            startMonth = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+            endMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        }
 
         // 4. Fetch
         const vinculaciones = await Vinculacion.findAll({
@@ -574,12 +583,13 @@ module.exports = {
 
         // 6. Columns
         const columns = [];
-        for (let i = 5; i >= 0; i--) {
-            const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        let curr = new Date(startMonth);
+        while (curr <= endMonth) {
             columns.push({
-                key: d.toISOString().slice(0, 7),
-                label: d.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }).toUpperCase()
+                key: curr.toISOString().slice(0, 7),
+                label: curr.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }).toUpperCase()
             });
+            curr.setMonth(curr.getMonth() + 1);
         }
 
         return { columns, rows };
@@ -597,9 +607,10 @@ module.exports = {
             whereRegistro.contratista_asignacion_id = { [Op.in]: adminRecords.map(a => a.vinculacion_id) };
         }
         
-        if (periodo) {
-            const startDate = new Date(periodo + '-01');
-            const endDate = new Date(new Date(startDate).setMonth(startDate.getMonth() + 1));
+        if (req.query.periodo_desde || req.query.periodo_hasta || periodo) {
+            const startDate = new Date((req.query.periodo_desde || periodo) + '-01');
+            const endMonthDate = req.query.periodo_hasta ? new Date(req.query.periodo_hasta + '-01') : startDate;
+            const endDate = new Date(new Date(endMonthDate).setMonth(endMonthDate.getMonth() + 1));
             whereRegistro.periodo = { [Op.gte]: startDate, [Op.lt]: endDate };
         }
 
