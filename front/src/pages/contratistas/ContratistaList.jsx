@@ -536,13 +536,13 @@ export default function ContratistaList() {
                                     <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>
                                         {endDate}
                                     </div>
-                                    <div className="actions-cell" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                    <div className="actions-cell">
                                         <button
                                             onClick={() => toggleRow(c.id)}
                                             className="action-btn"
                                             title={expandedRows[c.id] ? "Ocultar Vinculaciones" : "Ver Vinculaciones"}
                                         >
-                                            {expandedRows[c.id] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                            {expandedRows[c.id] ? <ChevronUp size={22} strokeWidth={2.5} /> : <ChevronDown size={22} strokeWidth={2.5} />}
                                         </button>
 
                                         {canWrite('Configuración') && !isADC && (
@@ -553,10 +553,10 @@ export default function ContratistaList() {
                                                     style={{ color: c.activo ? '#10B981' : '#F59E0B' }}
                                                     title={c.activo ? "Desactivar" : "Activar"}
                                                 >
-                                                    <Power size={18} />
+                                                    <Power size={22} strokeWidth={2.5} />
                                                 </button>
                                                 <Link to={`/contratistas/${c.id}`} className="action-btn" title="Editar">
-                                                    <Edit size={18} />
+                                                    <Edit size={22} strokeWidth={2.5} />
                                                 </Link>
                                                 {canExec('Configuración') && (
                                                     <button
@@ -564,7 +564,7 @@ export default function ContratistaList() {
                                                         className="action-btn danger"
                                                         title="Eliminar permanentemente"
                                                     >
-                                                        <Trash2 size={18} />
+                                                        <Trash2 size={22} strokeWidth={2.5} />
                                                     </button>
                                                 )}
                                             </>
