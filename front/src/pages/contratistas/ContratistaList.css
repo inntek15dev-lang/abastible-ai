@@ -117,7 +117,7 @@
    ----------------------------- */
 .table-header {
     display: grid;
-    grid-template-columns: 1.8fr 120px 1.2fr 2fr 1.2fr 100px 100px 140px;
+    grid-template-columns: 2fr 120px 1.2fr 2fr 1.2fr 100px 100px 80px;
     /* Adjust based on content */
     padding: 0 var(--spacing-md) var(--spacing-sm);
     font-size: 0.75rem;
@@ -163,7 +163,7 @@
 
 .contratista-main-row {
     display: grid;
-    grid-template-columns: 1.8fr 120px 1.2fr 2fr 1.2fr 100px 100px 140px;
+    grid-template-columns: 2fr 120px 1.2fr 2fr 1.2fr 100px 100px 80px;
     padding: var(--spacing-md);
     align-items: center;
     border-bottom: 1px solid transparent;
@@ -176,8 +176,11 @@
 
 .actions-cell {
     display: flex;
-    justify-content: flex-end;
-    gap: 10px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 0;
 }
 
 .contratista-name {
@@ -300,19 +303,20 @@
     padding: 0;
     border-radius: 8px;
     color: #64748b;
+    vertical-align: middle;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 50px;
-    height: 50px;
+    width: 42px;
+    height: 42px;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     flex-shrink: 0;
 }
 
 .action-btn svg {
-    width: 24px !important;
-    height: 24px !important;
+    width: 22px !important;
+    height: 22px !important;
 }
 
 .action-btn.danger {
