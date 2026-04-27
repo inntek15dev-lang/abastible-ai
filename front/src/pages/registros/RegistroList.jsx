@@ -397,7 +397,11 @@ export default function RegistroList() {
             doc.setFontSize(14);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(0, 0, 0);
-            const spanishMonth = new Date(registro.periodo).toLocaleDateString('es-CL', { month: 'long', year: 'numeric', timeZone: 'UTC' }).toUpperCase();
+            const spanishMonth = (() => {
+                if (!registro.periodo) return 'N/A';
+                const [y, m] = registro.periodo.split('-');
+                return new Date(parseInt(y), parseInt(m) - 1, 1).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' }).toUpperCase();
+            })();
             doc.text(spanishMonth, pageWidth - 35 - margin, 24, { align: 'center' });
 
             // Orange Line Separator
@@ -883,7 +887,10 @@ export default function RegistroList() {
                                     </td>
                                     <td style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <div style={{ fontWeight: 500 }}>
-                                            {new Date(registro.periodo).toLocaleDateString('es-CL', { month: 'long', year: 'numeric', timeZone: 'UTC' }).replace(/^\w/, c => c.toUpperCase())}
+                                            {registro.periodo ? (() => {
+                                                const [y, m] = registro.periodo.split('-');
+                                                return new Date(parseInt(y), parseInt(m) - 1, 1).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase());
+                                            })() : '-'}
                                         </div>
                                     </td>
                                     <td style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>

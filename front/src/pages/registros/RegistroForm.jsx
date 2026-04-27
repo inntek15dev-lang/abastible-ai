@@ -234,9 +234,14 @@ export default function RegistroForm() {
         if (vinculacion && vinculacion.servicio && vinculacion.servicio.programa_id) {
             const programaId = vinculacion.servicio.programa_id;
             setForm(prev => ({ ...prev, programa_id: programaId }));
+            
+            // BUG FIX: In edit mode, we don't want to overwrite already loaded activities
+            // since fetchRegistro already populated them.
+            if (isEdit) return;
+            
             fetchActividades(programaId);
         }
-    }, [form.contratista_asignacion_id, assignments]);
+    }, [form.contratista_asignacion_id, assignments, isEdit]);
 
     const handleCompromisoClick = (hallazgo) => {
         setCompromisoModal({ show: true, hallazgo });
@@ -572,8 +577,12 @@ export default function RegistroForm() {
     // Calculate total progress
     const totalProgress = useMemo(() => {
         if (!actividades.length) return 0;
-        const cumplidas = actividades.filter(a => a.cumple).length;
-        return Math.round((cumplidas / actividades.length) * 100);
+        // Parse "cumple" as it can be boolean from UI or number from API
+        // N/A (value 2) should be excluded from denominator if we want true compliance %
+        const applicable = actividades.filter(a => a.cumple !== 2);
+        const cumplidas = applicable.filter(a => a.cumple === true || a.cumple === 1).length;
+        if (applicable.length === 0) return 0;
+        return Math.round((cumplidas / applicable.length) * 100);
     }, [actividades]);
 
     const handleBack = () => navigate(-1);
@@ -658,15 +667,13 @@ export default function RegistroForm() {
                                 <input
                                     type="text"
                                     className="form-control"
-                                    style={readOnlyStyle} // Keeping it readonly style for look, but it might need to be editable if new? 
-                                    // Actually prompt implies it's "pre-selected" via widget, so maybe readonly?
-                                    // But general case allows edit. Let's keep standard style if editable.
-                                    // Re-reading styling requirement: "inputs as readonly/disabled where appropriate to match the gray background"
-                                    // Periodo is usually editable unless locked.
-                                    // Let's use standard style but logic handles disabled state.
-                                    disabled={Boolean(searchParams.get('vinculacion_id'))}
-                                    value={new Date(form.periodo + '-01').toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
-                                    readOnly={true} // Visual hack to show text, but we store YYYY-MM
+                                    style={readOnlyStyle} 
+                                    disabled={true}
+                                    value={form.periodo ? (() => {
+                                        const [y, m] = form.periodo.split('-');
+                                        return new Date(parseInt(y), parseInt(m) - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+                                    })() : ''}
+                                    readOnly={true} 
                                 />
                                 {/* Hidden real input if needed or just use logic */}
                             </div>
