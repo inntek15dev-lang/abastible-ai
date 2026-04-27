@@ -542,7 +542,7 @@ export default function ContratistaList() {
                                             className="action-btn"
                                             title={expandedRows[c.id] ? "Ocultar Vinculaciones" : "Ver Vinculaciones"}
                                         >
-                                            {expandedRows[c.id] ? <ChevronUp size={22} strokeWidth={2.5} /> : <ChevronDown size={22} strokeWidth={2.5} />}
+                                            {expandedRows[c.id] ? <ChevronUp size={24} strokeWidth={3} /> : <ChevronDown size={24} strokeWidth={3} />}
                                         </button>
 
                                         {canWrite('Configuración') && !isADC && (
@@ -553,10 +553,10 @@ export default function ContratistaList() {
                                                     style={{ color: c.activo ? '#10B981' : '#F59E0B' }}
                                                     title={c.activo ? "Desactivar" : "Activar"}
                                                 >
-                                                    <Power size={22} strokeWidth={2.5} />
+                                                    <Power size={24} strokeWidth={3} />
                                                 </button>
                                                 <Link to={`/contratistas/${c.id}`} className="action-btn" title="Editar">
-                                                    <Edit size={22} strokeWidth={2.5} />
+                                                    <Edit size={24} strokeWidth={2.5} />
                                                 </Link>
                                                 {canExec('Configuración') && (
                                                     <button
@@ -564,7 +564,7 @@ export default function ContratistaList() {
                                                         className="action-btn danger"
                                                         title="Eliminar permanentemente"
                                                     >
-                                                        <Trash2 size={22} strokeWidth={2.5} />
+                                                        <Trash2 size={24} strokeWidth={2.5} />
                                                     </button>
                                                 )}
                                             </>
