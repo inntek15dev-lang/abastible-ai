@@ -266,11 +266,11 @@ export default function UsuarioForm() {
                                 >
                                     <option value="">Seleccione Rol...</option>
                                     {roles.filter(r => {
-                                        if (['contratista_admin', 'contratista_admin_eecc', 'contratista_user'].includes(currentUser.role)) {
+                                        if (['contratista_admin', 'contratista_user'].includes(currentUser.role)) {
                                             return r.name === 'contratista_user';
                                         }
                                         if (currentUser.role === 'administrador_contrato') {
-                                            return ['contratista_user', 'contratista_admin', 'contratista_admin_eecc'].includes(r.name);
+                                            return ['contratista_user', 'contratista_admin'].includes(r.name);
                                         }
                                         return true;
                                     }).map(r => (

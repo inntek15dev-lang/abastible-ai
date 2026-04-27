@@ -51,11 +51,7 @@ export default function DependenciaList() {
                     <h1>Dependencias</h1>
                     <p className="text-secondary">Gestión de plantas y unidades territoriales.</p>
                 </div>
-                {canWrite('Programas') && !isADC && ( // Reusing Programas privilege for now
-                    <Link to="/dependencias/new" className="btn-primary">
-                        <Plus size={18} /> Nueva Dependencia
-                    </Link>
-                )}
+
             </header>
 
             <div className="filters-bar" style={{ marginBottom: '16px', display: 'flex', gap: '16px', alignItems: 'center' }}>

@@ -51,7 +51,6 @@ export default function UsuarioList() {
             admin: 'primary',
             administrador_contrato: 'info',
             contratista_admin: 'warning',
-            contratista_admin_eecc: 'danger', 
             contratista_user: 'secondary'
         };
         return colors[role] || 'default';
@@ -85,7 +84,7 @@ export default function UsuarioList() {
         return matchStatus && matchRole && matchSearch;
     });
 
-    const uniqueRoles = ['admin', 'administrador_contrato', 'contratista_admin', 'contratista_admin_eecc', 'contratista_user'];
+    const uniqueRoles = ['admin', 'administrador_contrato', 'contratista_admin', 'contratista_user'];
 
     if (loading) return <div className="loading">Cargando...</div>;
 
