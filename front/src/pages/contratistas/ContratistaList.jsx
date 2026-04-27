@@ -316,7 +316,7 @@ export default function ContratistaList() {
                         Empresas externas, servicios y vinculaciones activas.
                     </p>
                 </div>
-                {canWrite('Configuración') && !isADC && (
+                {canWrite('Configuración') && !isADC && user?.role !== 'admin' && (
                     <div className="flex gap-2">
                         <button
                             onClick={() => setIsSyncModalOpen(true)}
@@ -545,7 +545,7 @@ export default function ContratistaList() {
                                             {expandedRows[c.id] ? <ChevronUp size={24} strokeWidth={3} /> : <ChevronDown size={24} strokeWidth={3} />}
                                         </button>
 
-                                        {canWrite('Configuración') && !isADC && (
+                                        {canWrite('Configuración') && !isADC && user?.role !== 'admin' && (
                                             <>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleToggleStatus(c.id, c.activo); }}

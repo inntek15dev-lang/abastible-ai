@@ -257,7 +257,7 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                                                 v.administraciones.map(a => (
                                                     <div key={a.id} className="admin-tag-small" title={a.administradorContrato?.email}>
                                                         {a.administradorContrato?.name}
-                                                        {!isADC && (
+                                                        {!isADC && user?.role !== 'admin' && (
                                                             <button onClick={() => handleAdminRemove(v.id, a.administrador_contrato_id)}>
                                                                 <X size={10} />
                                                             </button>
@@ -267,7 +267,7 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                                             ) : (
                                                 <span className="text-muted" style={{ fontSize: '0.75rem' }}>Sin Asignar</span>
                                             )}
-                                            {!isADC && (
+                                            {!isADC && user?.role !== 'admin' && (
                                                 <select
                                                     className="add-vinc-admin-select"
                                                     value=""
@@ -293,7 +293,7 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                                                 v.usuariosVinculados.filter(uv => uv.usuario?.role === 'contratista_user').map(uv => (
                                                     <div key={uv.id} className="admin-tag-small" style={{ backgroundColor: '#ECFDF5', borderColor: '#D1FAE5' }} title={uv.usuario?.email}>
                                                         {uv.usuario?.name}
-                                                        {!isADC && (
+                                                        {!isADC && user?.role !== 'admin' && (
                                                             <button onClick={() => handleUserRemove(v.id, uv.user_id)}>
                                                                 <X size={10} />
                                                             </button>
@@ -303,7 +303,7 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                                             ) : (
                                                 <span className="text-muted" style={{ fontSize: '0.75rem' }}>Sin Asignar</span>
                                             )}
-                                            {!isADC && (
+                                            {!isADC && user?.role !== 'admin' && (
                                                 <select
                                                     className="add-vinc-admin-select"
                                                     value=""
@@ -327,7 +327,7 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                                         {v.fecha_termino_contrato ? new Date(v.fecha_termino_contrato).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : 'Indefinido'}
                                     </div>
                                     <div className="flex gap-1" style={{ justifyContent: 'flex-end' }}>
-                                        {!isADC && (
+                                        {!isADC && user?.role !== 'admin' && (
                                             <>
                                                 <button onClick={() => handleEdit(v)} className="action-btn" title="Editar">
                                                     <Pencil size={16} />
@@ -418,7 +418,7 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                         </button>
                     </div>
                 </div>
-            ) : !isADC ? (
+            ) : (!isADC && user?.role !== 'admin') ? (
                 <button
                     onClick={() => setIsAdding(true)}
                     className="btn-text"
