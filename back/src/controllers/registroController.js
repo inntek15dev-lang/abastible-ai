@@ -327,15 +327,15 @@ const registroController = {
                 programa_id: req.body.programa_id || null,
                 dependencia_id: depId || req.body.dependencia_id || null,
                 periodo,
-                eecc_nombre: eeccNombre, // Company name from Contratista entity
-                dependencia: depNombre, // From Vinculacion's Dependencia
+                eecc_nombre: eeccNombre, 
+                dependencia: depNombre, 
                 personas_nuevas,
                 supervisores,
                 prevencionistas,
                 dotacion_total,
                 porcentaje_cumplimiento: 0,
-                estado_auditoria: 'pendiente',
-                cerrado: 0,
+                estado_auditoria: req.body.cerrado === 1 ? 'auditable' : 'pendiente',
+                cerrado: req.body.cerrado === 1 ? 1 : 0,
                 auditado: 0
             });
 
@@ -412,13 +412,12 @@ const registroController = {
             const oldData = registro.toJSON();
             const { actividades, terminar_subsanacion, ...registroData } = req.body;
 
-            // Transition to 'subsanado' automatically if edited while in subsanation phase
-            if (registro.estado_auditoria === 'pendiente_subsanacion') {
-                registroData.estado_auditoria = 'subsanado';
-            }
-            
-            // Compatibility for old 'reabierto' state if any exists
-            if (registro.estado_auditoria === 'reabierto') {
+            // Transition to 'auditable' if contractor sends for review or finishes subsanation
+            if (registroData.cerrado === 1 || req.body.terminar_subsanacion) {
+                registroData.estado_auditoria = 'auditable';
+            } else if (registro.estado_auditoria === 'pendiente_subsanacion') {
+                // If just normal edit during subsanation without explicit finish, stay or go to subsanado? 
+                // Previous logic set to 'subsanado'. Let's keep consistency for intermediate saves if needed.
                 registroData.estado_auditoria = 'subsanado';
             }
 

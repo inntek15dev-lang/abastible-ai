@@ -276,6 +276,7 @@ export default function RegistroAudit() {
     const isFinalizado = registro.estado_auditoria === 'finalizado';
     const isAuditado = ['auditada', 'cerrado', 'finalizado'].includes(registro.estado_auditoria);
     const isPendiente = registro.estado_auditoria === 'pendiente';
+    const isAuditable = registro.estado_auditoria === 'auditable';
 
     // Mock Element Names (Ideally fetch from backend)
     const elementNames = {
@@ -399,9 +400,9 @@ export default function RegistroAudit() {
                     </div>
                 </div>
 
-                {(isPendiente || isSubsanado) && canWrite('Auditoria') ? (
+                {(isPendiente || isSubsanado || isAuditable) && canWrite('Auditoria') ? (
                     <div style={{ padding: '40px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
-                        {isPendiente && (
+                        {(isPendiente || (isAuditable && !registro.auditado)) && (
                             <button
                                 id="btn-iniciar-auditoria"
                                 className="btn-primary"
@@ -426,7 +427,7 @@ export default function RegistroAudit() {
                                 <Shield size={24} /> Iniciar Proceso de Auditoría
                             </button>
                         )}
-                        {isSubsanado && (
+                        {(isSubsanado || (isAuditable && registro.auditado)) && (
                             <button
                                 id="btn-iniciar-revision"
                                 className="btn-primary"

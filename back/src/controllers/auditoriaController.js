@@ -25,10 +25,10 @@ const auditoriaController = {
                 return res.status(404).json({ success: false, message: 'Registro no encontrado' });
             }
 
-            if (registro.estado_auditoria !== 'pendiente') {
+            if (!['pendiente', 'auditable'].includes(registro.estado_auditoria)) {
                 return res.status(400).json({
                     success: false,
-                    message: 'El registro ya está siendo auditado o fue auditado'
+                    message: 'El registro ya está siendo auditado o no está en un estado que permita iniciar la auditoría'
                 });
             }
 
@@ -90,10 +90,10 @@ const auditoriaController = {
                 return res.status(404).json({ success: false, message: 'Registro no encontrado' });
             }
 
-            if (registro.estado_auditoria !== 'subsanado') {
+            if (!['subsanado', 'auditable'].includes(registro.estado_auditoria)) {
                 return res.status(400).json({
                     success: false,
-                    message: 'El registro no está en estado subsanado'
+                    message: 'El registro no está en un estado que permita iniciar revisión'
                 });
             }
 

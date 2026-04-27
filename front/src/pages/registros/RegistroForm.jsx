@@ -43,7 +43,7 @@ export default function RegistroForm() {
     const [registroCerrado, setRegistroCerrado] = useState(false);
     const isLocked = isReadOnly || (isAdminOrADC 
         ? ['auditada', 'finalizado'].includes(form.estado_auditoria) 
-        : (registroCerrado && !['pendiente_subsanacion', 'reabierto'].includes(form.estado_auditoria)));
+        : (registroCerrado && !['pendiente', 'pendiente_subsanacion', 'reabierto'].includes(form.estado_auditoria)));
     const [confirmModal, setConfirmModal] = useState({
         isOpen: false,
         action: null,
@@ -601,7 +601,7 @@ export default function RegistroForm() {
         if (!actividades || actividades.length === 0) return false;
         // Verify all activities that are 'cumple' & 'requiere_evidencia' have files
         const missingEvidence = actividades.filter(a =>
-            a.cumple &&
+            (a.cumple === true || a.cumple === 1) &&
             a.requiere_evidencia &&
             (!a.evidencias?.length && !a.pendingFiles?.length)
         );

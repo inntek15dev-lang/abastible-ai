@@ -795,6 +795,7 @@ export default function RegistroList() {
                     <select id="filter-status" className="form-control" value={filters.status || 'all'} onChange={e => setFilters({ ...filters, status: e.target.value })}>
                         <option value="all">Todos</option>
                         <option value="pendiente">Pendiente</option>
+                        <option value="auditable">Auditable</option>
                         <option value="auditando">En Proceso</option>
                         <option value="auditada">Auditada</option>
                         <option value="pendiente_subsanacion">Pendiente Subsanación</option>
@@ -951,7 +952,10 @@ export default function RegistroList() {
                                             let label = 'Pendiente';
                                             let style = { background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb' }; // Gray
 
-                                            if (status === 'auditando') {
+                                            if (status === 'auditable') {
+                                                label = 'Auditable';
+                                                style = { background: '#fef9c3', color: '#854d0e', border: '1px solid #fde047' }; // Yellow
+                                            } else if (status === 'auditando') {
                                                 label = 'En Proceso';
                                                 style = { background: '#eff6ff', color: '#003594', border: '1px solid #dbeafe' }; // Blue
                                             } else if (status === 'auditada') {
@@ -986,8 +990,8 @@ export default function RegistroList() {
                                     </td>
                                     <td className="actions-cell" style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <div className="flex flex-col gap-1 items-end">
-                                            {/* Action: Audit (US-003) - Admin Contrato Only & Pending Status */}
-                                            {user?.role === 'administrador_contrato' && ['pendiente', 'subsanado', 'auditando', 'en_revision'].includes(registro.estado_auditoria) && (
+                                            {/* Action: Audit (US-003) - Admin Contrato / Admin Only & Auditable Status (PARKO) */}
+                                            {(isAdmin || user?.role === 'administrador_contrato') && registro.estado_auditoria === 'auditable' && (
                                                 <Link id={`btn-audit-${registro.id}`} to={`/registros/${registro.id}/auditar`} className="btn-action btn-auditar" title="Auditar Registro">
                                                     <ClipboardCheck size={14} /> <span>Auditar</span>
                                                 </Link>
