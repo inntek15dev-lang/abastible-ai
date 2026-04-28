@@ -991,16 +991,16 @@ export default function RegistroList() {
                                     <td className="actions-cell" style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <div className="flex flex-col gap-1 items-end">
                                             {/* Action: Audit (US-003) - Admin Contrato / Admin Only & Auditable Status (PARKO) */}
-                                            {(isAdmin || user?.role === 'administrador_contrato') && registro.estado_auditoria === 'auditable' && (
+                                            {(isAdmin || user?.role === 'administrador_contrato') && ['auditable', 'auditando'].includes(registro.estado_auditoria) && (
                                                 <Link id={`btn-audit-${registro.id}`} to={`/registros/${registro.id}/auditar`} className="btn-action btn-auditar" title="Auditar Registro">
-                                                    <ClipboardCheck size={14} /> <span>Auditar</span>
+                                                    <ClipboardCheck size={14} /> <span>{registro.estado_auditoria === 'auditando' ? 'Continuar Auditoría' : 'Auditar'}</span>
                                                 </Link>
                                             )}
 
                                             {/* Action: Review Subsanacion (PARKO) - Admin Contrato / Admin Only & Subsanado Status */}
-                                            {(isAdmin || user?.role === 'administrador_contrato') && registro.estado_auditoria === 'subsanado' && (
+                                            {(isAdmin || user?.role === 'administrador_contrato') && ['subsanado', 'en_revision'].includes(registro.estado_auditoria) && (
                                                 <Link id={`btn-review-${registro.id}`} to={`/registros/${registro.id}/auditar`} className="btn-action btn-auditar" style={{ background: 'var(--color-brand-primary)', borderColor: 'var(--color-brand-primary)' }} title="Revisar Subsanación">
-                                                    <Check size={14} /> <span>Revisar Subsanación</span>
+                                                    <Check size={14} /> <span>{registro.estado_auditoria === 'en_revision' ? 'Continuar Revisión' : 'Revisar Subsanación'}</span>
                                                 </Link>
                                             )}
 
