@@ -412,13 +412,14 @@ const registroController = {
             const oldData = registro.toJSON();
             const { actividades, terminar_subsanacion, ...registroData } = req.body;
 
-            // Transition to 'auditable' if contractor sends for review or finishes subsanation
-            if (registroData.cerrado === 1 || req.body.terminar_subsanacion) {
+            // Transition logic based on action (PARKO)
+            if (req.body.terminar_subsanacion) {
+                registroData.estado_auditoria = 'subsanado';
+            } else if (registroData.cerrado === 1 && oldData.cerrado === 0) {
                 registroData.estado_auditoria = 'auditable';
             } else if (registro.estado_auditoria === 'pendiente_subsanacion') {
-                // If just normal edit during subsanation without explicit finish, stay or go to subsanado? 
-                // Previous logic set to 'subsanado'. Let's keep consistency for intermediate saves if needed.
-                registroData.estado_auditoria = 'subsanado';
+                // Keep in pendiente_subsanacion if just saving draft
+                registroData.estado_auditoria = 'pendiente_subsanacion';
             }
 
             // CHECK: Mandatory Evidence before closing OR Finishing Subsanacion (PARKO)

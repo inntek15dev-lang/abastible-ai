@@ -346,6 +346,46 @@ router.delete('/registros/:id', auth, requirePrivilege('Registros', 'excec'), re
  *       400:
  *         description: Missing mandatory evidence
  *
+ * /registros/{id}/iniciar-revision:
+ *   post:
+ *     summary: Start review process for a subsanated register
+ *     tags: [Auditoria]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Review started
+ *
+ * /registros/{id}/finalizar-revision:
+ *   post:
+ *     summary: Finalize the review of a subsanation
+ *     tags: [Auditoria]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               comentario_general:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Review finalized and register set to FINALIZADO
+ *
  * /registros/{id}/comentarios:
  *   post:
  *     summary: Add a comment to a register

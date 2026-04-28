@@ -1117,7 +1117,7 @@ export default function RegistroForm() {
 
                         {!isLocked && (
                             <>
-                                {isContractor && form.estado_auditoria === 'reabierto' && (
+                                {isContractor && (form.estado_auditoria === 'reabierto' || form.estado_auditoria === 'pendiente_subsanacion') && (
                                     <button
                                         id="btn-end-subsanacion"
                                         type="button"

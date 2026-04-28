@@ -997,6 +997,13 @@ export default function RegistroList() {
                                                 </Link>
                                             )}
 
+                                            {/* Action: Review Subsanacion (PARKO) - Admin Contrato / Admin Only & Subsanado Status */}
+                                            {(isAdmin || user?.role === 'administrador_contrato') && registro.estado_auditoria === 'subsanado' && (
+                                                <Link id={`btn-review-${registro.id}`} to={`/registros/${registro.id}/auditar`} className="btn-action btn-auditar" style={{ background: 'var(--color-brand-primary)', borderColor: 'var(--color-brand-primary)' }} title="Revisar Subsanación">
+                                                    <Check size={14} /> <span>Revisar Subsanación</span>
+                                                </Link>
+                                            )}
+
                                             {/* Action: Edit - Contractor Only & Allowed states */}
                                             {['contratista_admin', 'contratista_user'].includes(user?.role) &&
                                                 (registro.estado_auditoria === 'pendiente' || registro.estado_auditoria === 'pendiente_subsanacion' || registro.estado_auditoria === 'reabierto') && (
