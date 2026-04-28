@@ -1144,24 +1144,26 @@ export default function RegistroForm() {
                                     {loading ? <RefreshCw className="spin" size={18} /> : <Save size={18} />}
                                     Guardar Borrador
                                 </button>
-                                <button
-                                    id="btn-send-review"
-                                    type="button"
-                                    onClick={(e) => handleSubmit(e, { enviar: true })}
-                                    disabled={loading || !isCompletable}
-                                    title={!isCompletable ? "Faltan evidencias en actividades obligatorias" : "Enviar registro para Auditoría"}
-                                    style={{
-                                        backgroundColor: isCompletable ? '#10b981' : '#d1d5db', 
-                                        color: isCompletable ? 'white' : '#6b7280', 
-                                        padding: '0.75rem 2rem', borderRadius: '6px', border: 'none', fontWeight: 600, 
-                                        cursor: isCompletable ? 'pointer' : 'not-allowed',
-                                        display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                                        transition: 'background-color 0.3s'
-                                    }}
-                                >
-                                    <ClipboardCheck size={20} />
-                                    Enviar a Revisión
-                                </button>
+                                {form.estado_auditoria === 'pendiente' && (
+                                    <button
+                                        id="btn-send-review"
+                                        type="button"
+                                        onClick={(e) => handleSubmit(e, { enviar: true })}
+                                        disabled={loading || !isCompletable}
+                                        title={!isCompletable ? "Faltan evidencias en actividades obligatorias" : "Enviar registro para Auditoría"}
+                                        style={{
+                                            backgroundColor: isCompletable ? '#10b981' : '#d1d5db', 
+                                            color: isCompletable ? 'white' : '#6b7280', 
+                                            padding: '0.75rem 2rem', borderRadius: '6px', border: 'none', fontWeight: 600, 
+                                            cursor: isCompletable ? 'pointer' : 'not-allowed',
+                                            display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                            transition: 'background-color 0.3s'
+                                        }}
+                                    >
+                                        <ClipboardCheck size={20} />
+                                        Enviar a Revisión
+                                    </button>
+                                )}
                             </>
                         )}
                     </div>

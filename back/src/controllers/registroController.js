@@ -413,8 +413,9 @@ const registroController = {
             const { actividades, terminar_subsanacion, ...registroData } = req.body;
 
             // Transition logic based on action (PARKO)
-            if (req.body.terminar_subsanacion) {
+            if (terminar_subsanacion) {
                 registroData.estado_auditoria = 'subsanado';
+                registroData.cerrado = 1;
             } else if (registroData.cerrado === 1 && oldData.cerrado === 0) {
                 registroData.estado_auditoria = 'auditable';
             } else if (registro.estado_auditoria === 'pendiente_subsanacion') {
