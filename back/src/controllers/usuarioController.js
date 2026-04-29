@@ -58,7 +58,10 @@ const usuarioController = {
                     where.id = adminIds;
                 } else {
                     // Standard contractor limits: only sees their own operatives
-                    where.parent_id = req.user.id;
+                    // Unless it's a contratista_user who needs to see all peers in same vinculation (PARKO)
+                    if (!isUser) {
+                        where.parent_id = req.user.id;
+                    }
                 }
             } else if (req.user.role === 'administrador_contrato') {
                 // Admin contrato usually only sees themselves in this filter, 
@@ -189,6 +192,13 @@ const usuarioController = {
 
             const hashedPassword = await bcrypt.hash(password, 10);
 
+            // Inherit scope for contractor roles
+            const isContractor = ['contratista_admin', 'contratista_user'].includes(req.user.role);
+            const finalContratistaId = isContractor ? req.user.contratista_id : contratista_id;
+            const finalTipoContratistaId = isContractor ? req.user.tipo_contratista_id : tipo_contratista_id;
+            const finalDependenciaId = isContractor ? req.user.dependencia_id : dependencia_id;
+            const finalEeccNombre = isContractor ? req.user.eecc_nombre : eecc_nombre;
+
             // Create User
             const usuario = await User.create({
                 name,
@@ -196,10 +206,10 @@ const usuarioController = {
                 password: hashedPassword,
                 role: finalRole,
                 parent_id: finalParentId,
-                contratista_id, // Add this
-                tipo_contratista_id, // Backward compatibility or simple linking
-                dependencia_id, // Backward compatibility
-                eecc_nombre,
+                contratista_id: finalContratistaId,
+                tipo_contratista_id: finalTipoContratistaId,
+                dependencia_id: finalDependenciaId,
+                eecc_nombre: finalEeccNombre,
                 rut,
                 telefono,
                 activo: 1

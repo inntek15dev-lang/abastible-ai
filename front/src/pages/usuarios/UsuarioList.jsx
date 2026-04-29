@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
-import { Plus, Edit, Search, RefreshCw, X } from 'lucide-react';
+import { Plus, Edit, Search, RefreshCw, X, Trash2 } from 'lucide-react';
 import Toggle from '../../components/ui/Toggle';
 import './UsuarioList.css';
 
@@ -43,6 +43,16 @@ export default function UsuarioList() {
             fetchUsuarios();
         } catch (err) {
             setError('Error al actualizar usuario');
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm('¿Está seguro de que desea eliminar este usuario?')) return;
+        try {
+            await api.delete(`/usuarios/${id}`);
+            fetchUsuarios();
+        } catch (err) {
+            setError('Error al eliminar usuario');
         }
     };
 
@@ -205,11 +215,22 @@ export default function UsuarioList() {
                                         </div>
                                     </td>
                                     <td className="actions-cell">
-                                        {canWrite('Usuarios') && (
-                                            <Link to={`/usuarios/${usuario.id}/edit`} className="btn-icon" title="Editar">
-                                                <Edit size={18} />
-                                            </Link>
-                                        )}
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            {canWrite('Usuarios') && (
+                                                <Link to={`/usuarios/${usuario.id}/edit`} className="btn-icon" title="Editar">
+                                                    <Edit size={18} />
+                                                </Link>
+                                            )}
+                                            {canWrite('Usuarios') && usuario.id !== useAuth().user?.id && (
+                                                <button 
+                                                    className="btn-icon text-red-500" 
+                                                    onClick={() => handleDelete(usuario.id)}
+                                                    title="Eliminar"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))
