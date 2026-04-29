@@ -646,20 +646,22 @@ export default function RegistroAudit() {
                                                     >
                                                         X NO CUMPLE
                                                     </button>
-                                                    <button
-                                                        onClick={() => openHallazgoModal(act)}
-                                                        className="btn-action"
-                                                        style={{
-                                                            marginTop: '4px',
-                                                            justifyContent: 'center',
-                                                            background: '#fef3c7',
-                                                            color: '#92400e',
-                                                            border: '1px solid #f59e0b',
-                                                            fontSize: '0.7rem'
-                                                        }}
-                                                    >
-                                                        <AlertTriangle size={12} /> Hallazgo
-                                                    </button>
+                                                    {auditState[act.id]?.cumple === false && (
+                                                        <button
+                                                            onClick={() => openHallazgoModal(act)}
+                                                            className="btn-action"
+                                                            style={{
+                                                                marginTop: '4px',
+                                                                justifyContent: 'center',
+                                                                background: '#fef3c7',
+                                                                color: '#92400e',
+                                                                border: '1px solid #f59e0b',
+                                                                fontSize: '0.7rem'
+                                                            }}
+                                                        >
+                                                            <AlertTriangle size={12} /> Hallazgo
+                                                        </button>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <div className={`badge ${act.cumple_auditor ? 'success' : 'danger'}`} style={{ width: '100%', justifyContent: 'center' }}>
