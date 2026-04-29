@@ -323,10 +323,13 @@ export default function RegistroList() {
             title: 'Reabrir Registro',
             message: '¿Está seguro de reabrir este registro? Pasará a estado "Pendiente" y podrá ser editado nuevamente.',
             action: async () => {
+                const motivo = window.prompt('Ingrese el motivo de la reapertura:', 'Reapertura directa por administración');
+                if (motivo === null) return; // User cancelled prompt
+                
                 try {
                     await api.post('/reaperturas/directa', {
                         registro_id: registroId,
-                        motivo: 'Reapertura directa por administración'
+                        motivo: motivo || 'Reapertura directa por administración'
                     });
                     toast.success('Registro reabierto exitosamente');
                     fetchRegistros();

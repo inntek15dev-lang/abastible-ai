@@ -259,7 +259,10 @@ const reaperturaController = {
             await registro.update({
                 estado_auditoria: 'pendiente',
                 cerrado: 0,
-                auditado: 0
+                auditado: 0,
+                porcentaje_cumplimiento_auditor: null,
+                fecha_auditoria: null,
+                auditado_por: null
             });
 
             // Log
