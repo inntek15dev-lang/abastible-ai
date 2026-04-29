@@ -414,47 +414,47 @@ export default function RegistroList() {
 
             let yPos = 45;
 
-            // Summary Grid (Custom Implementation)
+            // Summary Grid (Updated to include Dotación)
             const gridData = [
                 { label: 'CONTRATISTA', value: registro.eecc_nombre || registro.usuario?.eecc_nombre || 'N/A' },
                 { label: 'SERVICIO', value: registro.asignacion?.servicio?.nombre || registro.vinculacionEntidad?.servicio?.nombre || 'N/A' },
                 { label: 'DEPENDENCIA', value: registro.dependencia || registro.asignacion?.dependencia?.nombre || 'N/A' },
                 { label: 'PROGRAMA', value: registro.programa?.nombre || 'N/A' },
                 { label: 'ESTADO AUDITORÍA', value: registro.estado_auditoria?.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) },
-                { label: 'CUMPLIMIENTO DECLARADO', value: `${registro.porcentaje_cumplimiento}%`, isGreen: true }
+                { label: 'CUMPLIMIENTO DECLARADO', value: `${registro.porcentaje_cumplimiento}%`, isGreen: true },
+                { label: 'DOTACIÓN TOTAL', value: registro.dotacion_total || 0 },
+                { label: 'PERSONAS NUEVAS', value: registro.personas_nuevas || 0 },
+                { label: 'SUPERVISORES', value: registro.supervisores || 0 },
+                { label: 'PREVENCIONISTAS', value: registro.prevencionistas || 0 }
             ];
 
-            // Draw Grid
-            const boxWidth = (pageWidth - (margin * 2)) / 3;
+            // Draw Grid (4 columns)
+            const boxWidth = (pageWidth - (margin * 2)) / 4;
             const boxHeight = 14;
 
-            doc.setDrawColor(229, 231, 235); // Gray-200
+            doc.setDrawColor(229, 231, 235);
             doc.setLineWidth(0.1);
 
             gridData.forEach((item, index) => {
-                const row = Math.floor(index / 3);
-                const col = index % 3;
+                const row = Math.floor(index / 4);
+                const col = index % 4;
                 const x = margin + (col * boxWidth);
                 const y = yPos + (row * boxHeight);
 
-                // Border
                 doc.rect(x, y, boxWidth, boxHeight);
-
-                // Label
                 doc.setFontSize(6);
-                doc.setTextColor(156, 163, 175); // Gray-400
+                doc.setTextColor(156, 163, 175);
                 doc.setFont('helvetica', 'bold');
                 doc.text(item.label, x + 2, y + 4);
 
-                // Value
-                doc.setFontSize(9);
-                if (item.isGreen) doc.setTextColor(22, 163, 74); // Green-600
+                doc.setFontSize(8);
+                if (item.isGreen) doc.setTextColor(22, 163, 74);
                 else doc.setTextColor(0, 0, 0);
                 doc.setFont('helvetica', 'bold');
                 doc.text(String(item.value), x + 2, y + 10);
             });
 
-            yPos += (boxHeight * 2) + 10;
+            yPos += (boxHeight * Math.ceil(gridData.length / 4)) + 10;
 
             // RESULTADO DE AUDITORIA Section
             doc.setFontSize(11);
@@ -471,14 +471,12 @@ export default function RegistroList() {
 
             // Inside Result Box
             const resY = yPos + 4;
-            // Headers
             doc.setFontSize(6);
             doc.setTextColor(156, 163, 175);
             doc.text('AUDITOR RESPONSABLE', margin + 5, resY);
             doc.text('FECHA REVISIÓN', margin + 60, resY);
             doc.text('RESULTADO FINAL', margin + 110, resY);
 
-            // Values
             const resValY = resY + 5;
             doc.setFontSize(9);
             doc.setTextColor(0, 0, 0);
@@ -486,7 +484,7 @@ export default function RegistroList() {
 
             const fechaAudit = registro.fecha_auditoria
                 ? new Date(registro.fecha_auditoria).toLocaleDateString('es-CL')
-                : new Date().toLocaleDateString('es-CL'); // Fallback to now if not set
+                : new Date().toLocaleDateString('es-CL');
             doc.text(fechaAudit, margin + 60, resValY);
 
             const finalScore = registro.porcentaje_cumplimiento_auditor !== null
@@ -494,125 +492,137 @@ export default function RegistroList() {
                 : 'PENDIENTE';
 
             doc.setFontSize(10);
-            doc.setTextColor(22, 163, 74); // Green
+            doc.setTextColor(22, 163, 74);
             doc.text(finalScore, margin + 110, resValY);
 
-            // Auditado Badge (Right side of box)
             if (registro.porcentaje_cumplimiento_auditor !== null) {
-                doc.setFillColor(220, 252, 231); // Green-100
+                doc.setFillColor(220, 252, 231);
                 doc.setDrawColor(220, 252, 231);
                 doc.roundedRect(pageWidth - margin - 30, yPos + 4, 25, 6, 1, 1, 'FD');
                 doc.setFontSize(7);
-                doc.setTextColor(22, 101, 52); // Green-800
+                doc.setTextColor(22, 101, 52);
                 doc.text('AUDITADO', pageWidth - margin - 17.5, yPos + 8, { align: 'center' });
             }
 
             yPos += resBoxHeight + 10;
 
-            // --- DETALLE DE AUDITORIA Table ---
+            // --- DETALLE DE ACTIVIDADES Table ---
             doc.setFontSize(11);
             doc.setTextColor(...BRAND_ORANGE);
             doc.setFont('helvetica', 'bold');
-            doc.text('DETALLE DE AUDITORIA', margin, yPos);
+            doc.text('DETALLE DE ACTIVIDADES', margin, yPos);
             yPos += 2;
 
-            // Prepare Table Data with Grouping
             const tableBody = [];
-
             if (registro.actividades) {
-                // Sort by Element ID
                 const sortedActs = [...registro.actividades].sort((a, b) => (a.elemento_id || 0) - (b.elemento_id || 0));
-
                 let lastElementId = -1;
 
-                sortedActs.forEach(act => {
-                    // Inject Group Header if new element
+                sortedActs.forEach((act, idx) => {
                     if (act.elemento_id !== lastElementId) {
                         const elemName = act.elemento?.nombre || 'General';
-                        // Add a special row for styling later
-                        tableBody.push([{ content: `ELEMENTO ${act.elemento_id}: ${elemName}`, colSpan: 6, styles: { fillColor: [229, 231, 235], fontStyle: 'bold', textColor: [0, 0, 0] } }]);
+                        tableBody.push([{ content: `ELEMENTO ${act.elemento_id}: ${elemName}`, colSpan: 9, styles: { fillColor: [229, 231, 235], fontStyle: 'bold' } }]);
                         lastElementId = act.elemento_id;
                     }
 
+                    const evidenciasNames = act.evidencias?.map(e => e.nombre_archivo).join(', ') || '-';
+
                     tableBody.push([
-                        act.actividad_id || '-', // ID
-                        act.actividad?.codigo || '-', // Código
-                        act.actividad?.nombre || act.descripcion_actividad, // Nombre
-                        act.cumple ? 'CUMPLE' : 'NO CUMPLE', // Estado Real
-                        act.cumple_auditor === true ? 'CUMPLE' : (act.cumple_auditor === false ? 'NO CUMPLE' : ''), // Auditor
-                        act.observacion_auditor || '' // Obs
+                        idx + 1,
+                        act.actividad?.codigo || '-',
+                        act.actividad?.nombre || act.descripcion_actividad,
+                        act.responsable || '-',
+                        act.descripcion_contratista || '-',
+                        act.cumple ? 'CUMPLE' : 'NO CUMPLE',
+                        act.cumple_auditor === true ? 'CUMPLE' : (act.cumple_auditor === false ? 'NO CUMPLE' : '-'),
+                        act.observacion_auditor || '-',
+                        evidenciasNames
                     ]);
                 });
             }
 
             autoTable(doc, {
                 startY: yPos + 4,
-                head: [['ID', 'CÓDIGO', 'ELEMENTO / ACTIVIDAD', 'ESTADO', 'AUDITOR', 'OBS. AUDITOR']],
+                head: [['#', 'CÓD', 'ACTIVIDAD', 'RESP.', 'OBS. CONTRAT.', 'ESTADO', 'AUDIT.', 'OBS. AUDIT.', 'EVIDENCIAS']],
                 body: tableBody,
                 theme: 'plain',
-                styles: {
-                    fontSize: 7,
-                    cellPadding: 3,
-                    lineColor: [243, 244, 246],
-                    lineWidth: 0.1,
-                },
-                headStyles: {
-                    fillColor: [249, 250, 251],
-                    textColor: [107, 114, 128],
-                    fontSize: 6,
-                    fontStyle: 'bold'
-                },
+                styles: { fontSize: 6, cellPadding: 2, lineColor: [243, 244, 246], lineWidth: 0.1 },
+                headStyles: { fillColor: [249, 250, 251], textColor: [107, 114, 128], fontSize: 5, fontStyle: 'bold' },
                 columnStyles: {
-                    0: { width: 10, textColor: [156, 163, 175] }, // ID
-                    1: { width: 15, fontStyle: 'bold' }, // Codigo (Badge look?)
-                    2: { width: 80 }, // Nombre
-                    3: { width: 20, halign: 'center' }, // Estado
-                    4: { width: 20, halign: 'center' }, // Auditor
-                    5: { width: 35, fontStyle: 'italic', textColor: [107, 114, 128] } // Obs
+                    0: { width: 6 },
+                    1: { width: 12, fontStyle: 'bold' },
+                    2: { width: 45 },
+                    3: { width: 15 },
+                    4: { width: 25 },
+                    5: { width: 15, halign: 'center' },
+                    6: { width: 15, halign: 'center' },
+                    7: { width: 25 },
+                    8: { width: 25, fontSize: 5, textColor: [59, 130, 246] }
                 },
                 didDrawCell: (data) => {
-                    // Custom Badges for State/Auditor columns (indices 3 and 4)
-                    if (data.section === 'body' && (data.column.index === 3 || data.column.index === 4)) {
+                    if (data.section === 'body' && (data.column.index === 5 || data.column.index === 6)) {
                         const text = data.cell.raw;
-                        if (!text) return;
-
-                        // Don't draw default text
-                        // We will draw it manually
-                    }
-                },
-                willDrawCell: (data) => {
-                    // Check if it's a Badge Cell
-                    if (data.section === 'body' && (data.column.index === 3 || data.column.index === 4) && data.cell.raw && typeof data.cell.raw === 'string' && !data.row.raw[0].colSpan) {
-                        const text = data.cell.raw;
+                        if (!text || text === '-') return;
+                        
                         if (text === 'CUMPLE') {
-                            doc.setFillColor(220, 252, 231); // Green-100
-                            doc.setTextColor(22, 101, 52); // Green-800
-                        } else if (text === 'NO CUMPLE') {
-                            doc.setFillColor(254, 226, 226); // Red-100
-                            doc.setTextColor(153, 27, 27); // Red-800
+                            doc.setFillColor(220, 252, 231);
+                            doc.setTextColor(22, 101, 52);
                         } else {
-                            return; // empty
+                            doc.setFillColor(254, 226, 226);
+                            doc.setTextColor(153, 27, 27);
                         }
-
-                        // Draw Badge Rect
                         const { x, y, width, height } = data.cell;
-                        const pad = 1;
-                        doc.roundedRect(x + pad, y + pad + 1, width - (pad * 2), height - (pad * 2) - 2, 1, 1, 'F');
-
-                        // Draw Text Centered
-                        doc.setFontSize(6);
-                        doc.setFont('helvetica', 'bold');
-                        doc.text(text, x + width / 2, y + height / 2 + 1.5, { align: 'center' });
-
-                        // HACK: Prevent default text drawing by setting text color to transparent or empty? 
-                        // jspdf-autotable doesn't have an easy "cancel draw text" in willDrawCell for specific cells without hooks.
-                        // Actually, if we return false/undefined it proceeds. 
-                        // The didDrawCell hook is for AFTER. willDrawCell is BEFORE.
-                        // To hide original text, we can set cell text to empty string in willDrawCell or modify styles.
-                        data.cell.text = []; // Clear text so it doesn't draw over our badge
+                        doc.roundedRect(x + 1, y + 1, width - 2, height - 2, 1, 1, 'F');
+                        doc.setFontSize(5);
+                        doc.text(text, x + width / 2, y + height / 2 + 1, { align: 'center' });
+                        data.cell.text = [];
                     }
                 }
             });
+
+            // --- AUDIT FEEDBACK SECTION ---
+            yPos = doc.lastAutoTable.finalY + 10;
+            if (yPos > pageHeight - 50) { doc.addPage(); yPos = 20; }
+
+            doc.setFontSize(11);
+            doc.setTextColor(...BRAND_ORANGE);
+            doc.setFont('helvetica', 'bold');
+            doc.text('COMENTARIOS DE AUDITORÍA', margin, yPos);
+            yPos += 6;
+
+            doc.setFontSize(9);
+            doc.setTextColor(55, 65, 81);
+            doc.setFont('helvetica', 'normal');
+            const comments = registro.comentario_general || registro.observaciones_auditoria || 'Sin comentarios generales registrados.';
+            const splitComments = doc.splitTextToSize(comments, pageWidth - (margin * 2));
+            doc.text(splitComments, margin, yPos);
+            yPos += (splitComments.length * 5) + 10;
+
+            // Fetch commitments for this registro
+            try {
+                const compRes = await api.get('/compromisos', { params: { registro_id: registro.id } });
+                const compromisos = compRes.data.data;
+
+                if (compromisos && compromisos.length > 0) {
+                    if (yPos > pageHeight - 40) { doc.addPage(); yPos = 20; }
+                    doc.setFontSize(11);
+                    doc.setTextColor(...BRAND_ORANGE);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('COMPROMISOS ADQUIRIDOS', margin, yPos);
+                    yPos += 6;
+
+                    autoTable(doc, {
+                        startY: yPos,
+                        head: [['DESCRIPCIÓN', 'FECHA CUMPLIMIENTO', 'ESTADO']],
+                        body: compromisos.map(c => [c.descripcion, new Date(c.fecha_compromiso).toLocaleDateString('es-CL'), c.estado?.toUpperCase()]),
+                        theme: 'striped',
+                        headStyles: { fillColor: [243, 232, 255], textColor: [107, 33, 168], fontSize: 8 },
+                        styles: { fontSize: 8 }
+                    });
+                }
+            } catch (e) {
+                console.error("Error adding commitments to PDF", e);
+            }
 
             // --- PAGE BREAK / TRACEABILITY ---
             doc.addPage();

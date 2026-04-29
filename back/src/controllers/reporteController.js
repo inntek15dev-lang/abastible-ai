@@ -15,7 +15,8 @@ module.exports = {
                         as: 'actividades',
                         include: [
                             { model: Actividad, as: 'actividad' },
-                            { model: Hallazgo, as: 'hallazgos', include: ['compromisos'] }
+                            { model: Hallazgo, as: 'hallazgos', include: ['compromisos'] },
+                            { model: require('../database/models').Evidencia, as: 'evidencias' }
                         ]
                     },
                     { model: User, as: 'auditor', attributes: ['name'] }
@@ -38,19 +39,32 @@ module.exports = {
             doc.fontSize(20).text('Informe de Cumplimiento OIEM', { align: 'center' });
             doc.moveDown();
 
-            doc.fontSize(12).text(`Periodo: ${registro.periodo}`);
+            doc.fontSize(10).text(`Periodo: ${registro.periodo}`);
             doc.text(`Empresa: ${registro.eecc_nombre || registro.usuario.eecc_nombre}`);
             doc.text(`Responsable: ${registro.usuario.name}`);
             doc.text(`Fecha Generación: ${new Date().toLocaleDateString()}`);
             doc.moveDown();
 
+            // -- DOTACIÓN --
+            doc.fontSize(14).text('Información de Dotación', { underline: true });
+            doc.fontSize(10);
+            doc.text(`Dotación Total: ${registro.dotacion_total || 0}`);
+            doc.text(`Personas Nuevas: ${registro.personas_nuevas || 0}`);
+            doc.text(`Supervisores: ${registro.supervisores || 0}`);
+            doc.text(`Prevencionistas: ${registro.prevencionistas || 0}`);
+            doc.moveDown();
+
             // -- SUMMARY --
-            doc.fontSize(16).text('Resumen Ejecutivo', { underline: true });
-            doc.fontSize(12).text(`Cumplimiento Total: ${registro.porcentaje_cumplimiento}%`);
-            doc.text(`Auditoría: ${registro.porcentaje_cumplimiento_auditor ? registro.porcentaje_cumplimiento_auditor + '%' : 'Pendiente'}`);
+            doc.fontSize(14).text('Resumen de Auditoría', { underline: true });
+            doc.fontSize(10).text(`Cumplimiento Declarado: ${registro.porcentaje_cumplimiento}%`);
+            doc.text(`Cumplimiento Auditor: ${registro.porcentaje_cumplimiento_auditor !== null ? registro.porcentaje_cumplimiento_auditor + '%' : 'Pendiente'}`);
             doc.text(`Estado: ${registro.estado_auditoria.toUpperCase()}`);
             if (registro.auditor) {
                 doc.text(`Auditor: ${registro.auditor.name}`);
+            }
+            if (registro.observaciones_auditoria || registro.comentario_general) {
+                doc.moveDown(0.5);
+                doc.text(`Comentario General: ${registro.observaciones_auditoria || registro.comentario_general}`);
             }
             doc.moveDown();
 
@@ -63,38 +77,50 @@ module.exports = {
             });
 
             if (hallazgos.length > 0) {
-                doc.fontSize(16).text('Hallazgos Identificados', { underline: true });
+                doc.fontSize(14).text('Hallazgos Identificados', { underline: true });
                 doc.moveDown(0.5);
 
                 hallazgos.forEach((h, i) => {
-                    doc.fontSize(12).font('Helvetica-Bold').text(`${i + 1}. [${h.actividad}] ${h.tipo.toUpperCase()}`);
+                    doc.fontSize(10).font('Helvetica-Bold').text(`${i + 1}. [${h.actividad}] ${h.tipo.toUpperCase()}`);
                     doc.font('Helvetica').text(`   Detalle: ${h.descripcion}`);
                     doc.text(`   Estado: ${h.estado}`);
                     if (h.compromisos && h.compromisos.length > 0) {
-                        doc.text(`   Compromiso: ${h.compromisos[0].descripcion_compromiso} (${h.compromisos[0].fecha_cumplimiento})`, { color: 'blue' });
-                        doc.fillColor('black'); // Reset color
+                        doc.fillColor('blue').text(`   Compromiso: ${h.compromisos[0].descripcion_compromiso || h.compromisos[0].descripcion} (${new Date(h.compromisos[0].fecha_cumplimiento || h.compromisos[0].fecha_compromiso).toLocaleDateString()})`);
+                        doc.fillColor('black');
                     }
                     doc.moveDown(0.5);
                 });
                 doc.moveDown();
-            } else {
-                doc.fontSize(12).text('No se registraron hallazgos en este periodo.');
-                doc.moveDown();
             }
 
-            // -- ACTIVITIES TABLE (Simplified) --
-            doc.fontSize(16).text('Detalle de Actividades', { underline: true });
+            // -- ACTIVITIES TABLE --
+            doc.fontSize(14).text('Detalle de Actividades', { underline: true });
             doc.moveDown(0.5);
 
-            registro.actividades.forEach(ra => {
+            registro.actividades.sort((a, b) => (a.actividad?.codigo || '').localeCompare(b.actividad?.codigo || '')).forEach(ra => {
                 const status = ra.cumple ? 'CUMPLE' : 'NO CUMPLE';
-                const auditStatus = ra.cumple_auditor === 1 ? 'OK' : (ra.cumple_auditor === 0 ? 'RECHAZADO' : '-');
+                const auditStatus = ra.cumple_auditor === 1 || ra.cumple_auditor === true ? 'CUMPLE' : (ra.cumple_auditor === 0 || ra.cumple_auditor === false ? 'NO CUMPLE' : '-');
                 const color = ra.cumple ? 'green' : 'red';
+                const auditColor = ra.cumple_auditor === true || ra.cumple_auditor === 1 ? 'green' : (ra.cumple_auditor === false || ra.cumple_auditor === 0 ? 'red' : 'black');
 
-                doc.fontSize(10).text(`${ra.actividad.codigo}: ${ra.actividad.descripcion.substring(0, 80)}...`);
-                doc.fillColor(color).text(`   Reportado: ${status} | Auditoría: ${auditStatus}`);
+                doc.fontSize(9).font('Helvetica-Bold').text(`${ra.actividad?.codigo || '-'}: ${ra.actividad?.descripcion || ra.descripcion_actividad}`);
+                doc.font('Helvetica').fontSize(8);
+                doc.fillColor(color).text(`   Reportado: ${status}`, { continued: true });
+                doc.fillColor('black').text(` | Auditoría: `, { continued: true });
+                doc.fillColor(auditColor).text(`${auditStatus}`);
                 doc.fillColor('black');
-                doc.moveDown(0.2);
+
+                if (ra.responsable) doc.text(`   Responsable: ${ra.responsable}`);
+                if (ra.descripcion_contratista) doc.text(`   Obs. Contratista: ${ra.descripcion_contratista}`);
+                if (ra.observacion_auditor) doc.text(`   Obs. Auditor: ${ra.observacion_auditor}`);
+                
+                if (ra.evidencias && ra.evidencias.length > 0) {
+                    const evNames = ra.evidencias.map(e => e.nombre_archivo).join(', ');
+                    doc.fillColor('blue').text(`   Evidencias: ${evNames}`);
+                    doc.fillColor('black');
+                }
+
+                doc.moveDown(0.4);
             });
 
             // Footer
