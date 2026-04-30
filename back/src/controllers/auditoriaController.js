@@ -187,7 +187,7 @@ const auditoriaController = {
             // Fetch contractor email
             const contractor = await User.findByPk(registro.user_id);
             if (contractor?.email) {
-                await emailService.notifyAuditoriaFinalizada(registro, contractor.email);
+                await emailService.notifyRevisionFinalizada(registro, contractor.email);
             }
 
             if (comentario_general) {

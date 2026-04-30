@@ -4,7 +4,8 @@ const {
     Registro,
     RegistroLog,
 
-    User
+    User,
+    Administracion
 } = require('../database/models');
 const emailService = require('../services/emailService');
 
@@ -100,11 +101,20 @@ const reaperturaController = {
                 ip_address: req.ip
             });
 
-            // Notify Admin (Mock)
-            await emailService.notifyReaperturaSolicitada(registro, req.user, 'admin@abastible.cl');
-            // Notify Admin (Mock)
-            await emailService.notifyReaperturaSolicitada(registro, req.user, 'admin@abastible.cl');
-            console.log(`[MOCK EMAIL] Solicitud Reapertura: ${registro.periodo} - ${motivo}`);
+            // Notify ADC(s) (PARKO)
+            try {
+                const admins = await Administracion.findAll({
+                    where: { vinculacion_id: registro.contratista_asignacion_id, activo: 1 },
+                    include: [{ model: User, as: 'administradorContrato', attributes: ['email'] }]
+                });
+                const adminEmails = admins.map(a => a.administradorContrato?.email).filter(Boolean);
+                
+                if (adminEmails.length > 0) {
+                    await emailService.notifyReaperturaSolicitada(registro, req.user, adminEmails, motivo);
+                }
+            } catch (emailErr) {
+                console.error('Error notifying admins of reopening:', emailErr);
+            }
 
             res.status(201).json({ success: true, data: solicitud });
         } catch (error) {

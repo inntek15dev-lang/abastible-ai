@@ -458,8 +458,24 @@ const registroController = {
                     }
                 }
 
-                // Notify Auditor (Simulated: Send to generic auditor or fetch based on assignment if possible)
-                console.log(`[MOCK EMAIL] Registro Enviado/Subsanado: ${registro.periodo}`);
+                // Notify Auditor (PARKO)
+                try {
+                    const admins = await Administracion.findAll({
+                        where: { vinculacion_id: registro.contratista_asignacion_id, activo: 1 },
+                        include: [{ model: User, as: 'administradorContrato', attributes: ['email'] }]
+                    });
+                    const adminEmails = admins.map(a => a.administradorContrato?.email).filter(Boolean);
+
+                    if (adminEmails.length > 0) {
+                        if (registroData.estado_auditoria === 'subsanado') {
+                            await emailService.notifySubsanacionEnviada(registro, adminEmails);
+                        } else {
+                            await emailService.notifyRegistroEnviado(registro, adminEmails);
+                        }
+                    }
+                } catch (emailErr) {
+                    console.error('Error sending notification emails:', emailErr);
+                }
             }
 
             await registro.update(registroData);
