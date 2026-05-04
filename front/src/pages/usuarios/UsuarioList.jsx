@@ -58,6 +58,7 @@ export default function UsuarioList() {
 
     const getRoleBadge = (role) => {
         const colors = {
+            oval: 'danger', // Special color for superadmin
             admin: 'primary',
             administrador_contrato: 'info',
             contratista_admin: 'warning',
@@ -94,7 +95,10 @@ export default function UsuarioList() {
         return matchStatus && matchRole && matchSearch;
     });
 
-    const uniqueRoles = ['admin', 'administrador_contrato', 'contratista_admin', 'contratista_user'];
+    const { user } = useAuth();
+    const uniqueRoles = user?.role === 'oval' 
+        ? ['oval', 'admin', 'administrador_contrato', 'contratista_admin', 'contratista_user']
+        : ['admin', 'administrador_contrato', 'contratista_admin', 'contratista_user'];
 
     if (loading) return <div className="loading">Cargando...</div>;
 

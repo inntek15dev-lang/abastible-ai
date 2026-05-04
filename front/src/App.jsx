@@ -52,6 +52,9 @@ import DependenciaForm from './pages/configuracion/DependenciaForm';
 import ServicioList from './pages/configuracion/ServicioList';
 import ServicioForm from './pages/configuracion/ServicioForm';
 
+// OVAL Pages
+import OvalBilling from './pages/oval/OvalBilling';
+
 const queryClient = new QueryClient();
 
 // Protected Route wrapper
@@ -174,6 +177,9 @@ function AppRoutes() {
         <Route path="/servicios" element={<ServicioList />} />
         <Route path="/servicios/new" element={<ServicioForm />} />
         <Route path="/servicios/:id/edit" element={<ServicioForm />} />
+
+        {/* OVAL */}
+        <Route path="/oval/billing" element={<OvalBilling />} />
       </Route>
 
       {/* Catch all */}

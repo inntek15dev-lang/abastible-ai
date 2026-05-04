@@ -21,7 +21,7 @@ const emailService = {
         }
     },
 
-    async sendMail({ to, subject, html }) {
+    async sendMail({ to, subject, html, attachments = [] }) {
         if (this.transporter) {
             try {
                 const info = await this.transporter.sendMail({
@@ -29,6 +29,7 @@ const emailService = {
                     to,
                     subject,
                     html,
+                    attachments
                 });
                 console.log(`📧 Email sent to ${to}: ${info.messageId}`);
                 return true;

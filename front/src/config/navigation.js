@@ -13,7 +13,8 @@ import {
     Building,
     BookOpen,
     Link,
-    AlertTriangle
+    AlertTriangle,
+    DollarSign
 } from 'lucide-react';
 
 export const MODULES = [
@@ -24,6 +25,14 @@ export const MODULES = [
         icon: Home,
         module: 'Dashboard', // Auth check based on Dashboard privilege
         color: '#3B82F6' // Blue (Tailwind blue-500)
+    },
+    {
+        id: 'oval',
+        label: 'OVAL',
+        icon: DollarSign,
+        color: '#6366F1', // Indigo
+        module: 'OVAL',
+        path: '/oval/billing'
     },
     {
         id: 'pendientes',

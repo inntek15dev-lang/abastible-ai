@@ -746,6 +746,13 @@ router.get('/reportes/cumplimiento/excel', auth, reporteController.cumplimientoG
 router.get('/reportes/matrix/pdf', auth, reporteController.matrixPdf);
 router.get('/reportes/matrix/excel', auth, reporteController.matrixExcel);
 
+// OVAL Billing
+router.get('/reportes/oval/billing', auth, requirePrivilege('OVAL', 'read'), reporteController.billingReport);
+router.post('/reportes/oval/config', auth, requirePrivilege('OVAL', 'write'), reporteController.updateBillingConfig);
+router.get('/reportes/oval/billing/pdf', auth, requirePrivilege('OVAL', 'read'), reporteController.billingReportPdf);
+router.get('/reportes/oval/billing/excel', auth, requirePrivilege('OVAL', 'read'), reporteController.billingReportExcel);
+router.post('/reportes/oval/billing/send', auth, requirePrivilege('OVAL', 'write'), reporteController.sendBillingReportEmail);
+
 // ============= SPRINT 5: DOCUMENTOS =============
 // Documentos
 const documentoController = require('../controllers/documentoController');

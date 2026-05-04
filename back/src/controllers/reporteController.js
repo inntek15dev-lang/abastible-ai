@@ -682,5 +682,390 @@ module.exports = {
                 estado: parseFloat(r.porcentaje_cumplimiento) >= 85 ? 'Cumple meta' : 'Bajo meta'
             }))
         };
+    },
+
+    async billingReport(req, res) {
+        try {
+            const reportData = await module.exports._getBillingData();
+            res.json({
+                success: true,
+                data: reportData
+            });
+        } catch (error) {
+            console.error('Billing Report Error:', error);
+            res.status(500).json({ success: false, message: 'Error al generar reporte de facturación' });
+        }
+    },
+
+    async _getBillingData() {
+        const { Configuracion } = require('../database/models');
+        
+        // 1. Get billable amount from config
+        const configMonto = await Configuracion.findOne({ where: { clave: 'monto_facturable_contrato' } });
+        const montoUnitario = parseFloat(configMonto?.valor || 1000);
+
+        // 2. Fetch Contractors with their active contracts (Vinculaciones)
+        const contratistas = await Contratista.findAll({
+            where: { activo: 1 },
+            include: [
+                {
+                    model: Vinculacion,
+                    as: 'vinculaciones',
+                    where: { activo: 1 },
+                    required: false,
+                    include: [
+                        {
+                            model: TipoContratista,
+                            as: 'servicio',
+                            include: [
+                                {
+                                    model: Programa,
+                                    as: 'programa',
+                                    where: { activo: 1 }
+                                }
+                            ]
+                        },
+                        { model: Dependencia, as: 'dependencia' }
+                    ]
+                }
+            ]
+        });
+
+        const mappedContratistas = contratistas.map(c => {
+            const activeContracts = c.vinculaciones || [];
+            const billableContracts = activeContracts.filter(v => v.servicio?.programa);
+            
+            return {
+                id: c.id,
+                nombre: c.nombre,
+                rut: c.rut,
+                totalContratos: activeContracts.length,
+                contratosFacturables: billableContracts.length,
+                montoTotal: billableContracts.length * montoUnitario,
+                detalleContratos: billableContracts.map(v => ({
+                    id: v.id,
+                    numero_contrato: v.numero_contrato,
+                    servicio: v.servicio.nombre,
+                    programa: v.servicio.programa.nombre,
+                    dependencia: v.dependencia?.nombre || 'N/A'
+                }))
+            };
+        });
+
+        return {
+            montoUnitario,
+            contratistas: mappedContratistas,
+            resumen: {
+                totalContratistas: mappedContratistas.length,
+                totalContratosFacturables: mappedContratistas.reduce((acc, c) => acc + c.contratosFacturables, 0),
+                montoGranTotal: mappedContratistas.reduce((acc, c) => acc + c.montoTotal, 0)
+            }
+        };
+    },
+
+    async updateBillingConfig(req, res) {
+        try {
+            const { monto } = req.body;
+            const { Configuracion } = require('../database/models');
+            
+            let config = await Configuracion.findOne({ where: { clave: 'monto_facturable_contrato' } });
+            
+            if (config) {
+                await config.update({ valor: String(monto) });
+            } else {
+                await Configuracion.create({
+                    clave: 'monto_facturable_contrato',
+                    valor: String(monto),
+                    tipo: 'number',
+                    descripcion: 'Monto facturable por contrato con programa activo'
+                });
+            }
+
+            res.json({ success: true, message: 'Configuración actualizada correctamente' });
+        } catch (error) {
+            console.error('Update Billing Config Error:', error);
+            res.status(500).json({ success: false, message: 'Error al actualizar configuración' });
+        }
+    },
+
+    async _generateBillingPdf(reportData, stream) {
+        const path = require('path');
+        const doc = new PDFDocument({ 
+            margin: 50,
+            size: 'A4',
+            bufferPages: true,
+            info: {
+                Title: 'Reporte de Facturación OVAL',
+                Author: 'OVAL Control'
+            }
+        });
+        
+        doc.pipe(stream);
+
+        // Assets paths
+        const logoAbastible = path.join(__dirname, '../assets/logos/abastible.png');
+        const logoOval = path.join(__dirname, '../assets/logos/oval.png');
+
+        // --- HEADER ---
+        // Draw a top blue bar
+        doc.rect(0, 0, 612, 80).fill('#003399'); // Abastible Blue
+        
+        // Add logos in header
+        try {
+            const fs = require('fs');
+            if (fs.existsSync(logoAbastible)) doc.image(logoAbastible, 40, 20, { height: 40 });
+            if (fs.existsSync(logoOval)) doc.image(logoOval, 480, 20, { height: 40 });
+        } catch (err) {
+            console.warn('Logos not found for PDF, skipping images');
+        }
+
+        doc.fillColor('white').fontSize(16).font('Helvetica-Bold')
+           .text('INFORME DE FACTURACIÓN MENSUAL', 0, 30, { align: 'center' });
+        
+        doc.moveDown(4);
+
+        // --- INFO BOX ---
+        doc.fillColor('#1e293b'); // Dark Slate
+        doc.fontSize(10).font('Helvetica')
+           .text(`Fecha de Emisión: ${new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}`, { align: 'right' });
+        doc.moveDown();
+
+        // --- SUMMARY CARDS ---
+        const startY = doc.y;
+        const cardWidth = 160;
+        
+        // Card 1: Total Contratistas
+        doc.rect(50, startY, cardWidth, 60).fillAndStroke('#f8fafc', '#e2e8f0');
+        doc.fillColor('#64748b').fontSize(8).text('CONTRATISTAS', 60, startY + 15);
+        doc.fillColor('#1e293b').fontSize(14).font('Helvetica-Bold').text(reportData.resumen.totalContratistas.toString(), 60, startY + 30);
+
+        // Card 2: Contratos
+        doc.rect(220, startY, cardWidth, 60).fillAndStroke('#f8fafc', '#e2e8f0');
+        doc.fillColor('#64748b').fontSize(8).text('CONTRATOS FACTURABLES', 230, startY + 15);
+        doc.fillColor('#1e293b').fontSize(14).font('Helvetica-Bold').text(reportData.resumen.totalContratosFacturables.toString(), 230, startY + 30);
+
+        // Card 3: Total $
+        doc.rect(390, startY, cardWidth, 60).fillAndStroke('#fff7ed', '#fdba74'); // Orange tint
+        doc.fillColor('#ea580c').fontSize(8).text('TOTAL FACTURABLE', 400, startY + 15);
+        doc.fillColor('#9a3412').fontSize(14).font('Helvetica-Bold').text(`$${new Intl.NumberFormat('es-CL').format(reportData.resumen.montoGranTotal)}`, 400, startY + 30);
+
+        doc.moveDown(6);
+
+        // --- TABLE HEADER ---
+        doc.fillColor('#003399').fontSize(12).font('Helvetica-Bold').text('DETALLE DE FACTURACIÓN POR EMPRESA', { underline: true });
+        doc.moveDown();
+
+        // Table Columns Helper
+        const tableTop = doc.y;
+        const col1 = 50;
+        const col2 = 300;
+        const col3 = 400;
+        const col4 = 500;
+
+        doc.fontSize(10).fillColor('#475569');
+        doc.text('Empresa Contratista', col1, tableTop);
+        doc.text('RUT', col2, tableTop);
+        doc.text('Cant.', col3, tableTop);
+        doc.text('Monto Total', col4, tableTop);
+        
+        doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke('#cbd5e1');
+        doc.moveDown();
+
+        // --- TABLE ROWS ---
+        reportData.contratistas.forEach((c, index) => {
+            if (c.contratosFacturables > 0) {
+                const rowY = doc.y;
+                
+                // Zebra striping
+                if (index % 2 === 0) {
+                    doc.rect(50, rowY - 5, 500, 25).fill('#f1f5f9');
+                }
+
+                doc.fillColor('#1e293b').font('Helvetica');
+                doc.text(c.nombre, col1, rowY, { width: 240 });
+                doc.text(c.rut, col2, rowY);
+                doc.text(c.contratosFacturables.toString(), col3, rowY);
+                doc.font('Helvetica-Bold').text(`$${new Intl.NumberFormat('es-CL').format(c.montoTotal)}`, col4, rowY);
+                
+                doc.moveDown(1.5);
+
+                // Sub-Table for Contract Details
+                if (c.detalleContratos.length > 0) {
+                    const subTableX = col1 + 20;
+                    const subTableWidth = 480;
+                    const subCol1 = subTableX + 5;
+                    const subCol2 = subTableX + 100;
+                    const subCol3 = subTableX + 300;
+
+                    // Header Sub-table
+                    doc.rect(subTableX, doc.y, subTableWidth, 15).fill('#f1f5f9');
+                    doc.fillColor('#475569').fontSize(7).font('Helvetica-Bold');
+                    doc.text('N° CONTRATO', subCol1, doc.y + 4);
+                    doc.text('SERVICIO / PROGRAMA', subCol2, doc.y - 8);
+                    doc.text('DEPENDENCIA', subCol3, doc.y - 8);
+                    doc.moveDown(0.8);
+
+                    // Rows Sub-table
+                    c.detalleContratos.forEach(v => {
+                        doc.fillColor('#64748b').fontSize(7).font('Helvetica');
+                        const subRowY = doc.y;
+                        doc.text(v.numero_contrato, subCol1, subRowY);
+                        doc.text(`${v.servicio} (${v.programa})`, subCol2, subRowY, { width: 190 });
+                        doc.text(v.dependencia, subCol3, subRowY, { width: 150 });
+                        doc.moveDown(1.2);
+                        
+                        // Thin separator line
+                        doc.moveTo(subTableX, doc.y - 2).lineTo(subTableX + subTableWidth, doc.y - 2).stroke('#f1f5f9');
+                    });
+                    doc.moveDown(0.5);
+                }
+                
+                doc.fontSize(10); // Reset font size for next contractor
+            }
+        });
+
+        // --- FOOTER ---
+        const pages = doc.bufferedPageRange();
+        for (let i = 0; i < pages.count; i++) {
+            doc.switchToPage(i);
+            doc.fontSize(8).fillColor('#94a3b8')
+               .text(`Reporte generado por Plataforma OVAL Control para Abastible S.A. | Página ${i + 1} de ${pages.count}`, 
+               0, 780, { align: 'center' });
+        }
+
+        doc.end();
+        return doc;
+    },
+
+    async billingReportPdf(req, res) {
+        try {
+            const reportData = await module.exports._getBillingData();
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', 'attachment; filename=reporte-facturacion-oval.pdf');
+            
+            await module.exports._generateBillingPdf(reportData, res);
+        } catch (error) {
+            console.error('Billing PDF Error:', error);
+            res.status(500).json({ message: 'Error generando PDF de facturación' });
+        }
+    },
+
+    async billingReportExcel(req, res) {
+        try {
+            const reportData = await module.exports._getBillingData();
+            const workbook = new ExcelJS.Workbook();
+            const sheet = workbook.addWorksheet('Facturacion');
+
+            sheet.columns = [
+                { header: 'Contratista', key: 'nombre', width: 40 },
+                { header: 'RUT', key: 'rut', width: 15 },
+                { header: 'Contratos Facturables', key: 'cant', width: 20 },
+                { header: 'Monto Unitario', key: 'unitario', width: 15 },
+                { header: 'Monto Total', key: 'total', width: 15 }
+            ];
+
+            reportData.contratistas.forEach(c => {
+                sheet.addRow({
+                    nombre: c.nombre,
+                    rut: c.rut,
+                    cant: c.contratosFacturables,
+                    unitario: reportData.montoUnitario,
+                    total: c.montoTotal
+                });
+            });
+
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', 'attachment; filename=reporte-facturacion.xlsx');
+            await workbook.xlsx.write(res);
+            res.end();
+        } catch (error) {
+            console.error('Billing Excel Error:', error);
+            res.status(500).json({ message: 'Error generando Excel de facturación' });
+        }
+    },
+
+    async sendBillingReportEmail(req, res) {
+        try {
+            const { email } = req.body;
+            if (!email) return res.status(400).json({ success: false, message: 'Email requerido' });
+
+            const reportData = await module.exports._getBillingData();
+            const emailService = require('../services/emailService');
+
+            // 1. Generate PDF in memory using the same aesthetic helper
+            const { PassThrough } = require('stream');
+            const stream = new PassThrough();
+            const buffers = [];
+            stream.on('data', buffers.push.bind(buffers));
+
+            await module.exports._generateBillingPdf(reportData, stream);
+
+            // Wait for PDF to finish
+            const pdfBuffer = await new Promise((resolve, reject) => {
+                stream.on('end', () => resolve(Buffer.concat(buffers)));
+                stream.on('error', reject);
+            });
+
+            // 2. Prepare HTML Email
+            const html = `
+                <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+                    <div style="background-color: #003399; padding: 20px; text-align: center;">
+                        <h2 style="color: #ffffff; margin: 0;">Reporte de Facturación Mensual</h2>
+                    </div>
+                    <div style="padding: 30px;">
+                        <p>Estimado(a),</p>
+                        <p>Adjunto encontrará el reporte detallado de facturación de contratistas generado desde la plataforma <strong>OVAL Control</strong> para <strong>Abastible S.A.</strong></p>
+                        
+                        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #ea580c;">
+                            <h4 style="margin: 0 0 15px 0; color: #1e293b;">Resumen Ejecutivo:</h4>
+                            <table style="width: 100%; font-size: 14px;">
+                                <tr>
+                                    <td style="padding: 5px 0; color: #64748b;">Contratistas con Actividad:</td>
+                                    <td style="padding: 5px 0; text-align: right; font-weight: bold;">${reportData.resumen.totalContratistas}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 5px 0; color: #64748b;">Total Contratos Facturables:</td>
+                                    <td style="padding: 5px 0; text-align: right; font-weight: bold;">${reportData.resumen.totalContratosFacturables}</td>
+                                </tr>
+                                <tr style="font-size: 16px;">
+                                    <td style="padding: 15px 0 5px 0; color: #1e293b; font-weight: bold;">Monto Total Proyectado:</td>
+                                    <td style="padding: 15px 0 5px 0; text-align: right; font-weight: bold; color: #9a3412;">$${new Intl.NumberFormat('es-CL').format(reportData.resumen.montoGranTotal)} CLP</td>
+                                </tr>
+                            </table>
+                        </div>
+                        
+                        <p style="font-size: 13px; color: #64748b; line-height: 1.6;">
+                            Este reporte contiene información confidencial de carácter comercial. El desglose detallado se encuentra disponible en el archivo PDF adjunto.
+                        </p>
+                    </div>
+                    <div style="background-color: #f1f5f9; padding: 15px; text-align: center; font-size: 11px; color: #94a3b8;">
+                        © ${new Date().getFullYear()} Plataforma OVAL Control - Abastible | Sistema de Gestión Operacional
+                    </div>
+                </div>
+            `;
+
+            // 3. Send Email
+            const success = await emailService.sendMail({
+                to: email,
+                subject: `[OVAL] Reporte de Facturación - ${new Date().toLocaleDateString('es-CL')}`,
+                html,
+                attachments: [
+                    {
+                        filename: `reporte-facturacion-oval-${new Date().toISOString().split('T')[0]}.pdf`,
+                        content: pdfBuffer
+                    }
+                ]
+            });
+
+            if (success) {
+                res.json({ success: true, message: 'Reporte enviado correctamente a ' + email });
+            } else {
+                res.status(500).json({ success: false, message: 'Error al enviar el email' });
+            }
+
+        } catch (error) {
+            console.error('Send Billing Report Error:', error);
+            res.status(500).json({ success: false, message: 'Error al procesar el envío del reporte' });
+        }
     }
 };

@@ -36,6 +36,7 @@ async function seed() {
         // ============= ORDER 0: Base tables =============
         console.log('📦 Sincronizando roles...');
         const rolesData = [
+            { name: 'oval', guard_name: 'web' },
             { name: 'admin', guard_name: 'web' },
             { name: 'administrador_contrato', guard_name: 'web' },
             { name: 'contratista_admin', guard_name: 'web' },
@@ -56,7 +57,8 @@ async function seed() {
             { clave: 'fecha_limite_reporte', valor: '5', descripcion: 'Día hábil límite para reporte', tipo: 'number' },
             { clave: 'dias_cierre_hallazgo', valor: '30', descripcion: 'Días máximos para cierre de hallazgos', tipo: 'number' },
             { clave: 'evidencia_obligatoria', valor: '1', descripcion: 'Evidencia obligatoria para todas las actividades', tipo: 'boolean' },
-            { clave: 'max_evidencias_por_actividad', valor: '4', descripcion: 'Máximo de evidencias por actividad', tipo: 'integer' }
+            { clave: 'max_evidencias_por_actividad', valor: '4', descripcion: 'Máximo de evidencias por actividad', tipo: 'integer' },
+            { clave: 'monto_facturable_contrato', valor: '1000', descripcion: 'Monto facturable por contrato con programa activo (CLP)', tipo: 'number' }
         ];
         for (const c of configData) {
             await Configuracion.findOrCreate({
@@ -185,9 +187,11 @@ async function seed() {
         console.log('📦 Sincronizando privilegios...');
         const privilegiosData = [
             { role_id: roles[0].id, ref_modulo: '*', read: 1, write: 1, excec: 1 },
-            { role_id: roles[0].id, ref_modulo: 'Auditoria', read: 1, write: 1, excec: 1 },
-            { role_id: roles[0].id, ref_modulo: 'Reportes', read: 1, write: 1, excec: 1 },
-            { role_id: roles[0].id, ref_modulo: 'Registros_Exportar', read: 1, write: 1, excec: 1 }
+            { role_id: roles[0].id, ref_modulo: 'OVAL', read: 1, write: 1, excec: 1 },
+            { role_id: roles[1].id, ref_modulo: '*', read: 1, write: 1, excec: 1 },
+            { role_id: roles[1].id, ref_modulo: 'Auditoria', read: 1, write: 1, excec: 1 },
+            { role_id: roles[1].id, ref_modulo: 'Reportes', read: 1, write: 1, excec: 1 },
+            { role_id: roles[1].id, ref_modulo: 'Registros_Exportar', read: 1, write: 1, excec: 1 }
         ];
 
         for (const p of privilegiosData) {
@@ -198,9 +202,9 @@ async function seed() {
         }
 
         const dynamicPrivs = [
-            { role: roles[1], modules: ['Dashboard', 'Registros', 'Contratistas', 'Reaperturas', 'Compromisos', 'Auditoria', 'Reportes', 'Registros_Exportar', 'Programas', 'Vinculaciones', 'Gestion_Configuracion'] },
-            { role: roles[2], modules: ['Dashboard', 'Registros', 'Evidencias', 'Reaperturas', 'Usuarios', 'Compromisos', 'Reportes', 'Registros_Exportar', 'Programas', 'Vinculaciones'] },
-            { role: roles[3], modules: ['Dashboard', 'Registros', 'Evidencias', 'Usuarios', 'Registros_Exportar', 'Programas', 'Vinculaciones'] }
+            { role: roles[2], modules: ['Dashboard', 'Registros', 'Contratistas', 'Reaperturas', 'Compromisos', 'Auditoria', 'Reportes', 'Registros_Exportar', 'Programas', 'Vinculaciones', 'Gestion_Configuracion'] },
+            { role: roles[3], modules: ['Dashboard', 'Registros', 'Evidencias', 'Reaperturas', 'Usuarios', 'Compromisos', 'Reportes', 'Registros_Exportar', 'Programas', 'Vinculaciones'] },
+            { role: roles[4], modules: ['Dashboard', 'Registros', 'Evidencias', 'Usuarios', 'Registros_Exportar', 'Programas', 'Vinculaciones'] }
         ];
 
         for (const dp of dynamicPrivs) {
@@ -255,6 +259,12 @@ async function seed() {
         // ============= ORDER 4: Usuarios =============
         console.log('📦 Sincronizando usuarios...');
         const hashedPassword = await bcrypt.hash('User123*', 10);
+
+        const [ovalUser, ovalCreated] = await User.findOrCreate({
+            where: { email: 'oval@ovalcontrol.com' },
+            defaults: { name: 'Superusuario OVAL', password: hashedPassword, role: 'oval', activo: 1 }
+        });
+        if (!ovalCreated) await ovalUser.update({ password: hashedPassword, activo: 1 });
 
         const [adminOiem, adminCreated] = await User.findOrCreate({
             where: { email: 'admin@abastible.cl' },

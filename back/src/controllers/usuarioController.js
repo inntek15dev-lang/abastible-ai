@@ -6,7 +6,13 @@ const usuarioController = {
     // GET /api/usuarios
     async index(req, res) {
         try {
-            let where = {}; // Default: Show all. Frontend will filter or we filter by query.
+            let where = {}; 
+            
+            // SECURITY: Hide OVAL users from everyone except other OVAL users
+            if (req.user.role !== 'oval') {
+                const { Op } = require('sequelize');
+                where.role = { [Op.ne]: 'oval' };
+            }
 
             // If not admin, maybe restrict? 
             // Current logic was: let where = { activo: 1 };
@@ -188,7 +194,10 @@ const usuarioController = {
                     finalRole = 'contratista_admin';
                 }
             }
-            // Admin can create any role
+            // Admin can create any role (except OVAL if not OVAL themselves)
+            if (finalRole === 'oval' && req.user.role !== 'oval') {
+                finalRole = 'admin'; // Downgrade or reject? Requirement says "invisible to admin", so admin shouldn't even know it exists.
+            }
 
             const hashedPassword = await bcrypt.hash(password, 10);
 

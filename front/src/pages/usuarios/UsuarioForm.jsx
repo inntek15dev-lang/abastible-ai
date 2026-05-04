@@ -266,6 +266,7 @@ export default function UsuarioForm() {
                                 >
                                     <option value="">Seleccione Rol...</option>
                                     {roles.filter(r => {
+                                        if (currentUser.role !== 'oval' && r.name === 'oval') return false;
                                         if (['contratista_admin', 'contratista_user'].includes(currentUser.role)) {
                                             return r.name === 'contratista_user';
                                         }
