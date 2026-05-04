@@ -316,7 +316,7 @@ export default function ContratistaList() {
                         Empresas externas, servicios y vinculaciones activas.
                     </p>
                 </div>
-                {canWrite('Configuración') && !isADC && user?.role !== 'admin' && (
+                {(user?.role === 'admin' || isADC) && (
                     <div className="flex gap-2">
                         <button
                             onClick={() => setIsSyncModalOpen(true)}

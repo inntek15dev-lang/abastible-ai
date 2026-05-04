@@ -149,6 +149,18 @@ const registroController = {
             }
 
             const registros = await Registro.findAll({
+                attributes: {
+                    include: [
+                        [
+                            sequelize.literal(`(
+                                SELECT COUNT(*)
+                                FROM hallazgos AS h
+                                WHERE h.registro_id = Registro.id
+                            )`),
+                            'hallazgos_count'
+                        ]
+                    ]
+                },
                 where,
                 include: [
                     { model: User, as: 'usuario', attributes: ['id', 'name', 'email', 'eecc_nombre', 'rut'] },

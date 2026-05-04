@@ -1,6 +1,6 @@
 // IEEE Trace: REQ-007 | US-006, US-007 | usuarioController.js
 const bcrypt = require('bcryptjs');
-const { User, TipoContratista, Dependencia, ContratistaAsignacion, Contratista, Vinculacion, Administracion } = require('../database/models');
+const { User, TipoContratista, Dependencia, ContratistaAsignacion, Contratista, Vinculacion, Administracion, Programa } = require('../database/models');
 
 const usuarioController = {
     // GET /api/usuarios
@@ -135,7 +135,7 @@ const usuarioController = {
                                     {
                                         model: TipoContratista,
                                         as: 'servicio',
-                                        include: [{ model: require('../database/models/Programa'), as: 'programa' }]
+                                        include: [{ model: Programa, as: 'programa' }]
                                     },
                                     { model: Dependencia, as: 'dependencia' }
                                 ]
@@ -267,11 +267,13 @@ const usuarioController = {
                 return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
             }
 
+            const isSelf = String(usuario.id) === String(req.user.id);
+
             // SECURITY SCOPE CHECK
             // Prevent unauthorized edits by roles with limited scope
-            if (req.user.role === 'contratista_admin') {
+            if (req.user.role === 'contratista_admin' || req.user.role === 'contratista_admin_eecc') {
                 // Can only edit themselves or their children (operativos)
-                if (String(usuario.id) !== String(req.user.id) && String(usuario.parent_id) !== String(req.user.id)) {
+                if (!isSelf && String(usuario.parent_id) !== String(req.user.id)) {
                     return res.status(403).json({ success: false, message: 'No tiene permiso para editar este usuario' });
                 }
             } else if (req.user.role === 'contratista_user') {
@@ -280,30 +282,29 @@ const usuarioController = {
                                    String(usuario.tipo_contratista_id) === String(req.user.tipo_contratista_id) &&
                                    String(usuario.dependencia_id) === String(req.user.dependencia_id);
                                    
-                if (String(usuario.id) !== String(req.user.id) && !isSameScope) {
+                if (!isSelf && !isSameScope) {
                     return res.status(403).json({ success: false, message: 'No tiene permiso para editar este usuario' });
                 }
             } else if (req.user.role === 'administrador_contrato') {
                 // Ensure the user belongs to their assigned scope
-                // Can edit: Users they are assigned to (Contractor Admin) OR children of those users.
-                // Note: ADC usually doesn't have 'Usuarios' write privilege, but this is a defense-in-depth measure.
+                // Can edit: Themselves OR Users they are assigned to (Contractor Admin) OR children of those users.
                 const asignaciones = await ContratistaAsignacion.findAll({
                     where: { administrador_contrato_id: req.user.id },
                     attributes: ['user_id']
                 });
-                const assignedIds = asignaciones.map(a => a.user_id);
+                const assignedIds = asignaciones.map(a => String(a.user_id));
 
-                const isDirectlyAssigned = assignedIds.includes(usuario.id);
-                const isChildOfAssigned = usuario.parent_id && assignedIds.includes(usuario.parent_id);
+                const isDirectlyAssigned = assignedIds.includes(String(usuario.id));
+                const isChildOfAssigned = usuario.parent_id && assignedIds.includes(String(usuario.parent_id));
 
-                if (!isDirectlyAssigned && !isChildOfAssigned) {
+                if (!isSelf && !isDirectlyAssigned && !isChildOfAssigned) {
                     return res.status(403).json({ success: false, message: 'Este usuario no está bajo su administración' });
                 }
             }
 
             // SECURITY SCOPE CHECK: Prevent self-deactivation
             if (updateData.activo === 0 || updateData.activo === false) {
-                if (String(usuario.id) === String(req.user.id)) {
+                if (isSelf) {
                     return res.status(403).json({ success: false, message: 'No puede desactivar su propia cuenta' });
                 }
             }
@@ -315,6 +316,17 @@ const usuarioController = {
                 delete updateData.password;
             }
 
+            // Sanitize foreign keys: convert empty strings to null
+            const foreignKeys = ['tipo_contratista_id', 'dependencia_id', 'contratista_id', 'parent_id'];
+            foreignKeys.forEach(key => {
+                if (updateData[key] === '') {
+                    updateData[key] = null;
+                }
+            });
+
+            // Remove id from updateData to prevent primary key issues
+            delete updateData.id;
+
             await usuario.update(updateData);
 
             const userData = usuario.toJSON();
@@ -323,7 +335,26 @@ const usuarioController = {
             res.json({ success: true, data: userData });
         } catch (error) {
             console.error('Usuario update error:', error);
-            res.status(500).json({ success: false, message: 'Error al actualizar usuario' });
+            
+            if (error.name === 'SequelizeUniqueConstraintError') {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'El email ya está en uso por otro usuario' 
+                });
+            }
+
+            if (error.name === 'SequelizeValidationError') {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Error de validación: ' + error.errors.map(e => e.message).join(', ') 
+                });
+            }
+
+            res.status(500).json({ 
+                success: false, 
+                message: 'Error al actualizar usuario',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
         }
     },
 

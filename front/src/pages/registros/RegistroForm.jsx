@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
-import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock, CheckCircle, Trash2, Clock } from 'lucide-react';
+import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock, CheckCircle, Trash2, Clock, AlertTriangle } from 'lucide-react';
 import FileUpload from '../../components/forms/FileUpload';
 import HallazgoModal from '../../components/forms/HallazgoModal';
 import HallazgoList from '../../components/forms/HallazgoList';
@@ -59,6 +59,37 @@ export default function RegistroForm() {
         window.addEventListener('registro-theme-change', handler);
         return () => window.removeEventListener('registro-theme-change', handler);
     }, []);
+
+    const scrollToFinding = (hallazgoId) => {
+        const element = document.getElementById(`finding-${hallazgoId}`);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Temporary highlight effect
+            const originalBg = element.style.backgroundColor;
+            const originalShadow = element.style.boxShadow;
+            const originalBorder = element.style.borderColor;
+
+            element.style.backgroundColor = '#fee2e2';
+            element.style.boxShadow = '0 0 15px rgba(239, 68, 68, 0.4)';
+            element.style.borderColor = '#ef4444';
+
+            setTimeout(() => {
+                element.style.backgroundColor = originalBg || '#fffafb';
+                element.style.boxShadow = originalShadow || 'none';
+                element.style.borderColor = originalBorder || '#fee2e2';
+            }, 2500);
+        }
+    };
+
+    const allHallazgos = useMemo(() => {
+        return actividades.flatMap(act => 
+            (act.hallazgos || []).map(h => ({
+                ...h,
+                actividad_nombre: act.descripcion || act.actividad?.nombre || `Actividad ${act.actividad_id}`,
+                actividad_codigo: act.codigo
+            }))
+        );
+    }, [actividades]);
 
     const themeColors = useMemo(() => {
         switch (registroTheme) {
@@ -379,7 +410,8 @@ export default function RegistroForm() {
                 estado_auditoria: data.estado_auditoria,
                 fecha_limite_subsanacion: data.fecha_limite_subsanacion,
                 contratista_asignacion_id: data.contratista_asignacion_id, // existing assignment
-                eecc_nombre: data.eecc_nombre || ''
+                eecc_nombre: data.eecc_nombre || '',
+                auditor_name: data.auditor?.name || ''
             });
             setRegistroCerrado(data.cerrado === 1 || data.cerrado === true);
             setReviewComments(data.comentario_general || '');
@@ -735,6 +767,15 @@ export default function RegistroForm() {
                                     </select>
                                 </div>
                             )}
+
+                            {form.auditor_name && (
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Auditor Responsable</label>
+                                    <div style={{ ...readOnlyStyle, padding: '0.5rem', borderRadius: '4px', fontSize: '0.9rem', fontWeight: 600 }}>
+                                        {form.auditor_name}
+                                    </div>
+                                </div>
+                            )}
                             
                             {form.fecha_limite_subsanacion && (
                                 <div style={{ gridColumn: isAdminOrADC ? 'span 2' : 'span 3' }}>
@@ -771,6 +812,68 @@ export default function RegistroForm() {
                     </div>
                     <div style={{ fontSize: '0.75rem', color: themeColors.textSecondary, marginTop: '0.5rem' }}>Meta: 85%</div>
                 </div>
+
+                {/* Findings Summary Section */}
+                {allHallazgos.length > 0 && (
+                    <div style={{ 
+                        backgroundColor: themeColors.cardBg, 
+                        borderRadius: '8px', 
+                        padding: '1.25rem', 
+                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', 
+                        marginBottom: '1.5rem', 
+                        border: '1px solid #fecaca',
+                        borderLeft: '5px solid #ef4444'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
+                            <AlertTriangle color="#ef4444" size={24} />
+                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#991b1b' }}>Hallazgos Detectados ({allHallazgos.length})</h3>
+                        </div>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
+                            {allHallazgos.map((h, idx) => (
+                                <div 
+                                    key={h.id || idx} 
+                                    id={`finding-${h.id}`}
+                                    style={{ 
+                                        padding: '1rem', 
+                                        backgroundColor: '#fffafb', 
+                                        borderRadius: '6px', 
+                                        border: '1px solid #fee2e2',
+                                        transition: 'all 0.5s ease'
+                                    }}
+                                >
+                                    <div style={{ marginBottom: '0.75rem' }}>
+                                        <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#dc2626', marginBottom: '0.5rem' }}>
+                                            {h.actividad_codigo && `[${h.actividad_codigo}] `}{h.actividad_nombre}
+                                        </div>
+                                        <div>
+                                            <span style={{ 
+                                                fontSize: '0.65rem', 
+                                                fontWeight: 800, 
+                                                textTransform: 'uppercase',
+                                                padding: '2px 8px',
+                                                borderRadius: '4px',
+                                                backgroundColor: h.tipo === 'no_conformidad' ? '#fee2e2' : '#fef9c3',
+                                                color: h.tipo === 'no_conformidad' ? '#991b1b' : '#854d0e',
+                                                display: 'inline-block'
+                                            }}>
+                                                {h.tipo?.replace('_', ' ')}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div style={{ fontSize: '0.9rem', color: '#4b5563', lineHeight: '1.4' }}>
+                                        {h.descripcion}
+                                    </div>
+                                    {h.fecha_limite && (
+                                        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280' }}>
+                                            Plazo: {new Date(h.fecha_limite).toLocaleDateString('es-CL')}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Activities Groups */}
                 {groupedActividades.map(group => (
@@ -879,9 +982,36 @@ export default function RegistroForm() {
                                                 </td>
                                                 {/* Auditor Columns */}
                                                 <td style={{ padding: '1rem', verticalAlign: 'top', textAlign: 'center', backgroundColor: '#f0f9ff' }}>
-                                                    {act.cumple_auditor === true && <span style={{ color: '#16a34a', fontWeight: 'bold' }}>✓</span>}
-                                                    {act.cumple_auditor === false && <span style={{ color: '#dc2626', fontWeight: 'bold' }}>✕</span>}
-                                                    {act.cumple_auditor === null && <span style={{ color: '#9ca3af' }}>-</span>}
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                                        <div>
+                                                            {(act.cumple_auditor === true || act.cumple_auditor === 1) && <span style={{ color: '#16a34a', fontWeight: 'bold', fontSize: '1.2rem' }}>✓</span>}
+                                                            {(act.cumple_auditor === false || act.cumple_auditor === 0) && <span style={{ color: '#dc2626', fontWeight: 'bold', fontSize: '1.2rem' }}>✕</span>}
+                                                            {(act.cumple_auditor === null || act.cumple_auditor === undefined) && <span style={{ color: '#9ca3af' }}>-</span>}
+                                                        </div>
+                                                        {act.hallazgos && act.hallazgos.length > 0 && (
+                                                            <div 
+                                                                onClick={() => scrollToFinding(act.hallazgos[0].id)}
+                                                                style={{ 
+                                                                    display: 'flex', 
+                                                                    alignItems: 'center', 
+                                                                    gap: '3px', 
+                                                                    backgroundColor: '#fef2f2', 
+                                                                    color: '#dc2626', 
+                                                                    padding: '2px 6px', 
+                                                                    borderRadius: '10px', 
+                                                                    fontSize: '0.65rem',
+                                                                    fontWeight: 700,
+                                                                    border: '1px solid #fee2e2',
+                                                                    cursor: 'pointer',
+                                                                    transition: 'transform 0.2s'
+                                                                }} 
+                                                                className="hover-scale"
+                                                                title="Clic para ver detalle del hallazgo"
+                                                            >
+                                                                <AlertTriangle size={10} /> HALLAZGO
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td style={{ padding: '1rem', verticalAlign: 'top', backgroundColor: '#f0f9ff', fontSize: '0.8rem', color: '#374151' }}>
                                                     {act.observacion_auditor || '-'}

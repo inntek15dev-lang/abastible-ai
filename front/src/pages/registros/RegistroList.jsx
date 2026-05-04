@@ -1,9 +1,9 @@
 // IEEE Trace: REQ-002 | US-002, US-050 | pages/registros/RegistroList.jsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
-import { Plus, Eye, Edit, Edit2, RefreshCw, Trash2, FileText, Search, Filter, Calendar, Building, List, ClipboardCheck, Monitor, X, Lock, Check } from 'lucide-react';
+import { Plus, Eye, Edit, Edit2, RefreshCw, Trash2, FileText, Search, Filter, Calendar, Building, List, ClipboardCheck, Monitor, X, Lock, Check, Clock, AlertTriangle } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toast } from 'react-hot-toast'; // Import toast
@@ -85,6 +85,36 @@ export default function RegistroList() {
         gerencia: 'Todas',
         subgerencia: 'Todas'
     });
+
+    // Check if a record is past its reporting or subsanation deadline
+    const isOutOfDeadline = useCallback((registro) => {
+        if (!registro.periodo) return false;
+        
+        // Grace period for monthly reporting (5th day of next month)
+        const GRACE_DAYS = 5;
+        const [year, month] = registro.periodo.split('-').map(Number);
+        const deadlineDate = new Date(year, month, GRACE_DAYS + 1);
+
+        // 1. Check Reporting Deadline
+        if (registro.created_at) {
+            // If already submitted, was it late?
+            const submissionDate = new Date(registro.created_at);
+            if (submissionDate > deadlineDate) return true;
+        } else if (new Date() > deadlineDate) {
+            // If not submitted and current date is past deadline
+            return true;
+        }
+
+        // 2. Check Subsanacion Deadline (if record is in that state)
+        if (registro.fecha_limite_subsanacion) {
+            const limit = new Date(registro.fecha_limite_subsanacion);
+            // End of the day for the limit
+            limit.setHours(23, 59, 59, 999);
+            if (new Date() > limit) return true;
+        }
+
+        return false;
+    }, []);
 
     useEffect(() => {
         fetchRegistros();
@@ -906,6 +936,23 @@ export default function RegistroList() {
                                                 return new Date(parseInt(y), parseInt(m) - 1, 1).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase());
                                             })() : '-'}
                                         </div>
+                                        {isOutOfDeadline(registro) && (
+                                            <div style={{ 
+                                                marginTop: '4px', 
+                                                display: 'inline-flex', 
+                                                alignItems: 'center', 
+                                                gap: '4px', 
+                                                fontSize: '0.65rem', 
+                                                fontWeight: 800, 
+                                                color: '#dc2626', 
+                                                backgroundColor: '#fef2f2', 
+                                                padding: '2px 6px', 
+                                                borderRadius: '4px',
+                                                border: '1px solid #fee2e2'
+                                            }}>
+                                                <Clock size={10} /> FUERA DE PLAZO
+                                            </div>
+                                        )}
                                     </td>
                                     <td style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <div style={{ fontWeight: 600, color: '#111827' }}>
@@ -935,9 +982,27 @@ export default function RegistroList() {
                                     </td>
                                     <td style={{ textAlign: 'center', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {/* Mockup shows distinct style for Audit % */}
-                                        <span className="badge badge--percent-audit">
-                                            {registro.porcentaje_cumplimiento_auditor !== null ? `${registro.porcentaje_cumplimiento_auditor}%` : '-'}
-                                        </span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                            <span className="badge badge--percent-audit">
+                                                {registro.porcentaje_cumplimiento_auditor !== null ? `${registro.porcentaje_cumplimiento_auditor}%` : '-'}
+                                            </span>
+                                            {registro.hallazgos_count > 0 && (
+                                                <div style={{ 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    gap: '3px', 
+                                                    color: '#dc2626', 
+                                                    fontSize: '0.65rem', 
+                                                    fontWeight: 700,
+                                                    backgroundColor: '#fef2f2',
+                                                    padding: '2px 6px',
+                                                    borderRadius: '10px',
+                                                    border: '1px solid #fee2e2'
+                                                }} title={`${registro.hallazgos_count} Hallazgo(s) detectado(s)`}>
+                                                    <AlertTriangle size={10} /> {registro.hallazgos_count}
+                                                </div>
+                                            )}
+                                        </div>
                                     </td>
                                     <td style={{ textAlign: 'center', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <span className="badge" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #dbeafe' }}>
