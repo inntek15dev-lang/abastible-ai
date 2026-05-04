@@ -1,5 +1,5 @@
 // IEEE Trace: REQ-002 | US-002 | registroController.js
-const { Op } = require('sequelize');
+const { Op, literal } = require('sequelize');
 const {
     Registro,
     RegistroActividad,
@@ -152,7 +152,7 @@ const registroController = {
                 attributes: {
                     include: [
                         [
-                            sequelize.literal(`(
+                            literal(`(
                                 SELECT COUNT(*)
                                 FROM hallazgos AS h
                                 WHERE h.registro_id = Registro.id
