@@ -20,7 +20,7 @@ export default function ContratistaList() {
     const [updatingAdmin, setUpdatingAdmin] = useState(null); // ID of contractor currently updating
     const [usersCAdmin, setUsersCAdmin] = useState([]);
 
-    const { user, canWrite, canExec } = useAuth();
+    const { user, canWrite, canExec, isAdmin } = useAuth();
     const isADC = user?.role === 'administrador_contrato';
 
     // Filters State
@@ -316,7 +316,7 @@ export default function ContratistaList() {
                         Empresas externas, servicios y vinculaciones activas.
                     </p>
                 </div>
-                {(user?.role === 'admin' || isADC) && (
+                {(isAdmin || isADC) && (
                     <div className="flex gap-2">
                         <button
                             onClick={() => setIsSyncModalOpen(true)}
