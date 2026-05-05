@@ -59,10 +59,14 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
     };
 
     const steps = [
-        { label: 'Servicios', key: 'servicios', title: 'Paso 1: Sincronizar Servicios' },
-        { label: 'Dependencias', key: 'dependencias', title: 'Paso 2: Sincronizar Dependencias' },
-        { label: 'Contratistas', key: 'contratistas', title: 'Paso 3: Sincronizar Contratistas' },
-        { label: 'Vinculaciones', key: 'vinculaciones', title: 'Paso 4: Sincronizar Vinculaciones' }
+        { label: 'Gerencias', key: 'gerencias', title: 'Paso 1: Sincronizar Gerencias' },
+        { label: 'Subgerencias', key: 'subgerencias', title: 'Paso 2: Sincronizar Subgerencias' },
+        { label: 'Servicios', key: 'servicios', title: 'Paso 3: Sincronizar Servicios' },
+        { label: 'Dependencias', key: 'dependencias', title: 'Paso 4: Sincronizar Dependencias' },
+        { label: 'Contratistas', key: 'contratistas', title: 'Paso 5: Sincronizar Contratistas' },
+        { label: 'Contratista Admin', key: 'contratista_admin', title: 'Paso 6: Sincronizar Admins de Contratistas' },
+        { label: 'Vinculaciones', key: 'vinculaciones', title: 'Paso 7: Sincronizar Vinculaciones' },
+        { label: 'Admin Contratos', key: 'administrador_contrato', title: 'Paso 8: Sincronizar Admins de Contratos' }
     ];
 
     const currentKey = steps[step]?.key;
@@ -108,14 +112,16 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                     <table className="w-full text-sm text-left text-gray-500">
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
                             <tr>
-                                <th className="px-6 py-3">Nombre / RUT</th>
+                                <th className="px-6 py-3">
+                                    {currentKey === 'contratista_admin' || currentKey === 'administrador_contrato' ? 'Nombre / Email' : 'Nombre / RUT'}
+                                </th>
+                                {currentKey === 'subgerencias' && <th className="px-6 py-3">Gerencia</th>}
+                                {currentKey === 'servicios' && <th className="px-6 py-3">Subgerencia</th>}
                                 {currentKey === 'vinculaciones' && (
                                     <>
-                                        <th className="px-6 py-3">Servicio</th>
-                                        <th className="px-6 py-3">Dependencia</th>
+                                        <th className="px-6 py-3">Jerarquía</th>
                                         <th className="px-6 py-3">N° Contrato</th>
-                                        <th className="px-6 py-3">Inicio</th>
-                                        <th className="px-6 py-3">Término</th>
+                                        <th className="px-6 py-3">Fechas</th>
                                     </>
                                 )}
                                 <th className="px-6 py-3 text-right">Estado</th>
@@ -126,24 +132,29 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                                 <tr key={idx} className="bg-white border-b hover:bg-gray-50">
                                     <td className="px-6 py-4 font-medium text-gray-900">
                                         {currentKey === 'contratistas' ? `${item.nombre} (${item.rut})` :
-                                            currentKey === 'vinculaciones' ? `${item.contratista} (${item.rut})` : item.nombre}
+                                         currentKey === 'contratista_admin' || currentKey === 'administrador_contrato' ? `${item.nombre} (${item.email})` :
+                                         currentKey === 'vinculaciones' ? `${item.contratista} (${item.rut_contratista})` : item.nombre}
                                     </td>
+                                    {currentKey === 'subgerencias' && <td className="px-6 py-4">{item.gerencia}</td>}
+                                    {currentKey === 'servicios' && <td className="px-6 py-4">{item.subgerencia}</td>}
                                     {currentKey === 'vinculaciones' && (
                                         <>
-                                            <td className="px-6 py-4">{item.servicio}</td>
-                                            <td className="px-6 py-4">{item.dependencia}</td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-4 text-xs">
+                                                <div><strong>G:</strong> {item.gerencia}</div>
+                                                <div><strong>SG:</strong> {item.subgerencia}</div>
+                                                <div><strong>S:</strong> {item.servicio}</div>
+                                                <div><strong>D:</strong> {item.dependencia}</div>
+                                            </td>
+                                            <td className="px-6 py-4 font-mono text-sm">
                                                 {item.estado === 'updated' ? (
-                                                    <span className="text-blue-600 font-bold">{item.numero_contrato}</span>
+                                                    <span className="text-blue-600 font-bold">{item.numero_contrato || '-'}</span>
                                                 ) : (
-                                                    item.numero_contrato || ''
+                                                    item.numero_contrato || '-'
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                {formatDate(item.fecha_inicio_contrato)}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                {item.fecha_termino_contrato ? formatDate(item.fecha_termino_contrato) : <span className="text-gray-400 italic">Indefinido</span>}
+                                            <td className="px-6 py-4 text-xs whitespace-nowrap">
+                                                <div><strong>Inicio:</strong> {formatDate(item.fecha_inicio_contrato)}</div>
+                                                <div><strong>Fin:</strong> {item.fecha_termino_contrato ? formatDate(item.fecha_termino_contrato) : <span className="text-gray-400 italic">Indefinido</span>}</div>
                                             </td>
                                         </>
                                     )}

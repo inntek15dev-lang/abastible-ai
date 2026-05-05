@@ -1,5 +1,5 @@
 // IEEE Trace: REQ-009 | US-051 | contratistaController.js
-const { Contratista, Vinculacion, Administracion, VinculacionUsuario, User, TipoContratista, Dependencia, Programa, sequelize } = require('../database/models');
+const { Contratista, Vinculacion, Administracion, VinculacionUsuario, User, TipoContratista, Dependencia, Programa, Gerencia, Subgerencia, sequelize } = require('../database/models');
 
 const contratistaController = {
     // GET /api/contratistas
@@ -20,6 +20,8 @@ const contratistaController = {
                 include: [
                     { model: TipoContratista, as: 'servicio', include: [{ model: Programa, as: 'programa', attributes: ['id', 'nombre'] }] },
                     { model: Dependencia, as: 'dependencia' },
+                    { model: Gerencia, as: 'gerencia' },
+                    { model: Subgerencia, as: 'subgerencia' },
                     {
                         model: Administracion,
                         as: 'administraciones',
@@ -103,6 +105,8 @@ const contratistaController = {
                         include: [
                             { model: TipoContratista, as: 'servicio' },
                             { model: Dependencia, as: 'dependencia' },
+                            { model: Gerencia, as: 'gerencia' },
+                            { model: Subgerencia, as: 'subgerencia' },
                             {
                                 model: Administracion,
                                 as: 'administraciones',

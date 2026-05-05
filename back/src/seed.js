@@ -80,7 +80,7 @@ async function seed() {
         console.log('📦 Sincronizando Gerencias...');
         const [gerenciaDistribucion] = await Gerencia.findOrCreate({
             where: { nombre: 'GERENCIA DE DISTRIBUCION' },
-            defaults: { activo: 1, contratista_id: mafran.id }
+            defaults: { activo: 1 }
         });
 
         console.log('📦 Sincronizando Subgerencias...');
@@ -227,18 +227,18 @@ async function seed() {
         // ============= ORDER 3: Vinculaciones de MAFRAN =============
         console.log('📦 Sincronizando vinculaciones de MAFRAN...');
         const vinculacionesSource = [
-            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[0].id, subgerencia_id: subgerenciaOperaciones.id, numero_contrato: '265', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[1].id, subgerencia_id: subgerenciaOperaciones.id, numero_contrato: '277', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[2].id, subgerencia_id: subgerenciaOperaciones.id, numero_contrato: '297', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[3].id, subgerencia_id: subgerenciaOperaciones.id, numero_contrato: '303', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[4].id, subgerencia_id: subgerenciaOperaciones.id, numero_contrato: '1207', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[5].id, subgerencia_id: subgerenciaOperaciones.id, numero_contrato: '1208', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[6].id, subgerencia_id: subgerenciaOperaciones.id, numero_contrato: '1248', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[7].id, subgerencia_id: subgerenciaOperaciones.id, numero_contrato: '1320', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[7].id, subgerencia_id: subgerenciaOperaciones.id, numero_contrato: '1397', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[8].id, subgerencia_id: subgerenciaOperaciones.id, numero_contrato: '1399', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[3].id, subgerencia_id: subgerenciaOperaciones.id, numero_contrato: '1400', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[9].id, subgerencia_id: subgerenciaOperaciones.id, numero_contrato: '1401', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 }
+            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[0].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '265', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[1].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '277', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[2].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '297', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[3].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '303', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[4].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '1207', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[5].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '1208', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[6].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '1248', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[7].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '1320', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[7].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '1397', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[8].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '1399', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[3].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '1400', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[9].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '1401', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 }
         ];
         const vinculaciones = [];
         for (const v of vinculacionesSource) {
@@ -248,10 +248,10 @@ async function seed() {
                     servicio_id: v.servicio_id, 
                     dependencia_id: v.dependencia_id,
                     subgerencia_id: v.subgerencia_id,
-                    gerencia_id: gerenciaDistribucion.id,
+                    gerencia_id: v.gerencia_id,
                     numero_contrato: v.numero_contrato
                 },
-                defaults: { ...v, gerencia_id: gerenciaDistribucion.id }
+                defaults: v
             });
             vinculaciones.push(vinculacion);
         }

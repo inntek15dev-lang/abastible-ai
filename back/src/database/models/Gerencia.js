@@ -12,14 +12,7 @@ const Gerencia = sequelize.define('Gerencia', {
         type: DataTypes.STRING(255),
         allowNull: false
     },
-    contratista_id: {
-        type: DataTypes.BIGINT.UNSIGNED,
-        allowNull: true,
-        references: {
-            model: 'contratistas',
-            key: 'id'
-        }
-    },
+
     activo: {
         type: DataTypes.TINYINT(1),
         allowNull: false,

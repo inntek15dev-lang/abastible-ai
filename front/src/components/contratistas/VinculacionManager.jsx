@@ -351,7 +351,7 @@ export default function VinculacionManager({ contratista, onUpdate }) {
 
             {/* Add New Section */}
             {isAdding ? (
-                <div className="add-vinc-form" style={{ gridTemplateColumns: 'minmax(100px, 1fr) minmax(100px, 1fr) 1.5fr 1fr 1fr 1fr auto' }}>
+                <div className="add-vinc-form" style={{ gridTemplateColumns: gridLayout }}>
                     <div style={{ color: 'var(--color-text-light)', fontSize: '0.8rem', fontStyle: 'italic', display: 'flex', alignItems: 'center' }}>Automático</div>
                     <div style={{ color: 'var(--color-text-light)', fontSize: '0.8rem', fontStyle: 'italic', display: 'flex', alignItems: 'center' }}>Automático</div>
                     <select
@@ -383,6 +383,8 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                         <option value="">Admin...</option>
                         {usersAdmin.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                     </select>
+                    
+                    <div style={{ color: 'var(--color-text-light)', fontSize: '0.8rem', fontStyle: 'italic', display: 'flex', alignItems: 'center' }}>-</div>
 
                     <input
                         type="text"

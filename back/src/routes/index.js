@@ -1287,8 +1287,8 @@ const syncController = require('../controllers/syncController');
  *       200:
  *         description: Sync completed
  */
-router.get('/sync/compare', auth, requirePrivilege('Configuración', 'read'), syncController.compareData);
-router.post('/sync/execute', auth, requirePrivilege('Configuración', 'write'), syncController.syncData);
+router.get('/sync/compare', auth, requirePrivilege('Gestion_Configuracion', 'read'), syncController.compareData);
+router.post('/sync/execute', auth, requirePrivilege('Gestion_Configuracion', 'write'), syncController.syncData);
 
 // ============= VINCULACIONES MODULE =============
 const vinculacionController = require('../controllers/vinculacionController');
