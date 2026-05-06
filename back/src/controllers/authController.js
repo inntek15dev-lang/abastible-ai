@@ -34,10 +34,19 @@ const authController = {
                 });
             }
 
-            console.log(`Password check: Input length=${password.length}, Hash length=${user.password.length}`);
-            console.log(`Input chars: ${password.split('').map(c => c.charCodeAt(0)).join(',')}`);
+            if (!user.password) {
+                console.log('User password is null or missing in database');
+                return res.status(401).json({
+                    success: false,
+                    message: 'Credenciales inválidas'
+                });
+            }
 
-            const validPassword = await bcrypt.compare(password, user.password);
+            const pwdString = String(password);
+            console.log(`Password check: Input length=${pwdString.length}, Hash length=${user.password.length}`);
+            console.log(`Input chars: ${pwdString.split('').map(c => c.charCodeAt(0)).join(',')}`);
+
+            const validPassword = await bcrypt.compare(pwdString, user.password);
             console.log('Bcrypt result:', validPassword);
 
             if (!validPassword) {
@@ -60,6 +69,14 @@ const authController = {
                     write: p.write === 1,
                     excec: p.excec === 1
                 }));
+            }
+
+            if (!process.env.JWT_SECRET) {
+                console.error('CRITICAL: JWT_SECRET is not defined');
+                return res.status(500).json({
+                    success: false,
+                    message: 'Error interno del servidor (JWT)'
+                });
             }
 
             const token = jwt.sign(

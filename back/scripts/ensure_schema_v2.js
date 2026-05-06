@@ -24,6 +24,12 @@ async function ensureSchema() {
         await sequelize.authenticate();
         console.log('✅ Conexión exitosa.');
 
+        // Primero, asegurarnos de que las tablas existen (sincronización segura)
+        console.log('🔄 Sincronizando tablas faltantes...');
+        const models = require('../src/database/models'); // Importar modelos para que sequelize los conozca
+        await models.sequelize.sync({ alter: false });
+        console.log('✅ Sincronización base completada.');
+
         const tablesToFix = [
             {
                 name: 'registros',
@@ -47,17 +53,25 @@ async function ensureSchema() {
 
         for (const table of tablesToFix) {
             console.log(`\n📦 Tabla: ${table.name}`);
-            const [columns] = await sequelize.query(`SHOW COLUMNS FROM ${table.name}`);
-            const existingColumns = columns.map(c => c.Field);
+            try {
+                const [columns] = await sequelize.query(`SHOW COLUMNS FROM ${table.name}`);
+                const existingColumns = columns.map(c => c.Field);
 
-            for (const col of table.columns) {
-                if (!existingColumns.includes(col.name)) {
-                    console.log(`  ➕ Añadiendo columna [${col.name}]...`);
-                    const query = `ALTER TABLE ${table.name} ADD COLUMN ${col.name} ${col.type} ${col.after ? 'AFTER ' + col.after : ''}`;
-                    await sequelize.query(query);
-                    console.log(`  ✅ Columna [${col.name}] añadida.`);
+                for (const col of table.columns) {
+                    if (!existingColumns.includes(col.name)) {
+                        console.log(`  ➕ Añadiendo columna [${col.name}]...`);
+                        const query = `ALTER TABLE ${table.name} ADD COLUMN ${col.name} ${col.type} ${col.after ? 'AFTER ' + col.after : ''}`;
+                        await sequelize.query(query);
+                        console.log(`  ✅ Columna [${col.name}] añadida.`);
+                    } else {
+                        console.log(`  ✔ Columna [${col.name}] ya existe.`);
+                    }
+                }
+            } catch (tableError) {
+                if (tableError.message.includes("doesn't exist")) {
+                    console.error(`  ❌ Error: La tabla '${table.name}' no existe. La sincronización inicial falló o el modelo no está definido.`);
                 } else {
-                    console.log(`  ✔ Columna [${col.name}] ya existe.`);
+                    console.error(`  ❌ Error verificando la tabla '${table.name}':`, tableError.message);
                 }
             }
         }

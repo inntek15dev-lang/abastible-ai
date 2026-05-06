@@ -12,6 +12,11 @@ async function ensureSchema() {
         await sequelize.authenticate();
         console.log('✅ Connected to database.');
 
+        // Primero aseguramos que las tablas existan (útil para despliegues en bases de datos vacías)
+        console.log('🔄 Sincronizando tablas faltantes...');
+        await models.sequelize.sync({ alter: false });
+        console.log('✅ Sincronización base completada.');
+
         const tablesToFix = [
             {
                 name: 'registros',
@@ -30,18 +35,26 @@ async function ensureSchema() {
 
         for (const table of tablesToFix) {
             console.log(`\nTable: ${table.name}`);
-            const [columns] = await sequelize.query(`SHOW COLUMNS FROM ${table.name}`);
-            const existingColumns = columns.map(c => c.Field);
+            try {
+                const [columns] = await sequelize.query(`SHOW COLUMNS FROM ${table.name}`);
+                const existingColumns = columns.map(c => c.Field);
 
-            for (const col of table.columns) {
-                if (!existingColumns.includes(col.name)) {
-                    console.log(`  ➕ Adding column [${col.name}]...`);
-                    const query = `ALTER TABLE ${table.name} ADD COLUMN ${col.name} ${col.type} ${col.after ? 'AFTER ' + col.after : ''}`;
-                    await sequelize.query(query);
-                    console.log(`  ✅ Column [${col.name}] added.`);
-                } else {
-                    console.log(`  ✔ Column [${col.name}] already exists.`);
+                for (const col of table.columns) {
+                    if (!existingColumns.includes(col.name)) {
+                        console.log(`  ➕ Adding column [${col.name}]...`);
+                        const query = `ALTER TABLE ${table.name} ADD COLUMN ${col.name} ${col.type} ${col.after ? 'AFTER ' + col.after : ''}`;
+                        await sequelize.query(query);
+                        console.log(`  ✅ Column [${col.name}] added.`);
+                    } else {
+                        console.log(`  ✔ Column [${col.name}] already exists.`);
+                    }
                 }
+            } catch (tableError) {
+                 if (tableError.message.includes("doesn't exist")) {
+                     console.error(`  ❌ Error: Table '${table.name}' does not exist. Initial sync failed.`);
+                 } else {
+                     console.error(`  ❌ Error verifying table '${table.name}':`, tableError.message);
+                 }
             }
         }
 
