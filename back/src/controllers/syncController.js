@@ -12,16 +12,11 @@ const compareData = async (req, res) => {
     try {
         console.log('🔄 Iniciando sincronización de datos completa...');
 
-        let externalData;
-        try {
-            const response = await axios.get(EXTERNAL_API_URL, {
-                headers: { 'api-key': API_KEY, 'Origin': ORIGIN }
-            });
-            externalData = response.data.contratistas;
-        } catch (error) {
-            console.warn('⚠️ Error fetching external API.', error.message);
-            return res.status(500).json({ message: 'Error fetching external API' });
-        }
+        const response = await axios.get(EXTERNAL_API_URL, {
+            headers: { 'api-key': API_KEY, 'Origin': ORIGIN }
+        });
+        const fullResponse = response.data;
+        const externalContratistas = fullResponse.contratistas || [];
 
         const extGerencias = new Map();
         const extSubgerencias = new Map();
@@ -32,9 +27,92 @@ const compareData = async (req, res) => {
         const extVinculaciones = [];
         const extAdministradorContratos = new Map();
 
-        externalData.forEach(c => {
-            const rut = `${c.cot_rut}-${c.cot_dv}`;
-            extContratistas.set(rut, { ...c, rut });
+        // 1. Process Top-Level Arrays (New standard)
+        if (fullResponse.gerencias) {
+            fullResponse.gerencias.forEach(g => {
+                if (g.nombre) extGerencias.set(normalize(g.nombre), g.nombre);
+            });
+        }
+
+        if (fullResponse.subgerencias) {
+            fullResponse.subgerencias.forEach(s => {
+                if (s.nombre && s.gerencia) {
+                    extSubgerencias.set(normalize(s.gerencia + '|' + s.nombre), {
+                        nombre: s.nombre,
+                        gerencia: s.gerencia
+                    });
+                    extGerencias.set(normalize(s.gerencia), s.gerencia);
+                }
+            });
+        }
+
+        if (fullResponse.servicios) {
+            fullResponse.servicios.forEach(s => {
+                if (s.nombre && s.subgerencia) {
+                    extServicios.set(normalize(s.subgerencia + '|' + s.nombre), {
+                        nombre: s.nombre,
+                        subgerencia: s.subgerencia
+                    });
+                }
+            });
+        }
+
+        if (fullResponse.dependencias) {
+            fullResponse.dependencias.forEach(d => {
+                if (d.nombre) extDependencias.set(normalize(d.nombre), d.nombre);
+            });
+        }
+
+        if (fullResponse.contratista_admin) {
+            fullResponse.contratista_admin.forEach(admin => {
+                if (admin.email) {
+                    extContratistaAdmins.set(normalize(admin.email), {
+                        nombre: admin.nombre,
+                        email: admin.email,
+                        rut_contratista: admin.rut_contratista
+                    });
+                }
+            });
+        }
+
+        if (fullResponse.administrador_contrato) {
+            fullResponse.administrador_contrato.forEach(admin => {
+                if (admin.email) {
+                    let key = normalize(admin.email);
+                    extAdministradorContratos.set(key, {
+                        nombre: admin.nombre,
+                        email: admin.email,
+                        asignaciones: admin.asignaciones || []
+                    });
+                }
+            });
+        }
+
+        if (fullResponse.vinculaciones) {
+            fullResponse.vinculaciones.forEach(v => {
+                extVinculaciones.push({
+                    rut_contratista: v.rut_contratista,
+                    servicio: normalize(v.servicio),
+                    dependencia: normalize(v.dependencia),
+                    subgerencia: normalize(v.subgerencia),
+                    gerencia: normalize(v.gerencia),
+                    numero_contrato: v.numero_contrato || null,
+                    fecha_inicio_contrato: v.fecha_inicio_contrato || null,
+                    fecha_termino_contrato: v.fecha_termino_contrato || null
+                });
+            });
+        }
+
+        // 2. Process Contratistas and Nested Data (Legacy/Backup)
+        externalContratistas.forEach(c => {
+            let rut = c.rut;
+            if (!rut && c.cot_rut) {
+                rut = `${c.cot_rut}-${c.cot_dv}`;
+            }
+            if (!rut) return;
+
+            const nombre = c.nombre || c.cot_razon_social;
+            extContratistas.set(rut, { ...c, rut, nombre });
 
             if (c.data && c.data.contratista_admin) {
                 c.data.contratista_admin.forEach(admin => {
@@ -164,7 +242,7 @@ const compareData = async (req, res) => {
         // 5. Contratistas
         const diffContratistas = [];
         extContratistas.forEach((data, rut) => {
-            diffContratistas.push({ rut, nombre: data.cot_razon_social, estado: locContratistasMap.has(rut) ? 'exists' : 'new' });
+            diffContratistas.push({ rut, nombre: data.nombre || data.cot_razon_social, estado: locContratistasMap.has(rut) ? 'exists' : 'new' });
         });
 
         // 6. Contratista Admin
@@ -177,7 +255,8 @@ const compareData = async (req, res) => {
         const diffVinculaciones = [];
         extVinculaciones.forEach(v => {
             const key = `${v.rut_contratista}|${v.servicio}|${v.dependencia}|${v.subgerencia}|${v.gerencia}`;
-            const contratistaName = extContratistas.get(v.rut_contratista)?.cot_razon_social || v.rut_contratista;
+            const cData = extContratistas.get(v.rut_contratista);
+            const contratistaName = cData ? (cData.nombre || cData.cot_razon_social) : v.rut_contratista;
             const effectiveStartDate = v.fecha_inicio_contrato || new Date(new Date().getFullYear(), new Date().getMonth(), 1);
             const effectiveEndDate = v.fecha_termino_contrato || null;
 
