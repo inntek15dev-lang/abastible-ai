@@ -26,6 +26,17 @@ async function ensureSchema() {
                 ]
             },
             {
+                name: 'users',
+                columns: [
+                    { name: 'contratista_id', type: 'BIGINT UNSIGNED NULL', after: 'parent_id' },
+                    { name: 'tipo_contratista_id', type: 'BIGINT UNSIGNED NULL', after: 'contratista_id' },
+                    { name: 'dependencia_id', type: 'BIGINT UNSIGNED NULL', after: 'tipo_contratista_id' },
+                    { name: 'eecc_nombre', type: 'VARCHAR(255) NULL', after: 'dependencia_id' },
+                    { name: 'rut', type: 'VARCHAR(20) NULL', after: 'eecc_nombre' },
+                    { name: 'telefono', type: 'VARCHAR(50) NULL', after: 'rut' }
+                ]
+            },
+            {
                 name: 'actividades',
                 columns: [
                     { name: 'template_url', type: 'VARCHAR(255) NULL', after: 'criterios' }
@@ -36,6 +47,13 @@ async function ensureSchema() {
         for (const table of tablesToFix) {
             console.log(`\nTable: ${table.name}`);
             try {
+                // Verificar si la tabla existe antes de pedir columnas
+                const [tableExists] = await sequelize.query(`SHOW TABLES LIKE '${table.name}'`);
+                if (tableExists.length === 0) {
+                    console.log(`  ⚠️ Table '${table.name}' does not exist. Skipping column check (sync will handle creation).`);
+                    continue;
+                }
+
                 const [columns] = await sequelize.query(`SHOW COLUMNS FROM ${table.name}`);
                 const existingColumns = columns.map(c => c.Field);
 
@@ -50,11 +68,7 @@ async function ensureSchema() {
                     }
                 }
             } catch (tableError) {
-                 if (tableError.message.includes("doesn't exist")) {
-                     console.error(`  ❌ Error: Table '${table.name}' does not exist. Initial sync failed.`);
-                 } else {
-                     console.error(`  ❌ Error verifying table '${table.name}':`, tableError.message);
-                 }
+                console.error(`  ❌ Error verifying table '${table.name}':`, tableError.message);
             }
         }
 
