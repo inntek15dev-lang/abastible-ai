@@ -89,6 +89,7 @@
 30. **UX/UI**: En el módulo de Gestión de Usuarios, el rol "CONTRATISTA ADMIN EECC" ha sido removido de los selectores de filtrado y creación para estandarizar el uso de los perfiles definidos en la matriz RACI.
 31. **UX/UI**: En el módulo de Dependencias, el botón de creación ("+ Nueva Dependencia") ha sido removido globalmente para todos los roles, delegando la gestión de la estructura organizacional a procesos de sincronización automáticos.
 32. **REPORTES**: En el módulo de Reportes (Consolidado y Matriz), se implementan dos filtros de periodo ("Desde" y "Hasta"). Al seleccionar un periodo en "Desde", este se replica automáticamente en "Hasta" para facilitar la selección de un único mes, pero permitiendo ajustar "Hasta" manualmente para obtener rangos extendidos. El backend ha sido actualizado para procesar estos rangos de forma dinámica.
+33. **SEGURIDAD**: El módulo de **Facturación OVAL** es estrictamente **EXCLUSIVO** para usuarios con el rol `oval`. Ni siquiera el rol `admin` (Abastible) tiene acceso a este módulo por razones de confidencialidad de costos de auditoría.
 
 ---
 
@@ -824,3 +825,35 @@
 | MOD-13 | Compromisos | Seguimiento acciones correctivas |
 | MOD-14 | Configuración | Parámetros globales del sistema |
 | MOD-15 | Vinculaciones | Asignación Contratista - Servicio - Dependencia |
+
+---
+
+## VII. SEED DATA INICIAL
+
+```json
+{
+  "roles": [
+    { "name": "oval" },
+    { "name": "admin" },
+    { "name": "administrador_contrato" },
+    { "name": "contratista_admin" },
+    { "name": "contratista_user" }
+  ],
+  "configuraciones": [
+    { "key": "meta_programa" },
+    { "key": "fecha_limite_reporte" },
+    { "key": "dias_cierre_hallazgo" },
+    { "key": "evidencia_obligatoria" },
+    { "key": "max_evidencias_por_actividad" },
+    { "key": "monto_facturable_contrato" }
+  ],
+  "users": [
+    { "email": "oval@ovalcontrol.com", "role": "oval" },
+    { "email": "admin@abastible.cl", "role": "admin" },
+    { "email": "administrador.contrato@abastible.cl", "role": "administrador_contrato" },
+    { "email": "contratista.admin@demo.cl", "role": "contratista_admin" },
+    { "email": "contratista.usuario@demo.cl", "role": "contratista_user" },
+    { "email": "contratista.usuario2@demo.cl", "role": "contratista_user" }
+  ]
+}
+```

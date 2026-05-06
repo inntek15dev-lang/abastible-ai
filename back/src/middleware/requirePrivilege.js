@@ -15,6 +15,15 @@ const requirePrivilege = (module, action = 'read') => {
         }
 
         const { privileges, role } = req.user;
+        
+        // REGLA CRÍTICA PARKO: El módulo OVAL es EXCLUSIVO para el rol 'oval'
+        if (module === 'OVAL') {
+            if (role === 'oval') return next();
+            return res.status(403).json({
+                success: false,
+                message: 'Acceso denegado: El módulo OVAL es exclusivo para personal OVAL'
+            });
+        }
 
         if (role === 'admin' || role === 'oval') {
             return next();

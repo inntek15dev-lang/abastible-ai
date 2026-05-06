@@ -37,6 +37,11 @@ export function AuthProvider({ children }) {
 
     // Privilege check methods (privilegios-engine integration)
     const checkPrivilege = useCallback((module, action) => {
+        // REGLA CRÍTICA PARKO: El módulo OVAL es EXCLUSIVO para el rol 'oval'
+        if (module === 'OVAL') {
+            return user?.role === 'oval';
+        }
+
         if (user?.role === 'admin') return true;
         if (!user?.privileges) return false;
 
