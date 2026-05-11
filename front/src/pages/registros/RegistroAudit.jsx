@@ -809,7 +809,7 @@ export default function RegistroAudit() {
                             )}
                         </div>
 
-                        {(isAuditando || isEnRevision) && canWrite('Auditoria') && (
+
                             <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', marginTop: '20px', border: '1px solid #e2e8f0' }}>
                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                     <div style={{ flex: '1 1 auto', minWidth: 0 }}>
@@ -853,9 +853,13 @@ export default function RegistroAudit() {
                                         </button>
                                     </div>
                                 </div>
-                            )}
+                    </div>
+                </div>
+            </div>
+            )}
 
-                {/* Participants Section */}
+            {/* Participants Section */}
+            {(isAuditando || isEnRevision) && (
                 <div className="form-card" style={{ marginTop: '32px', padding: '24px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#1e40af', fontWeight: 700, marginBottom: '20px' }}>
                         <FileText size={20} /> <span style={{ fontSize: '1.1rem' }}>Participantes de la Reunión de Accounting</span>
@@ -880,7 +884,7 @@ export default function RegistroAudit() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    participantes.map((p, index) => (
+                                    participantes.map((p, index) =>
                                         <tr key={index} style={{ borderBottom: '1px solid #e2e8f0' }}>
                                             <td style={{ padding: '12px', color: '#1f2937' }}>{p.nombre}</td>
                                             <td style={{ padding: '12px', color: '#1f2937' }}>{p.rut}</td>
@@ -896,79 +900,76 @@ export default function RegistroAudit() {
                                                 </button>
                                             </td>
                                         </tr>
-                                    ))
+                                    )
                                 )}
                             </tbody>
                         </table>
                     </div>
 
-                    {(registro?.estado_auditoria === 'auditando' || registro?.estado_auditoria === 'en_revision') && canWrite('Auditoria') && (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
-                            <div>
-                                <label style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px', display: 'block' }}>Nombre</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    value={nuevoParticipante.nombre}
-                                    onChange={(e) => setNuevoParticipante(prev => ({ ...prev, nombre: e.target.value }))}
-                                    style={{ fontSize: '0.85rem' }}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px', display: 'block' }}>RUT</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    value={nuevoParticipante.rut}
-                                    onChange={(e) => setNuevoParticipante(prev => ({ ...prev, rut: e.target.value }))}
-                                    style={{ fontSize: '0.85rem' }}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px', display: 'block' }}>Cargo</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    value={nuevoParticipante.cargo}
-                                    onChange={(e) => setNuevoParticipante(prev => ({ ...prev, cargo: e.target.value }))}
-                                    style={{ fontSize: '0.85rem' }}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px', display: 'block' }}>Empresa</label>
-                                <select
-                                    className="form-control"
-                                    value={nuevoParticipante.empresa}
-                                    onChange={(e) => setNuevoParticipante(prev => ({ ...prev, empresa: e.target.value }))}
-                                    style={{ fontSize: '0.85rem' }}
-                                >
-                                    <option value="">Seleccione...</option>
-                                    <option value={registro.eecc_nombre}>{registro.eecc_nombre}</option>
-                                    <option value="Asesor Mutual Nacional">Asesor Mutual Nacional</option>
-                                </select>
-                            </div>
-                            <button
-                                className="btn-primary"
-                                onClick={() => {
-                                    if (!nuevoParticipante.nombre || !nuevoParticipante.rut || !nuevoParticipante.cargo || !nuevoParticipante.empresa) {
-                                        alert('Por favor complete todos los campos del participante.');
-                                        return;
-                                    }
-                                    setParticipantes(prev => [...prev, nuevoParticipante]);
-                                    setNuevoParticipante({ nombre: '', rut: '', cargo: '', empresa: '' });
-                                }}
-                                style={{ height: '38px', padding: '0 12px', borderRadius: '8px', background: '#003594', border: 'none' }}
-                            >
-                                <Plus size={16} />
-                            </button>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
+                        <div>
+                            <label style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px', display: 'block' }}>Nombre</label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={nuevoParticipante.nombre}
+                                onChange={(e) => setNuevoParticipante(prev => ({ ...prev, nombre: e.target.value }))}
+                                style={{ fontSize: '0.85rem' }}
+                            />
                         </div>
-                    )}
-                </div>
+                        <div>
+                            <label style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px', display: 'block' }}>RUT</label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={nuevoParticipante.rut}
+                                onChange={(e) => setNuevoParticipante(prev => ({ ...prev, rut: e.target.value }))}
+                                style={{ fontSize: '0.85rem' }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px', display: 'block' }}>Cargo</label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={nuevoParticipante.cargo}
+                                onChange={(e) => setNuevoParticipante(prev => ({ ...prev, cargo: e.target.value }))}
+                                style={{ fontSize: '0.85rem' }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px', display: 'block' }}>Empresa</label>
+                            <select
+                                className="form-control"
+                                value={nuevoParticipante.empresa}
+                                onChange={(e) => setNuevoParticipante(prev => ({ ...prev, empresa: e.target.value }))}
+                                style={{ fontSize: '0.85rem' }}
+                            >
+                                <option value="">Seleccione...</option>
+                                <option value={registro.eecc_nombre}>{registro.eecc_nombre}</option>
+                                <option value="Asesor Mutual Nacional">Asesor Mutual Nacional</option>
+                            </select>
+                        </div>
+                        <button
+                            className="btn-primary"
+                            onClick={() => {
+                                if (!nuevoParticipante.nombre || !nuevoParticipante.rut || !nuevoParticipante.cargo || !nuevoParticipante.empresa) {
+                                    alert('Por favor complete todos los campos del participante.');
+                                    return;
+                                }
+                                setParticipantes(prev => [...prev, nuevoParticipante]);
+                                setNuevoParticipante({ nombre: '', rut: '', cargo: '', empresa: '' });
+                            }}
+                            style={{ height: '38px', padding: '0 12px', borderRadius: '8px', background: '#003594', border: 'none' }}
+                        >
+                            <Plus size={16} />
+                        </button>
+                    </div>
                 </div>
             )}
 
             {/* Final Actions */}
-            {(isAuditando || isEnRevision) && canWrite('Auditoria') && (
+            {(isAuditando || isEnRevision) && canWrite('Auditoria') &&
                 <div style={{ marginTop: '32px', padding: '24px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px' }}>
                     <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Revise los datos antes de finalizar el proceso oficial.</span>
                     <button
@@ -996,7 +997,7 @@ export default function RegistroAudit() {
                         {saving ? 'Cerrando...' : isEnRevision ? 'Finalizar Revisión de Subsanación' : 'Finalizar Auditoría'}
                     </button>
                 </div>
-            )}
+            }
 
             {/* Modals */}
             <HallazgoModal
