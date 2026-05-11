@@ -851,8 +851,9 @@ export default function RegistroAudit() {
                                         >
                                             <Plus size={18} />
                                         </button>
-                    </div>
-                </div>
+                                    </div>
+                                </div>
+                            )}
 
                 {/* Participants Section */}
                 <div className="form-card" style={{ marginTop: '32px', padding: '24px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff' }}>
