@@ -129,7 +129,7 @@ const compareData = async (req, res) => {
             if (c.data && c.data.asignaciones) {
                 c.data.asignaciones.forEach(a => {
                     if (a.gerencia) extGerencias.set(normalize(a.gerencia), a.gerencia);
-                    
+
                     if (a.subgerencia && a.gerencia) {
                         extSubgerencias.set(normalize(a.gerencia + '|' + a.subgerencia), {
                             nombre: a.subgerencia,
@@ -157,7 +157,7 @@ const compareData = async (req, res) => {
                             fecha_inicio_contrato: a.fecha_inicio || null,
                             fecha_termino_contrato: a.fecha_termino || null
                         });
-                        
+
                         if (a.administrador_contrato) {
                             a.administrador_contrato.forEach(admin => {
                                 if (admin.email) {
@@ -206,7 +206,7 @@ const compareData = async (req, res) => {
         const locDependenciasMap = new Set(localDependencias.map(d => normalize(d.nombre)));
         const locContratistasMap = new Set(localContratistas.map(c => c.rut));
         const locUsersMap = new Set(localUsers.map(u => normalize(u.email)));
-        
+
         const locVinculacionesMap = new Map();
         localVinculaciones.forEach(v => {
             if (v.contratista && v.servicio && v.dependencia && v.subgerencia && v.gerencia) {
@@ -239,22 +239,19 @@ const compareData = async (req, res) => {
             diffDependencias.push({ nombre: name, estado: locDependenciasMap.has(normName) ? 'exists' : 'new' });
         });
 
-        // 5. Contratistas
         const diffContratistas = [];
         extContratistas.forEach((data, rut) => {
-            diffContratistas.push({ rut, nombre: data.nombre || data.cot_razon_social, estado: locContratistasMap.has(rut) ? 'exists' : 'new' });
+            diffContratistas.push({ ...data, rut, nombre: data.nombre, estado: locContratistasMap.has(rut) ? 'exists' : 'new' });
         });
 
-        // 6. Contratista Admin
         const diffContratistaAdmin = [];
         extContratistaAdmins.forEach((data, normEmail) => {
             diffContratistaAdmin.push({ ...data, estado: locUsersMap.has(normEmail) ? 'exists' : 'new' });
         });
 
-        // 7. Vinculaciones
         const diffVinculaciones = [];
         extVinculaciones.forEach(v => {
-            const key = `${v.rut_contratista}|${v.servicio}|${v.dependencia}|${v.subgerencia}|${v.gerencia}`;
+            const key = `${v.rut_contratista}|${normalize(v.servicio)}|${normalize(v.dependencia)}|${normalize(v.subgerencia)}|${normalize(v.gerencia)}`;
             const cData = extContratistas.get(v.rut_contratista);
             const contratistaName = cData ? (cData.nombre || cData.cot_razon_social) : v.rut_contratista;
             const effectiveStartDate = v.fecha_inicio_contrato || new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -269,11 +266,8 @@ const compareData = async (req, res) => {
             }
         });
 
-        // 8. Administrador Contrato
         const diffAdministradorContrato = [];
         extAdministradorContratos.forEach((data, normEmail) => {
-            // Even if exists, we might need to sync their assignments. For now we treat exists/new for the user creation.
-            // But we pass the whole object to syncData so it can update the assignments anyway.
             diffAdministradorContrato.push({ ...data, estado: locUsersMap.has(normEmail) ? 'exists' : 'new' });
         });
 

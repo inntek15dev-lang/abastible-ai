@@ -31,6 +31,17 @@ export default function Pendientes() {
     const [solicitudes, setSolicitudes] = useState([]);
     const [porAuditar, setPorAuditar] = useState([]);
     const [porRevisar, setPorRevisar] = useState([]);
+    const [potentialAdmins, setPotentialAdmins] = useState([]);
+    const [selectedAdc, setSelectedAdc] = useState('todos');
+
+    const fetchAdmins = async () => {
+        try {
+            const response = await api.get('/usuarios?role=administrador_contrato&active=true');
+            setPotentialAdmins(response.data.data || []);
+        } catch (err) {
+            console.error('Error fetching admins', err);
+        }
+    };
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [vinculaciones, setVinculaciones] = useState([]);
@@ -93,23 +104,33 @@ export default function Pendientes() {
 
     useEffect(() => {
         fetchAllData();
-    }, []);
+        if (user?.role === 'admin' && potentialAdmins.length === 0) {
+            fetchAdmins();
+        }
+    }, [user, selectedAdc]);
 
     const fetchAllData = async () => {
         try {
             setLoading(true);
             const auditParams = isAdminOrADC 
                 ? 'pendiente,auditando' 
-                : 'pendiente,auditando,abierto,reabierto';
+                : 'abierto,reabierto';
             const reviewParams = isAdminOrADC 
                 ? 'subsanado,en_revision' 
-                : 'pendiente_subsanacion,subsanado,en_revision';
+                : 'pendiente_subsanacion';
+
+            const params = new URLSearchParams();
+            if (selectedAdc !== 'todos') {
+                params.append('adc_id', selectedAdc);
+            }
+            const queryStr = params.toString() ? `&${params.toString()}` : '';
+            const queryStrFirst = params.toString() ? `?${params.toString()}` : '';
 
             const promises = [
-                api.get('/dashboard/kpis'),
-                api.get('/reaperturas?estado=pendiente'),
-                api.get(`/registros?estado_auditoria=${auditParams}`),
-                api.get(`/registros?estado_auditoria=${reviewParams}`)
+                api.get(`/dashboard/kpis${queryStrFirst}`),
+                api.get(`/reaperturas?estado=pendiente${queryStr}`),
+                api.get(`/registros?estado_auditoria=${auditParams}${queryStr}`),
+                api.get(`/registros?estado_auditoria=${reviewParams}${queryStr}`)
             ];
 
             // If contractor, also fetch vinculaciones and full registry history to find gaps
@@ -196,6 +217,37 @@ export default function Pendientes() {
                     </div>
                 </div>
             </header>
+
+            {user?.role === 'admin' && (
+                <div style={{ 
+                    background: '#fff', padding: '1rem', borderRadius: '12px', 
+                    border: '1px solid #e2e8f0', marginBottom: '2rem',
+                    display: 'flex', alignItems: 'center', gap: '1rem'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Filter size={16} className="text-slate-400" />
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>Filtrar por ADC:</span>
+                    </div>
+                    <select
+                        value={selectedAdc}
+                        onChange={(e) => setSelectedAdc(e.target.value)}
+                        style={{
+                            padding: '6px 12px',
+                            fontSize: '0.85rem',
+                            color: '#1e293b',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            outline: 'none',
+                            minWidth: '200px'
+                        }}
+                    >
+                        <option value="todos">Todos los Administradores</option>
+                        {potentialAdmins.map(admin => (
+                            <option key={admin.id} value={admin.id}>{admin.name}</option>
+                        ))}
+                    </select>
+                </div>
+            )}
 
             {error && <div className="error-message" style={{ marginBottom: '2rem' }}>{error}</div>}
 
@@ -402,7 +454,8 @@ export default function Pendientes() {
                                                     backgroundColor: reg.estado_auditoria === 'auditando' ? '#fef3c7' : '#f0f9ff',
                                                     color: reg.estado_auditoria === 'auditando' ? '#92400e' : '#0284c7'
                                                 }}>
-                                                    {reg.estado_auditoria === 'auditando' ? 'EN PROCESO' : 'POR AUDITAR'}
+                                                    {reg.estado_auditoria === 'auditando' ? 'EN PROCESO' : 
+                                                     ['abierto', 'reabierto'].includes(reg.estado_auditoria) ? 'PENDIENTE CARGA' : 'POR AUDITAR'}
                                                 </span>
                                             </td>
                                             <td style={{ padding: '1rem 0.75rem', textAlign: 'right' }}>

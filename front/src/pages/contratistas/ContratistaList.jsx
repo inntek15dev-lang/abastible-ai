@@ -325,9 +325,6 @@ export default function ContratistaList() {
                         >
                             <RefreshCw size={18} /> Sincronizar
                         </button>
-                        <Link to="/contratistas/new" id="btn-new-contractor" className="btn-primary flex items-center gap-2" style={{ textDecoration: 'none' }}>
-                            <Plus size={18} /> Nuevo Contratista
-                        </Link>
                     </div>
                 )}
             </header>

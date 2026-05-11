@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from 'react';
-import { Monitor, MapPin, Briefcase, FileText, Filter, ChevronDown, Search, XCircle, FileSpreadsheet } from 'lucide-react';
+import { Monitor, MapPin, Briefcase, FileText, Filter, ChevronDown, Search, XCircle, FileSpreadsheet, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
@@ -20,7 +20,8 @@ export default function ComplianceMatrixReport() {
         programa_id: 'todos',
         tiene_registros: 'todos',
         periodo_desde: new Date().toISOString().slice(0, 7),
-        periodo_hasta: new Date().toISOString().slice(0, 7)
+        periodo_hasta: new Date().toISOString().slice(0, 7),
+        adc_id: 'todos'
     });
 
     // Options for filters
@@ -28,25 +29,28 @@ export default function ComplianceMatrixReport() {
         contratistas: [],
         servicios: [],
         dependencias: [],
-        programas: []
+        programas: [],
+        admins: []
     });
 
     // Initial load of options
     useEffect(() => {
         const fetchOptions = async () => {
             try {
-                const [cRes, sRes, dRes, pRes] = await Promise.all([
+                const [cRes, sRes, dRes, pRes, aRes] = await Promise.all([
                     api.get('/contratistas'),
                     api.get('/servicios'),
                     api.get('/dependencias'),
-                    api.get('/programas')
+                    api.get('/programas'),
+                    api.get('/usuarios?role=administrador_contrato&active=true')
                 ]);
 
                 setOptions({
                     contratistas: cRes.data.success ? cRes.data.data : [],
                     servicios: sRes.data.success ? sRes.data.data : [],
                     dependencias: dRes.data.success ? dRes.data.data : [],
-                    programas: pRes.data.success ? pRes.data.data : []
+                    programas: pRes.data.success ? pRes.data.data : [],
+                    admins: aRes.data.success ? aRes.data.data : []
                 });
             } catch (error) {
                 console.error("Error fetching filter options:", error);
@@ -80,7 +84,8 @@ export default function ComplianceMatrixReport() {
             programa_id: 'todos',
             tiene_registros: 'todos',
             periodo_desde: new Date().toISOString().slice(0, 7),
-            periodo_hasta: new Date().toISOString().slice(0, 7)
+            periodo_hasta: new Date().toISOString().slice(0, 7),
+            adc_id: 'todos'
         });
         setPage(1);
     };
@@ -96,6 +101,7 @@ export default function ComplianceMatrixReport() {
             if (filters.tiene_registros !== 'todos') params.append('tiene_registros', filters.tiene_registros);
             if (filters.periodo_desde) params.append('periodo_desde', filters.periodo_desde);
             if (filters.periodo_hasta) params.append('periodo_hasta', filters.periodo_hasta);
+            if (filters.adc_id && filters.adc_id !== 'todos') params.append('adc_id', filters.adc_id);
 
             params.append('page', page);
             params.append('limit', 5);
@@ -243,6 +249,15 @@ export default function ComplianceMatrixReport() {
                     onChange={(val) => setFilters(f => ({ ...f, programa_id: val }))}
                     options={options.programas}
                     placeholder="Todos los programas"
+                    showAllOption={true}
+                />
+                <SearchableSelect
+                    label="Admin Contrato"
+                    icon={User}
+                    value={filters.adc_id}
+                    onChange={(val) => setFilters(f => ({ ...f, adc_id: val }))}
+                    options={options.admins}
+                    placeholder="Todos los Administradores"
                     showAllOption={true}
                 />
 

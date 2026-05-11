@@ -104,7 +104,24 @@ const registroController = {
             // Admin sees all (no filter)
 
             // hierarchy filters (Gerencia - Subgerencia)
-            const { gerencia_id, subgerencia_id } = req.query;
+            const { gerencia_id, subgerencia_id, adc_id } = req.query;
+            
+            // Filtro por ADC (Administrador de Contrato)
+            if (adc_id && adc_id !== 'todos') {
+                const adminRecords = await Administracion.findAll({
+                    where: { administrador_contrato_id: adc_id, activo: 1 },
+                    attributes: ['vinculacion_id']
+                });
+                const vincIdsFromADC = adminRecords.map(a => a.vinculacion_id);
+                if (where.contratista_asignacion_id) {
+                    const existingIds = where.contratista_asignacion_id[Op.in] || [];
+                    const intersection = existingIds.filter(id => vincIdsFromADC.includes(id));
+                    where.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+                } else {
+                    where.contratista_asignacion_id = { [Op.in]: vincIdsFromADC.length > 0 ? vincIdsFromADC : [-1] };
+                }
+            }
+
             if (subgerencia_id && subgerencia_id !== 'todas') {
                 const subVincs = await Vinculacion.findAll({
                     where: { subgerencia_id, activo: 1 },

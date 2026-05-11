@@ -900,9 +900,10 @@ module.exports = {
                     // Header Sub-table
                     doc.rect(subTableX, doc.y, subTableWidth, 15).fill('#f1f5f9');
                     doc.fillColor('#475569').fontSize(7).font('Helvetica-Bold');
-                    doc.text('N° CONTRATO', subCol1, doc.y + 4);
-                    doc.text('SERVICIO / PROGRAMA', subCol2, doc.y - 8);
-                    doc.text('DEPENDENCIA', subCol3, doc.y - 8);
+                    const headerY = doc.y + 4;
+                    doc.text('N° CONTRATO', subCol1, headerY);
+                    doc.text('SERVICIO / PROGRAMA', subCol2, headerY);
+                    doc.text('DEPENDENCIA', subCol3, headerY);
                     doc.moveDown(0.8);
 
                     // Rows Sub-table

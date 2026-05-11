@@ -76,7 +76,7 @@ export default function ServicioList() {
                 <div className="flex justify-between items-end">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
-                             <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-200">
+                             <div className="bg-[#003594] p-2 rounded-xl shadow-lg shadow-blue-100">
                                 <Layers className="text-white" size={24} />
                              </div>
                              <h1 className="text-3xl font-black text-slate-900 tracking-tight">
@@ -98,7 +98,7 @@ export default function ServicioList() {
                         )}
                         <Link 
                             to="/servicios/new"
-                            className="flex items-center gap-2 bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95"
+                            className="flex items-center gap-2 bg-[#003594] text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-blue-100 hover:bg-[#002466] transition-all active:scale-95"
                         >
                             <Plus size={18} />
                             Nuevo Servicio
@@ -121,7 +121,7 @@ export default function ServicioList() {
 
             {/* Tree Container */}
             <div className="max-w-6xl mx-auto">
-                <div className="bg-white rounded-[40px] shadow-xl shadow-slate-200/60 border border-white p-8 overflow-hidden">
+                <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-white p-8 overflow-hidden">
                     {hierarchy.length === 0 ? (
                         <div className="text-center py-20">
                             <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -158,7 +158,7 @@ function GerenciaNode({ gerencia, expandedNodes, toggleNode, canWrite, canExec, 
         <div className="mb-4">
             <div 
                 className={`
-                    group flex items-center justify-between p-5 rounded-[28px] transition-all cursor-pointer
+                    group flex items-center justify-between p-5 rounded-xl transition-all cursor-pointer
                     ${isExpanded ? 'bg-indigo-50/50' : 'hover:bg-slate-50 border border-transparent hover:border-slate-100'}
                 `}
                 onClick={() => toggleNode(`g-${gerencia.id}`)}
@@ -167,7 +167,7 @@ function GerenciaNode({ gerencia, expandedNodes, toggleNode, canWrite, canExec, 
                     <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white shadow-sm text-slate-400 group-hover:text-indigo-600 transition-colors">
                         {isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
                     </div>
-                    <div className="bg-indigo-600 p-2.5 rounded-2xl shadow-lg shadow-indigo-100">
+                    <div className="bg-[#003594] p-2.5 rounded-2xl shadow-lg shadow-blue-50">
                         <Building2 className="text-white" size={20} />
                     </div>
                     <div>
@@ -228,7 +228,7 @@ function SubgerenciaNode({ sub, expandedNodes, toggleNode, canWrite, canExec, ha
         <div className="mb-2">
             <div 
                 className={`
-                    group flex items-center justify-between p-4 rounded-[24px] transition-all cursor-pointer
+                    group flex items-center justify-between p-4 rounded-lg transition-all cursor-pointer
                     ${isExpanded ? 'bg-amber-50/40' : 'hover:bg-slate-50 border border-transparent hover:border-slate-100'}
                 `}
                 onClick={() => toggleNode(`s-${sub.id}`)}
@@ -296,7 +296,7 @@ function SubgerenciaNode({ sub, expandedNodes, toggleNode, canWrite, canExec, ha
 
 function ServicioNode({ servicio, canWrite, canExec, handleDelete }) {
     return (
-        <div className="group flex items-center justify-between p-3.5 bg-slate-50/50 hover:bg-white border border-transparent hover:border-slate-200 rounded-[20px] transition-all">
+        <div className="group flex items-center justify-between p-3.5 bg-slate-50/50 hover:bg-white border border-transparent hover:border-slate-200 rounded-lg transition-all">
             <div className="flex items-center gap-4">
                 <div className="p-2 bg-emerald-500 rounded-lg shadow-md shadow-emerald-50">
                     <Tag className="text-white" size={14} />
