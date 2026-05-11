@@ -344,6 +344,22 @@ const auditoriaController = {
                 comentario_general
             });
 
+            if (req.body.participantes) {
+                const existingComment = await AuditoriaComentario.findOne({
+                    where: { registro_id: id, tipo: 'participantes' }
+                });
+                if (existingComment) {
+                    await existingComment.update({ comentario: req.body.participantes });
+                } else {
+                    await AuditoriaComentario.create({
+                        registro_id: id,
+                        user_id: req.user.id,
+                        comentario: req.body.participantes,
+                        tipo: 'participantes'
+                    });
+                }
+            }
+
             // Log save activity (optional but good for traceability)
             await RegistroLog.create({
                 registro_id: registro.id,

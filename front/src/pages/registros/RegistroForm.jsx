@@ -563,20 +563,7 @@ export default function RegistroForm() {
     };
 
     const handleReabrirDirecto = () => {
-        setConfirmModal({
-            isOpen: true,
-            title: 'Reabrir Registro',
-            message: '¿Está seguro de reabrir este registro? Pasará a estado "Pendiente" y podrá ser editado nuevamente.',
-            action: async () => {
-                try {
-                    await api.post('/reaperturas/directa', { registro_id: id });
-                    toast.success('Registro reabierto exitosamente');
-                    fetchRegistro();
-                } catch (err) {
-                    toast.error(err.response?.data?.message || 'Error al reabrir registro');
-                }
-            }
-        });
+        setReaperturaModal({ show: true, isDirect: true });
     };
 
     // Helper to get current assignment details
@@ -1083,43 +1070,69 @@ export default function RegistroForm() {
                                                                     }}
                                                                 />
                                                             </div>
-                                                        )}
-
-                                                        {/* Existing Evidence */}
+                                                                             {/* Existing Evidence */}
                                                         {act.evidencias?.length > 0 && (
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                                 {act.evidencias.map(e => (
-                                                                    <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                                        <a
-                                                                            href={`${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${e.ruta}`}
-                                                                            target="_blank"
-                                                                            rel="noopener noreferrer"
-                                                                            style={{ fontSize: '0.7rem', color: '#3b82f6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0 }}
-                                                                            title={e.nombre_archivo}
-                                                                        >
-                                                                            📄 {e.nombre_archivo.length > 15 ? e.nombre_archivo.substring(0, 15) + '...' : e.nombre_archivo}
-                                                                        </a>
-                                                                        {!isLocked && (
-                                                                            <button
-                                                                                type="button"
-                                                                                title="Eliminar evidencia"
-                                                                                onClick={() => handleEvidenciaDelete(e.id, globalIndex)}
-                                                                                style={{
-                                                                                    background: 'none',
-                                                                                    border: 'none',
-                                                                                    cursor: 'pointer',
-                                                                                    padding: '2px',
-                                                                                    color: '#ef4444',
-                                                                                    display: 'flex',
-                                                                                    alignItems: 'center',
-                                                                                    flexShrink: 0,
-                                                                                    borderRadius: '3px'
-                                                                                }}
-                                                                                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fee2e2'}
-                                                                                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                                    <div key={e.id} style={{ border: '1px solid #e5e7eb', padding: '8px', borderRadius: '6px', background: '#f8fafc' }}>
+                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'space-between' }}>
+                                                                            <a
+                                                                                href={`${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${e.ruta}`}
+                                                                                target="_blank"
+                                                                                rel="noopener noreferrer"
+                                                                                style={{ fontSize: '0.7rem', color: '#3b82f6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0 }}
+                                                                                title={e.nombre_archivo}
                                                                             >
-                                                                                <Trash2 size={12} />
-                                                                            </button>
+                                                                                📄 {e.nombre_archivo.length > 20 ? e.nombre_archivo.substring(0, 20) + '...' : e.nombre_archivo}
+                                                                            </a>
+                                                                            {!isLocked && !(isContractor && form.estado_auditoria === 'pendiente_subsanacion') && (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    title="Eliminar evidencia"
+                                                                                    onClick={() => handleEvidenciaDelete(e.id, globalIndex)}
+                                                                                    style={{
+                                                                                        background: 'none',
+                                                                                        border: 'none',
+                                                                                        cursor: 'pointer',
+                                                                                        padding: '2px',
+                                                                                        color: '#ef4444',
+                                                                                        display: 'flex',
+                                                                                        alignItems: 'center',
+                                                                                        flexShrink: 0,
+                                                                                        borderRadius: '3px'
+                                                                                    }}
+                                                                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fee2e2'}
+                                                                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                                                >
+                                                                                    <Trash2 size={14} />
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                        
+                                                                        {/* Subsanation uploader for this specific evidence */}
+                                                                        {isContractor && form.estado_auditoria === 'pendiente_subsanacion' && (
+                                                                            <div style={{ marginTop: '8px', borderTop: '1px dashed #e5e7eb', paddingTop: '8px' }}>
+                                                                                <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '4px', fontWeight: 600 }}>
+                                                                                    Cargar Subsanación:
+                                                                                </div>
+                                                                                <FileUpload
+                                                                                    registroActividadId={act.id}
+                                                                                    existingCount={0}
+                                                                                    maxFiles={1}
+                                                                                    disabled={isLocked}
+                                                                                    descripcion={`subsanacion_original_${e.id}`}
+                                                                                    onUploadComplete={(newEv) => {
+                                                                                        toast.success('Evidencia de subsanación cargada');
+                                                                                        setActividades(prev => prev.map((a, i) => {
+                                                                                            if (i === globalIndex) {
+                                                                                                const newEvidencias = [...(a.evidencias || []), newEv];
+                                                                                                return { ...a, evidencias: newEvidencias };
+                                                                                            }
+                                                                                            return a;
+                                                                                        }));
+                                                                                    }}
+                                                                                />
+                                                                            </div>
                                                                         )}
                                                                     </div>
                                                                 ))}
@@ -1321,6 +1334,7 @@ export default function RegistroForm() {
             />
             <SolicitudReaperturaModal
                 isOpen={reaperturaModal.show}
+                isDirect={reaperturaModal.isDirect}
                 onClose={() => setReaperturaModal({ show: false })}
                 registroId={id}
                 onSuccess={() => { setReaperturaModal({ show: false }); fetchRegistro(); }}

@@ -10,7 +10,8 @@ export default function FileUpload({
     maxFiles = 4,
     existingCount = 0,
     templateUrl = null, // New prop for template
-    onFileSelect = null // New prop for pending uploads
+    onFileSelect = null, // New prop for pending uploads
+    descripcion = null // New prop for description
 }) {
     const { user } = useAuth();
     const isADC = user?.role === 'administrador_contrato';
@@ -60,6 +61,9 @@ export default function FileUpload({
         const formData = new FormData();
         formData.append('archivo', file);
         formData.append('registro_actividad_id', registroActividadId);
+        if (descripcion) {
+            formData.append('descripcion', descripcion);
+        }
 
         try {
             const response = await api.post('/evidencias', formData, {

@@ -205,6 +205,8 @@ export default function HallazgoModal({ isOpen, onClose, onSuccess, registroId, 
                                 className="form-control"
                                 value={fechaLimite}
                                 onChange={(e) => setFechaLimite(e.target.value)}
+                                min={new Date().toISOString().split('T')[0]}
+                                max={new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
                                 style={{ width: '100%', padding: '10px 12px', paddingLeft: '36px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
                             />
                             <div style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#64748b' }}>

@@ -50,6 +50,10 @@ export default function RegistroAudit() {
     const [hallazgoModal, setHallazgoModal] = useState({ show: false, actividad: null, hallazgo: null });
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', action: null });
 
+    // Participants State
+    const [participantes, setParticipantes] = useState([]);
+    const [nuevoParticipante, setNuevoParticipante] = useState({ nombre: '', rut: '', cargo: '', empresa: '' });
+
     useEffect(() => {
         fetchRegistro();
     }, [id]);
@@ -59,6 +63,15 @@ export default function RegistroAudit() {
             const response = await api.get(`/registros/${id}`);
             setRegistro(response.data.data);
             setComentarioGeneral(response.data.data.comentario_general || '');
+
+            const participantsComment = response.data.data.comentarios?.find(c => c.tipo === 'participantes');
+            if (participantsComment) {
+                try {
+                    setParticipantes(JSON.parse(participantsComment.comentario));
+                } catch (e) {
+                    console.error('Error parsing participants:', e);
+                }
+            }
 
             // Initialize local audit state
             const initialAuditState = {};
@@ -196,7 +209,8 @@ export default function RegistroAudit() {
         setSaving(true);
         try {
             await api.put(`/registros/${id}/guardar-avance-auditoria`, {
-                comentario_general: comentarioGeneral
+                comentario_general: comentarioGeneral,
+                participantes: JSON.stringify(participantes)
             });
             toast.success('Progreso guardado correctamente');
         } catch (err) {
@@ -474,7 +488,11 @@ export default function RegistroAudit() {
                             {Object.keys(groupedActivities).sort().map(elementKey => {
                                 const acts = groupedActivities[elementKey];
                                 return acts.map((act, idx) => (
-                                    <tr key={act.id} className="audit-table-row">
+                                    <tr 
+                                        key={act.id} 
+                                        className="audit-table-row"
+                                        style={act.hallazgos?.length > 0 && act.evidencias?.length > 0 ? { backgroundColor: '#fffbeb' } : {}}
+                                    >
                                         {/* Element grouping cell */}
                                         {idx === 0 && (
                                             <td rowSpan={acts.length} className="audit-group-cell" style={{ borderRight: '1px solid #e5e7eb' }}>
@@ -492,7 +510,12 @@ export default function RegistroAudit() {
 
                                         {/* Activity Details */}
                                         <td style={{ verticalAlign: 'top' }}>
-                                            <div style={{ fontWeight: 600, marginBottom: '4px' }}>{act.actividad?.descripcion}</div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                <div style={{ fontWeight: 600 }}>{act.actividad?.descripcion}</div>
+                                                {act.hallazgos?.length > 0 && act.evidencias?.length > 0 && (
+                                                    <span className="badge warning" style={{ fontSize: '0.65rem', padding: '2px 6px', background: '#fef08a', color: '#854d0e', borderRadius: '4px', fontWeight: 700 }}>MODIFICADO</span>
+                                                )}
+                                            </div>
                                             <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '8px' }}>
                                                 {act.actividad?.verificadores || act.actividad?.criterios}
                                             </div>
@@ -806,6 +829,8 @@ export default function RegistroAudit() {
                                             style={{ fontSize: '0.9rem', borderRadius: '8px', width: '100%' }}
                                             value={nuevoCompromiso.fecha_compromiso}
                                             onChange={(e) => setNuevoCompromiso(prev => ({ ...prev, fecha_compromiso: e.target.value }))}
+                                            min={new Date().toISOString().split('T')[0]}
+                                            max={new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
                                         />
                                     </div>
                                     <div style={{ flex: '0 0 auto' }}>
@@ -826,11 +851,117 @@ export default function RegistroAudit() {
                                         >
                                             <Plus size={18} />
                                         </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                     </div>
+                </div>
+
+                {/* Participants Section */}
+                <div className="form-card" style={{ marginTop: '32px', padding: '24px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#1e40af', fontWeight: 700, marginBottom: '20px' }}>
+                        <FileText size={20} /> <span style={{ fontSize: '1.1rem' }}>Participantes de la Reunión de Accounting</span>
+                    </div>
+                    
+                    <div style={{ overflowX: 'auto', marginBottom: '20px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                            <thead>
+                                <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                                    <th style={{ padding: '12px', textAlign: 'left', color: '#64748b', fontWeight: 600 }}>Nombre</th>
+                                    <th style={{ padding: '12px', textAlign: 'left', color: '#64748b', fontWeight: 600 }}>RUT</th>
+                                    <th style={{ padding: '12px', textAlign: 'left', color: '#64748b', fontWeight: 600 }}>Cargo</th>
+                                    <th style={{ padding: '12px', textAlign: 'left', color: '#64748b', fontWeight: 600 }}>Empresa</th>
+                                    <th style={{ padding: '12px', textAlign: 'center', color: '#64748b', fontWeight: 600 }}>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {participantes.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>
+                                            No hay participantes registrados
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    participantes.map((p, index) => (
+                                        <tr key={index} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                            <td style={{ padding: '12px', color: '#1f2937' }}>{p.nombre}</td>
+                                            <td style={{ padding: '12px', color: '#1f2937' }}>{p.rut}</td>
+                                            <td style={{ padding: '12px', color: '#1f2937' }}>{p.cargo}</td>
+                                            <td style={{ padding: '12px', color: '#1f2937' }}>{p.empresa}</td>
+                                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                <button
+                                                    onClick={() => setParticipantes(prev => prev.filter((_, i) => i !== index))}
+                                                    style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+                                                    disabled={!(registro.estado_auditoria === 'auditando' || registro.estado_auditoria === 'en_revision') || !canWrite('Auditoria')}
+                                                >
+                                                    <Trash size={16} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {(registro?.estado_auditoria === 'auditando' || registro?.estado_auditoria === 'en_revision') && canWrite('Auditoria') && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
+                            <div>
+                                <label style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px', display: 'block' }}>Nombre</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    value={nuevoParticipante.nombre}
+                                    onChange={(e) => setNuevoParticipante(prev => ({ ...prev, nombre: e.target.value }))}
+                                    style={{ fontSize: '0.85rem' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px', display: 'block' }}>RUT</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    value={nuevoParticipante.rut}
+                                    onChange={(e) => setNuevoParticipante(prev => ({ ...prev, rut: e.target.value }))}
+                                    style={{ fontSize: '0.85rem' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px', display: 'block' }}>Cargo</label>
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    value={nuevoParticipante.cargo}
+                                    onChange={(e) => setNuevoParticipante(prev => ({ ...prev, cargo: e.target.value }))}
+                                    style={{ fontSize: '0.85rem' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px', display: 'block' }}>Empresa</label>
+                                <select
+                                    className="form-control"
+                                    value={nuevoParticipante.empresa}
+                                    onChange={(e) => setNuevoParticipante(prev => ({ ...prev, empresa: e.target.value }))}
+                                    style={{ fontSize: '0.85rem' }}
+                                >
+                                    <option value="">Seleccione...</option>
+                                    <option value={registro.eecc_nombre}>{registro.eecc_nombre}</option>
+                                    <option value="Asesor Mutual Nacional">Asesor Mutual Nacional</option>
+                                </select>
+                            </div>
+                            <button
+                                className="btn-primary"
+                                onClick={() => {
+                                    if (!nuevoParticipante.nombre || !nuevoParticipante.rut || !nuevoParticipante.cargo || !nuevoParticipante.empresa) {
+                                        alert('Por favor complete todos los campos del participante.');
+                                        return;
+                                    }
+                                    setParticipantes(prev => [...prev, nuevoParticipante]);
+                                    setNuevoParticipante({ nombre: '', rut: '', cargo: '', empresa: '' });
+                                }}
+                                style={{ height: '38px', padding: '0 12px', borderRadius: '8px', background: '#003594', border: 'none' }}
+                            >
+                                <Plus size={16} />
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 

@@ -3,7 +3,7 @@ import { Send } from 'lucide-react';
 import api from '../../api';
 import Modal from '../ui/Modal';
 
-const SolicitudReaperturaModal = ({ isOpen = true, registroId, onClose, onSuccess }) => {
+const SolicitudReaperturaModal = ({ isOpen = true, registroId, onClose, onSuccess, isDirect = false }) => {
     const [motivo, setMotivo] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -14,7 +14,8 @@ const SolicitudReaperturaModal = ({ isOpen = true, registroId, onClose, onSucces
         setError(null);
 
         try {
-            await api.post('/reaperturas', {
+            const endpoint = isDirect ? '/reaperturas/directa' : '/reaperturas';
+            await api.post(endpoint, {
                 registro_id: registroId,
                 motivo
             });
@@ -52,24 +53,26 @@ const SolicitudReaperturaModal = ({ isOpen = true, registroId, onClose, onSucces
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title="Solicitar Reapertura"
+            title={isDirect ? "Reabrir Registro" : "Solicitar Reapertura"}
             footer={footerButtons}
         >
             <form onSubmit={handleSubmit} id="form-reapertura">
                 <div className="form-group">
-                    <label htmlFor="reapertura-motivo">Motivo de la solicitud</label>
+                    <label htmlFor="reapertura-motivo">{isDirect ? "Comentario de Reapertura" : "Motivo de la solicitud"}</label>
                     <textarea
                         id="reapertura-motivo"
                         className="form-control"
                         value={motivo}
                         onChange={(e) => setMotivo(e.target.value)}
-                        placeholder="Explique por qué necesita reabrir este registro..."
+                        placeholder={isDirect ? "Ingrese el motivo de la reapertura directa..." : "Explique por qué necesita reabrir este registro..."}
                         required
                         rows={4}
                     />
-                    <small className="help-text text-gray-500 mt-1 block">
-                        La solicitud será revisada por un administrador.
-                    </small>
+                    {!isDirect && (
+                        <small className="help-text text-gray-500 mt-1 block">
+                            La solicitud será revisada por un administrador.
+                        </small>
+                    )}
                 </div>
 
                 {error && (

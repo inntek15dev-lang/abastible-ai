@@ -262,7 +262,7 @@ const registroController = {
                             }
                         ]
                     },
-
+                    { model: AuditoriaComentario, as: 'comentarios' }
                 ]
             });
 
