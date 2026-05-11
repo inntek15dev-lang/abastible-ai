@@ -290,36 +290,122 @@ module.exports = {
 
     async cumplimientoGeneralPdf(req, res) {
         try {
-            const { periodo } = req.query;
-            // Re-using the logic from compliance general to fetch data
-            // (In a real app, I'd extract this to a service)
-            // For now, I'll do a quick version:
-            
-            // 1. Get stats
+            const { periodo, periodo_desde, periodo_hasta } = req.query;
             const statsRes = await module.exports._getStats(req, periodo);
             const { elementos, registros } = statsRes;
 
-            const doc = new PDFDocument({ margin: 50 });
+            const doc = new PDFDocument({ 
+                margin: 50,
+                size: 'A4',
+                bufferPages: true
+            });
+            
             res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `attachment; filename=consolidado-${periodo || 'general'}.pdf`);
+            res.setHeader('Content-Disposition', `attachment; filename=consolidado-${periodo_desde || 'general'}.pdf`);
             doc.pipe(res);
 
-            doc.fontSize(20).text('Reporte Consolidado de Cumplimiento', { align: 'center' });
-            doc.fontSize(12).text(`Periodo: ${periodo || 'Todos'}`, { align: 'center' });
+            const path = require('path');
+            const logoAbastible = path.join(__dirname, '../assets/logos/abastible.png');
+            const logoOval = path.join(__dirname, '../assets/logos/oval.png');
+
+            // --- HEADER ---
+            doc.rect(0, 0, 612, 80).fill('#003399'); // Abastible Blue
+            
+            try {
+                const fs = require('fs');
+                if (fs.existsSync(logoAbastible)) doc.image(logoAbastible, 40, 20, { height: 40 });
+                if (fs.existsSync(logoOval)) doc.image(logoOval, 480, 20, { height: 40 });
+            } catch (err) {
+                console.warn('Logos not found for PDF');
+            }
+
+            doc.fillColor('white').fontSize(16).font('Helvetica-Bold')
+               .text('REPORTE CONSOLIDADO DE CUMPLIMIENTO', 0, 30, { align: 'center' });
+            
+            doc.moveDown(4);
+
+            // --- INFO BOX ---
+            doc.fillColor('#1e293b');
+            doc.fontSize(10).font('Helvetica')
+               .text(`Periodo: ${periodo_desde || 'Todos'}`, { align: 'left' });
+            doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString('es-CL')}`, { align: 'right' });
             doc.moveDown();
 
-            doc.fontSize(16).text('Cumplimiento por Elemento', { underline: true });
-            doc.moveDown(0.5);
-            elementos.forEach(e => {
-                doc.fontSize(12).text(`${e.name}: ${e.declarado}%` + (e.auditado !== null ? ` (Auditado: ${e.auditado}%)` : ''));
-            });
+            // --- SUMMARY CARDS ---
+            const startY = doc.y;
+            const cardWidth = 240;
+            
+            // Card 1: Total Registros
+            doc.rect(50, startY, cardWidth, 60).fillAndStroke('#f8fafc', '#e2e8f0');
+            doc.fillColor('#64748b').fontSize(8).text('TOTAL REGISTROS', 60, startY + 15);
+            doc.fillColor('#1e293b').fontSize(14).font('Helvetica-Bold').text(registros.length.toString(), 60, startY + 30);
+
+            // Card 2: Promedio Cumplimiento
+            const avgCumplimiento = registros.length > 0 
+                ? Math.round(registros.reduce((acc, r) => acc + r.cumplimiento, 0) / registros.length)
+                : 0;
+            doc.rect(320, startY, cardWidth, 60).fillAndStroke('#f8fafc', '#e2e8f0');
+            doc.fillColor('#64748b').fontSize(8).text('PROMEDIO CUMPLIMIENTO', 330, startY + 15);
+            doc.fillColor('#1e293b').fontSize(14).font('Helvetica-Bold').text(`${avgCumplimiento}%`, 330, startY + 30);
+
+            doc.moveDown(6);
+
+            // --- TABLE 1: CUMPLIMIENTO POR ELEMENTO ---
+            doc.fillColor('#003399').fontSize(12).font('Helvetica-Bold').text('CUMPLIMIENTO POR ELEMENTO', { underline: true });
             doc.moveDown();
 
-            doc.fontSize(16).text('Detalle de Empresas', { underline: true });
-            doc.moveDown(0.5);
-            registros.forEach(r => {
-                doc.fontSize(10).text(`${r.eecc}: ${r.cumplimiento}% - ${r.estado}`);
+            let tableTop = doc.y;
+            doc.fontSize(10).fillColor('#475569');
+            doc.text('Elemento', 50, tableTop);
+            doc.text('Cumplimiento', 400, tableTop);
+            doc.text('Auditado', 500, tableTop);
+            
+            doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke('#cbd5e1');
+            doc.moveDown();
+
+            elementos.forEach((e, index) => {
+                const rowY = doc.y;
+                if (index % 2 === 0) doc.rect(50, rowY - 5, 500, 25).fill('#f1f5f9');
+                doc.fillColor('#1e293b').font('Helvetica');
+                doc.text(e.name, 50, rowY, { width: 340 });
+                doc.text(`${e.declarado}%`, 400, rowY);
+                doc.text(e.auditado !== null ? `${e.auditado}%` : '-', 500, rowY);
+                doc.moveDown(1.5);
             });
+
+            doc.moveDown(2);
+
+            // --- TABLE 2: DETALLE DE EMPRESAS ---
+            doc.fillColor('#003399').fontSize(12).font('Helvetica-Bold').text('DETALLE DE EMPRESAS', { underline: true });
+            doc.moveDown();
+
+            tableTop = doc.y;
+            doc.fontSize(10).fillColor('#475569');
+            doc.text('Empresa (EECC)', 50, tableTop);
+            doc.text('Cumplimiento', 400, tableTop);
+            doc.text('Estado', 500, tableTop);
+            
+            doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke('#cbd5e1');
+            doc.moveDown();
+
+            registros.forEach((r, index) => {
+                const rowY = doc.y;
+                if (index % 2 === 0) doc.rect(50, rowY - 5, 500, 25).fill('#f1f5f9');
+                doc.fillColor('#1e293b').font('Helvetica');
+                doc.text(r.eecc, 50, rowY, { width: 340 });
+                doc.text(`${r.cumplimiento}%`, 400, rowY);
+                doc.text(r.estado, 500, rowY);
+                doc.moveDown(1.5);
+            });
+
+            // Footer
+            const pages = doc.bufferedPageRange();
+            for (let i = 0; i < pages.count; i++) {
+                doc.switchToPage(i);
+                doc.fontSize(8).fillColor('#94a3b8')
+                   .text(`Reporte generado por Plataforma OVAL Control para Abastible S.A. | Página ${i + 1} de ${pages.count}`, 
+                   0, 780, { align: 'center' });
+            }
 
             doc.end();
         } catch (error) {

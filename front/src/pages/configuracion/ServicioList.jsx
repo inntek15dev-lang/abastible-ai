@@ -8,6 +8,7 @@ import {
     Building2, Briefcase, Settings, Tag, Users, Link2, 
     Home, Layers, Info
 } from 'lucide-react';
+import './ServicioList.css';
 
 export default function ServicioList() {
     const [hierarchy, setHierarchy] = useState([]);
@@ -70,49 +71,45 @@ export default function ServicioList() {
     );
 
     return (
-        <div className="organization-page min-h-screen bg-[#f8fafc] p-8">
+        <div className="organization-page">
             {/* Header Section */}
-            <div className="max-w-6xl mx-auto mb-8">
-                <div className="flex justify-between items-end">
-                    <div>
-                        <div className="flex items-center gap-3 mb-2">
-                             <div className="bg-[#003594] p-2 rounded-xl shadow-lg shadow-blue-100">
-                                <Layers className="text-white" size={24} />
-                             </div>
-                             <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-                                Gerencias, <span className="text-indigo-600">Subgerencias</span> & Servicios
-                             </h1>
-                        </div>
-                        <p className="text-slate-500 font-medium pl-1">Gestiona la estructura jerárquica y los estándares de servicios operativos.</p>
-                    </div>
-                    
-                    <div className="flex gap-3">
-                        {canWrite('Gestion_Configuracion') && (
-                            <button 
-                                onClick={() => {/* Modal to add Gerencia */}}
-                                className="flex items-center gap-2 bg-white text-slate-700 px-6 py-3 rounded-2xl font-bold border border-slate-200 shadow-sm hover:shadow-md transition-all active:scale-95"
-                            >
-                                <Plus size={18} />
-                                Nueva Gerencia
-                            </button>
-                        )}
-                        <Link 
-                            to="/servicios/new"
-                            className="flex items-center gap-2 bg-[#003594] text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-blue-100 hover:bg-[#002466] transition-all active:scale-95"
+            <header className="page-header" style={{ maxWidth: '1200px', margin: '0 auto 2rem auto' }}>
+                <div>
+                    <h1 className="page-title">
+                        Gerencias, Subgerencias & Servicios
+                    </h1>
+                    <p className="page-subtitle">Gestiona la estructura jerárquica y los estándares de servicios operativos.</p>
+                </div>
+                
+                <div className="header-actions">
+                    {canWrite('Gestion_Configuracion') && (
+                        <button 
+                            onClick={() => {/* Modal to add Gerencia */}}
+                            className="btn-secondary"
                         >
                             <Plus size={18} />
-                            Nuevo Servicio
-                        </Link>
-                    </div>
+                            Nueva Gerencia
+                        </button>
+                    )}
+                    <Link 
+                        to="/servicios/new"
+                        className="btn-primary"
+                    >
+                        <Plus size={18} />
+                        Nuevo Servicio
+                    </Link>
                 </div>
+            </header>
 
-                {/* Filters */}
-                <div className="mt-8 relative max-w-md">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            {/* Filters */}
+            <div style={{ maxWidth: '1200px', margin: '0 auto 2rem auto' }}>
+                <div style={{ position: 'relative', maxWidth: '400px' }}>
+                    <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} size={20} />
                     <input 
                         type="text" 
                         placeholder="Buscar en la estructura..."
-                        className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium text-slate-700"
+                        className="form-control"
+                        style={{ paddingLeft: '40px' }}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -120,32 +117,28 @@ export default function ServicioList() {
             </div>
 
             {/* Tree Container */}
-            <div className="max-w-6xl mx-auto">
-                <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-white p-8 overflow-hidden">
-                    {hierarchy.length === 0 ? (
-                        <div className="text-center py-20">
-                            <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Info className="text-slate-300" size={32} />
-                            </div>
-                            <h3 className="text-xl font-bold text-slate-800">Estructura Vacía</h3>
-                            <p className="text-slate-500">Comienza creando la primera gerencia para desplegar el árbol.</p>
-                        </div>
-                    ) : (
-                        <div className="organization-tree">
-                            {hierarchy.map(gerencia => (
-                                <GerenciaNode 
-                                    key={gerencia.id} 
-                                    gerencia={gerencia}
-                                    expandedNodes={expandedNodes}
-                                    toggleNode={toggleNode}
-                                    canWrite={canWrite}
-                                    canExec={canExec}
-                                    handleDelete={handleDelete}
-                                />
-                            ))}
-                        </div>
-                    )}
-                </div>
+            <div className="tree-container">
+                {hierarchy.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '3rem 0' }}>
+                        <Info style={{ color: '#cbd5e1', marginBottom: '1rem' }} size={48} />
+                        <h3 style={{ color: '#1e293b', fontSize: '1.2rem', fontWeight: 700 }}>Estructura Vacía</h3>
+                        <p style={{ color: '#64748b' }}>Comienza creando la primera gerencia para desplegar el árbol.</p>
+                    </div>
+                ) : (
+                    <div className="organization-tree">
+                        {hierarchy.map(gerencia => (
+                            <GerenciaNode 
+                                key={gerencia.id} 
+                                gerencia={gerencia}
+                                expandedNodes={expandedNodes}
+                                toggleNode={toggleNode}
+                                canWrite={canWrite}
+                                canExec={canExec}
+                                handleDelete={handleDelete}
+                            />
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -155,36 +148,33 @@ function GerenciaNode({ gerencia, expandedNodes, toggleNode, canWrite, canExec, 
     const isExpanded = expandedNodes[`g-${gerencia.id}`];
 
     return (
-        <div className="mb-4">
+        <div className="tree-node tree-node--gerencia">
             <div 
-                className={`
-                    group flex items-center justify-between p-5 rounded-xl transition-all cursor-pointer
-                    ${isExpanded ? 'bg-indigo-50/50' : 'hover:bg-slate-50 border border-transparent hover:border-slate-100'}
-                `}
+                className={`tree-node-header ${isExpanded ? 'expanded' : ''}`}
                 onClick={() => toggleNode(`g-${gerencia.id}`)}
             >
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white shadow-sm text-slate-400 group-hover:text-indigo-600 transition-colors">
+                <div className="node-info">
+                    <div className="node-toggle-icon">
                         {isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
                     </div>
-                    <div className="bg-[#003594] p-2.5 rounded-2xl shadow-lg shadow-blue-50">
-                        <Building2 className="text-white" size={20} />
+                    <div className="node-icon-wrapper">
+                        <Building2 size={20} />
                     </div>
                     <div>
-                        <h3 className="text-lg font-black text-slate-800 tracking-tight leading-none uppercase">{gerencia.nombre}</h3>
-                        <p className="text-[11px] font-bold text-indigo-400 tracking-widest mt-1.5 uppercase opacity-70">
+                        <h3 className="node-title">{gerencia.nombre}</h3>
+                        <p className="node-subtitle">
                             {gerencia.subgerencias?.length || 0} SUBGERENCIAS
                         </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                <div className="node-actions">
                     {canWrite('Gestion_Configuracion') && (
                         <>
-                            <button className="p-2 hover:bg-white rounded-xl text-slate-400 hover:text-indigo-600 transition-colors shadow-sm" title="Añadir Subgerencia">
+                            <button className="node-action-btn" title="Añadir Subgerencia">
                                 <Plus size={18} />
                             </button>
-                            <button className="p-2 hover:bg-white rounded-xl text-slate-400 hover:text-amber-600 transition-colors shadow-sm" title="Editar">
+                            <button className="node-action-btn" title="Editar">
                                 <Edit size={18} />
                             </button>
                         </>
@@ -192,7 +182,7 @@ function GerenciaNode({ gerencia, expandedNodes, toggleNode, canWrite, canExec, 
                     {canExec('Gestion_Configuracion') && (
                         <button 
                             onClick={(e) => { e.stopPropagation(); handleDelete('gerencia', gerencia.id); }}
-                            className="p-2 hover:bg-red-50 rounded-xl text-slate-400 hover:text-red-600 transition-colors shadow-sm" title="Eliminar">
+                            className="node-action-btn danger" title="Eliminar">
                             <Trash2 size={18} />
                         </button>
                     )}
@@ -200,7 +190,7 @@ function GerenciaNode({ gerencia, expandedNodes, toggleNode, canWrite, canExec, 
             </div>
 
             {isExpanded && (
-                <div className="ml-16 mt-2 border-l-2 border-indigo-100 pl-6 space-y-2">
+                <div className="sub-tree">
                     {gerencia.subgerencias?.map(sub => (
                         <SubgerenciaNode 
                             key={sub.id} 
@@ -213,7 +203,7 @@ function GerenciaNode({ gerencia, expandedNodes, toggleNode, canWrite, canExec, 
                         />
                     ))}
                     {(!gerencia.subgerencias || gerencia.subgerencias.length === 0) && (
-                        <p className="text-slate-400 text-sm italic py-2">Sin subgerencias registradas</p>
+                        <p style={{ color: '#94a3b8', fontStyle: 'italic', padding: '0.5rem 0' }}>Sin subgerencias registradas</p>
                     )}
                 </div>
             )}
@@ -225,41 +215,38 @@ function SubgerenciaNode({ sub, expandedNodes, toggleNode, canWrite, canExec, ha
     const isExpanded = expandedNodes[`s-${sub.id}`];
 
     return (
-        <div className="mb-2">
+        <div className="tree-node tree-node--subgerencia">
             <div 
-                className={`
-                    group flex items-center justify-between p-4 rounded-lg transition-all cursor-pointer
-                    ${isExpanded ? 'bg-amber-50/40' : 'hover:bg-slate-50 border border-transparent hover:border-slate-100'}
-                `}
+                className={`tree-node-header ${isExpanded ? 'expanded' : ''}`}
                 onClick={() => toggleNode(`s-${sub.id}`)}
             >
-                <div className="flex items-center gap-4">
-                    <div className="text-slate-300">
+                <div className="node-info">
+                    <div className="node-toggle-icon">
                         {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                     </div>
-                    <div className="bg-amber-500 p-2 rounded-xl shadow-lg shadow-amber-100">
-                        <Briefcase className="text-white" size={18} />
+                    <div className="node-icon-wrapper">
+                        <Briefcase size={18} />
                     </div>
                     <div>
-                        <h4 className="text-base font-extrabold text-slate-700 tracking-tight leading-none uppercase">{sub.nombre}</h4>
-                        <p className="text-[10px] font-bold text-amber-500 tracking-widest mt-1 uppercase opacity-70">
+                        <h4 className="node-title">{sub.nombre}</h4>
+                        <p className="node-subtitle">
                             {sub.servicios?.length || 0} SERVICIOS OPERATIVOS
                         </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                <div className="node-actions">
                      {canWrite('Gestion_Configuracion') && (
                         <>
                              <Link 
                                 to={`/servicios/new?subgerencia_id=${sub.id}`}
-                                className="p-1.5 hover:bg-white rounded-lg text-slate-400 hover:text-amber-600 transition-colors shadow-sm" 
+                                className="node-action-btn" 
                                 title="Añadir Servicio"
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 <Plus size={16} />
                             </Link>
-                            <button className="p-1.5 hover:bg-white rounded-lg text-slate-400 hover:text-amber-600 transition-colors shadow-sm" title="Editar">
+                            <button className="node-action-btn" title="Editar">
                                 <Edit size={16} />
                             </button>
                         </>
@@ -267,7 +254,7 @@ function SubgerenciaNode({ sub, expandedNodes, toggleNode, canWrite, canExec, ha
                     {canExec('Gestion_Configuracion') && (
                         <button 
                             onClick={(e) => { e.stopPropagation(); handleDelete('subgerencia', sub.id); }}
-                            className="p-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 transition-colors shadow-sm" title="Eliminar">
+                            className="node-action-btn danger" title="Eliminar">
                             <Trash2 size={16} />
                         </button>
                     )}
@@ -275,7 +262,7 @@ function SubgerenciaNode({ sub, expandedNodes, toggleNode, canWrite, canExec, ha
             </div>
 
             {isExpanded && (
-                <div className="ml-12 mt-2 border-l-2 border-amber-100 pl-6 gap-2 flex flex-col">
+                <div className="sub-tree">
                     {sub.servicios?.map(serv => (
                         <ServicioNode 
                             key={serv.id} 
@@ -286,7 +273,7 @@ function SubgerenciaNode({ sub, expandedNodes, toggleNode, canWrite, canExec, ha
                         />
                     ))}
                     {(!sub.servicios || sub.servicios.length === 0) && (
-                        <p className="text-slate-400 text-xs italic py-1">Sin servicios vinculados</p>
+                        <p style={{ color: '#94a3b8', fontStyle: 'italic', padding: '0.5rem 0' }}>Sin servicios vinculados</p>
                     )}
                 </div>
             )}
@@ -296,33 +283,39 @@ function SubgerenciaNode({ sub, expandedNodes, toggleNode, canWrite, canExec, ha
 
 function ServicioNode({ servicio, canWrite, canExec, handleDelete }) {
     return (
-        <div className="group flex items-center justify-between p-3.5 bg-slate-50/50 hover:bg-white border border-transparent hover:border-slate-200 rounded-lg transition-all">
-            <div className="flex items-center gap-4">
-                <div className="p-2 bg-emerald-500 rounded-lg shadow-md shadow-emerald-50">
-                    <Tag className="text-white" size={14} />
-                </div>
-                <div>
-                    <h5 className="text-sm font-bold text-slate-800">{servicio.nombre}</h5>
-                    <div className="flex gap-4 mt-1">
-                        <span className="text-[10px] text-slate-400 flex items-center gap-1 font-bold">
-                            <Link2 size={10} /> {servicio.vinculaciones_count || 0} VINCULACIONES
-                        </span>
-                        <span className="text-[10px] text-slate-400 flex items-center gap-1 font-bold">
-                            <Users size={10} /> {servicio.contratistas_count || 0} CONTRATISTAS
-                        </span>
+        <div className="tree-node tree-node--servicio">
+            <div className="tree-node-header" style={{ cursor: 'default' }}>
+                <div className="node-info">
+                    <div className="node-icon-wrapper">
+                        <Tag size={14} />
+                    </div>
+                    <div>
+                        <h5 className="node-title" style={{ fontSize: '0.9rem' }}>{servicio.nombre}</h5>
+                        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
+                            <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                <Link2 size={10} /> {servicio.vinculaciones_count || 0} VINCULACIONES
+                            </span>
+                            <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                <Users size={10} /> {servicio.contratistas_count || 0} CONTRATISTAS
+                            </span>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                <Link to={`/servicios/${servicio.id}/edit`} className="p-1.5 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-indigo-600 transition-colors">
-                    <Edit size={14} />
-                </Link>
-                <button 
-                    onClick={() => handleDelete('servicio', servicio.id)}
-                    className="p-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 transition-colors">
-                    <Trash2 size={14} />
-                </button>
+                <div className="node-actions">
+                    {canWrite('Gestion_Configuracion') && (
+                        <Link to={`/servicios/${servicio.id}/edit`} className="node-action-btn" title="Editar">
+                            <Edit size={14} />
+                        </Link>
+                    )}
+                    {canExec('Gestion_Configuracion') && (
+                        <button 
+                            onClick={() => handleDelete('servicio', servicio.id)}
+                            className="node-action-btn danger" title="Eliminar">
+                            <Trash2 size={14} />
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     );

@@ -1,0 +1,134 @@
+/* ServicioList.css */
+
+.organization-page {
+    padding: 2rem;
+    background-color: #f8fafc;
+    min-height: 100vh;
+}
+
+.tree-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    padding: 2rem;
+    border: 1px solid #e2e8f0;
+}
+
+.tree-node {
+    margin-bottom: 1rem;
+    border-radius: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.tree-node-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem;
+    border-radius: 0.75rem;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.tree-node-header:hover {
+    background-color: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+.tree-node-header.expanded {
+    background-color: #f1f5f9;
+}
+
+.node-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.node-icon-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.75rem;
+    background-color: #003594;
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 53, 148, 0.1);
+}
+
+.node-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1e293b;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.node-subtitle {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.25rem;
+}
+
+.node-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.tree-node-header:hover .node-actions {
+    opacity: 1;
+}
+
+.node-action-btn {
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.node-action-btn:hover {
+    background-color: white;
+    color: #003594;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.node-action-btn.danger:hover {
+    background-color: #fee2e2;
+    color: #dc2626;
+}
+
+/* Subgerencia and Servicio styles */
+.sub-tree {
+    padding-left: 3rem;
+    border-left: 2px solid #e2e8f0;
+    margin-left: 1.25rem;
+    margin-top: 0.5rem;
+}
+
+.tree-node--subgerencia .node-icon-wrapper {
+    background-color: #fe5000; /* Abastible Orange */
+}
+
+.tree-node--servicio .node-icon-wrapper {
+    background-color: #10b981; /* Emerald Green */
+}
+
+.tree-node--subgerencia .node-subtitle {
+    color: #fe5000;
+}
+
+.tree-node--servicio .node-subtitle {
+    color: #10b981;
+}

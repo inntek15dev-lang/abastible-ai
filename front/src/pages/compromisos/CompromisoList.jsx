@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
 import { CheckCircle, Clock, AlertCircle, Calendar, User, Edit, X, Save, Shield, Trash2, TrendingUp } from 'lucide-react';
+import './CompromisoList.css';
 
 export default function CompromisoList() {
     const [searchParams] = useSearchParams();
@@ -97,8 +98,6 @@ export default function CompromisoList() {
     // Filter logic for dropdowns
     const filteredServicios = useMemo(() => {
         if (!selectedContratista) return servicios;
-
-        // Actually simplest is just valid combinations
         const validServiceIds = new Set(vinculaciones
             .filter(v => String(v.contratista_id) === String(selectedContratista))
             .map(v => v.servicio_id));
@@ -114,7 +113,6 @@ export default function CompromisoList() {
         const validDepIds = new Set(filteredVincs.map(v => v.dependencia_id));
         return dependencias.filter(d => validDepIds.has(d.id));
     }, [selectedContratista, selectedServicio, vinculaciones, dependencias]);
-
 
     const handleCumplir = async (id) => {
         const observacion = prompt('Observación de cumplimiento (opcional):');
@@ -173,16 +171,16 @@ export default function CompromisoList() {
     if (loading && compromisos.length === 0) return <div className="loading">Cargando...</div>;
 
     return (
-        <div className="page-container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '24px' }}>
-            <header className="page-header" style={{ marginBottom: '32px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div className="compromisos-page">
+            <header className="page-header" style={{ maxWidth: '1200px', margin: '0 auto 2rem auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{ background: '#003594', color: 'white', padding: '10px', borderRadius: '12px', display: 'flex' }}>
                             <Shield size={24} />
                         </div>
                         <div>
-                            <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#111827', margin: 0 }}>Gestión de Compromisos</h1>
-                            <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>Seguimiento y control de acciones de mejora</p>
+                            <h1 className="page-title" style={{ margin: 0 }}>Gestión de Compromisos</h1>
+                            <p className="page-subtitle" style={{ margin: 0 }}>Seguimiento y control de acciones de mejora</p>
                         </div>
                     </div>
                     {contratoNumero && (
@@ -194,12 +192,11 @@ export default function CompromisoList() {
                 </div>
 
                 {/* Hierarchy Filters */}
-                <div style={{ background: 'white', padding: '16px', borderRadius: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                <div style={{ background: 'white', padding: '16px', borderRadius: '12px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', width: '100%', marginTop: '1rem' }}>
                     <div>
                         <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '4px', display: 'block' }}>Empresa Contratista</label>
                         <select
                             className="form-control"
-                            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}
                             value={selectedContratista}
                             onChange={(e) => { setSelectedContratista(e.target.value); setSelectedServicio(''); setSelectedDependencia(''); }}
                         >
@@ -211,7 +208,6 @@ export default function CompromisoList() {
                         <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '4px', display: 'block' }}>Servicio</label>
                         <select
                             className="form-control"
-                            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}
                             value={selectedServicio}
                             onChange={(e) => { setSelectedServicio(e.target.value); setSelectedDependencia(''); }}
                             disabled={!selectedContratista}
@@ -224,7 +220,6 @@ export default function CompromisoList() {
                         <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '4px', display: 'block' }}>Dependencia</label>
                         <select
                             className="form-control"
-                            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}
                             value={selectedDependencia}
                             onChange={(e) => setSelectedDependencia(e.target.value)}
                             disabled={!selectedServicio}
@@ -235,7 +230,7 @@ export default function CompromisoList() {
                     </div>
                 </div>
 
-                <div className="filter-tabs" style={{ background: '#f1f5f9', padding: '6px', borderRadius: '12px', display: 'inline-flex', gap: '4px', width: 'fit-content' }}>
+                <div className="filter-tabs" style={{ marginTop: '1rem' }}>
                     {[
                         { id: 'all', label: 'TODOS', icon: null },
                         { id: 'pendiente', label: 'PENDIENTE', color: '#f59e0b' },
@@ -247,19 +242,7 @@ export default function CompromisoList() {
                             className={`filter-tab ${filter === f.id ? 'active' : ''}`}
                             onClick={() => setFilter(f.id)}
                             style={{
-                                padding: '8px 16px',
-                                borderRadius: '8px',
-                                border: 'none',
-                                background: filter === f.id ? 'white' : 'transparent',
                                 color: filter === f.id ? (f.color || '#1e293b') : '#64748b',
-                                fontWeight: 600,
-                                fontSize: '0.85rem',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                boxShadow: filter === f.id ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px'
                             }}
                         >
                             {f.label}
@@ -268,45 +251,45 @@ export default function CompromisoList() {
                 </div>
 
                 {/* KPI Summary Section */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginTop: '8px' }}>
-                    <div style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <div className="kpi-grid" style={{ width: '100%' }}>
+                    <div className="kpi-card">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                            <span style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Total compromisos</span>
+                            <span className="kpi-title">Total compromisos</span>
                             <div style={{ background: '#eff6ff', color: '#3b82f6', padding: '6px', borderRadius: '8px' }}><Shield size={18} /></div>
                         </div>
-                        <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#1e293b' }}>{compromisos.length}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>Cargados en el periodo</div>
+                        <div className="kpi-value">{compromisos.length}</div>
+                        <div className="kpi-subtitle">Cargados en el periodo</div>
                     </div>
 
-                    <div style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                    <div className="kpi-card">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                            <span style={{ color: '#059669', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Cumplidos</span>
+                            <span className="kpi-title" style={{ color: '#059669' }}>Cumplidos</span>
                             <div style={{ background: '#f0fdf4', color: '#10b981', padding: '6px', borderRadius: '8px' }}><CheckCircle size={18} /></div>
                         </div>
-                        <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#065f46' }}>
+                        <div className="kpi-value" style={{ color: '#065f46' }}>
                             {compromisos.filter(c => c.estado === 'cumplido').length}
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: '#10b981', marginTop: '4px', fontWeight: 600 }}>Acciones cerradas</div>
+                        <div className="kpi-subtitle" style={{ color: '#10b981', fontWeight: 600 }}>Acciones cerradas</div>
                     </div>
 
-                    <div style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                    <div className="kpi-card">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                            <span style={{ color: '#b91c1c', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Pendientes / Vencidos</span>
+                            <span className="kpi-title" style={{ color: '#b91c1c' }}>Pendientes / Vencidos</span>
                             <div style={{ background: '#fef2f2', color: '#ef4444', padding: '6px', borderRadius: '8px' }}><Clock size={18} /></div>
                         </div>
-                        <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#991b1b' }}>
+                        <div className="kpi-value" style={{ color: '#991b1b' }}>
                             {compromisos.filter(c => c.estado !== 'cumplido').length}
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '4px', fontWeight: 600 }}>Acciones abiertas</div>
+                        <div className="kpi-subtitle" style={{ color: '#ef4444', fontWeight: 600 }}>Acciones abiertas</div>
                     </div>
 
-                    <div style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                    <div className="kpi-card">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                            <span style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>Cierre Accountability</span>
+                            <span className="kpi-title">Cierre Accountability</span>
                             <div style={{ background: '#f0fdf4', color: '#10b981', padding: '6px', borderRadius: '8px' }}><TrendingUp size={18} /></div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-                            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#1e293b' }}>
+                            <div className="kpi-value">
                                 {compromisos.length > 0 ? Math.round((compromisos.filter(c => c.estado === 'cumplido').length / compromisos.length) * 100) : 0}
                             </div>
                             <div style={{ fontSize: '1rem', fontWeight: 600, color: '#64748b' }}>%</div>
@@ -327,22 +310,12 @@ export default function CompromisoList() {
             </header>
 
             {error && (
-                <div style={{
-                    background: '#fef2f2',
-                    color: '#991b1b',
-                    padding: '12px 16px',
-                    borderRadius: '10px',
-                    marginBottom: '24px',
-                    border: '1px solid #fee2e2',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                }}>
+                <div className="alert alert-danger" style={{ maxWidth: '1200px', margin: '0 auto 2rem auto' }}>
                     <AlertCircle size={18} /> {error}
                 </div>
             )}
 
-            <div className="compromisos-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '20px' }}>
+            <div className="compromisos-grid" style={{ maxWidth: '1200px', margin: '0 auto' }}>
                 {compromisos.length === 0 ? (
                     <div style={{
                         gridColumn: '1 / -1',
@@ -357,7 +330,7 @@ export default function CompromisoList() {
                         <p style={{ fontSize: '1.1rem', fontWeight: 500 }}>No se encontraron compromisos registrados</p>
                     </div>
                 ) : (
-                    compromisos.map((c, idx) => {
+                    compromisos.map((c) => {
                         const vencido = isVencido(c.fecha_compromiso, c.estado);
                         const statusColors = {
                             pendiente: { bg: '#fffbeb', border: '#fef3c7', text: '#b45309', bar: '#f59e0b' },
@@ -372,22 +345,11 @@ export default function CompromisoList() {
                                 key={c.id}
                                 className="compromiso-card"
                                 style={{
-                                    background: 'white',
-                                    borderRadius: '16px',
-                                    border: `1px solid ${color.border}`,
                                     borderTop: `4px solid ${color.bar}`,
-                                    padding: '20px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '16px',
-                                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
-                                    position: 'relative',
-                                    transition: 'transform 0.2s',
-                                    cursor: 'default'
                                 }}
                             >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: color.bg, padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700, color: color.text, textTransform: 'uppercase' }}>
+                                <div className="compromiso-header">
+                                    <div className="status-badge" style={{ background: color.bg, color: color.text }}>
                                         {getEstadoIcon(c.estado)}
                                         {vencido ? 'VENCIDO' : c.estado.replace('_', ' ')}
                                     </div>
@@ -395,9 +357,8 @@ export default function CompromisoList() {
                                     {['pendiente', 'en_proceso'].includes(c.estado) &&
                                         (user.role === 'admin' || user.id === c.creado_por_id) && (
                                             <button
-                                                className="btn-icon"
+                                                className="node-action-btn"
                                                 onClick={() => handleEditClick(c)}
-                                                style={{ color: '#94a3b8', background: 'transparent', border: 'none', cursor: 'pointer' }}
                                             >
                                                 <Edit size={16} />
                                             </button>
@@ -405,7 +366,7 @@ export default function CompromisoList() {
                                 </div>
 
                                 <div style={{ flex: 1 }}>
-                                    <p style={{ margin: 0, color: '#1f2937', fontWeight: 600, fontSize: '0.95rem', lineHeight: '1.5' }}>
+                                    <p className="card-title">
                                         {c.descripcion}
                                     </p>
                                 </div>
@@ -432,7 +393,7 @@ export default function CompromisoList() {
                                 </div>
 
                                 {c.registro && (
-                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <div className="card-meta">
                                         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#cbd5e1' }}></div>
                                         Origen: {c.registro.periodo} - {c.registro.eecc_nombre}
                                     </div>
@@ -441,24 +402,13 @@ export default function CompromisoList() {
                                 {['pendiente', 'en_proceso'].includes(c.estado) &&
                                     (user.id === c.responsable_id || user.role === 'admin') && (
                                         <button
-                                            className="btn-cumplir"
+                                            className="btn-primary"
                                             onClick={() => handleCumplir(c.id)}
                                             style={{
                                                 marginTop: '4px',
                                                 background: '#10b981',
-                                                color: 'white',
-                                                border: 'none',
-                                                padding: '10px',
-                                                borderRadius: '10px',
-                                                fontWeight: 700,
-                                                fontSize: '0.9rem',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                gap: '8px',
-                                                cursor: 'pointer',
+                                                borderColor: '#10b981',
                                                 boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)',
-                                                transition: 'all 0.2s'
                                             }}
                                         >
                                             <CheckCircle size={18} /> Marcar Cumplido
@@ -467,23 +417,13 @@ export default function CompromisoList() {
 
                                 {isAdminOrADC && (
                                     <button
-                                        className="btn-delete"
+                                        className="btn-secondary"
                                         onClick={() => handleDelete(c.id)}
                                         style={{
                                             marginTop: '8px',
-                                            background: '#fef2f2',
                                             color: '#ef4444',
-                                            border: '1px solid #fee2e2',
-                                            padding: '10px',
-                                            borderRadius: '10px',
-                                            fontWeight: 700,
-                                            fontSize: '0.9rem',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '8px',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s'
+                                            borderColor: '#fee2e2',
+                                            background: '#fef2f2',
                                         }}
                                     >
                                         <Trash2 size={18} /> Eliminar
@@ -541,6 +481,7 @@ export default function CompromisoList() {
                     </div>
                 )
             }
-        </div >
+        </div>
     );
+} );
 }

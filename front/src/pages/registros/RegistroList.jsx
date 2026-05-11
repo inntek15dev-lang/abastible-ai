@@ -77,7 +77,7 @@ export default function RegistroList() {
     const [filters, setFilters] = useState({
         search: '',
         period: '',
-        status: 'all',
+        status: 'mis_pendientes',
         servicio: 'Todos',
         dependencia: 'Todas',
         programa: 'Todos',
@@ -260,7 +260,22 @@ export default function RegistroList() {
             const regProgram = reg.programa?.nombre || reg.asignacion?.servicio?.programa?.nombre || 'Sin Programa';
             const matchesProgram = !filters.programa || filters.programa === 'Todos' || regProgram === filters.programa;
 
-            const matchesStatus = filters.status === 'all' || reg.estado_auditoria === filters.status;
+            const isMyPending = (r) => {
+                const role = user?.role;
+                if (role === 'contratista_admin' || role === 'contratista_user') {
+                    return r.estado_auditoria === 'pendiente' || r.estado_auditoria === 'pendiente_subsanacion';
+                }
+                if (role === 'administrador_contrato') {
+                    return r.estado_auditoria === 'auditable' || r.estado_auditoria === 'subsanado' || r.estado_auditoria === 'reapertura_solicitada';
+                }
+                if (isAdmin) {
+                    return r.estado_auditoria === 'reapertura_solicitada' || r.estado_auditoria === 'auditable' || r.estado_auditoria === 'subsanado';
+                }
+                return false;
+            };
+
+            const matchesStatus = filters.status === 'all' || 
+                (filters.status === 'mis_pendientes' ? isMyPending(reg) : reg.estado_auditoria === filters.status);
             const matchesPeriod = !filters.period || reg.periodo.startsWith(filters.period);
 
             const adminsInVinc = reg.vinculacionEntidad?.administraciones?.map(a => a.administrador_contrato_id.toString()) || [];
@@ -837,6 +852,7 @@ export default function RegistroList() {
                     <label>Estado Auditoría</label>
                     <select id="filter-status" className="form-control" value={filters.status || 'all'} onChange={e => setFilters({ ...filters, status: e.target.value })}>
                         <option value="all">Todos</option>
+                        <option value="mis_pendientes">Mis Pendientes</option>
                         <option value="pendiente">Pendiente</option>
                         <option value="auditable">Auditable</option>
                         <option value="auditando">En Proceso</option>

@@ -76,14 +76,7 @@ export default function VinculacionList() {
                             Asignación de Servicios y Dependencias a Contratistas.
                         </p>
                     </div>
-                    {canWrite('Vinculaciones') && !isADC && (
-                        <div className="flex gap-2">
-                            {/* Assuming Modal implementation or Link to Form page */}
-                            <Link to="/vinculaciones/new" className="btn-primary flex items-center gap-2">
-                                <Plus size={18} /> Nueva Vinculación
-                            </Link>
-                        </div>
-                    )}
+
                 </div>
             </header>
 

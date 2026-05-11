@@ -172,9 +172,16 @@ const dashboardController = {
             // Total registros
             const totalRegistros = await Registro.count({ where: whereRegistro });
 
-            // Registros pendientes auditoría
+            // Registros pendientes según el rol
+            let estadoPendiente = 'pendiente';
+            if (user.role === 'administrador_contrato' || user.role === 'admin') {
+                estadoPendiente = { [Op.in]: ['cerrado', 'auditable', 'subsanado'] };
+            } else if (isContractor) {
+                estadoPendiente = { [Op.in]: ['pendiente', 'pendiente_subsanacion'] };
+            }
+
             const pendientesAuditoria = await Registro.count({
-                where: { ...whereRegistro, estado_auditoria: 'pendiente' }
+                where: { ...whereRegistro, estado_auditoria: estadoPendiente }
             });
 
             // Registros auditados (Total)

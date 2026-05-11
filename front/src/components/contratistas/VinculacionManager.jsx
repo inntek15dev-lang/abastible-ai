@@ -420,24 +420,6 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                         </button>
                     </div>
                 </div>
-            ) : (!isADC && user?.role !== 'admin') ? (
-                <button
-                    onClick={() => setIsAdding(true)}
-                    className="btn-text"
-                    style={{
-                        marginTop: '12px',
-                        color: 'var(--color-primary)',
-                        fontWeight: 500,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer'
-                    }}
-                >
-                    <Plus size={16} /> Nueva Asignación
-                </button>
             ) : null}
         </div>
     );
