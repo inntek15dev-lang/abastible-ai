@@ -1070,6 +1070,7 @@ export default function RegistroForm() {
                                                                     }}
                                                                 />
                                                             </div>
+                                                        )}
                                                                              {/* Existing Evidence */}
                                                         {act.evidencias?.length > 0 && (
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
