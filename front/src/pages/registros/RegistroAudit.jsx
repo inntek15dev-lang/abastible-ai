@@ -964,6 +964,7 @@ export default function RegistroAudit() {
                         </div>
                     )}
                 </div>
+                </div>
             )}
 
             {/* Final Actions */}
