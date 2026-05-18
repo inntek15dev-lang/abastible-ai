@@ -40,26 +40,20 @@ const compromisoController = {
             // Role-based filtering (Security)
             const user = req.user;
             if (user.role === 'contratista_user' || user.role === 'contratista_admin') {
-                if (registro_id) {
-                    // If filtering by record, verify ownership/assignment of the record
-                    const registro = await Registro.findByPk(registro_id, {
-                        include: [{ model: Vinculacion, as: 'vinculacionEntidad' }]
-                    });
-
-                    let hasAccess = false;
-                    if (registro) {
-                        if (registro.user_id === user.id) hasAccess = true;
-                        else if (user.parent_id && registro.user_id === user.parent_id) hasAccess = true;
-                        else if (user.role === 'contratista_admin' && user.contratista_id && registro.vinculacionEntidad?.contratista_id === user.contratista_id) {
-                            hasAccess = true;
-                        }
+                if (user.contratista_id) {
+                    let vincInclude = includeRegistro.include.find(inc => inc.as === 'vinculacionEntidad');
+                    if (!vincInclude) {
+                        vincInclude = {
+                            model: Vinculacion,
+                            as: 'vinculacionEntidad',
+                            required: true,
+                            where: {}
+                        };
+                        includeRegistro.include.push(vincInclude);
                     }
-
-                    if (!hasAccess) {
-                        where.responsable_id = user.id;
-                    }
+                    vincInclude.where.contratista_id = user.contratista_id;
+                    includeRegistro.required = true;
                 } else {
-                    // General list: only show where they are responsible
                     where.responsable_id = user.id;
                 }
             }
@@ -224,6 +218,63 @@ const compromisoController = {
                 }
             }
             res.status(500).json({ success: false, message: 'Error al marcar compromiso como cumplido' });
+        }
+    },
+
+    // PATCH /api/compromisos/:id/evidencia
+    async cargarEvidencia(req, res) {
+        try {
+            const compromiso = await Compromiso.findByPk(req.params.id);
+            if (!compromiso) {
+                if (req.file && fs.existsSync(req.file.path)) {
+                    fs.unlinkSync(req.file.path);
+                }
+                return res.status(404).json({ success: false, message: 'Compromiso no encontrado' });
+            }
+
+            let dbPath = null;
+            if (req.file) {
+                const storageRelativePath = path.join(
+                    'compromisos',
+                    String(compromiso.id)
+                );
+
+                const storageRoot = path.join(__dirname, '../../../storage');
+                const targetDir = path.join(storageRoot, storageRelativePath);
+
+                // Create recursive directory if it doesn't exist
+                if (!fs.existsSync(targetDir)) {
+                    fs.mkdirSync(targetDir, { recursive: true });
+                }
+
+                const targetPath = path.join(targetDir, req.file.filename);
+
+                // Move file from temporary upload dir to target directory
+                fs.renameSync(req.file.path, targetPath);
+
+                // Save relative path for DB (normalized with forward slashes)
+                dbPath = path.posix.join('storage', storageRelativePath.split(path.sep).join('/'), req.file.filename);
+            }
+
+            if (compromiso.estado === 'pendiente') {
+                compromiso.estado = 'en_proceso';
+            }
+            if (dbPath) compromiso.ruta_evidencia = dbPath;
+            if (req.body.comentario_evidencia) compromiso.comentario_evidencia = req.body.comentario_evidencia;
+
+            await compromiso.save();
+
+            res.json({ success: true, data: compromiso });
+        } catch (error) {
+            console.error('Error uploading evidence for commitment:', error);
+            if (req.file && fs.existsSync(req.file.path)) {
+                try {
+                    fs.unlinkSync(req.file.path);
+                } catch (unlinkError) {
+                    console.error('Failed to clean up temp file:', unlinkError);
+                }
+            }
+            res.status(500).json({ success: false, message: 'Error al cargar evidencia' });
         }
     },
 

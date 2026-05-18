@@ -530,6 +530,7 @@ router.put('/compromisos/:id', auth, requirePrivilege('Compromisos', 'write'), c
  *         description: Commitment marked as completed
  */
 router.patch('/compromisos/:id/cumplir', auth, upload.single('evidencia'), compromisoController.cumplir);
+router.patch('/compromisos/:id/evidencia', auth, upload.single('evidencia'), compromisoController.cargarEvidencia);
 router.delete('/compromisos/:id', auth, requirePrivilege('Compromisos', 'excec'), compromisoController.destroy);
 
 

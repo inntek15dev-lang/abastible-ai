@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
-import { CheckCircle, Clock, AlertCircle, Calendar, User, Edit, X, Save, Shield, Trash2, TrendingUp } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, Calendar, User, Edit, X, Save, Shield, Trash2, TrendingUp, Download } from 'lucide-react';
 import './CompromisoList.css';
 
 export default function CompromisoList() {
@@ -30,6 +30,9 @@ export default function CompromisoList() {
 
     // Edit Modal State
     const [editingCompromiso, setEditingCompromiso] = useState(null);
+    const [evidenceFiles, setEvidenceFiles] = useState({});
+    const [evidenceComments, setEvidenceComments] = useState({});
+    const [uploadingCompromisoId, setUploadingCompromisoId] = useState(null);
     const [editForm, setEditForm] = useState({
         descripcion: '',
         fecha_compromiso: '',
@@ -121,6 +124,53 @@ export default function CompromisoList() {
             fetchCompromisos();
         } catch (err) {
             setError('Error al marcar como cumplido');
+        }
+    };
+
+    const handleUploadEvidence = async (compId) => {
+        const file = evidenceFiles[compId];
+        const comment = evidenceComments[compId];
+
+        if (!file) {
+            alert('Por favor seleccione un archivo de evidencia');
+            return;
+        }
+
+        setUploadingCompromisoId(compId);
+        try {
+            const formData = new FormData();
+            formData.append('evidencia', file);
+            if (comment) {
+                formData.append('comentario_evidencia', comment);
+            }
+
+            await api.patch(`/compromisos/${compId}/evidencia`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+
+            alert('Evidencia cargada con éxito');
+            
+            // Reload commitments
+            fetchCompromisos();
+            
+            // Clear inputs
+            setEvidenceFiles(prev => {
+                const updated = { ...prev };
+                delete updated[compId];
+                return updated;
+            });
+            setEvidenceComments(prev => {
+                const updated = { ...prev };
+                delete updated[compId];
+                return updated;
+            });
+        } catch (err) {
+            console.error('Error uploading evidence:', err);
+            alert(err.response?.data?.message || 'Error al cargar evidencia');
+        } finally {
+            setUploadingCompromisoId(null);
         }
     };
 
@@ -393,27 +443,98 @@ export default function CompromisoList() {
                                 </div>
 
                                 {c.registro && (
-                                    <div className="card-meta">
-                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#cbd5e1' }}></div>
-                                        Origen: {c.registro.periodo} - {c.registro.eecc_nombre}
-                                    </div>
-                                )}
+                                     <div className="card-meta">
+                                         <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#cbd5e1' }}></div>
+                                         Origen: {c.registro.periodo} - {c.registro.eecc_nombre}
+                                     </div>
+                                 )}
 
-                                {['pendiente', 'en_proceso'].includes(c.estado) &&
-                                    (user.id === c.responsable_id || user.role === 'admin') && (
-                                        <button
-                                            className="btn-primary"
-                                            onClick={() => handleCumplir(c.id)}
-                                            style={{
-                                                marginTop: '4px',
-                                                background: '#10b981',
-                                                borderColor: '#10b981',
-                                                boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)',
-                                            }}
-                                        >
-                                            <CheckCircle size={18} /> Marcar Cumplido
-                                        </button>
-                                    )}
+                                 {/* Contractor evidence & comment form */}
+                                 {['pendiente', 'en_proceso'].includes(c.estado) && 
+                                  (['contratista_admin', 'contratista_user'].includes(user?.role) && (user.id === c.responsable_id || user.role === 'contratista_admin')) && (
+                                      <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                                          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>Cargar Evidencia de Compromiso:</div>
+                                          <input 
+                                              type="file" 
+                                              id={`evidence-file-${c.id}`}
+                                              onChange={(e) => {
+                                                  if (e.target.files && e.target.files[0]) {
+                                                      setEvidenceFiles(prev => ({ ...prev, [c.id]: e.target.files[0] }));
+                                                  }
+                                              }}
+                                              style={{ fontSize: '0.75rem', color: '#64748b' }}
+                                          />
+                                          <textarea
+                                              placeholder="Comentario sobre la evidencia..."
+                                              value={evidenceComments[c.id] || ''}
+                                              onChange={(e) => setEvidenceComments(prev => ({ ...prev, [c.id]: e.target.value }))}
+                                              style={{ fontSize: '0.75rem', padding: '6px', borderRadius: '6px', border: '1px solid #cbd5e1', resize: 'vertical', minHeight: '40px', fontFamily: 'inherit' }}
+                                          />
+                                          <button
+                                              type="button"
+                                              className="btn-primary"
+                                              disabled={uploadingCompromisoId === c.id}
+                                              onClick={() => handleUploadEvidence(c.id)}
+                                              style={{
+                                                  marginTop: '4px',
+                                                  background: '#2563eb',
+                                                  borderColor: '#2563eb',
+                                                  boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)',
+                                                  fontSize: '0.8rem',
+                                                  padding: '6px 12px',
+                                                  cursor: 'pointer',
+                                                  borderRadius: '6px',
+                                                  border: 'none',
+                                                  color: '#fff',
+                                                  fontWeight: 600,
+                                                  display: 'flex',
+                                                  alignItems: 'center',
+                                                  justifyContent: 'center'
+                                              }}
+                                          >
+                                              {uploadingCompromisoId === c.id ? 'Subiendo...' : 'Cargar Evidencia'}
+                                          </button>
+                                      </div>
+                                  )}
+
+                                  {/* Admin/ADC Evidence View & Download Link */}
+                                  {c.ruta_evidencia && (
+                                      <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                              <span>Evidencia Cargada:</span>
+                                              <a 
+                                                  href={`${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${c.ruta_evidencia}`}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  style={{ color: '#2563eb', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: 700 }}
+                                                  title="Ver/Descargar Evidencia"
+                                              >
+                                                  <Download size={14} /> Ver Archivo
+                                              </a>
+                                          </div>
+                                          {c.comentario_evidencia && (
+                                              <div style={{ fontSize: '0.75rem', color: '#64748b', background: '#f8fafc', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontStyle: 'italic' }}>
+                                                  "${c.comentario_evidencia}"
+                                              </div>
+                                          )}
+                                      </div>
+                                  )}
+
+                                 {['pendiente', 'en_proceso'].includes(c.estado) &&
+                                     isAdminOrADC && (
+                                         <button
+                                             className="btn-primary"
+                                             onClick={() => handleCumplir(c.id)}
+                                             style={{
+                                                 marginTop: '4px',
+                                                 background: '#10b981',
+                                                 borderColor: '#10b981',
+                                                 boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)',
+                                             }}
+                                         >
+                                             <CheckCircle size={18} /> Marcar Cumplido
+                                         </button>
+                                     )}
 
                                 {isAdminOrADC && (
                                     <button

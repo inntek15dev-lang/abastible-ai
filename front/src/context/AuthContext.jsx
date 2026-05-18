@@ -52,6 +52,9 @@ export function AuthProvider({ children }) {
         // Hardcode: Contratista Admin has access to Usuarios
         if (user.role === 'contratista_admin' && module === 'Usuarios') return true;
 
+        // Hardcode: Contratistas have access to Compromisos
+        if (['contratista_admin', 'contratista_user'].includes(user?.role) && module === 'Compromisos') return true;
+
         // Check specific module
         return user.privileges.some(p => p.module === module && p[action]);
     }, [user]);
