@@ -41,6 +41,13 @@ async function ensureSchema() {
                 columns: [
                     { name: 'template_url', type: 'VARCHAR(255) NULL', after: 'criterios' }
                 ]
+            },
+            {
+                name: 'compromisos',
+                columns: [
+                    { name: 'ruta_evidencia', type: 'VARCHAR(255) NULL', after: 'observacion_cumplimiento' },
+                    { name: 'comentario_evidencia', type: 'TEXT NULL', after: 'ruta_evidencia' }
+                ]
             }
         ];
 

@@ -500,7 +500,36 @@ router.get('/compromisos', auth, compromisoController.index);
 router.get('/compromisos/:id', auth, compromisoController.show);
 router.post('/compromisos', auth, requirePrivilege('Compromisos', 'write'), compromisoController.store);
 router.put('/compromisos/:id', auth, requirePrivilege('Compromisos', 'write'), compromisoController.update);
-router.patch('/compromisos/:id/cumplir', auth, compromisoController.cumplir);
+/**
+ * @swagger
+ * /compromisos/{id}/cumplir:
+ *   patch:
+ *     summary: Mark commitment as completed with optional evidence file and comment
+ *     tags: [Compromisos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               evidencia:
+ *                 type: string
+ *                 format: binary
+ *               comentario_evidencia:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Commitment marked as completed
+ */
+router.patch('/compromisos/:id/cumplir', auth, upload.single('evidencia'), compromisoController.cumplir);
 router.delete('/compromisos/:id', auth, requirePrivilege('Compromisos', 'excec'), compromisoController.destroy);
 
 

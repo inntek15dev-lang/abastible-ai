@@ -1,5 +1,7 @@
 const { Compromiso, Hallazgo, Registro, User, ContratistaAsignacion, Vinculacion } = require('../database/models');
 const { Op } = require('sequelize');
+const path = require('path');
+const fs = require('fs');
 
 const compromisoController = {
     // GET /api/compromisos
@@ -172,15 +174,56 @@ const compromisoController = {
     async cumplir(req, res) {
         try {
             const compromiso = await Compromiso.findByPk(req.params.id);
-            if (!compromiso) return res.status(404).json({ success: false, message: 'Not found' });
+            if (!compromiso) {
+                if (req.file && fs.existsSync(req.file.path)) {
+                    fs.unlinkSync(req.file.path);
+                }
+                return res.status(404).json({ success: false, message: 'Compromiso no encontrado' });
+            }
+
+            let dbPath = null;
+            if (req.file) {
+                const storageRelativePath = path.join(
+                    'compromisos',
+                    String(compromiso.id)
+                );
+
+                const storageRoot = path.join(__dirname, '../../../storage');
+                const targetDir = path.join(storageRoot, storageRelativePath);
+
+                // Create recursive directory if it doesn't exist
+                if (!fs.existsSync(targetDir)) {
+                    fs.mkdirSync(targetDir, { recursive: true });
+                }
+
+                const targetPath = path.join(targetDir, req.file.filename);
+
+                // Move file from temporary upload dir to target directory
+                fs.renameSync(req.file.path, targetPath);
+
+                // Save relative path for DB (normalized with forward slashes)
+                dbPath = path.posix.join('storage', storageRelativePath.split(path.sep).join('/'), req.file.filename);
+            }
 
             compromiso.estado = 'cumplido';
             compromiso.fecha_cumplimiento = new Date();
+            if (dbPath) compromiso.ruta_evidencia = dbPath;
+            if (req.body.comentario_evidencia) compromiso.comentario_evidencia = req.body.comentario_evidencia;
+            if (req.body.observacion_cumplimiento) compromiso.observacion_cumplimiento = req.body.observacion_cumplimiento;
+
             await compromiso.save();
 
             res.json({ success: true, data: compromiso });
         } catch (error) {
-            res.status(500).json({ success: false, message: 'Error' });
+            console.error('Error marking commitment as fulfilled:', error);
+            if (req.file && fs.existsSync(req.file.path)) {
+                try {
+                    fs.unlinkSync(req.file.path);
+                } catch (unlinkError) {
+                    console.error('Failed to clean up temp file:', unlinkError);
+                }
+            }
+            res.status(500).json({ success: false, message: 'Error al marcar compromiso como cumplido' });
         }
     },
 

@@ -45,6 +45,14 @@ const Compromiso = sequelize.define('Compromiso', {
     observacion_cumplimiento: {
         type: DataTypes.TEXT,
         allowNull: true
+    },
+    ruta_evidencia: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    comentario_evidencia: {
+        type: DataTypes.TEXT,
+        allowNull: true
     }
 }, {
     tableName: 'compromisos',

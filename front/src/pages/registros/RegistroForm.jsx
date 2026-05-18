@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
-import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock, CheckCircle, Trash2, Clock, AlertTriangle } from 'lucide-react';
+import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock, CheckCircle, Trash2, Clock, AlertTriangle, User, Download } from 'lucide-react';
 import FileUpload from '../../components/forms/FileUpload';
 import HallazgoModal from '../../components/forms/HallazgoModal';
 import HallazgoList from '../../components/forms/HallazgoList';
@@ -11,6 +11,7 @@ import CompromisoModal from '../../components/forms/CompromisoModal';
 import SolicitudReaperturaModal from '../../components/forms/SolicitudReaperturaModal';
 import ConfirmationModal from '../../components/modals/ConfirmationModal';
 import { toast } from 'react-hot-toast';
+import '../compromisos/CompromisoList.css';
 
 export default function RegistroForm() {
     const { id } = useParams();
@@ -158,9 +159,13 @@ export default function RegistroForm() {
     const [searchRut, setSearchRut] = useState('');
 
 
-    // Auditor/Review Data
     const [reviewComments, setReviewComments] = useState('');
     const [generalCommitments, setGeneralCommitments] = useState([]);
+    
+    // States for Commitment Fulfillment Uploads
+    const [evidenceFiles, setEvidenceFiles] = useState({});
+    const [evidenceComments, setEvidenceComments] = useState({});
+    const [uploadingCompromisoId, setUploadingCompromisoId] = useState(null);
 
     const handleContractorSelect = (contractor) => {
         setSelectedContractor(contractor.id);
@@ -633,6 +638,61 @@ export default function RegistroForm() {
         if (!a) return 'No seleccionado';
         return `${a.servicio?.programa?.nombre || ''} » ${a.servicio?.nombre || ''} » ${a.dependencia?.nombre || ''}`;
     }, [form.contratista_asignacion_id, assignments]);
+
+    const getEstadoIcon = (estado) => {
+        switch (estado) {
+            case 'cumplido': return <CheckCircle className="text-success" size={20} />;
+            case 'vencido': return <AlertTriangle className="text-danger" size={20} />;
+            case 'en_proceso': return <Clock className="text-info" size={20} />;
+            default: return <Clock className="text-warning" size={20} />;
+        }
+    };
+
+    const handleCumplirCompromiso = async (compId) => {
+        const file = evidenceFiles[compId];
+        const comment = evidenceComments[compId];
+
+        setUploadingCompromisoId(compId);
+        try {
+            const formData = new FormData();
+            if (file) {
+                formData.append('evidencia', file);
+            }
+            if (comment) {
+                formData.append('comentario_evidencia', comment);
+            }
+
+            await api.patch(`/compromisos/${compId}/cumplir`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+
+            toast.success('Compromiso marcado como cumplido');
+            
+            // Reload commitments
+            const compRes = await api.get('/compromisos', { params: { registro_id: id } });
+            setGeneralCommitments(compRes.data.data);
+            
+            // Clear input states
+            setEvidenceFiles(prev => {
+                const updated = { ...prev };
+                delete updated[compId];
+                return updated;
+            });
+            setEvidenceComments(prev => {
+                const updated = { ...prev };
+                delete updated[compId];
+                return updated;
+            });
+        } catch (err) {
+            console.error('Error marking commitment as cumplido:', err);
+            const errMsg = err.response?.data?.message || 'Error al guardar';
+            toast.error(errMsg);
+        } finally {
+            setUploadingCompromisoId(null);
+        }
+    };
 
     return (
         <div className="page-container" style={{ maxWidth: '1180px', margin: '0 auto', padding: '16px', backgroundColor: themeColors.pageBg, minHeight: '100vh', transition: 'background-color 0.3s ease' }}>
@@ -1187,21 +1247,148 @@ export default function RegistroForm() {
                         {/* Commitments */}
                         <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                             <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#1f2937', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <ClipboardCheck size={18} /> Compromisos
+                                <ClipboardCheck size={18} /> Compromisos Pendientes
                             </h3>
-                            {generalCommitments.length === 0 ? (
-                                <div style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '0.9rem' }}>No hay compromisos registrados.</div>
+                            {generalCommitments.filter(c => c.estado !== 'cumplido').length === 0 ? (
+                                <div style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '0.9rem' }}>No hay compromisos pendientes por cumplir.</div>
                             ) : (
-                                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                    {generalCommitments.map(comp => (
-                                        <li key={comp.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f3f4f6', paddingBottom: '0.5rem' }}>
-                                            <span style={{ fontSize: '0.9rem', color: '#374151', fontWeight: 500 }}>{comp.descripcion}</span>
-                                            <span style={{ fontSize: '0.8rem', color: '#6b7280', backgroundColor: '#f3f4f6', padding: '2px 6px', borderRadius: '4px' }}>
-                                                {new Date(comp.fecha_compromiso).toLocaleDateString('es-CL')}
-                                            </span>
-                                        </li>
-                                    ))}
-                                </ul>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                                    {generalCommitments.filter(c => c.estado !== 'cumplido').map(comp => {
+                                        const isVencidoComp = new Date(comp.fecha_compromiso) < new Date();
+                                        const compStatus = isVencidoComp ? 'vencido' : comp.estado;
+                                        
+                                        const statusColors = {
+                                            pendiente: { bg: '#fffbeb', border: '#fef3c7', text: '#b45309', bar: '#f59e0b' },
+                                            en_proceso: { bg: '#eff6ff', border: '#dbeafe', text: '#1d4ed8', bar: '#3b82f6' },
+                                            cumplido: { bg: '#f0fdf4', border: '#dcfce7', text: '#15803d', bar: '#10b981' },
+                                            vencido: { bg: '#fef2f2', border: '#fee2e2', text: '#b91c1c', bar: '#ef4444' }
+                                        };
+
+                                        const color = statusColors[compStatus] || statusColors.pendiente;
+
+                                        return (
+                                            <div 
+                                                key={comp.id} 
+                                                className="compromiso-card" 
+                                                style={{ 
+                                                    borderLeft: `5px solid ${color.bar}`,
+                                                    borderTop: '1px solid #e2e8f0',
+                                                    borderRight: '1px solid #e2e8f0',
+                                                    borderBottom: '1px solid #e2e8f0',
+                                                    borderRadius: '8px',
+                                                    padding: '16px',
+                                                    backgroundColor: '#fff',
+                                                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    gap: '12px'
+                                                }}
+                                            >
+                                                <div className="compromiso-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <div className="status-badge" style={{ background: color.bg, color: color.text, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: 700, padding: '4px 10px', borderRadius: '20px', textTransform: 'uppercase' }}>
+                                                        {getEstadoIcon(compStatus)}
+                                                        {compStatus.replace('_', ' ')}
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ flex: 1 }}>
+                                                    <p className="card-title" style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', margin: 0 }}>{comp.descripcion}</p>
+                                                </div>
+
+                                                <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b' }}>
+                                                            <Clock size={14} />
+                                                            <span>Vencimiento:</span>
+                                                        </div>
+                                                        <span style={{ fontWeight: 700, color: compStatus === 'vencido' ? '#ef4444' : '#1e293b' }}>
+                                                            {new Date(comp.fecha_compromiso).toLocaleDateString('es-CL')}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b' }}>
+                                                            <User size={14} />
+                                                            <span>Responsable:</span>
+                                                        </div>
+                                                        <span style={{ fontWeight: 600, color: '#1e293b' }}>
+                                                            {comp.responsable?.name || 'Sin asignar'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Contractor evidence & comment form */}
+                                                {(isContractor && (user.id === comp.responsable_id || user.role === 'contratista_admin')) && (
+                                                    <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                                                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>Cargar Evidencia de Cumplimiento:</div>
+                                                        <input 
+                                                            type="file" 
+                                                            id={`evidence-file-${comp.id}`}
+                                                            onChange={(e) => {
+                                                                if (e.target.files && e.target.files[0]) {
+                                                                    setEvidenceFiles(prev => ({ ...prev, [comp.id]: e.target.files[0] }));
+                                                                }
+                                                            }}
+                                                            style={{ fontSize: '0.75rem', color: '#64748b' }}
+                                                        />
+                                                        <textarea
+                                                            placeholder="Comentario sobre la evidencia..."
+                                                            value={evidenceComments[comp.id] || ''}
+                                                            onChange={(e) => setEvidenceComments(prev => ({ ...prev, [comp.id]: e.target.value }))}
+                                                            style={{ fontSize: '0.75rem', padding: '6px', borderRadius: '6px', border: '1px solid #cbd5e1', resize: 'vertical', minHeight: '40px', fontFamily: 'inherit' }}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            className="btn-primary"
+                                                            disabled={uploadingCompromisoId === comp.id}
+                                                            onClick={() => handleCumplirCompromiso(comp.id)}
+                                                            style={{
+                                                                marginTop: '4px',
+                                                                background: '#10b981',
+                                                                borderColor: '#10b981',
+                                                                boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)',
+                                                                fontSize: '0.8rem',
+                                                                padding: '6px 12px',
+                                                                cursor: 'pointer',
+                                                                borderRadius: '6px',
+                                                                border: 'none',
+                                                                color: '#fff',
+                                                                fontWeight: 600,
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center'
+                                                            }}
+                                                        >
+                                                            {uploadingCompromisoId === comp.id ? 'Subiendo...' : 'Marcar Cumplido'}
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                {/* Admin Evidence View & Download Icon */}
+                                                {comp.ruta_evidencia && (
+                                                    <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                            <span>Evidencia Cargada:</span>
+                                                            <a 
+                                                                href={`${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${comp.ruta_evidencia}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                style={{ color: '#2563eb', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: 700 }}
+                                                                title="Ver/Descargar Evidencia"
+                                                            >
+                                                                <Download size={14} /> Ver Archivo
+                                                            </a>
+                                                        </div>
+                                                        {comp.comentario_evidencia && (
+                                                            <div style={{ background: '#f8fafc', padding: '8px', borderRadius: '6px', fontSize: '0.75rem', color: '#475569', fontStyle: 'italic', borderLeft: '3px solid #cbd5e1', marginTop: '2px' }}>
+                                                                "{comp.comentario_evidencia}"
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             )}
                         </div>
                     </div>

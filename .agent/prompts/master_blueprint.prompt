@@ -637,13 +637,20 @@
         {
           "table_name": "compromisos",
           "execution_order_index": 4,
-          "depends_on": ["contratista_asignaciones"],
+          "depends_on": ["registros", "users", "hallazgos"],
           "schema": [
             {"name": "id", "type": "BIGINT UNSIGNED", "is_pii": false, "constraints": ["PK", "AUTO_INCREMENT"]},
-            {"name": "contratista_asignacion_id", "type": "BIGINT UNSIGNED", "is_pii": false, "constraints": ["FK", "NN"]},
-            {"name": "descripcion_compromiso", "type": "TEXT", "is_pii": false, "constraints": ["NN"]},
-            {"name": "fecha_cumplimiento", "type": "DATE", "is_pii": false, "constraints": []},
-            {"name": "estado_cumplimiento", "type": "ENUM('comprometido','cumple','no cumple')", "is_pii": false, "constraints": ["NN"]}
+            {"name": "hallazgo_id", "type": "BIGINT UNSIGNED", "is_pii": false, "constraints": ["FK"]},
+            {"name": "registro_id", "type": "BIGINT UNSIGNED", "is_pii": false, "constraints": ["FK", "NN"]},
+            {"name": "responsable_id", "type": "BIGINT UNSIGNED", "is_pii": false, "constraints": ["FK", "NN"]},
+            {"name": "creado_por_id", "type": "BIGINT UNSIGNED", "is_pii": false, "constraints": ["FK", "NN"]},
+            {"name": "descripcion", "type": "TEXT", "is_pii": false, "constraints": ["NN"]},
+            {"name": "fecha_compromiso", "type": "DATE", "is_pii": false, "constraints": ["NN"]},
+            {"name": "estado", "type": "ENUM('pendiente','en_proceso','cumplido','vencido')", "is_pii": false, "constraints": ["NN", "DEFAULT:pendiente"]},
+            {"name": "fecha_cumplimiento", "type": "TIMESTAMP", "is_pii": false, "constraints": []},
+            {"name": "observacion_cumplimiento", "type": "TEXT", "is_pii": false, "constraints": []},
+            {"name": "ruta_evidencia", "type": "VARCHAR(255)", "is_pii": false, "constraints": []},
+            {"name": "comentario_evidencia", "type": "TEXT", "is_pii": false, "constraints": []}
           ]
         },
         {
