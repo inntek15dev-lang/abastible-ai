@@ -235,6 +235,15 @@ export default function Dashboard() {
             icon: <CheckCircle2 size={20} color="#3b82f6" title="Porcentaje de registros que ya pasaron por auditoría" />
         },
         {
+            id: 'card-accountability-close',
+            title: 'CIERRE ACCOUNTABILITY',
+            value: `${kpis.porcentajeCierreAccountability || 0}%`,
+            subtitle: 'Compromisos de mejora cerrados',
+            color: '#10b981',
+            bg: '#f0fdf4',
+            icon: <TrendingUp size={20} color="#10b981" title="Porcentaje de compromisos de mejora cerrados" />
+        },
+        {
             id: 'card-hallazgos-count',
             title: 'HALLAZGOS',
             value: kpis.hallazgosAbiertos,

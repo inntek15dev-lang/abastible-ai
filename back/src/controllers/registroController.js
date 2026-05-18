@@ -18,7 +18,8 @@ const {
     Vinculacion,
     Administracion,
     Gerencia,
-    Subgerencia
+    Subgerencia,
+    AuditoriaComentario
 } = require('../database/models');
 const emailService = require('../services/emailService'); // Import emailService
 

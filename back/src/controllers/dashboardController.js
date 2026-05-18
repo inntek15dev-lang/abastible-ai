@@ -240,6 +240,30 @@ const dashboardController = {
                 }
             });
 
+            // KPI: Porcentaje de cierre de accountability (compromisos cumplidos / total compromisos)
+            const totalCompromisos = await Compromiso.count({
+                include: [{
+                    model: Registro,
+                    as: 'registro',
+                    where: whereRegistro,
+                    required: true
+                }]
+            });
+
+            const compromisosCumplidos = await Compromiso.count({
+                include: [{
+                    model: Registro,
+                    as: 'registro',
+                    where: whereRegistro,
+                    required: true
+                }],
+                where: { estado: 'cumplido' }
+            });
+
+            const porcentajeCierreAccountability = totalCompromisos > 0
+                ? Math.round((compromisosCumplidos / totalCompromisos) * 100)
+                : 0;
+
             // Hallazgos abiertos (Filter by Register's Company)
             const hallazgosAbiertos = await Hallazgo.count({
                 include: [{
@@ -311,6 +335,7 @@ const dashboardController = {
                         ? parseFloat(avgCumplimiento.promedioAuditado).toFixed(1)
                         : null,
                     porcentajeEmpresasConRegistro,
+                    porcentajeCierreAccountability,
                     compromisosVencidos,
                     hallazgosAbiertos,
                     reapeturasPendientes,
