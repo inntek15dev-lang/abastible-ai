@@ -98,7 +98,7 @@ export default function ProgramaList() {
             formData.append('descripcion', newItem.descripcion);
             formData.append('frecuencia', newItem.frecuencia);
             if (newItem.criterios) formData.append('criterios', newItem.criterios);
-            if (newItem.template) formData.append('template', newItem.template);
+            if (newItem.template) formData.append('plantilla', newItem.template);
 
             // Ensure actividad is sent
             formData.append('actividad', newItem.actividad || newItem.descripcion.substring(0, 50));

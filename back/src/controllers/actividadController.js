@@ -49,17 +49,15 @@ const actividadController = {
                     return res.status(404).json({ success: false, message: 'Elemento no encontrado' });
                 }
 
-                const sanitize = (str) => str.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-                const progId = elemento.programa_id;
-                const elemNum = elemento.numero;
+                               const sanitize = (str) => str.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                const { Programa } = require('../database/models');
+                const programa = await Programa.findByPk(elemento.programa_id);
+                const programName = programa ? programa.nombre : `programa_${elemento.programa_id}`;
+                const programSlug = sanitize(programName);
 
-                // Path: storage/programas/:pid/evidencias/elemento_:eid/actividad_:aid/
                 const storageRelativePath = path.join(
-                    'programas',
-                    String(progId),
-                    'evidencias',
-                    `elemento_${sanitize(String(elemNum))}`,
-                    `actividad_${sanitize(String(codigo))}`
+                    'templates_evidencia',
+                    programSlug
                 );
 
                 const storageRoot = path.join(__dirname, '../../../storage');
@@ -72,7 +70,7 @@ const actividadController = {
                 const targetPath = path.join(targetDir, req.file.filename);
                 fs.renameSync(req.file.path, targetPath);
 
-                // URL for frontend: storage/programas/...
+                // URL for frontend: storage/templates_evidencia/...
                 template_url = path.posix.join('storage', storageRelativePath.split(path.sep).join('/'), req.file.filename);
             }
 
@@ -119,16 +117,14 @@ const actividadController = {
                 }
 
                 const sanitize = (str) => str.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-                const progId = targetElement.programa_id;
-                const elemNum = targetElement.numero;
-                const actCod = req.body.codigo || actividad.codigo; // Use new code if updating
+                const { Programa } = require('../database/models');
+                const programa = await Programa.findByPk(targetElement.programa_id);
+                const programName = programa ? programa.nombre : `programa_${targetElement.programa_id}`;
+                const programSlug = sanitize(programName);
 
                 const storageRelativePath = path.join(
-                    'programas',
-                    String(progId),
-                    'evidencias',
-                    `elemento_${sanitize(String(elemNum))}`,
-                    `actividad_${sanitize(String(actCod))}`
+                    'templates_evidencia',
+                    programSlug
                 );
 
                 const storageRoot = path.join(__dirname, '../../../storage');

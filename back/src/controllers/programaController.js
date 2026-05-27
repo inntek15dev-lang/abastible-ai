@@ -157,6 +157,16 @@ const programaController = {
                 activo
             });
 
+            // Automatically create a directory for its evidence templates
+            const sanitize = (str) => str.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            const programSlug = sanitize(nombre);
+            const path = require('path');
+            const fs = require('fs');
+            const templatesDir = path.join(__dirname, '../../../storage/templates_evidencia', programSlug);
+            if (!fs.existsSync(templatesDir)) {
+                fs.mkdirSync(templatesDir, { recursive: true });
+            }
+
             res.status(201).json({
                 success: true,
                 data: programa,
