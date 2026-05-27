@@ -77,7 +77,7 @@ export default function RegistroList() {
     const [filters, setFilters] = useState({
         search: '',
         period: '',
-        status: 'mis_pendientes',
+        status: 'all',
         servicio: 'Todos',
         dependencia: 'Todas',
         programa: 'Todos',

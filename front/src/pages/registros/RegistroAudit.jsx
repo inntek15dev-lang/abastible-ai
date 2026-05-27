@@ -947,6 +947,7 @@ export default function RegistroAudit() {
                             >
                                 <option value="">Seleccione...</option>
                                 <option value={registro.eecc_nombre}>{registro.eecc_nombre}</option>
+                                <option value="Abastible">Abastible</option>
                                 <option value="Asesor Mutual Nacional">Asesor Mutual Nacional</option>
                             </select>
                         </div>

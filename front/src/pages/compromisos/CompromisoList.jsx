@@ -450,8 +450,8 @@ export default function CompromisoList() {
                                  )}
 
                                  {/* Contractor evidence & comment form */}
-                                 {['pendiente', 'en_proceso'].includes(c.estado) && 
-                                  (['contratista_admin', 'contratista_user'].includes(user?.role) && (user.id === c.responsable_id || user.role === 'contratista_admin')) && (
+                                 {c.estado !== 'cumplido' && 
+                                  ['admin', 'administrador_contrato', 'contratista_admin', 'contratista_user'].includes(user?.role) && (
                                       <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
                                           <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>Cargar Evidencia de Compromiso:</div>
                                           <input 

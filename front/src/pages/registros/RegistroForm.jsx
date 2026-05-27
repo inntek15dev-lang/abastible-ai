@@ -1317,7 +1317,7 @@ export default function RegistroForm() {
                                                 </div>
 
                                                 {/* Contractor evidence & comment form */}
-                                                {(isAdminOrADC || (isContractor && (user.id === comp.responsable_id || user.role === 'contratista_admin'))) && (
+                                                {(isAdminOrADC || isContractor) && (
                                                     <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
                                                         <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>Cargar Evidencia de Cumplimiento:</div>
                                                         <input 
