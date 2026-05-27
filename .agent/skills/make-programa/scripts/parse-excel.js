@@ -16,6 +16,8 @@ function slugify(text) {
         .replace(/_+$/, '');
 }
 
+const sanitizeStr = (str) => str.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
 function cleanString(str) {
     if (!str) return '';
     return str.replace(/\s+/g, ' ').trim();
@@ -33,9 +35,10 @@ function getCellString(cell) {
 }
 
 async function run() {
-    const excelPath = 'c:\\Users\\Pablo Solis\\Documents\\GitHub\\abastible-ai\\info\\Programa Distribución ENVASADO version 2026.xlsx';
-    const programName = 'Programa Distribución ENVASADO version 2026';
-    const programSlug = slugify(programName);
+    const args = process.argv.slice(2);
+    const excelPath = args[0] || 'c:\\Users\\Pablo Solis\\Documents\\GitHub\\abastible-ai\\info\\Programa Distribución Granel version 2026.xlsx';
+    const programName = args[1] || 'Programa Distribución Granel version 2026';
+    const programSlug = sanitizeStr(programName);
 
     console.log(`📖 Leyendo Excel: ${excelPath}`);
     const workbook = new ExcelJS.Workbook();
@@ -109,7 +112,7 @@ async function run() {
     console.log(`Cargados ${programData.length} elementos con actividades.`);
 
     // Match and extract sheets as templates
-    const templatesDir = path.join(backRoot, 'storage', 'templates_evidencia');
+    const templatesDir = path.join(backRoot, 'storage', 'templates_evidencia', programSlug);
     if (!fs.existsSync(templatesDir)) {
         fs.mkdirSync(templatesDir, { recursive: true });
     }
