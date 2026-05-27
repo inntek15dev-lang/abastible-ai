@@ -118,7 +118,8 @@ async function seed() {
             { nombre: 'OIM Distribución Envasado', descripcion: 'Programa HSE y Operacional Distribución Envasado', activo: 1 },
             { nombre: 'OIM Distribución Granel', descripcion: 'Programa HSE y Operacional Distribución Granel', activo: 1 },
             { nombre: 'OIM Distribución Envasado Acotado', descripcion: 'Programa HSE y Operacional Distribución Envasado Acotado', activo: 1 },
-            { nombre: 'Programa OIEM Produccion Movilizado', descripcion: 'Programa HSE y Operacional Producción Movilizado', activo: 1 }
+            { nombre: 'Programa OIEM Produccion Movilizado', descripcion: 'Programa HSE y Operacional Producción Movilizado', activo: 1 },
+            { nombre: 'Programa Distribución ENVASADO version 2026', descripcion: 'Programa HSE y Operacional Programa Distribución ENVASADO version 2026', activo: 1 }
         ];
         const programas = [];
         for (const p of programasData) {
@@ -151,7 +152,8 @@ async function seed() {
             { data: require('./data/granel'), programa_id: programas[1].id, msg: 'Granel' },
             { data: require('./data/envasado'), programa_id: programas[0].id, msg: 'Envasado' },
             { data: require('./data/envasado_acotado'), programa_id: programas[2].id, msg: 'Envasado Acotado' },
-            { data: require('./data/produccion_movilizado'), programa_id: programas[3].id, msg: 'Produccion Movilizado' }
+            { data: require('./data/produccion_movilizado'), programa_id: programas[3].id, msg: 'Produccion Movilizado' },
+            { data: require('./data/programa_distribucion_envasado_version_2026'), programa_id: programas[4].id, msg: 'Programa Distribución ENVASADO version 2026' }
         ];
 
         for (const ds of datasets) {

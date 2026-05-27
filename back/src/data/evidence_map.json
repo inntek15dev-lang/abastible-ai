@@ -433,5 +433,222 @@
     "elementoNumero": "12",
     "evidenceName": "Resumen Estadístico",
     "templateFile": "template_evidencia_resumen_estadistico.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.1",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_1_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.2",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_2_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.3",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_3_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.4",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_4_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.5",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_5_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.6",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_6_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.7",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_7_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.8",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_8_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.9",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_9_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.10",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_10_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.11",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_11_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.12",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_12_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.13",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_13_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.14",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_14_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.15",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_15_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.16",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_16_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.17",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_17_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.18",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_18_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.19",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_19_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.20",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_20_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.21",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_21_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "4.22",
+    "elementoNumero": "4",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_4_22_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "5.2",
+    "elementoNumero": "5",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_5_2_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "5.3",
+    "elementoNumero": "5",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_5_3_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "5.4",
+    "elementoNumero": "5",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_5_4_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "5.5",
+    "elementoNumero": "5",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_5_5_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "5.6",
+    "elementoNumero": "5",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_5_6_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "5.7",
+    "elementoNumero": "5",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_5_7_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "5.8",
+    "elementoNumero": "5",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_5_8_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "6.1",
+    "elementoNumero": "6",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_6_1_registro_de_asistencia.xlsx"
+  },
+  {
+    "programIndex": 4,
+    "codigo": "6.2",
+    "elementoNumero": "6",
+    "evidenceName": "REGISTRO DE ASISTENCIA",
+    "templateFile": "template_6_2_registro_de_asistencia.xlsx"
   }
 ]
