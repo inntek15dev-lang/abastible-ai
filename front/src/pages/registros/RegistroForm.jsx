@@ -1343,9 +1343,9 @@ export default function RegistroForm() {
                                                             onClick={() => handleCumplirCompromiso(comp.id)}
                                                             style={{
                                                                 marginTop: '4px',
-                                                                background: '#10b981',
-                                                                borderColor: '#10b981',
-                                                                boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)',
+                                                                background: user?.role === 'contratista_user' ? '#2563eb' : '#10b981',
+                                                                borderColor: user?.role === 'contratista_user' ? '#2563eb' : '#10b981',
+                                                                boxShadow: user?.role === 'contratista_user' ? '0 4px 6px -1px rgba(37, 99, 235, 0.2)' : '0 4px 6px -1px rgba(16, 185, 129, 0.2)',
                                                                 fontSize: '0.8rem',
                                                                 padding: '6px 12px',
                                                                 cursor: 'pointer',
@@ -1358,7 +1358,7 @@ export default function RegistroForm() {
                                                                 justifyContent: 'center'
                                                             }}
                                                         >
-                                                            {uploadingCompromisoId === comp.id ? 'Subiendo...' : 'Marcar Cumplido'}
+                                                            {uploadingCompromisoId === comp.id ? 'Subiendo...' : (user?.role === 'contratista_user' ? 'CARGAR EVIDENCIA' : 'Marcar Cumplido')}
                                                         </button>
                                                     </div>
                                                 )}
