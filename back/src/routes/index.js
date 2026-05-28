@@ -87,6 +87,37 @@ const compromisoController = require('../controllers/compromisoController');
  *         description: Invalid credentials
  */
 router.post('/auth/login', authController.login);
+
+/**
+ * @swagger
+ * /auth/login-external:
+ *   post:
+ *     summary: Authenticate user via external SSO token
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: External SSO token to be validated
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/LoginResponse'
+ *       400:
+ *         description: Token is missing
+ *       401:
+ *         description: Invalid or expired token, or user disabled
+ */
 router.post('/auth/login-external', authController.loginExternal);
 
 // ============= PROTECTED ROUTES =============

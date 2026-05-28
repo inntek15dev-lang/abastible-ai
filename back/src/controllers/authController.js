@@ -142,31 +142,70 @@ const authController = {
                 });
             }
 
-            const { decryptDataString } = require('../utils/cryptoHelper');
-            const decrypted = decryptDataString(token);
-            if (!decrypted) {
+            const isProduction = process.env.NODE_ENV === 'production';
+            const pizzaDomain = isProduction 
+                ? 'https://ovalcontrol.com' 
+                : 'https://prepro.ovalcontrol.com';
+            
+            const validationUrl = `${pizzaDomain}/api/external-auth/validate`;
+            const sharedApiKey = process.env.PIZZA_API_KEY || ''; // Needs to be in .env
+
+            const axios = require('axios');
+            
+            let pizzaResponse;
+            try {
+                pizzaResponse = await axios.get(validationUrl, {
+                    headers: {
+                        'API-KEY': sharedApiKey,
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json'
+                    }
+                });
+            } catch (apiError) {
+                console.error('Error validating token with Pizza API:', apiError.message);
+                const errorMsg = apiError.response?.data?.error || 'Token de autenticación inválido o expirado.';
                 return res.status(401).json({
                     success: false,
-                    message: 'Token de acceso inválido o corrupto'
+                    message: `Error de autenticación SSO: ${errorMsg}`
                 });
             }
 
-            const email = decrypted.email || decrypted.mail || decrypted.usuario;
-
-            if (!email) {
-                return res.status(400).json({
+            const userData = pizzaResponse.data.user;
+            if (!userData || !userData.email) {
+                return res.status(401).json({
                     success: false,
-                    message: 'El token no contiene un email o identificador de usuario válido'
+                    message: 'La respuesta de validación no contiene un usuario válido'
                 });
             }
 
-            const user = await User.findOne({ where: { email } });
+            // Find or create user
+            let user = await User.findOne({ where: { email: userData.email } });
 
             if (!user) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'El usuario no está registrado en el sistema'
+                // Register user locally
+                user = await User.create({
+                    email: userData.email,
+                    name: userData.nombre,
+                    usuario: userData.usuario,
+                    usu_id_pizza: userData.usu_id,
+                    password: bcrypt.hashSync(require('crypto').randomBytes(16).toString('hex'), 10),
+                    role: 'contratista_admin', // Default role based on existing app logic or requirements
+                    activo: 1
                 });
+            } else {
+                // Update specific data if missing or needed
+                let updated = false;
+                if (!user.usu_id_pizza && userData.usu_id) {
+                    user.usu_id_pizza = userData.usu_id;
+                    updated = true;
+                }
+                if (!user.usuario && userData.usuario) {
+                    user.usuario = userData.usuario;
+                    updated = true;
+                }
+                if (updated) {
+                    await user.save();
+                }
             }
 
             if (!user.activo) {
@@ -204,14 +243,14 @@ const authController = {
                 { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
             );
 
-            const userData = user.toJSON();
-            delete userData.password;
+            const userJson = user.toJSON();
+            delete userJson.password;
 
             res.json({
                 success: true,
                 token: jwtToken,
                 user: {
-                    ...userData,
+                    ...userJson,
                     privileges
                 }
             });
@@ -219,7 +258,7 @@ const authController = {
             console.error('Login external error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error en el servidor'
+                message: 'Error en el servidor de autenticación.'
             });
         }
     }

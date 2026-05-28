@@ -424,6 +424,8 @@
           "schema": [
             {"name": "id", "type": "BIGINT UNSIGNED", "is_pii": false, "constraints": ["PK", "AUTO_INCREMENT"]},
             {"name": "name", "type": "VARCHAR(255)", "is_pii": true, "constraints": ["NN"]},
+            {"name": "usuario", "type": "VARCHAR(255)", "is_pii": true, "constraints": []},
+            {"name": "usu_id_pizza", "type": "BIGINT UNSIGNED", "is_pii": false, "constraints": []},
             {"name": "email", "type": "VARCHAR(255)", "is_pii": true, "constraints": ["NN", "UNIQUE"]},
             {"name": "password", "type": "VARCHAR(255)", "is_pii": true, "constraints": ["NN"], "encryption": "BCRYPT"},
             {"name": "role", "type": "VARCHAR(50)", "is_pii": false, "constraints": ["NN"]},
