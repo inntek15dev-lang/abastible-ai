@@ -29,6 +29,17 @@ export function AuthProvider({ children }) {
         return userData;
     };
 
+    const loginWithExternalToken = async (token) => {
+        const response = await api.post('/auth/login-external', { token });
+        const { token: jwtToken, user: userData } = response.data;
+
+        localStorage.setItem('token', jwtToken);
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+
+        return userData;
+    };
+
     const logout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -69,6 +80,7 @@ export function AuthProvider({ children }) {
         user,
         loading,
         login,
+        loginWithExternalToken,
         logout,
         canRead,
         canWrite,

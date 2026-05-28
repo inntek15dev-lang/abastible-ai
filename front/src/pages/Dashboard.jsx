@@ -236,7 +236,7 @@ export default function Dashboard() {
         },
         {
             id: 'card-accountability-close',
-            title: 'CIERRE ACCOUNTABILITY',
+            title: 'Cierre de Compromisos',
             value: `${kpis.porcentajeCierreAccountability || 0}%`,
             subtitle: 'Compromisos de mejora cerrados',
             color: '#10b981',

@@ -8,6 +8,7 @@ import Layout from './components/Layout';
 
 // Sprint 1 Pages
 import Login from './pages/Login';
+import LoginExternal from './pages/LoginExternal';
 import Dashboard from './pages/Dashboard';
 import ProgramaList from './pages/programas/ProgramaList';
 import ProgramaForm from './pages/programas/ProgramaForm';
@@ -97,6 +98,16 @@ function AppRoutes() {
       <Route path="/login" element={
         <PublicRoute>
           <Login />
+        </PublicRoute>
+      } />
+      <Route path="/login-external" element={
+        <PublicRoute>
+          <LoginExternal />
+        </PublicRoute>
+      } />
+      <Route path="/sso" element={
+        <PublicRoute>
+          <LoginExternal />
         </PublicRoute>
       } />
 

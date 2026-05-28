@@ -128,6 +128,100 @@ const authController = {
             success: true,
             message: 'Sesión cerrada exitosamente'
         });
+    },
+
+    // POST /api/auth/login-external
+    async loginExternal(req, res) {
+        try {
+            const { token } = req.body;
+
+            if (!token) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'El token de acceso es requerido'
+                });
+            }
+
+            const { decryptDataString } = require('../utils/cryptoHelper');
+            const decrypted = decryptDataString(token);
+            if (!decrypted) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Token de acceso inválido o corrupto'
+                });
+            }
+
+            const email = decrypted.email || decrypted.mail || decrypted.usuario;
+
+            if (!email) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'El token no contiene un email o identificador de usuario válido'
+                });
+            }
+
+            const user = await User.findOne({ where: { email } });
+
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'El usuario no está registrado en el sistema'
+                });
+            }
+
+            if (!user.activo) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Usuario desactivado'
+                });
+            }
+
+            // Load privileges
+            const role = await Role.findOne({ where: { name: user.role } });
+            let privileges = [];
+
+            if (role) {
+                const privs = await Privilegio.findAll({ where: { role_id: role.id } });
+                privileges = privs.map(p => ({
+                    module: p.ref_modulo,
+                    read: p.read === 1,
+                    write: p.write === 1,
+                    excec: p.excec === 1
+                }));
+            }
+
+            if (!process.env.JWT_SECRET) {
+                console.error('CRITICAL: JWT_SECRET is not defined');
+                return res.status(500).json({
+                    success: false,
+                    message: 'Error interno del servidor (JWT)'
+                });
+            }
+
+            const jwtToken = jwt.sign(
+                { id: user.id, email: user.email, role: user.role },
+                process.env.JWT_SECRET,
+                { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
+            );
+
+            const userData = user.toJSON();
+            delete userData.password;
+
+            res.json({
+                success: true,
+                token: jwtToken,
+                user: {
+                    ...userData,
+                    privileges
+                }
+            });
+        } catch (error) {
+            console.error('Login external error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error en el servidor'
+            });
+        }
     }
 };
 

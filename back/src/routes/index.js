@@ -87,6 +87,7 @@ const compromisoController = require('../controllers/compromisoController');
  *         description: Invalid credentials
  */
 router.post('/auth/login', authController.login);
+router.post('/auth/login-external', authController.loginExternal);
 
 // ============= PROTECTED ROUTES =============
 

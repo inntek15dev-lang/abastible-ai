@@ -335,7 +335,7 @@ export default function CompromisoList() {
 
                     <div className="kpi-card">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                            <span className="kpi-title">Cierre Accountability</span>
+                            <span className="kpi-title">Cierre de Compromisos</span>
                             <div style={{ background: '#f0fdf4', color: '#10b981', padding: '6px', borderRadius: '8px' }}><TrendingUp size={18} /></div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
