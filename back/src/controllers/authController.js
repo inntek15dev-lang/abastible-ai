@@ -178,6 +178,20 @@ const authController = {
                 });
             }
 
+            // Map external role to internal role
+            let mappedRole = 'contratista_admin'; // default fallback
+            const extRol = userData.rol;
+            if (extRol) {
+                const extRolLower = extRol.toLowerCase();
+                if (extRolLower === 'administrador') {
+                    mappedRole = 'admin';
+                } else if (extRolLower === 'admin_contratos' || extRolLower === 'admin_contrato') {
+                    mappedRole = 'administrador_contrato';
+                } else if (extRolLower === 'contratista') {
+                    mappedRole = 'contratista_admin';
+                }
+            }
+
             // Find or create user
             let user = await User.findOne({ where: { email: userData.email } });
 
@@ -189,7 +203,7 @@ const authController = {
                     usuario: userData.usuario,
                     usu_id_pizza: userData.usu_id,
                     password: bcrypt.hashSync(require('crypto').randomBytes(16).toString('hex'), 10),
-                    role: 'contratista_admin', // Default role based on existing app logic or requirements
+                    role: mappedRole,
                     activo: 1
                 });
             } else {
@@ -201,6 +215,10 @@ const authController = {
                 }
                 if (!user.usuario && userData.usuario) {
                     user.usuario = userData.usuario;
+                    updated = true;
+                }
+                if (user.role !== mappedRole) {
+                    user.role = mappedRole;
                     updated = true;
                 }
                 if (updated) {
