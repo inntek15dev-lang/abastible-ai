@@ -1,4 +1,4 @@
-name: CI/CD OIEM Abastible - Test
+name: CI/CD OIEM Abastible - Test-local? mejor eliminar
 
 on:
   push:
