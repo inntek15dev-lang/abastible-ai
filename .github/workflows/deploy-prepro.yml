@@ -57,7 +57,9 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            # Eliminar archivos existentes que puedan tener problemas de permisos para ser sobreescritos
+            # Cambiar propietario y permisos si se requiere y usar sudo si es posible
+            sudo chown -R ${{ secrets.SERVER_USER }}:${{ secrets.SERVER_USER }} /home/DOCKERS-PREPROD/ABASTIBLE/ || true
+            sudo chmod -R 775 /home/DOCKERS-PREPROD/ABASTIBLE/ || true
             rm -f /home/DOCKERS-PREPROD/ABASTIBLE/docker-compose-prepro.yml || true
 
       - name: Copiar docker-compose al servidor
