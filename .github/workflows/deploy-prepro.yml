@@ -50,6 +50,16 @@ jobs:
       - name: Checkout del código
         uses: actions/checkout@v4
 
+      - name: Preparar permisos en el servidor
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Eliminar archivos existentes que puedan tener problemas de permisos para ser sobreescritos
+            rm -f /home/DOCKERS-PREPROD/ABASTIBLE/docker-compose-prepro.yml || true
+
       - name: Copiar docker-compose al servidor
         uses: appleboy/scp-action@v0.1.7
         with:
