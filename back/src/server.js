@@ -19,11 +19,13 @@ app.use((req, res, next) => {
     // Loguear solo en desarrollo para no saturar logs de prod, 
     // pero habilitar headers para cualquier subdominio de inntek.cl
     if (origin) {
-        const isInntek = origin.toLowerCase().includes('inntek.cl') || 
-                         origin.includes('localhost') || 
-                         origin.includes('127.0.0.1');
+        const originLower = origin.toLowerCase();
+        const isInntekOrOval = originLower.includes('inntek.cl') || 
+                               originLower.includes('ovalcontrol.com') ||
+                               originLower.includes('localhost') || 
+                               originLower.includes('127.0.0.1');
 
-        if (isInntek) {
+        if (isInntekOrOval) {
             res.setHeader('Access-Control-Allow-Origin', origin);
             res.setHeader('Access-Control-Allow-Credentials', 'true');
         }
