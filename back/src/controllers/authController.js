@@ -148,7 +148,7 @@ const authController = {
                 : 'https://prepro.ovalcontrol.com';
             
             const validationUrl = `${pizzaDomain}/api/external-auth/validate`;
-            const sharedApiKey = process.env.PIZZA_API_KEY || ''; // Needs to be in .env
+            const sharedApiKey = process.env.EXTERNAL_API_KEY || ''; // Needs to be in .env
 
             const axios = require('axios');
             
