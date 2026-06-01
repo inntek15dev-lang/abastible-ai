@@ -1,8 +1,8 @@
-name: CI/CD OIEM Abastible - Preprod
+name: CI/CD OIEM Abastible - Test
 
 on:
   push:
-    branches: [ "UAT-review-1" ]
+    branches: [ "test ]
 
 env:
   REGISTRY: ghcr.io

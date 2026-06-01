@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: prod_oiem_abastible_db
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${DB_NAME}
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:3378:3306" # Puerto externo para gestión producción (ej. DBeaver)
+    volumes:
+      - ./mysql_data_prod:/var/lib/mysql
+    networks:
+      - abastible_prod
+
+  api:
+    image: ghcr.io/inntek15dev-lang/abastible-ai-api:latest
+    container_name: prod_oiem_abastible_api
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - PIZZA_API_URL=${PIZZA_API_URL}
+      - PIZZA_API_KEY=${PIZZA_API_KEY}
+      - PORT=4078
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:4078:4078"
+    depends_on:
+      - db
+    networks:
+      - abastible_prod
+
+  frontend:
+    image: ghcr.io/inntek15dev-lang/abastible-ai-front:latest
+    container_name: prod_oiem_abastible_front
+    restart: always
+    environment:
+      - VITE_API_URL=https://oiem-abastible-api.ovalcontrol.com/api
+    ports:
+      - "127.0.0.1:8078:80"
+    depends_on:
+      - api
+    networks:
+      - abastible_prod
+
+networks:
+  abastible_prod:
+    driver: bridge

@@ -1,0 +1,94 @@
+name: CI/CD OIEM Abastible - Prod
+
+on:
+  push:
+    branches: [ "main", "master" ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_API: ghcr.io/${{ github.repository }}-api
+  IMAGE_FRONT: ghcr.io/${{ github.repository }}-front
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Log in al GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build y Push Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./back
+          file: ./back/Dockerfile.back
+          push: true
+          tags: ${{ env.IMAGE_API }}:latest-prod
+
+      - name: Build y Push Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./front
+          file: ./front/Dockerfile.front
+          push: true
+          tags: ${{ env.IMAGE_FRONT }}:latest-prod
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Copiar docker-compose al servidor
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "docker-compose-prod.yml"
+          target: "/home/DOCKERS-PROD/ABASTIBLE/"
+          overwrite: true
+
+      - name: Ejecutar despliegue vía SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/DOCKERS-PROD/ABASTIBLE
+            
+            # Login en el registro de GitHub
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # Actualizar imágenes y reiniciar contenedores de forma forzada
+            docker compose -f docker-compose-prod.yml pull
+            docker compose -f docker-compose-prod.yml up -d --force-recreate
+            
+            # --- Automatización de Base de Datos ---
+            echo "Esperando 15 segundos a que los servicios estabilicen..."
+            sleep 15
+            
+            # Asegurar consistencia del esquema (Añadir columnas faltantes)
+            echo "Verificando consistencia del esquema..."
+            docker exec prod_oiem_abastible_api node scripts/ensure_schema.js
+            
+            # Ejecutamos el script de seed directamente
+            echo "Poblando base de datos con script personalizado..."
+            docker exec prod_oiem_abastible_api node src/seed.js
+            
+            # Limpieza de imágenes antiguas para optimizar espacio
+            docker image prune -f
+            
+            echo "🚀 Sistema prod desplegado y base de datos actualizada."
