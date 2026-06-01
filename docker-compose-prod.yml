@@ -18,7 +18,7 @@ services:
       - abastible_prod
 
   api:
-    image: ghcr.io/inntek15dev-lang/abastible-ai-api:latest
+    image: ghcr.io/inntek15dev-lang/abastible-ai-api:latest-prod
     container_name: prod_oiem_abastible_api
     restart: always
     environment:
@@ -40,7 +40,7 @@ services:
       - abastible_prod
 
   frontend:
-    image: ghcr.io/inntek15dev-lang/abastible-ai-front:latest
+    image: ghcr.io/inntek15dev-lang/abastible-ai-front:latest-prod
     container_name: prod_oiem_abastible_front
     restart: always
     environment:
