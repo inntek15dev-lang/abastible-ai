@@ -1,4 +1,4 @@
-const { Dependencia, TipoContratista, Vinculacion, Administracion, Gerencia, Subgerencia, User, Role } = require('../database/models');
+const { Dependencia, TipoContratista, Vinculacion, Administracion, Gerencia, Subgerencia, User, Role, Contratista } = require('../database/models');
 
 const resourceController = {
     // GET /api/resources/dependencias
