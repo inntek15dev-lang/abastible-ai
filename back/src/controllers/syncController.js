@@ -374,6 +374,7 @@ const syncData = async (req, res) => {
                 const gerencia = await Gerencia.findOne({ where: { nombre: item.gerencia }, transaction });
 
                 if (contratista && servicio && dependencia && subgerencia && gerencia) {
+                    const fallbackContrato = item.numero_contrato || `CTR-SYN-${contratista.rut.replace(/[^0-9Kk]/g, '')}-${servicio.id}`;
                     const [vinculacion, created] = await Vinculacion.findOrCreate({
                         where: {
                             contratista_id: contratista.id,
@@ -384,7 +385,7 @@ const syncData = async (req, res) => {
                         },
                         defaults: {
                             activo: 1,
-                            numero_contrato: item.numero_contrato || null,
+                            numero_contrato: fallbackContrato,
                             fecha_inicio_contrato: item.fecha_inicio_contrato || new Date(new Date().getFullYear(), new Date().getMonth(), 1),
                             fecha_termino_contrato: item.fecha_termino_contrato || null
                         },
@@ -393,7 +394,9 @@ const syncData = async (req, res) => {
 
                     if (!created) {
                         const updateData = {};
-                        if (normalize(vinculacion.numero_contrato) !== normalize(item.numero_contrato)) updateData.numero_contrato = item.numero_contrato;
+                        if (item.numero_contrato && normalize(vinculacion.numero_contrato) !== normalize(item.numero_contrato)) {
+                            updateData.numero_contrato = item.numero_contrato;
+                        }
                         if (item.fecha_inicio_contrato && vinculacion.fecha_inicio_contrato !== item.fecha_inicio_contrato) updateData.fecha_inicio_contrato = item.fecha_inicio_contrato;
                         if (item.fecha_termino_contrato && vinculacion.fecha_termino_contrato !== item.fecha_termino_contrato) updateData.fecha_termino_contrato = item.fecha_termino_contrato;
                         else if (!item.fecha_termino_contrato && vinculacion.fecha_termino_contrato !== null) updateData.fecha_termino_contrato = null;

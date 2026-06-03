@@ -35,5 +35,8 @@
     "globals": "^16.5.0",
     "playwright": "^1.59.1",
     "vite": "^7.2.4"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.61.0"
   }
 }
