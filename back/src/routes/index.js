@@ -536,7 +536,8 @@ router.put('/compromisos/:id', auth, requirePrivilege('Compromisos', 'write'), c
  * @swagger
  * /compromisos/{id}/cumplir:
  *   patch:
- *     summary: Mark commitment as completed with optional evidence file and comment
+ *     summary: Mark commitment as completed with optional evidence file and comment (Admin/Admin Contrato only)
+ *     description: Restricts the completion marking to admin and administrador_contrato roles. Other roles will be rejected.
  *     tags: [Compromisos]
  *     security:
  *       - bearerAuth: []
@@ -560,8 +561,41 @@ router.put('/compromisos/:id', auth, requirePrivilege('Compromisos', 'write'), c
  *     responses:
  *       200:
  *         description: Commitment marked as completed
+ *       403:
+ *         description: Unauthorized role
  */
 router.patch('/compromisos/:id/cumplir', auth, upload.single('evidencia'), compromisoController.cumplir);
+
+/**
+ * @swagger
+ * /compromisos/{id}/evidencia:
+ *   patch:
+ *     summary: Upload evidence file for commitment (Without state transition to en_proceso for contractors)
+ *     description: Allows contractor users to upload evidence without changing the commitment state.
+ *     tags: [Compromisos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               evidencia:
+ *                 type: string
+ *                 format: binary
+ *               comentario_evidencia:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Evidence uploaded successfully
+ */
 router.patch('/compromisos/:id/evidencia', auth, upload.single('evidencia'), compromisoController.cargarEvidencia);
 router.delete('/compromisos/:id', auth, requirePrivilege('Compromisos', 'excec'), compromisoController.destroy);
 

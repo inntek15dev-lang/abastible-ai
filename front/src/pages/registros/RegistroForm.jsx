@@ -662,13 +662,21 @@ export default function RegistroForm() {
                 formData.append('comentario_evidencia', comment);
             }
 
-            await api.patch(`/compromisos/${compId}/cumplir`, formData, {
+            const endpoint = isContractor
+                ? `/compromisos/${compId}/evidencia`
+                : `/compromisos/${compId}/cumplir`;
+
+            await api.patch(endpoint, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
             });
 
-            toast.success('Compromiso marcado como cumplido');
+            if (isContractor) {
+                toast.success('Evidencia cargada con éxito');
+            } else {
+                toast.success('Compromiso marcado como cumplido');
+            }
             
             // Reload commitments
             const compRes = await api.get('/compromisos', { params: { registro_id: id } });
@@ -1343,9 +1351,9 @@ export default function RegistroForm() {
                                                             onClick={() => handleCumplirCompromiso(comp.id)}
                                                             style={{
                                                                 marginTop: '4px',
-                                                                background: user?.role === 'contratista_user' ? '#2563eb' : '#10b981',
-                                                                borderColor: user?.role === 'contratista_user' ? '#2563eb' : '#10b981',
-                                                                boxShadow: user?.role === 'contratista_user' ? '0 4px 6px -1px rgba(37, 99, 235, 0.2)' : '0 4px 6px -1px rgba(16, 185, 129, 0.2)',
+                                                                background: isContractor ? '#2563eb' : '#10b981',
+                                                                borderColor: isContractor ? '#2563eb' : '#10b981',
+                                                                boxShadow: isContractor ? '0 4px 6px -1px rgba(37, 99, 235, 0.2)' : '0 4px 6px -1px rgba(16, 185, 129, 0.2)',
                                                                 fontSize: '0.8rem',
                                                                 padding: '6px 12px',
                                                                 cursor: 'pointer',
@@ -1358,7 +1366,7 @@ export default function RegistroForm() {
                                                                 justifyContent: 'center'
                                                             }}
                                                         >
-                                                            {uploadingCompromisoId === comp.id ? 'Subiendo...' : (user?.role === 'contratista_user' ? 'CARGAR EVIDENCIA' : 'Marcar Cumplido')}
+                                                            {uploadingCompromisoId === comp.id ? 'Subiendo...' : (isContractor ? 'CARGAR EVIDENCIA' : 'Marcar Cumplido')}
                                                         </button>
                                                     </div>
                                                 )}

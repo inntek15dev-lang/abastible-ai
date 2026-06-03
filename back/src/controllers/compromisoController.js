@@ -167,6 +167,18 @@ const compromisoController = {
     // PATCH /api/compromisos/:id/cumplir
     async cumplir(req, res) {
         try {
+            const user = req.user;
+            if (user.role !== 'admin' && user.role !== 'administrador_contrato') {
+                if (req.file && fs.existsSync(req.file.path)) {
+                    try {
+                        fs.unlinkSync(req.file.path);
+                    } catch (unlinkError) {
+                        console.error('Failed to clean up temp file:', unlinkError);
+                    }
+                }
+                return res.status(403).json({ success: false, message: 'No autorizado para marcar compromiso como cumplido' });
+            }
+
             const compromiso = await Compromiso.findByPk(req.params.id);
             if (!compromiso) {
                 if (req.file && fs.existsSync(req.file.path)) {
@@ -256,8 +268,10 @@ const compromisoController = {
                 dbPath = path.posix.join('storage', storageRelativePath.split(path.sep).join('/'), req.file.filename);
             }
 
-            if (compromiso.estado === 'pendiente') {
-                compromiso.estado = 'en_proceso';
+            if (req.user.role !== 'contratista_user' && req.user.role !== 'contratista_admin') {
+                if (compromiso.estado === 'pendiente') {
+                    compromiso.estado = 'en_proceso';
+                }
             }
             if (dbPath) compromiso.ruta_evidencia = dbPath;
             if (req.body.comentario_evidencia) compromiso.comentario_evidencia = req.body.comentario_evidencia;

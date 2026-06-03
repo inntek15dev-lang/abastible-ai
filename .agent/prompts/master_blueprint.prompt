@@ -368,8 +368,8 @@
           "benefit": "Para dar seguimiento a acciones correctivas",
           "acceptance_criteria": [
             "AC-01: Puedo crear compromiso con descripción y fecha de cumplimiento para hallazgos/actividades",
-            "AC-02: Puedo marcar compromiso como cumplido",
-            "AC-03: El auditor valida el cumplimiento",
+            "AC-02: Puedo cargar evidencia de un compromiso sin cambiar su estado",
+            "AC-03: Solo el admin y el administrador de contratos pueden cambiar el estado a cumplido",
             "AC-04-SEC: Contratistas solo ven y crean compromisos de sus propios registros"
           ],
           "security_tag": "Confidential"
