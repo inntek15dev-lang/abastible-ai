@@ -29,9 +29,9 @@ const {
 
 async function seed() {
     try {
-        console.log('🔄 Sincronizando base de datos (FORCE SYNC: DROP ALL TABLES)...');
+        console.log('🔄 Sincronizando base de datos (Sincronización suave: force = false)...');
         await sequelize.query('SET FOREIGN_KEY_CHECKS = 0');
-        await sequelize.sync({ force: true });
+        await sequelize.sync({ force: false });
         await sequelize.query('SET FOREIGN_KEY_CHECKS = 1');
 
 

@@ -114,8 +114,9 @@ const compareData = async (req, res) => {
             const nombre = c.nombre || c.cot_razon_social;
             extContratistas.set(rut, { ...c, rut, nombre });
 
-            if (c.data && c.data.contratista_admin) {
-                c.data.contratista_admin.forEach(admin => {
+            const admins = c.contratista_admin || (c.data && c.data.contratista_admin);
+            if (admins && Array.isArray(admins)) {
+                admins.forEach(admin => {
                     if (admin.email) {
                         extContratistaAdmins.set(normalize(admin.email), {
                             nombre: admin.nombre,
@@ -126,8 +127,9 @@ const compareData = async (req, res) => {
                 });
             }
 
-            if (c.data && c.data.asignaciones) {
-                c.data.asignaciones.forEach(a => {
+            const asigs = c.asignaciones || (c.data && c.data.asignaciones);
+            if (asigs && Array.isArray(asigs)) {
+                asigs.forEach(a => {
                     if (a.gerencia) extGerencias.set(normalize(a.gerencia), a.gerencia);
 
                     if (a.subgerencia && a.gerencia) {
@@ -140,7 +142,8 @@ const compareData = async (req, res) => {
                     if (a.servicio && a.subgerencia) {
                         extServicios.set(normalize(a.subgerencia + '|' + a.servicio), {
                             nombre: a.servicio,
-                            subgerencia: a.subgerencia
+                            subgerencia: a.subgerencia,
+                            gerencia: a.gerencia
                         });
                     }
 
@@ -155,7 +158,8 @@ const compareData = async (req, res) => {
                             gerencia: normalize(a.gerencia),
                             numero_contrato: a.contrato || null,
                             fecha_inicio_contrato: a.fecha_inicio || null,
-                            fecha_termino_contrato: a.fecha_termino || null
+                            fecha_termino_contrato: a.fecha_termino || null,
+                            contratista: nombre
                         });
 
                         if (a.administrador_contrato) {
@@ -307,24 +311,37 @@ const syncData = async (req, res) => {
             }
         } else if (type === 'subgerencias') {
             for (const item of items) {
-                const gerencia = await Gerencia.findOne({ where: { nombre: item.gerencia }, transaction });
-                if (gerencia) {
-                    await Subgerencia.findOrCreate({
-                        where: { nombre: item.nombre, gerencia_id: gerencia.id },
-                        transaction
-                    });
+                let gerencia = await Gerencia.findOne({ where: { nombre: item.gerencia }, transaction });
+                if (!gerencia) {
+                    gerencia = await Gerencia.create({ nombre: item.gerencia, activo: 1 }, { transaction });
                 }
+                await Subgerencia.findOrCreate({
+                    where: { nombre: item.nombre, gerencia_id: gerencia.id },
+                    transaction
+                });
             }
         } else if (type === 'servicios') {
             for (const item of items) {
-                const subgerencia = await Subgerencia.findOne({ where: { nombre: item.subgerencia }, transaction });
-                if (subgerencia) {
-                    await TipoContratista.findOrCreate({
-                        where: { nombre: item.nombre, subgerencia_id: subgerencia.id },
-                        defaults: { descripcion: 'Sincronizado desde API', activo: 1 },
-                        transaction
-                    });
+                let gerencia = null;
+                if (item.gerencia) {
+                    gerencia = await Gerencia.findOne({ where: { nombre: item.gerencia }, transaction });
+                    if (!gerencia) {
+                        gerencia = await Gerencia.create({ nombre: item.gerencia, activo: 1 }, { transaction });
+                    }
                 }
+                let subgerencia = await Subgerencia.findOne({ where: { nombre: item.subgerencia }, transaction });
+                if (!subgerencia) {
+                    subgerencia = await Subgerencia.create({
+                        nombre: item.subgerencia,
+                        gerencia_id: gerencia ? gerencia.id : null,
+                        activo: 1
+                    }, { transaction });
+                }
+                await TipoContratista.findOrCreate({
+                    where: { nombre: item.nombre, subgerencia_id: subgerencia.id },
+                    defaults: { descripcion: 'Sincronizado desde API', activo: 1 },
+                    transaction
+                });
             }
         } else if (type === 'dependencias') {
             for (const item of items) {
@@ -346,8 +363,15 @@ const syncData = async (req, res) => {
             }
         } else if (type === 'contratista_admin') {
             for (const item of items) {
-                const contratista = await Contratista.findOne({ where: { rut: item.rut_contratista }, transaction });
-                if (contratista && item.email) {
+                let contratista = await Contratista.findOne({ where: { rut: item.rut_contratista }, transaction });
+                if (!contratista) {
+                    contratista = await Contratista.create({
+                        rut: item.rut_contratista,
+                        nombre: item.contratista || item.rut_contratista || 'Empresa Sincronizada',
+                        activo: 1
+                    }, { transaction });
+                }
+                if (item.email) {
                     await User.findOrCreate({
                         where: { email: item.email },
                         defaults: {
@@ -367,43 +391,69 @@ const syncData = async (req, res) => {
             }
         } else if (type === 'vinculaciones') {
             for (const item of items) {
-                const contratista = await Contratista.findOne({ where: { rut: item.rut_contratista }, transaction });
-                const servicio = await TipoContratista.findOne({ where: { nombre: item.servicio }, transaction });
-                const dependencia = await Dependencia.findOne({ where: { nombre: item.dependencia }, transaction });
-                const subgerencia = await Subgerencia.findOne({ where: { nombre: item.subgerencia }, transaction });
-                const gerencia = await Gerencia.findOne({ where: { nombre: item.gerencia }, transaction });
+                let gerencia = await Gerencia.findOne({ where: { nombre: item.gerencia }, transaction });
+                if (!gerencia) {
+                    gerencia = await Gerencia.create({ nombre: item.gerencia, activo: 1 }, { transaction });
+                }
 
-                if (contratista && servicio && dependencia && subgerencia && gerencia) {
-                    const fallbackContrato = item.numero_contrato || `CTR-SYN-${contratista.rut.replace(/[^0-9Kk]/g, '')}-${servicio.id}`;
-                    const [vinculacion, created] = await Vinculacion.findOrCreate({
-                        where: {
-                            contratista_id: contratista.id,
-                            servicio_id: servicio.id,
-                            dependencia_id: dependencia.id,
-                            subgerencia_id: subgerencia.id,
-                            gerencia_id: gerencia.id
-                        },
-                        defaults: {
-                            activo: 1,
-                            numero_contrato: fallbackContrato,
-                            fecha_inicio_contrato: item.fecha_inicio_contrato || new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-                            fecha_termino_contrato: item.fecha_termino_contrato || null
-                        },
-                        transaction
-                    });
+                let subgerencia = await Subgerencia.findOne({ where: { nombre: item.subgerencia, gerencia_id: gerencia.id }, transaction });
+                if (!subgerencia) {
+                    subgerencia = await Subgerencia.create({ nombre: item.subgerencia, gerencia_id: gerencia.id, activo: 1 }, { transaction });
+                }
 
-                    if (!created) {
-                        const updateData = {};
-                        if (item.numero_contrato && normalize(vinculacion.numero_contrato) !== normalize(item.numero_contrato)) {
-                            updateData.numero_contrato = item.numero_contrato;
-                        }
-                        if (item.fecha_inicio_contrato && vinculacion.fecha_inicio_contrato !== item.fecha_inicio_contrato) updateData.fecha_inicio_contrato = item.fecha_inicio_contrato;
-                        if (item.fecha_termino_contrato && vinculacion.fecha_termino_contrato !== item.fecha_termino_contrato) updateData.fecha_termino_contrato = item.fecha_termino_contrato;
-                        else if (!item.fecha_termino_contrato && vinculacion.fecha_termino_contrato !== null) updateData.fecha_termino_contrato = null;
+                let servicio = await TipoContratista.findOne({ where: { nombre: item.servicio, subgerencia_id: subgerencia.id }, transaction });
+                if (!servicio) {
+                    servicio = await TipoContratista.create({
+                        nombre: item.servicio,
+                        subgerencia_id: subgerencia.id,
+                        descripcion: 'Sincronizado automáticamente desde Vinculación',
+                        activo: 1
+                    }, { transaction });
+                }
 
-                        if (Object.keys(updateData).length > 0) {
-                            await vinculacion.update(updateData, { transaction });
-                        }
+                let dependencia = await Dependencia.findOne({ where: { nombre: item.dependencia }, transaction });
+                if (!dependencia) {
+                    dependencia = await Dependencia.create({ nombre: item.dependencia, activo: 1 }, { transaction });
+                }
+
+                let contratista = await Contratista.findOne({ where: { rut: item.rut_contratista }, transaction });
+                if (!contratista) {
+                    contratista = await Contratista.create({
+                        rut: item.rut_contratista,
+                        nombre: item.contratista || item.rut_contratista || 'Empresa Sincronizada',
+                        activo: 1
+                    }, { transaction });
+                }
+
+                const fallbackContrato = item.numero_contrato || `CTR-SYN-${contratista.rut.replace(/[^0-9Kk]/g, '')}-${servicio.id}`;
+                const [vinculacion, created] = await Vinculacion.findOrCreate({
+                    where: {
+                        contratista_id: contratista.id,
+                        servicio_id: servicio.id,
+                        dependencia_id: dependencia.id,
+                        subgerencia_id: subgerencia.id,
+                        gerencia_id: gerencia.id
+                    },
+                    defaults: {
+                        activo: 1,
+                        numero_contrato: fallbackContrato,
+                        fecha_inicio_contrato: item.fecha_inicio_contrato || new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+                        fecha_termino_contrato: item.fecha_termino_contrato || null
+                    },
+                    transaction
+                });
+
+                if (!created) {
+                    const updateData = {};
+                    if (item.numero_contrato && normalize(vinculacion.numero_contrato) !== normalize(item.numero_contrato)) {
+                        updateData.numero_contrato = item.numero_contrato;
+                    }
+                    if (item.fecha_inicio_contrato && vinculacion.fecha_inicio_contrato !== item.fecha_inicio_contrato) updateData.fecha_inicio_contrato = item.fecha_inicio_contrato;
+                    if (item.fecha_termino_contrato && vinculacion.fecha_termino_contrato !== item.fecha_termino_contrato) updateData.fecha_termino_contrato = item.fecha_termino_contrato;
+                    else if (!item.fecha_termino_contrato && vinculacion.fecha_termino_contrato !== null) updateData.fecha_termino_contrato = null;
+
+                    if (Object.keys(updateData).length > 0) {
+                        await vinculacion.update(updateData, { transaction });
                     }
                 }
             }
@@ -423,35 +473,63 @@ const syncData = async (req, res) => {
 
                 if (item.asignaciones && Array.isArray(item.asignaciones)) {
                     for (const asig of item.asignaciones) {
-                        const contratista = await Contratista.findOne({ where: { rut: asig.rut_contratista }, transaction });
-                        const servicio = await TipoContratista.findOne({ where: { nombre: asig.servicio }, transaction });
-                        const dependencia = await Dependencia.findOne({ where: { nombre: asig.dependencia }, transaction });
-                        const subgerencia = await Subgerencia.findOne({ where: { nombre: asig.subgerencia }, transaction });
-                        const gerencia = await Gerencia.findOne({ where: { nombre: asig.gerencia }, transaction });
-
-                        if (contratista && servicio && dependencia && subgerencia && gerencia) {
-                            const vinculacion = await Vinculacion.findOne({
-                                where: {
-                                    contratista_id: contratista.id,
-                                    servicio_id: servicio.id,
-                                    dependencia_id: dependencia.id,
-                                    subgerencia_id: subgerencia.id,
-                                    gerencia_id: gerencia.id
-                                },
-                                transaction
-                            });
-
-                            if (vinculacion) {
-                                await Administracion.findOrCreate({
-                                    where: {
-                                        vinculacion_id: vinculacion.id,
-                                        administrador_contrato_id: user.id
-                                    },
-                                    defaults: { activo: 1 },
-                                    transaction
-                                });
-                            }
+                        let gerencia = await Gerencia.findOne({ where: { nombre: asig.gerencia }, transaction });
+                        if (!gerencia) {
+                            gerencia = await Gerencia.create({ nombre: asig.gerencia, activo: 1 }, { transaction });
                         }
+
+                        let subgerencia = await Subgerencia.findOne({ where: { nombre: asig.subgerencia, gerencia_id: gerencia.id }, transaction });
+                        if (!subgerencia) {
+                            subgerencia = await Subgerencia.create({ nombre: asig.subgerencia, gerencia_id: gerencia.id, activo: 1 }, { transaction });
+                        }
+
+                        let servicio = await TipoContratista.findOne({ where: { nombre: asig.servicio, subgerencia_id: subgerencia.id }, transaction });
+                        if (!servicio) {
+                            servicio = await TipoContratista.create({
+                                nombre: asig.servicio,
+                                subgerencia_id: subgerencia.id,
+                                descripcion: 'Sincronizado desde Asignación Admin',
+                                activo: 1
+                            }, { transaction });
+                        }
+
+                        let dependencia = await Dependencia.findOne({ where: { nombre: asig.dependencia }, transaction });
+                        if (!dependencia) {
+                            dependencia = await Dependencia.create({ nombre: asig.dependencia, activo: 1 }, { transaction });
+                        }
+
+                        let contratista = await Contratista.findOne({ where: { rut: asig.rut_contratista }, transaction });
+                        if (!contratista) {
+                            contratista = await Contratista.create({
+                                rut: asig.rut_contratista,
+                                nombre: asig.rut_contratista,
+                                activo: 1
+                            }, { transaction });
+                        }
+
+                        const [vinculacion] = await Vinculacion.findOrCreate({
+                            where: {
+                                contratista_id: contratista.id,
+                                servicio_id: servicio.id,
+                                dependencia_id: dependencia.id,
+                                subgerencia_id: subgerencia.id,
+                                gerencia_id: gerencia.id
+                            },
+                            defaults: {
+                                activo: 1,
+                                numero_contrato: `CTR-SYN-${contratista.rut.replace(/[^0-9Kk]/g, '')}-${servicio.id}`
+                            },
+                            transaction
+                        });
+
+                        await Administracion.findOrCreate({
+                            where: {
+                                vinculacion_id: vinculacion.id,
+                                administrador_contrato_id: user.id
+                            },
+                            defaults: { activo: 1 },
+                            transaction
+                        });
                     }
                 }
             }
