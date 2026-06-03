@@ -10,7 +10,7 @@ const normalize = (str) => str ? str.trim().toUpperCase() : '';
 
 const compareData = async (req, res) => {
     try {
-        console.log('🔄 Iniciando sincronización de datos completa...');
+        console.log('🔄 Iniciando comparación de datos completa...');
 
         const response = await axios.get(EXTERNAL_API_URL, {
             headers: { 'api-key': API_KEY, 'Origin': ORIGIN }
@@ -27,6 +27,15 @@ const compareData = async (req, res) => {
         const extVinculaciones = [];
         const extAdministradorContratos = new Map();
 
+        const subgerenciaToGerenciaMap = new Map();
+        // Pre-populate map from local database to resolve as many as possible
+        const localSubgerenciasForMap = await Subgerencia.findAll({ include: [{ model: Gerencia, as: 'gerencia' }] });
+        localSubgerenciasForMap.forEach(s => {
+            if (s.nombre && s.gerencia && s.gerencia.nombre) {
+                subgerenciaToGerenciaMap.set(normalize(s.nombre), s.gerencia.nombre);
+            }
+        });
+
         // 1. Process Top-Level Arrays (New standard)
         if (fullResponse.gerencias) {
             fullResponse.gerencias.forEach(g => {
@@ -42,6 +51,7 @@ const compareData = async (req, res) => {
                         gerencia: s.gerencia
                     });
                     extGerencias.set(normalize(s.gerencia), s.gerencia);
+                    subgerenciaToGerenciaMap.set(normalize(s.nombre), s.gerencia);
                 }
             });
         }
@@ -49,9 +59,11 @@ const compareData = async (req, res) => {
         if (fullResponse.servicios) {
             fullResponse.servicios.forEach(s => {
                 if (s.nombre && s.subgerencia) {
+                    const gerenciaName = s.gerencia || subgerenciaToGerenciaMap.get(normalize(s.subgerencia)) || null;
                     extServicios.set(normalize(s.subgerencia + '|' + s.nombre), {
                         nombre: s.nombre,
-                        subgerencia: s.subgerencia
+                        subgerencia: s.subgerencia,
+                        gerencia: gerenciaName
                     });
                 }
             });
@@ -79,11 +91,48 @@ const compareData = async (req, res) => {
             fullResponse.administrador_contrato.forEach(admin => {
                 if (admin.email) {
                     let key = normalize(admin.email);
-                    extAdministradorContratos.set(key, {
-                        nombre: admin.nombre,
-                        email: admin.email,
-                        asignaciones: admin.asignaciones || []
-                    });
+                    let existing = extAdministradorContratos.get(key);
+                    const formattedAsigs = (admin.asignaciones || []).map(asig => ({
+                        rut_contratista: asig.rut_contratista || asig.cot_rut || null,
+                        servicio: normalize(asig.servicio),
+                        dependencia: normalize(asig.dependencia),
+                        subgerencia: normalize(asig.subgerencia),
+                        gerencia: normalize(asig.gerencia),
+                        contrato: asig.contrato || asig.numero_contrato || null
+                    }));
+
+                    if (existing) {
+                        const mergedAsignaciones = [...existing.asignaciones];
+                        formattedAsigs.forEach(newAsig => {
+                            const alreadyExists = mergedAsignaciones.some(oldAsig =>
+                                normalize(oldAsig.servicio) === normalize(newAsig.servicio) &&
+                                normalize(oldAsig.dependencia) === normalize(newAsig.dependencia) &&
+                                normalize(oldAsig.subgerencia) === normalize(newAsig.subgerencia) &&
+                                normalize(oldAsig.gerencia) === normalize(newAsig.gerencia)
+                            );
+                            if (!alreadyExists) {
+                                mergedAsignaciones.push(newAsig);
+                            } else if (newAsig.rut_contratista) {
+                                // If already exists but lacks rut_contratista, enrich it!
+                                const target = mergedAsignaciones.find(oldAsig =>
+                                    normalize(oldAsig.servicio) === normalize(newAsig.servicio) &&
+                                    normalize(oldAsig.dependencia) === normalize(newAsig.dependencia) &&
+                                    normalize(oldAsig.subgerencia) === normalize(newAsig.subgerencia) &&
+                                    normalize(oldAsig.gerencia) === normalize(newAsig.gerencia)
+                                );
+                                if (target && !target.rut_contratista) {
+                                    target.rut_contratista = newAsig.rut_contratista;
+                                }
+                            }
+                        });
+                        existing.asignaciones = mergedAsignaciones;
+                    } else {
+                        extAdministradorContratos.set(key, {
+                            nombre: admin.nombre,
+                            email: admin.email,
+                            asignaciones: formattedAsigs
+                        });
+                    }
                 }
             });
         }
@@ -137,25 +186,28 @@ const compareData = async (req, res) => {
                             nombre: a.subgerencia,
                             gerencia: a.gerencia
                         });
+                        subgerenciaToGerenciaMap.set(normalize(a.subgerencia), a.gerencia);
                     }
 
                     if (a.servicio && a.subgerencia) {
+                        const gerenciaName = a.gerencia || subgerenciaToGerenciaMap.get(normalize(a.subgerencia)) || null;
                         extServicios.set(normalize(a.subgerencia + '|' + a.servicio), {
                             nombre: a.servicio,
                             subgerencia: a.subgerencia,
-                            gerencia: a.gerencia
+                            gerencia: gerenciaName
                         });
                     }
 
                     if (a.dependencia) extDependencias.set(normalize(a.dependencia), a.dependencia);
 
-                    if (a.servicio && a.dependencia && a.subgerencia && a.gerencia) {
+                    if (a.servicio && a.dependencia && a.subgerencia && (a.gerencia || subgerenciaToGerenciaMap.get(normalize(a.subgerencia)))) {
+                        const gerenciaName = a.gerencia || subgerenciaToGerenciaMap.get(normalize(a.subgerencia));
                         extVinculaciones.push({
                             rut_contratista: rut,
                             servicio: normalize(a.servicio),
                             dependencia: normalize(a.dependencia),
                             subgerencia: normalize(a.subgerencia),
-                            gerencia: normalize(a.gerencia),
+                            gerencia: normalize(gerenciaName),
                             numero_contrato: a.contrato || null,
                             fecha_inicio_contrato: a.fecha_inicio || null,
                             fecha_termino_contrato: a.fecha_termino || null,
@@ -171,13 +223,38 @@ const compareData = async (req, res) => {
                                         adminObj = { nombre: admin.nombre, email: admin.email, asignaciones: [] };
                                         extAdministradorContratos.set(key, adminObj);
                                     }
-                                    adminObj.asignaciones.push({
+                                    
+                                    const newAsig = {
                                         rut_contratista: rut,
                                         servicio: normalize(a.servicio),
                                         dependencia: normalize(a.dependencia),
                                         subgerencia: normalize(a.subgerencia),
-                                        gerencia: normalize(a.gerencia)
-                                    });
+                                        gerencia: normalize(gerenciaName),
+                                        contrato: a.contrato || null
+                                    };
+
+                                    const alreadyExists = adminObj.asignaciones.some(oldAsig =>
+                                        normalize(oldAsig.servicio) === newAsig.servicio &&
+                                        normalize(oldAsig.dependencia) === newAsig.dependencia &&
+                                        normalize(oldAsig.subgerencia) === newAsig.subgerencia &&
+                                        normalize(oldAsig.gerencia) === newAsig.gerencia
+                                    );
+
+                                    if (!alreadyExists) {
+                                        adminObj.asignaciones.push(newAsig);
+                                    } else {
+                                        // Enrich rut_contratista if missing
+                                        const target = adminObj.asignaciones.find(oldAsig =>
+                                            normalize(oldAsig.servicio) === newAsig.servicio &&
+                                            normalize(oldAsig.dependencia) === newAsig.dependencia &&
+                                            normalize(oldAsig.subgerencia) === newAsig.subgerencia &&
+                                            normalize(oldAsig.gerencia) === newAsig.gerencia
+                                        );
+                                        if (target) {
+                                            if (!target.rut_contratista) target.rut_contratista = rut;
+                                            if (!target.contrato && newAsig.contrato) target.contrato = newAsig.contrato;
+                                        }
+                                    }
                                 }
                             });
                         }
@@ -234,7 +311,7 @@ const compareData = async (req, res) => {
         // 3. Servicios
         const diffServicios = [];
         extServicios.forEach((data, normKey) => {
-            diffServicios.push({ nombre: data.nombre, subgerencia: data.subgerencia, estado: locServiciosMap.has(normKey) ? 'exists' : 'new' });
+            diffServicios.push({ nombre: data.nombre, subgerencia: data.subgerencia, gerencia: data.gerencia, estado: locServiciosMap.has(normKey) ? 'exists' : 'new' });
         });
 
         // 4. Dependencias
@@ -311,9 +388,18 @@ const syncData = async (req, res) => {
             }
         } else if (type === 'subgerencias') {
             for (const item of items) {
-                let gerencia = await Gerencia.findOne({ where: { nombre: item.gerencia }, transaction });
-                if (!gerencia) {
-                    gerencia = await Gerencia.create({ nombre: item.gerencia, activo: 1 }, { transaction });
+                let gerencia = null;
+                if (item.gerencia) {
+                    gerencia = await Gerencia.findOne({ where: { nombre: item.gerencia }, transaction });
+                    if (!gerencia) {
+                        gerencia = await Gerencia.create({ nombre: item.gerencia, activo: 1 }, { transaction });
+                    }
+                }
+                if (!gerencia || !gerencia.id) {
+                    gerencia = await Gerencia.findOne({ transaction });
+                }
+                if (!gerencia || !gerencia.id) {
+                    gerencia = await Gerencia.create({ nombre: 'GERENCIA GENERAL', activo: 1 }, { transaction });
                 }
                 await Subgerencia.findOrCreate({
                     where: { nombre: item.nombre, gerencia_id: gerencia.id },
@@ -329,14 +415,39 @@ const syncData = async (req, res) => {
                         gerencia = await Gerencia.create({ nombre: item.gerencia, activo: 1 }, { transaction });
                     }
                 }
-                let subgerencia = await Subgerencia.findOne({ where: { nombre: item.subgerencia }, transaction });
+                
+                // Safe fallbacks to guarantee gerencia
+                if (!gerencia || !gerencia.id) {
+                    if (item.subgerencia) {
+                        const subInDb = await Subgerencia.findOne({
+                            where: { nombre: item.subgerencia },
+                            include: [{ model: Gerencia, as: 'gerencia' }],
+                            transaction
+                        });
+                        if (subInDb && subInDb.gerencia) {
+                            gerencia = subInDb.gerencia;
+                        }
+                    }
+                }
+                if (!gerencia || !gerencia.id) {
+                    gerencia = await Gerencia.findOne({ transaction });
+                }
+                if (!gerencia || !gerencia.id) {
+                    gerencia = await Gerencia.create({ nombre: 'GERENCIA GENERAL', activo: 1 }, { transaction });
+                }
+
+                let subgerenciaName = item.subgerencia || 'SUBGERENCIA GENERAL';
+                let subgerencia = await Subgerencia.findOne({ where: { nombre: subgerenciaName }, transaction });
                 if (!subgerencia) {
                     subgerencia = await Subgerencia.create({
-                        nombre: item.subgerencia,
-                        gerencia_id: gerencia ? gerencia.id : null,
+                        nombre: subgerenciaName,
+                        gerencia_id: gerencia.id,
                         activo: 1
                     }, { transaction });
+                } else if (!subgerencia.gerencia_id) {
+                    await subgerencia.update({ gerencia_id: gerencia.id }, { transaction });
                 }
+
                 await TipoContratista.findOrCreate({
                     where: { nombre: item.nombre, subgerencia_id: subgerencia.id },
                     defaults: { descripcion: 'Sincronizado desde API', activo: 1 },
@@ -366,45 +477,53 @@ const syncData = async (req, res) => {
                 let contratista = await Contratista.findOne({ where: { rut: item.rut_contratista }, transaction });
                 if (!contratista) {
                     contratista = await Contratista.create({
-                        rut: item.rut_contratista,
+                        rut: item.rut_contratista || '99999999-9',
                         nombre: item.contratista || item.rut_contratista || 'Empresa Sincronizada',
                         activo: 1
                     }, { transaction });
                 }
                 if (item.email) {
-                    await User.findOrCreate({
+                    const [user, created] = await User.findOrCreate({
                         where: { email: item.email },
                         defaults: {
-                            name: item.nombre,
+                            name: item.nombre || item.email.split('@')[0] || 'Administrador Contratista',
                             password: defaultPasswordHash,
                             role: 'contratista_admin',
                             contratista_id: contratista.id,
                             activo: 1
                         },
                         transaction
-                    }).then(async ([user, created]) => {
-                        if (!created && user.contratista_id !== contratista.id) {
-                            await user.update({ contratista_id: contratista.id }, { transaction });
-                        }
                     });
+                    if (!created && user.contratista_id !== contratista.id) {
+                        await user.update({ contratista_id: contratista.id }, { transaction });
+                    }
                 }
             }
         } else if (type === 'vinculaciones') {
             for (const item of items) {
-                let gerencia = await Gerencia.findOne({ where: { nombre: item.gerencia }, transaction });
-                if (!gerencia) {
-                    gerencia = await Gerencia.create({ nombre: item.gerencia, activo: 1 }, { transaction });
+                let gerencia = null;
+                if (item.gerencia) {
+                    gerencia = await Gerencia.findOne({ where: { nombre: item.gerencia }, transaction });
+                    if (!gerencia) {
+                        gerencia = await Gerencia.create({ nombre: item.gerencia, activo: 1 }, { transaction });
+                    }
+                }
+                if (!gerencia || !gerencia.id) {
+                    gerencia = await Gerencia.findOne({ transaction });
+                }
+                if (!gerencia || !gerencia.id) {
+                    gerencia = await Gerencia.create({ nombre: 'GERENCIA GENERAL', activo: 1 }, { transaction });
                 }
 
                 let subgerencia = await Subgerencia.findOne({ where: { nombre: item.subgerencia, gerencia_id: gerencia.id }, transaction });
                 if (!subgerencia) {
-                    subgerencia = await Subgerencia.create({ nombre: item.subgerencia, gerencia_id: gerencia.id, activo: 1 }, { transaction });
+                    subgerencia = await Subgerencia.create({ nombre: item.subgerencia || 'SUBGERENCIA GENERAL', gerencia_id: gerencia.id, activo: 1 }, { transaction });
                 }
 
                 let servicio = await TipoContratista.findOne({ where: { nombre: item.servicio, subgerencia_id: subgerencia.id }, transaction });
                 if (!servicio) {
                     servicio = await TipoContratista.create({
-                        nombre: item.servicio,
+                        nombre: item.servicio || 'SERVICIOS GENERALES',
                         subgerencia_id: subgerencia.id,
                         descripcion: 'Sincronizado automáticamente desde Vinculación',
                         activo: 1
@@ -413,19 +532,29 @@ const syncData = async (req, res) => {
 
                 let dependencia = await Dependencia.findOne({ where: { nombre: item.dependencia }, transaction });
                 if (!dependencia) {
-                    dependencia = await Dependencia.create({ nombre: item.dependencia, activo: 1 }, { transaction });
+                    dependencia = await Dependencia.create({ nombre: item.dependencia || 'OFICINA CENTRAL', activo: 1 }, { transaction });
                 }
 
                 let contratista = await Contratista.findOne({ where: { rut: item.rut_contratista }, transaction });
                 if (!contratista) {
                     contratista = await Contratista.create({
-                        rut: item.rut_contratista,
+                        rut: item.rut_contratista || '99999999-9',
                         nombre: item.contratista || item.rut_contratista || 'Empresa Sincronizada',
                         activo: 1
                     }, { transaction });
                 }
 
-                const fallbackContrato = item.numero_contrato || `CTR-SYN-${contratista.rut.replace(/[^0-9Kk]/g, '')}-${servicio.id}`;
+                const fallbackContrato = item.numero_contrato || `CTR-SYN-${contratista.rut.replace(/[^0-9Kk]/g, '')}-${servicio.id}-${dependencia.id}-${Math.floor(1000 + Math.random() * 9000)}`;
+                
+                let uniqueContrato = fallbackContrato;
+                let existsContrato = await Vinculacion.findOne({ where: { numero_contrato: uniqueContrato }, transaction });
+                let attempts = 0;
+                while (existsContrato && attempts < 10) {
+                    uniqueContrato = `${fallbackContrato}-${dependencia.id}-${Math.floor(100 + Math.random() * 900)}`;
+                    existsContrato = await Vinculacion.findOne({ where: { numero_contrato: uniqueContrato }, transaction });
+                    attempts++;
+                }
+
                 const [vinculacion, created] = await Vinculacion.findOrCreate({
                     where: {
                         contratista_id: contratista.id,
@@ -436,7 +565,7 @@ const syncData = async (req, res) => {
                     },
                     defaults: {
                         activo: 1,
-                        numero_contrato: fallbackContrato,
+                        numero_contrato: uniqueContrato,
                         fecha_inicio_contrato: item.fecha_inicio_contrato || new Date(new Date().getFullYear(), new Date().getMonth(), 1),
                         fecha_termino_contrato: item.fecha_termino_contrato || null
                     },
@@ -463,7 +592,7 @@ const syncData = async (req, res) => {
                 const [user, created] = await User.findOrCreate({
                     where: { email: item.email },
                     defaults: {
-                        name: item.nombre,
+                        name: item.nombre || item.email.split('@')[0] || 'Administrador de Contrato',
                         password: defaultPasswordHash,
                         role: 'administrador_contrato',
                         activo: 1
@@ -471,40 +600,94 @@ const syncData = async (req, res) => {
                     transaction
                 });
 
+                if (!created && user.role !== 'administrador_contrato') {
+                    await user.update({ role: 'administrador_contrato' }, { transaction });
+                }
+
                 if (item.asignaciones && Array.isArray(item.asignaciones)) {
                     for (const asig of item.asignaciones) {
-                        let gerencia = await Gerencia.findOne({ where: { nombre: asig.gerencia }, transaction });
+                        // Cascading / Inherited resolution of all basic relation fields
+                        let gerenciaName = asig.gerencia;
+                        let subgerenciaName = asig.subgerencia;
+                        let servicioName = asig.servicio;
+                        let dependenciaName = asig.dependencia;
+                        let rutContratista = asig.rut_contratista;
+
+                        if (!gerenciaName && subgerenciaName) {
+                            const subInDb = await Subgerencia.findOne({
+                                where: { nombre: subgerenciaName },
+                                include: [{ model: Gerencia, as: 'gerencia' }],
+                                transaction
+                            });
+                            if (subInDb && subInDb.gerencia) {
+                                gerenciaName = subInDb.gerencia.nombre;
+                            }
+                        }
+
+                        if (!subgerenciaName && servicioName) {
+                            const servInDb = await TipoContratista.findOne({
+                                where: { nombre: servicioName },
+                                include: [{ model: Subgerencia, as: 'subgerencia' }],
+                                transaction
+                            });
+                            if (servInDb && servInDb.subgerencia) {
+                                subgerenciaName = servInDb.subgerencia.nombre;
+                                if (!gerenciaName) {
+                                    const gerInDb = await Gerencia.findByPk(servInDb.subgerencia.gerencia_id, { transaction });
+                                    if (gerInDb) gerenciaName = gerInDb.nombre;
+                                }
+                            }
+                        }
+
+                        if (!gerenciaName) gerenciaName = 'GERENCIA GENERAL';
+                        if (!subgerenciaName) subgerenciaName = 'SUBGERENCIA GENERAL';
+                        if (!servicioName) servicioName = 'SERVICIOS GENERALES';
+                        if (!dependenciaName) dependenciaName = 'OFICINA CENTRAL';
+                        if (!rutContratista) rutContratista = '99999999-9';
+
+                        let gerencia = await Gerencia.findOne({ where: { nombre: gerenciaName }, transaction });
                         if (!gerencia) {
-                            gerencia = await Gerencia.create({ nombre: asig.gerencia, activo: 1 }, { transaction });
+                            gerencia = await Gerencia.create({ nombre: gerenciaName, activo: 1 }, { transaction });
                         }
 
-                        let subgerencia = await Subgerencia.findOne({ where: { nombre: asig.subgerencia, gerencia_id: gerencia.id }, transaction });
+                        let subgerencia = await Subgerencia.findOne({ where: { nombre: subgerenciaName, gerencia_id: gerencia.id }, transaction });
                         if (!subgerencia) {
-                            subgerencia = await Subgerencia.create({ nombre: asig.subgerencia, gerencia_id: gerencia.id, activo: 1 }, { transaction });
+                            subgerencia = await Subgerencia.create({ nombre: subgerenciaName, gerencia_id: gerencia.id, activo: 1 }, { transaction });
                         }
 
-                        let servicio = await TipoContratista.findOne({ where: { nombre: asig.servicio, subgerencia_id: subgerencia.id }, transaction });
+                        let servicio = await TipoContratista.findOne({ where: { nombre: servicioName, subgerencia_id: subgerencia.id }, transaction });
                         if (!servicio) {
                             servicio = await TipoContratista.create({
-                                nombre: asig.servicio,
+                                nombre: servicioName,
                                 subgerencia_id: subgerencia.id,
                                 descripcion: 'Sincronizado desde Asignación Admin',
                                 activo: 1
                             }, { transaction });
                         }
 
-                        let dependencia = await Dependencia.findOne({ where: { nombre: asig.dependencia }, transaction });
+                        let dependencia = await Dependencia.findOne({ where: { nombre: dependenciaName }, transaction });
                         if (!dependencia) {
-                            dependencia = await Dependencia.create({ nombre: asig.dependencia, activo: 1 }, { transaction });
+                            dependencia = await Dependencia.create({ nombre: dependenciaName, activo: 1 }, { transaction });
                         }
 
-                        let contratista = await Contratista.findOne({ where: { rut: asig.rut_contratista }, transaction });
+                        let contratista = await Contratista.findOne({ where: { rut: rutContratista }, transaction });
                         if (!contratista) {
                             contratista = await Contratista.create({
-                                rut: asig.rut_contratista,
-                                nombre: asig.rut_contratista,
+                                rut: rutContratista,
+                                nombre: rutContratista === '99999999-9' ? 'CONTRATISTA GENERAL TEMPORAL' : rutContratista,
                                 activo: 1
                             }, { transaction });
+                        }
+
+                        const fallbackContrato = asig.contrato || `CTR-SYN-${contratista.rut.replace(/[^0-9Kk]/g, '')}-${servicio.id}-${dependencia.id}-${Math.floor(1000 + Math.random() * 9000)}`;
+                        
+                        let uniqueContrato = fallbackContrato;
+                        let existsContrato = await Vinculacion.findOne({ where: { numero_contrato: uniqueContrato }, transaction });
+                        let attempts = 0;
+                        while (existsContrato && attempts < 10) {
+                            uniqueContrato = `${fallbackContrato}-${dependencia.id}-${Math.floor(100 + Math.random() * 900)}`;
+                            existsContrato = await Vinculacion.findOne({ where: { numero_contrato: uniqueContrato }, transaction });
+                            attempts++;
                         }
 
                         const [vinculacion] = await Vinculacion.findOrCreate({
@@ -517,7 +700,7 @@ const syncData = async (req, res) => {
                             },
                             defaults: {
                                 activo: 1,
-                                numero_contrato: `CTR-SYN-${contratista.rut.replace(/[^0-9Kk]/g, '')}-${servicio.id}`
+                                numero_contrato: uniqueContrato
                             },
                             transaction
                         });

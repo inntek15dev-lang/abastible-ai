@@ -81,24 +81,7 @@ export default function ServicioList() {
                     <p className="page-subtitle">Gestiona la estructura jerárquica y los estándares de servicios operativos.</p>
                 </div>
                 
-                <div className="header-actions">
-                    {canWrite('Gestion_Configuracion') && (
-                        <button 
-                            onClick={() => {/* Modal to add Gerencia */}}
-                            className="btn-secondary"
-                        >
-                            <Plus size={18} />
-                            Nueva Gerencia
-                        </button>
-                    )}
-                    <Link 
-                        to="/servicios/new"
-                        className="btn-primary"
-                    >
-                        <Plus size={18} />
-                        Nuevo Servicio
-                    </Link>
-                </div>
+                {/* Actions removed - structure managed via sync */}
             </header>
 
             {/* Filters */}
