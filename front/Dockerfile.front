@@ -1,5 +1,5 @@
 # Etapa 1: Build de React con Vite
-FROM node:18-alpine AS build
+FROM node:20-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
@@ -17,7 +17,9 @@ RUN sed -i '10i \\n    location / {\n        try_files $uri /index.html;\n    }\
 
 # Script de entrada para inyectar variables de entorno en runtime
 COPY env.sh /docker-entrypoint.d/
-RUN chmod +x /docker-entrypoint.d/env.sh
+RUN tr -d '\r' < /docker-entrypoint.d/env.sh > /docker-entrypoint.d/env_temp.sh && \
+    mv /docker-entrypoint.d/env_temp.sh /docker-entrypoint.d/env.sh && \
+    chmod +x /docker-entrypoint.d/env.sh
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

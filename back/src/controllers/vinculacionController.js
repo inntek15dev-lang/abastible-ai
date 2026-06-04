@@ -1,16 +1,32 @@
 // IEEE Trace: REQ-009 | Vinculacion Controller
-const { Vinculacion, Contratista, TipoContratista, Dependencia, Administracion, User, sequelize } = require('../database/models');
+const { Vinculacion, Contratista, TipoContratista, Dependencia, Subgerencia, Gerencia, Administracion, VinculacionUsuario, User, sequelize } = require('../database/models');
 
 const vinculacionController = {
     // GET /api/vinculaciones
     async index(req, res) {
         try {
             const { contratista_id, servicio_id, dependencia_id } = req.query;
+            const { role, id: userId } = req.user;
             const where = { activo: 1 };
 
             if (contratista_id) where.contratista_id = contratista_id;
             if (servicio_id) where.servicio_id = servicio_id;
             if (dependencia_id) where.dependencia_id = dependencia_id;
+
+            let includeAdmin = {
+                model: Administracion,
+                as: 'administraciones',
+                where: { activo: 1 },
+                required: false,
+                include: [
+                    { model: User, as: 'administradorContrato', attributes: ['id', 'name', 'email'] }
+                ]
+            };
+
+            if (role === 'administrador_contrato') {
+                includeAdmin.required = true;
+                includeAdmin.where.administrador_contrato_id = userId;
+            }
 
             const vinculaciones = await Vinculacion.findAll({
                 where,
@@ -18,13 +34,16 @@ const vinculacionController = {
                     { model: Contratista, as: 'contratista' },
                     { model: TipoContratista, as: 'servicio' },
                     { model: Dependencia, as: 'dependencia' },
+                    { model: Subgerencia, as: 'subgerencia' },
+                    { model: Gerencia, as: 'gerencia' },
+                    includeAdmin,
                     {
-                        model: Administracion,
-                        as: 'administraciones',
+                        model: VinculacionUsuario,
+                        as: 'usuariosVinculados',
                         where: { activo: 1 },
                         required: false,
                         include: [
-                            { model: User, as: 'administradorContrato', attributes: ['id', 'name', 'email'] }
+                            { model: User, as: 'usuario', attributes: ['id', 'name', 'email', 'role'] }
                         ]
                     }
                 ]
@@ -44,6 +63,8 @@ const vinculacionController = {
                     { model: Contratista, as: 'contratista' },
                     { model: TipoContratista, as: 'servicio' },
                     { model: Dependencia, as: 'dependencia' },
+                    { model: Subgerencia, as: 'subgerencia' },
+                    { model: Gerencia, as: 'gerencia' },
                     {
                         model: Administracion,
                         as: 'administraciones',
@@ -51,6 +72,15 @@ const vinculacionController = {
                         required: false,
                         include: [
                             { model: User, as: 'administradorContrato', attributes: ['id', 'name', 'email'] }
+                        ]
+                    },
+                    {
+                        model: VinculacionUsuario,
+                        as: 'usuariosVinculados',
+                        where: { activo: 1 },
+                        required: false,
+                        include: [
+                            { model: User, as: 'usuario', attributes: ['id', 'name', 'email', 'role'] }
                         ]
                     }
                 ]
@@ -71,6 +101,18 @@ const vinculacionController = {
         try {
             const { contratista_id, servicio_id, dependencia_id, fecha_inicio_contrato, fecha_termino_contrato, administrador_contrato_id, numero_contrato } = req.body;
 
+            // Fetch Dependency to deduce Subgerencia and Gerencia
+            const depInfo = await Dependencia.findByPk(dependencia_id, {
+                include: [{ model: Subgerencia, as: 'subgerencia' }]
+            });
+
+            if (!depInfo || !depInfo.subgerencia) {
+                return res.status(400).json({ success: false, message: 'La Dependencia seleccionada no tiene una Subgerencia/Gerencia válida.' });
+            }
+
+            const subgerencia_id = depInfo.subgerencia_id;
+            const gerencia_id = depInfo.subgerencia.gerencia_id;
+
             // Validation: Check duplicate
             const existing = await Vinculacion.findOne({
                 where: { contratista_id, servicio_id, dependencia_id, activo: 1 }
@@ -84,6 +126,8 @@ const vinculacionController = {
                 contratista_id,
                 servicio_id,
                 dependencia_id,
+                subgerencia_id,
+                gerencia_id,
                 fecha_inicio_contrato: fecha_inicio_contrato || null,
                 fecha_termino_contrato: fecha_termino_contrato || null,
                 numero_contrato
@@ -173,6 +217,44 @@ const vinculacionController = {
         } catch (error) {
             console.error('Vinculacion removeAdmin error:', error);
             res.status(500).json({ success: false, message: 'Error al remover administrador' });
+        }
+    },
+
+    // POST /api/vinculaciones/:id/usuarios
+    async assignUser(req, res) {
+        try {
+            const { id } = req.params;
+            const { user_id } = req.body;
+
+            const vinculacion = await Vinculacion.findByPk(id);
+            if (!vinculacion) {
+                return res.status(404).json({ success: false, message: 'Vinculacion no encontrada' });
+            }
+
+            const [vUser, created] = await VinculacionUsuario.findOrCreate({
+                where: { vinculacion_id: id, user_id, activo: 1 },
+                defaults: { activo: 1 }
+            });
+
+            res.json({ success: true, message: 'Usuario asignado correctamente' });
+        } catch (error) {
+            console.error('Vinculacion assignUser error:', error);
+            res.status(500).json({ success: false, message: 'Error al asignar usuario' });
+        }
+    },
+
+    // DELETE /api/vinculaciones/:id/usuarios/:userId
+    async removeUser(req, res) {
+        try {
+            const { id, userId } = req.params;
+            await VinculacionUsuario.update(
+                { activo: 0 },
+                { where: { vinculacion_id: id, user_id: userId, activo: 1 } }
+            );
+            res.json({ success: true, message: 'Usuario removido correctamente' });
+        } catch (error) {
+            console.error('Vinculacion removeUser error:', error);
+            res.status(500).json({ success: false, message: 'Error al remover usuario' });
         }
     }
 };

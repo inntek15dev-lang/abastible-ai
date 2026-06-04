@@ -2,10 +2,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
-import { Building, Search, Plus, MapPin, Users, Edit, Trash2, RefreshCw, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Building, Search, Plus, MapPin, Users, Edit, Trash2, RefreshCw, X, ChevronDown, ChevronUp, Power } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import SyncContratistasModal from '../../components/modals/SyncContratistasModal';
 import VinculacionManager from '../../components/contratistas/VinculacionManager';
+import AssociatedUsers from '../../components/contratistas/AssociatedUsers';
 import { toast } from 'react-hot-toast';
 import './ContratistaList.css';
 
@@ -17,8 +18,10 @@ export default function ContratistaList() {
     const [expandedRows, setExpandedRows] = useState({}); // Track expanded rows
     const [potentialAdmins, setPotentialAdmins] = useState([]); // Users with role 'administrador_contrato'
     const [updatingAdmin, setUpdatingAdmin] = useState(null); // ID of contractor currently updating
+    const [usersCAdmin, setUsersCAdmin] = useState([]);
 
-    const { canWrite, canExec } = useAuth();
+    const { user, canWrite, canExec, isAdmin } = useAuth();
+    const isADC = user?.role === 'administrador_contrato';
 
     // Filters State
     const [filters, setFilters] = useState({
@@ -32,6 +35,7 @@ export default function ContratistaList() {
     useEffect(() => {
         fetchContratistas();
         fetchAdmins();
+        fetchCAdmins();
     }, []);
 
     const fetchAdmins = async () => {
@@ -40,6 +44,15 @@ export default function ContratistaList() {
             setPotentialAdmins(response.data.data || []);
         } catch (err) {
             console.error('Error fetching admins', err);
+        }
+    };
+
+    const fetchCAdmins = async () => {
+        try {
+            const res = await api.get('/usuarios?role=contratista_admin');
+            setUsersCAdmin(res.data.data || []);
+        } catch (err) {
+            console.error("Error fetching CAdmins:", err);
         }
     };
 
@@ -54,13 +67,50 @@ export default function ContratistaList() {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!confirm('¿Está seguro de eliminar este contratista?')) return;
+    const handleToggleStatus = async (id, isCurrentlyActive) => {
+        const action = isCurrentlyActive ? 'desactivar' : 'activar';
+        if (!confirm(`¿Está seguro de ${action} este contratista?`)) return;
         try {
-            await api.delete(`/contratistas/${id}`);
+            await api.put(`/contratistas/${id}`, { activo: !isCurrentlyActive });
+            toast.success(`Contratista ${isCurrentlyActive ? 'desactivado' : 'activado'} correctamente`);
             fetchContratistas();
         } catch (err) {
-            alert('Error al eliminar contratista');
+            toast.error('Error al cambiar estado del contratista');
+        }
+    };
+
+    const handleCAdminAdd = async (contratistaId, userId) => {
+        if (!userId) return;
+        setUpdatingAdmin(contratistaId);
+        try {
+            await api.put(`/usuarios/${userId}`, { contratista_id: contratistaId });
+            toast.success('Administrador asignado correctamente');
+            fetchContratistas();
+        } catch (err) {
+            toast.error('Error al asignar administrador');
+        } finally {
+            setUpdatingAdmin(null);
+        }
+    };
+
+    const handleCAdminRemove = async (userId) => {
+        try {
+            await api.put(`/usuarios/${userId}`, { contratista_id: null });
+            toast.success('Administrador removido correctamente');
+            fetchContratistas();
+        } catch (err) {
+            toast.error('Error al remover administrador');
+        }
+    };
+
+    const handleDeletePermanent = async (id) => {
+        if (!confirm('¿Está seguro de ELIMINAR permanentemente este contratista y todas sus vinculaciones?')) return;
+        try {
+            await api.delete(`/contratistas/${id}`);
+            toast.success('Contratista eliminado permanentemente');
+            fetchContratistas();
+        } catch (err) {
+            toast.error('Error al eliminar permanentemente');
         }
     };
 
@@ -100,7 +150,7 @@ export default function ContratistaList() {
 
             // Status Filter
             const matchesStatus = filters.estado === 'Todos' ||
-                (filters.estado === 'Activo' ? c.activo : !c.activo);
+                (filters.estado === 'Activo' ? c.activo === 1 : c.activo === 0);
 
             // Service Filter
             const matchesService = filters.servicio === 'Todos' ||
@@ -119,6 +169,30 @@ export default function ContratistaList() {
             return matchesSearch && matchesStatus && matchesService && matchesDependency && matchesAdmin;
         });
     }, [contratistas, filters]);
+    
+    // Helper to get only relevant vinculaciones based on active filters and role
+    const getVisibleVinculaciones = (c) => {
+        if (!c.vinculaciones) return [];
+        let filtered = c.vinculaciones;
+
+        // If user is ADC, backend already filters, but we can double check or just return all
+        // If user is Admin, apply UI filters
+        if (filters.adminContrato !== 'Todos') {
+            filtered = filtered.filter(v =>
+                v.administraciones?.some(a => a.administrador_contrato_id.toString() === filters.adminContrato)
+            );
+        }
+        
+        if (filters.servicio !== 'Todos') {
+            filtered = filtered.filter(v => v.servicio?.nombre === filters.servicio);
+        }
+
+        if (filters.dependencia !== 'Todas') {
+            filtered = filtered.filter(v => v.dependencia?.nombre === filters.dependencia);
+        }
+
+        return filtered;
+    };
 
     // Helpers
     const getServiceNames = (vinculaciones) => {
@@ -242,7 +316,7 @@ export default function ContratistaList() {
                         Empresas externas, servicios y vinculaciones activas.
                     </p>
                 </div>
-                {canWrite('Configuración') && (
+                {(isAdmin || isADC) && (
                     <div className="flex gap-2">
                         <button
                             onClick={() => setIsSyncModalOpen(true)}
@@ -251,9 +325,6 @@ export default function ContratistaList() {
                         >
                             <RefreshCw size={18} /> Sincronizar
                         </button>
-                        <Link to="/contratistas/new" id="btn-new-contractor" className="btn-primary flex items-center gap-2" style={{ textDecoration: 'none' }}>
-                            <Plus size={18} /> Nuevo Contratista
-                        </Link>
                     </div>
                 )}
             </header>
@@ -265,10 +336,12 @@ export default function ContratistaList() {
                     <input
                         type="text"
                         className="filter-input"
-                        placeholder="Nombre, email, RUT..."
+                        placeholder="Buscar por Nombre, RUT, Servicio, Dependencia..."
                         value={filters.search}
                         onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                        style={{ paddingLeft: '32px' }}
                     />
+                    <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-10%)', color: '#94a3b8' }} />
                 </div>
 
                 <div className="filter-group">
@@ -316,7 +389,7 @@ export default function ContratistaList() {
                         value={filters.estado}
                         onChange={e => setFilters({ ...filters, estado: e.target.value })}
                     >
-                        <option value="Todos">Activos</option>
+                        <option value="Todos">Todos</option>
                         <option value="Activo">Activos</option>
                         <option value="Inactivo">Inactivos</option>
                     </select>
@@ -345,7 +418,7 @@ export default function ContratistaList() {
                 <div>RUT</div>
                 <div>SERVICIO</div>
                 <div>DEPENDENCIA</div>
-                <div>ADMIN CONTRATO</div>
+                <div>CONTRATISTA ADMIN</div>
                 <div>INICIO CONT.</div>
                 <div>TÉRMINO CONT.</div>
                 <div style={{ textAlign: 'right' }}>ACCIONES</div>
@@ -359,7 +432,8 @@ export default function ContratistaList() {
                     </div>
                 ) : (
                     filteredContratistas.map((c) => {
-                        const { start: startDate, end: endDate } = getContractDates(c.vinculaciones);
+                        const visibleVinc = getVisibleVinculaciones(c);
+                        const { start: startDate, end: endDate } = getContractDates(visibleVinc);
                         return (
                             <div
                                 key={c.id}
@@ -382,13 +456,13 @@ export default function ContratistaList() {
                                         {c.rut || '-'}
                                     </div>
                                     <div style={{ fontSize: '0.85rem' }}>
-                                        {getServiceNames(c.vinculaciones)}
+                                        {getServiceNames(visibleVinc)}
                                     </div>
                                     <div style={{ fontSize: '0.85rem' }}>
-                                        {getDependencyNames(c.vinculaciones)}
+                                        {getDependencyNames(visibleVinc)}
                                     </div>
                                     <div className="admin-tags-container" style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                        {getAdminObjects(c.vinculaciones).map(admin => (
+                                        {(c.usuarios || []).filter(u => u.role === 'contratista_admin').map(admin => (
                                             <div key={admin.id} className="admin-tag" style={{
                                                 display: 'flex',
                                                 alignItems: 'center',
@@ -401,9 +475,9 @@ export default function ContratistaList() {
                                                 border: '1px solid #BAE6FD'
                                             }}>
                                                 {admin.name}
-                                                {canWrite('Configuración') && (
+                                                {canWrite('Configuración') && !isADC && (
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); handleAdminRemove(c.id, admin.id); }}
+                                                        onClick={(e) => { e.stopPropagation(); handleCAdminRemove(admin.id); }}
                                                         style={{
                                                             marginLeft: '4px',
                                                             border: 'none',
@@ -422,12 +496,12 @@ export default function ContratistaList() {
                                                 )}
                                             </div>
                                         ))}
-                                        {canWrite('Configuración') && (
+                                        {canWrite('Configuración') && !isADC && (
                                             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                                 <select
                                                     className="add-admin-select"
                                                     value=""
-                                                    onChange={(e) => handleAdminChange(c.id, e.target.value)}
+                                                    onChange={(e) => handleCAdminAdd(c.id, e.target.value)}
                                                     disabled={updatingAdmin === c.id}
                                                     style={{
                                                         padding: '2px 4px',
@@ -441,17 +515,15 @@ export default function ContratistaList() {
                                                     }}
                                                 >
                                                     <option value="">+ Añadir</option>
-                                                    {potentialAdmins
-                                                        .filter(pa => !getAdminObjects(c.vinculaciones).some(a => a.id === pa.id))
-                                                        .map(admin => (
-                                                            <option key={admin.id} value={admin.id}>
-                                                                {admin.name}
-                                                            </option>
+                                                    {usersCAdmin
+                                                        .filter(u => u.contratista_id !== c.id)
+                                                        .map(u => (
+                                                            <option key={u.id} value={u.id}>{u.name}</option>
                                                         ))}
                                                 </select>
                                             </div>
                                         )}
-                                        {getAdminObjects(c.vinculaciones).length === 0 && !canWrite('Configuración') && (
+                                        {((c.usuarios || []).filter(u => u.role === 'contratista_admin').length === 0) && !canWrite('Configuración') && (
                                             <span style={{ color: '#94A3B8', fontStyle: 'italic', fontSize: '0.75rem' }}>Sin asignar</span>
                                         )}
                                     </div>
@@ -461,27 +533,35 @@ export default function ContratistaList() {
                                     <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>
                                         {endDate}
                                     </div>
-                                    <div className="actions-cell" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                    <div className="actions-cell">
                                         <button
                                             onClick={() => toggleRow(c.id)}
                                             className="action-btn"
                                             title={expandedRows[c.id] ? "Ocultar Vinculaciones" : "Ver Vinculaciones"}
                                         >
-                                            {expandedRows[c.id] ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                            {expandedRows[c.id] ? <ChevronUp size={24} strokeWidth={3} /> : <ChevronDown size={24} strokeWidth={3} />}
                                         </button>
 
-                                        {canWrite('Configuración') && (
+                                        {canWrite('Configuración') && !isADC && user?.role !== 'admin' && (
                                             <>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleToggleStatus(c.id, c.activo); }}
+                                                    className="action-btn"
+                                                    style={{ color: c.activo ? '#10B981' : '#F59E0B' }}
+                                                    title={c.activo ? "Desactivar" : "Activar"}
+                                                >
+                                                    <Power size={24} strokeWidth={3} />
+                                                </button>
                                                 <Link to={`/contratistas/${c.id}`} className="action-btn" title="Editar">
-                                                    <Edit size={18} />
+                                                    <Edit size={24} strokeWidth={2.5} />
                                                 </Link>
                                                 {canExec('Configuración') && (
                                                     <button
-                                                        onClick={() => handleDelete(c.id)}
+                                                        onClick={(e) => { e.stopPropagation(); handleDeletePermanent(c.id); }}
                                                         className="action-btn danger"
-                                                        title="Eliminar"
+                                                        title="Eliminar permanentemente"
                                                     >
-                                                        <Trash2 size={18} />
+                                                        <Trash2 size={24} strokeWidth={2.5} />
                                                     </button>
                                                 )}
                                             </>
@@ -489,10 +569,23 @@ export default function ContratistaList() {
                                     </div>
                                 </div>
 
-                                {/* Expanded Section */}
+                                 {/* Expanded Section */}
                                 {expandedRows[c.id] && (
-                                    <div className="assignments-section">
-                                        <VinculacionManager contratista={c} onUpdate={fetchContratistas} />
+                                    <div className="assignments-section" style={{ backgroundColor: '#fcfcfd', borderBottom: '1px solid #edf2f7', padding: '20px' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '24px' }}>
+                                            <div>
+                                                <VinculacionManager 
+                                                    contratista={{...c, vinculaciones: visibleVinc}} 
+                                                    onUpdate={fetchContratistas} 
+                                                />
+                                            </div>
+                                            <div style={{ borderLeft: '1px solid #edf2f7', paddingLeft: '24px' }}>
+                                                <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem', color: '#1e293b', marginBottom: '16px' }}>
+                                                    <Users size={16} /> Usuarios Asociados
+                                                </h4>
+                                                <AssociatedUsers contratistaId={c.id} />
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                             </div>

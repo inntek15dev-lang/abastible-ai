@@ -1,8 +1,8 @@
-name: CI/CD OIEM Abastible - Preprod
+name: CI/CD OIEM Abastible - Test-local? mejor eliminar
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "test ]
 
 env:
   REGISTRY: ghcr.io
@@ -72,9 +72,9 @@ jobs:
             # Login en el registro de GitHub
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
-            # Actualizar imágenes y reiniciar contenedores
+            # Actualizar imágenes y reiniciar contenedores de forma forzada
             docker compose pull
-            docker compose up -d
+            docker compose up -d --force-recreate
             
             # --- Automatización de Base de Datos ---
             echo "Esperando 15 segundos a que los servicios estabilicen..."

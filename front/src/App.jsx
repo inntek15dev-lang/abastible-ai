@@ -8,6 +8,7 @@ import Layout from './components/Layout';
 
 // Sprint 1 Pages
 import Login from './pages/Login';
+import LoginExternal from './pages/LoginExternal';
 import Dashboard from './pages/Dashboard';
 import ProgramaList from './pages/programas/ProgramaList';
 import ProgramaForm from './pages/programas/ProgramaForm';
@@ -18,6 +19,7 @@ import ActividadForm from './pages/programas/ActividadForm';
 import RegistroList from './pages/registros/RegistroList';
 import RegistroForm from './pages/registros/RegistroForm';
 import UsuarioList from './pages/usuarios/UsuarioList';
+import Pendientes from './pages/Pendientes';
 
 // Sprint 2 Pages
 import RegistroAudit from './pages/registros/RegistroAudit';
@@ -36,7 +38,6 @@ import ComplianceMatrixReport from './pages/reportes/ComplianceMatrixReport';
 import UsuarioForm from './pages/usuarios/UsuarioForm';
 
 // Sprint 8 Pages (US-051)
-import EvidenciaList from './pages/registros/EvidenciaList';
 import ContratistaList from './pages/contratistas/ContratistaList';
 import ContratistaForm from './pages/contratistas/ContratistaForm';
 import VinculacionList from './pages/vinculaciones/VinculacionList';
@@ -51,6 +52,9 @@ import DependenciaList from './pages/configuracion/DependenciaList';
 import DependenciaForm from './pages/configuracion/DependenciaForm';
 import ServicioList from './pages/configuracion/ServicioList';
 import ServicioForm from './pages/configuracion/ServicioForm';
+
+// OVAL Pages
+import OvalBilling from './pages/oval/OvalBilling';
 
 const queryClient = new QueryClient();
 
@@ -96,6 +100,16 @@ function AppRoutes() {
           <Login />
         </PublicRoute>
       } />
+      <Route path="/login-external" element={
+        <PublicRoute>
+          <LoginExternal />
+        </PublicRoute>
+      } />
+      <Route path="/sso" element={
+        <PublicRoute>
+          <LoginExternal />
+        </PublicRoute>
+      } />
 
       {/* Protected routes */}
       <Route element={
@@ -104,6 +118,7 @@ function AppRoutes() {
         </ProtectedRoute>
       }>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/pendientes" element={<Pendientes />} />
 
         {/* Tutorials */}
         <Route path="/tutorials" element={<TutorialsPage />} />
@@ -148,7 +163,6 @@ function AppRoutes() {
         {/* <Route path="/mis-postulaciones" element={<PostulacionList />} /> */}
 
         {/* Sprint 8: Nuevos Módulos US-051 */}
-        <Route path="/evidencias" element={<EvidenciaList />} />
         <Route path="/contratistas" element={<ContratistaList />} />
         <Route path="/contratistas/new" element={<ContratistaForm />} />
         <Route path="/contratistas/:id" element={<ContratistaForm />} />
@@ -174,6 +188,9 @@ function AppRoutes() {
         <Route path="/servicios" element={<ServicioList />} />
         <Route path="/servicios/new" element={<ServicioForm />} />
         <Route path="/servicios/:id/edit" element={<ServicioForm />} />
+
+        {/* OVAL */}
+        <Route path="/oval/billing" element={<OvalBilling />} />
       </Route>
 
       {/* Catch all */}

@@ -5,6 +5,8 @@ const sequelize = require('../index');
 // Sprint 1
 const Role = require('./Role');
 const Privilegio = require('./Privilegio');
+const Gerencia = require('./Gerencia');
+const Subgerencia = require('./Subgerencia');
 const Dependencia = require('./Dependencia');
 const Programa = require('./Programa');
 const Configuracion = require('./Configuracion');
@@ -33,12 +35,25 @@ const Documento = require('./Documento');
 const Contratista = require('./Contratista');
 const Vinculacion = require('./Vinculacion');
 const Administracion = require('./Administracion');
+const VinculacionUsuario = require('./VinculacionUsuario');
 
 // ============= SPRINT 1 ASSOCIATIONS =============
 
 // Role -> Privilegios (1:N)
 Role.hasMany(Privilegio, { foreignKey: 'role_id', as: 'privilegios' });
 Privilegio.belongsTo(Role, { foreignKey: 'role_id', as: 'role' });
+
+// Gerencia -> Subgerencia (1:N)
+Gerencia.hasMany(Subgerencia, { foreignKey: 'gerencia_id', as: 'subgerencias' });
+Subgerencia.belongsTo(Gerencia, { foreignKey: 'gerencia_id', as: 'gerencia' });
+
+// Subgerencia -> Dependencia (1:N)
+Subgerencia.hasMany(Dependencia, { foreignKey: 'subgerencia_id', as: 'dependencias' });
+Dependencia.belongsTo(Subgerencia, { foreignKey: 'subgerencia_id', as: 'subgerencia' });
+
+// Subgerencia -> TipoContratista (1:N)
+Subgerencia.hasMany(TipoContratista, { foreignKey: 'subgerencia_id', as: 'servicios' });
+TipoContratista.belongsTo(Subgerencia, { foreignKey: 'subgerencia_id', as: 'subgerencia' });
 
 // Programa -> TipoContratista (1:N)
 Programa.hasMany(TipoContratista, { foreignKey: 'programa_id', as: 'tiposContratista' });
@@ -92,13 +107,13 @@ Programa.hasMany(Registro, { foreignKey: 'programa_id', as: 'registros' });
 Registro.belongsTo(Dependencia, { foreignKey: 'dependencia_id', as: 'dependenciaEntidad' });
 Dependencia.hasMany(Registro, { foreignKey: 'dependencia_id', as: 'registros' });
 
-// Registro -> ContratistaAsignacion (legacy)
-Registro.belongsTo(ContratistaAsignacion, { foreignKey: 'contratista_asignacion_id', as: 'asignacion' });
-ContratistaAsignacion.hasMany(Registro, { foreignKey: 'contratista_asignacion_id', as: 'registros' });
 
 // Registro -> Vinculacion (new: FK now references vinculaciones table)
 Registro.belongsTo(Vinculacion, { foreignKey: 'contratista_asignacion_id', as: 'vinculacionEntidad' });
+Registro.belongsTo(Vinculacion, { foreignKey: 'contratista_asignacion_id', as: 'asignacion' }); // Legacy alias for backward compatibility
 Vinculacion.hasMany(Registro, { foreignKey: 'contratista_asignacion_id', as: 'registros' });
+
+
 
 // RegistroActividad -> Registro
 RegistroActividad.belongsTo(Registro, { foreignKey: 'registro_id', as: 'registro' });
@@ -149,9 +164,6 @@ Compromiso.belongsTo(User, { foreignKey: 'responsable_id', as: 'responsable' });
 // Compromiso -> User (creador)
 Compromiso.belongsTo(User, { foreignKey: 'creado_por_id', as: 'creadoPor' });
 
-// Compromiso -> ContratistaAsignacion
-// Compromiso.belongsTo(ContratistaAsignacion, { foreignKey: 'contratista_asignacion_id', as: 'asignacion' });
-// ContratistaAsignacion.hasMany(Compromiso, { foreignKey: 'contratista_asignacion_id', as: 'compromisos' });
 
 // AuditoriaComentario -> Registro
 AuditoriaComentario.belongsTo(Registro, { foreignKey: 'registro_id', as: 'registro' });
@@ -191,6 +203,8 @@ Documento.belongsTo(User, { foreignKey: 'user_id', as: 'uploader' });
 
 // ============= SPRINT 9 ASSOCIATIONS =============
 
+
+
 // Contratista -> Users (Operativos)
 Contratista.hasMany(User, { foreignKey: 'contratista_id', as: 'usuarios' });
 User.belongsTo(Contratista, { foreignKey: 'contratista_id', as: 'contratistaEntidad' });
@@ -207,6 +221,14 @@ Vinculacion.belongsTo(TipoContratista, { foreignKey: 'servicio_id', as: 'servici
 Dependencia.hasMany(Vinculacion, { foreignKey: 'dependencia_id', as: 'vinculaciones' });
 Vinculacion.belongsTo(Dependencia, { foreignKey: 'dependencia_id', as: 'dependencia' });
 
+// Vinculacion -> Subgerencia
+Subgerencia.hasMany(Vinculacion, { foreignKey: 'subgerencia_id', as: 'vinculaciones' });
+Vinculacion.belongsTo(Subgerencia, { foreignKey: 'subgerencia_id', as: 'subgerencia' });
+
+// Vinculacion -> Gerencia
+Gerencia.hasMany(Vinculacion, { foreignKey: 'gerencia_id', as: 'gerenciaVinculaciones' });
+Vinculacion.belongsTo(Gerencia, { foreignKey: 'gerencia_id', as: 'gerencia' });
+
 // Administracion -> Vinculacion
 Vinculacion.hasMany(Administracion, { foreignKey: 'vinculacion_id', as: 'administraciones' });
 Administracion.belongsTo(Vinculacion, { foreignKey: 'vinculacion_id', as: 'vinculacion' });
@@ -215,11 +237,21 @@ Administracion.belongsTo(Vinculacion, { foreignKey: 'vinculacion_id', as: 'vincu
 User.hasMany(Administracion, { foreignKey: 'administrador_contrato_id', as: 'contratosAdministrados' });
 Administracion.belongsTo(User, { foreignKey: 'administrador_contrato_id', as: 'administradorContrato' });
 
+// VinculacionUsuario -> Vinculacion
+Vinculacion.hasMany(VinculacionUsuario, { foreignKey: 'vinculacion_id', as: 'usuariosVinculados' });
+VinculacionUsuario.belongsTo(Vinculacion, { foreignKey: 'vinculacion_id', as: 'vinculacion' });
+
+// VinculacionUsuario -> User
+User.hasMany(VinculacionUsuario, { foreignKey: 'user_id', as: 'vinculacionesAsignadas' });
+VinculacionUsuario.belongsTo(User, { foreignKey: 'user_id', as: 'usuario', attributes: ['id', 'name', 'email', 'role'] });
+
 module.exports = {
     sequelize,
     // Sprint 1
     Role,
     Privilegio,
+    Gerencia,
+    Subgerencia,
     Dependencia,
     Programa,
     Configuracion,
@@ -243,5 +275,6 @@ module.exports = {
     // Sprint 9 (Refactor)
     Contratista,
     Vinculacion,
-    Administracion
+    Administracion,
+    VinculacionUsuario
 };

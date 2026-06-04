@@ -48,27 +48,18 @@ const programaController = {
                     }]
                 });
             } else if (role === 'contratista_user') {
-                const { TipoContratista, Vinculacion } = require('../database/models');
-                // Get the contractor company associated with the user
-                // req.user is a POJO from auth middleware, so we access properties directly
-                const contratistaId = req.user.contratista_id;
+                const { TipoContratista } = require('../database/models');
+                const tcId = req.user.tipo_contratista_id;
 
-                if (contratistaId) {
+                if (tcId) {
                     includeScoping.push({
                         model: TipoContratista,
                         as: 'tiposContratista',
                         attributes: [],
-                        required: true,
-                        include: [{
-                            model: Vinculacion,
-                            as: 'vinculaciones',
-                            attributes: [],
-                            where: { contratista_id: contratistaId, activo: 1 },
-                            required: true
-                        }]
+                        where: { id: tcId },
+                        required: true
                     });
                 } else {
-                    // Fallback if no company associated (shouldn't happen for valid users)
                     return res.json({ success: true, data: [] });
                 }
             }
@@ -165,6 +156,16 @@ const programaController = {
                 meta_cumplimiento,
                 activo
             });
+
+            // Automatically create a directory for its evidence templates
+            const sanitize = (str) => str.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            const programSlug = sanitize(nombre);
+            const path = require('path');
+            const fs = require('fs');
+            const templatesDir = path.join(__dirname, '../../../storage/templates_evidencia', programSlug);
+            if (!fs.existsSync(templatesDir)) {
+                fs.mkdirSync(templatesDir, { recursive: true });
+            }
 
             res.status(201).json({
                 success: true,

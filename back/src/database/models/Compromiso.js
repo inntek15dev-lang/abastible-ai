@@ -24,10 +24,7 @@ const Compromiso = sequelize.define('Compromiso', {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: false
     },
-    numero_contrato: {
-        type: DataTypes.STRING,
-        allowNull: true
-    },
+
     descripcion: {
         type: DataTypes.TEXT,
         allowNull: false
@@ -46,6 +43,14 @@ const Compromiso = sequelize.define('Compromiso', {
         allowNull: true
     },
     observacion_cumplimiento: {
+        type: DataTypes.TEXT,
+        allowNull: true
+    },
+    ruta_evidencia: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    comentario_evidencia: {
         type: DataTypes.TEXT,
         allowNull: true
     }

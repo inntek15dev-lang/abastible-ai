@@ -1,7 +1,0 @@
-﻿ID;Nombre;Empresa;Rol;Email (Login);Password
-1;Administrador OIEM;Abastible;admin;admin@abastible.cl;User123*
-2;Contratista;Transportes Demo SpA;contratista;contratista@demo.cl;User123*
-;Contratista2;Servicios Industriales Norte Ltda;contratista;contratista2@demo.cl;User123*
-4;Contratista3;Logistica Sur SpA;contratista;contratista3@demo.cl;User123*
-5;PEDRO AC;Abastible;administrador_contrato;admin.contrato1@demo.cl;User123*
-6;JUAN AC;Abastible;administrador_contrato;admin.contrato2@demo.cl;User123*

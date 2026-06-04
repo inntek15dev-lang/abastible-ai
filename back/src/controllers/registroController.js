@@ -1,5 +1,5 @@
 // IEEE Trace: REQ-002 | US-002 | registroController.js
-const { Op } = require('sequelize');
+const { Op, literal } = require('sequelize');
 const {
     Registro,
     RegistroActividad,
@@ -16,7 +16,10 @@ const {
     Hallazgo, // Import Hallazgo model
     Contratista,
     Vinculacion,
-    Administracion
+    Administracion,
+    Gerencia,
+    Subgerencia,
+    AuditoriaComentario
 } = require('../database/models');
 const emailService = require('../services/emailService'); // Import emailService
 
@@ -101,17 +104,91 @@ const registroController = {
             }
             // Admin sees all (no filter)
 
+            // hierarchy filters (Gerencia - Subgerencia)
+            const { gerencia_id, subgerencia_id, adc_id } = req.query;
+            
+            // Filtro por ADC (Administrador de Contrato)
+            if (adc_id && adc_id !== 'todos') {
+                const adminRecords = await Administracion.findAll({
+                    where: { administrador_contrato_id: adc_id, activo: 1 },
+                    attributes: ['vinculacion_id']
+                });
+                const vincIdsFromADC = adminRecords.map(a => a.vinculacion_id);
+                if (where.contratista_asignacion_id) {
+                    const existingIds = where.contratista_asignacion_id[Op.in] || [];
+                    const intersection = existingIds.filter(id => vincIdsFromADC.includes(id));
+                    where.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+                } else {
+                    where.contratista_asignacion_id = { [Op.in]: vincIdsFromADC.length > 0 ? vincIdsFromADC : [-1] };
+                }
+            }
+
+            if (subgerencia_id && subgerencia_id !== 'todas') {
+                const subVincs = await Vinculacion.findAll({
+                    where: { subgerencia_id, activo: 1 },
+                    attributes: ['id']
+                });
+                const subVincIds = subVincs.map(v => v.id);
+                if (where.contratista_asignacion_id && where.contratista_asignacion_id[Op.in]) {
+                    const currentIds = where.contratista_asignacion_id[Op.in];
+                    const intersection = currentIds.filter(id => subVincIds.includes(id));
+                    where.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+                } else {
+                    where.contratista_asignacion_id = { [Op.in]: subVincIds.length > 0 ? subVincIds : [-1] };
+                }
+            } else if (gerencia_id && gerencia_id !== 'todas') {
+                const subs = await Subgerencia.findAll({
+                    where: { gerencia_id, activo: 1 },
+                    attributes: ['id']
+                });
+                const subIds = subs.map(s => s.id);
+                const subVincs = await Vinculacion.findAll({
+                    where: { subgerencia_id: { [Op.in]: subIds.length > 0 ? subIds : [-1] }, activo: 1 },
+                    attributes: ['id']
+                });
+                const gerVincIds = subVincs.map(v => v.id);
+                if (where.contratista_asignacion_id && where.contratista_asignacion_id[Op.in]) {
+                    const currentIds = where.contratista_asignacion_id[Op.in];
+                    const intersection = currentIds.filter(id => gerVincIds.includes(id));
+                    where.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+                } else {
+                    where.contratista_asignacion_id = { [Op.in]: gerVincIds.length > 0 ? gerVincIds : [-1] };
+                }
+            }
+
+            // Filter by status if provided
+            const { estado_auditoria } = req.query;
+            if (estado_auditoria) {
+                if (estado_auditoria.includes(',')) {
+                    where.estado_auditoria = { [Op.in]: estado_auditoria.split(',') };
+                } else {
+                    where.estado_auditoria = estado_auditoria;
+                }
+            }
+
             const registros = await Registro.findAll({
+                attributes: {
+                    include: [
+                        [
+                            literal(`(
+                                SELECT COUNT(*)
+                                FROM hallazgos AS h
+                                WHERE h.registro_id = Registro.id
+                            )`),
+                            'hallazgos_count'
+                        ]
+                    ]
+                },
                 where,
                 include: [
                     { model: User, as: 'usuario', attributes: ['id', 'name', 'email', 'eecc_nombre', 'rut'] },
                     { model: User, as: 'auditor', attributes: ['id', 'name'] },
                     { model: Programa, as: 'programa', attributes: ['id', 'nombre'] },
                     {
-                        model: ContratistaAsignacion,
+                        model: Vinculacion,
                         as: 'asignacion',
                         include: [
-                            { model: TipoContratista, as: 'tipoContratista' },
+                            { model: TipoContratista, as: 'servicio' },
                             { model: Dependencia, as: 'dependencia' }
                         ]
                     },
@@ -120,7 +197,15 @@ const registroController = {
                         as: 'vinculacionEntidad',
                         include: [
                             { model: TipoContratista, as: 'servicio' },
-                            { model: Dependencia, as: 'dependencia' },
+                            { 
+                                model: Dependencia, 
+                                as: 'dependencia',
+                                include: [{
+                                    model: Subgerencia,
+                                    as: 'subgerencia',
+                                    include: [{ model: Gerencia, as: 'gerencia' }]
+                                }]
+                            },
                             {
                                 model: Administracion,
                                 as: 'administraciones',
@@ -150,10 +235,10 @@ const registroController = {
                     { model: Programa, as: 'programa', attributes: ['id', 'nombre'] },
                     { model: Vinculacion, as: 'vinculacionEntidad' },
                     {
-                        model: ContratistaAsignacion,
+                        model: Vinculacion,
                         as: 'asignacion',
                         include: [
-                            { model: TipoContratista, as: 'tipoContratista' },
+                            { model: TipoContratista, as: 'servicio' },
                             { model: Dependencia, as: 'dependencia' }
                         ]
                     },
@@ -178,7 +263,7 @@ const registroController = {
                             }
                         ]
                     },
-
+                    { model: AuditoriaComentario, as: 'comentarios' }
                 ]
             });
 
@@ -214,6 +299,8 @@ const registroController = {
             let eeccNombre = null;
             let depNombre = null;
             let depId = null;
+            let numContrato = null;
+
 
             // Accept contratista_id (company entity) from the form
             const contratistaId = req.body.contratista_id;
@@ -241,6 +328,8 @@ const registroController = {
                 }
                 depNombre = vinculacion.dependencia?.nombre || null;
                 depId = vinculacion.dependencia_id || null;
+                numContrato = vinculacion.numero_contrato || null;
+
                 if (!eeccNombre && vinculacion.contratista_id) {
                     const emp = await Contratista.findByPk(vinculacion.contratista_id);
                     eeccNombre = emp?.nombre || null;
@@ -263,18 +352,20 @@ const registroController = {
             const registro = await Registro.create({
                 user_id: targetUserId,
                 contratista_asignacion_id,
+                numero_contrato: numContrato,
+
                 programa_id: req.body.programa_id || null,
                 dependencia_id: depId || req.body.dependencia_id || null,
                 periodo,
-                eecc_nombre: eeccNombre, // Company name from Contratista entity
-                dependencia: depNombre, // From Vinculacion's Dependencia
+                eecc_nombre: eeccNombre, 
+                dependencia: depNombre, 
                 personas_nuevas,
                 supervisores,
                 prevencionistas,
                 dotacion_total,
                 porcentaje_cumplimiento: 0,
-                estado_auditoria: 'pendiente',
-                cerrado: 0,
+                estado_auditoria: req.body.cerrado === 1 ? 'auditable' : 'pendiente',
+                cerrado: req.body.cerrado === 1 ? 1 : 0,
                 auditado: 0
             });
 
@@ -331,72 +422,90 @@ const registroController = {
                 return res.status(404).json({ success: false, message: 'Registro no encontrado' });
             }
 
-            // Can't edit if already audited (unless reabierto)
-            if (['auditada'].includes(registro.estado_auditoria)) {
+            // Can't edit if already audited (unless in creation or subsanation phase)
+            // Contractors only allowed in 'pendiente' or 'pendiente_subsanacion'
+            const isContractor = ['contratista_admin', 'contratista_user'].includes(req.user.role);
+            if (isContractor && !['pendiente', 'pendiente_subsanacion'].includes(registro.estado_auditoria)) {
                 return res.status(403).json({
                     success: false,
-                    message: 'No se puede editar un registro auditado'
+                    message: 'No se puede editar el registro en el estado actual'
+                });
+            }
+
+            if (['auditada', 'finalizado'].includes(registro.estado_auditoria) && !isContractor) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'No se puede editar un registro finalizado'
                 });
             }
 
             const oldData = registro.toJSON();
             const { actividades, terminar_subsanacion, ...registroData } = req.body;
 
-            // Transition to 'subsanado' if requested by contractor after reopening
-            if (terminar_subsanacion && registro.estado_auditoria === 'reabierto') {
+            // Transition logic based on action (PARKO)
+            if (terminar_subsanacion) {
                 registroData.estado_auditoria = 'subsanado';
+                registroData.cerrado = 1;
+            } else if (registroData.cerrado === 1 && oldData.cerrado === 0) {
+                registroData.estado_auditoria = 'auditable';
+            } else if (registro.estado_auditoria === 'pendiente_subsanacion') {
+                // Keep in pendiente_subsanacion if just saving draft
+                registroData.estado_auditoria = 'pendiente_subsanacion';
             }
 
-            // CHECK: Mandatory Evidence before closing
-            if (registroData.cerrado === 1 && oldData.cerrado === 0) {
-                // Get mandatory activities for this schema/program
-                // Since activities are dynamic per registro (copied to RegistroActividad), we check those.
-                // But wait, RegistroActividad doesn't have 'requiere_evidencia' flag, it comes from Actividad.
-
-                const actividadesRequeridas = await RegistroActividad.findAll({
+            // CHECK: Mandatory Evidence before closing OR Finishing Subsanacion (PARKO)
+            if ((registroData.cerrado === 1 && oldData.cerrado === 0) || 
+                (registroData.estado_auditoria === 'subsanado' && oldData.estado_auditoria !== 'subsanado')) {
+                
+                // Get all current activities for this registration
+                const currentActividades = await RegistroActividad.findAll({
                     where: { registro_id: registro.id },
-                    include: [{
-                        model: Actividad,
-                        as: 'actividad',
-                        where: { requiere_evidencia: 1 }
-                    }]
+                    include: [{ model: Actividad, as: 'actividad' }]
                 });
 
-                if (actividadesRequeridas.length > 0) {
-                    // Check if evidences exist for these activities OR generic evidences for the registro?
-                    // Rule says "Evidencia obligatoria para todas las actividades". 
-                    // Let's check if we have evidences linked to specific activities or if generic evidence is enough?
-                    // Strict interpretation: An evidence must be linked to the activity (actividad_id).
-                    // OR: At least one evidence for the registry if "evidencia_obligatoria" config is global.
-                    // Let's implement Strict: Specific evidence for specific activity.
+                // Identify those that require evidence and are marked as "Cumple"
+                const reqActividades = currentActividades.filter(ra => 
+                    (ra.cumple === 1 || ra.cumple === true) && 
+                    ra.actividad?.requiere_evidencia
+                );
 
-                    // Get evidences for this registro
+                if (reqActividades.length > 0) {
+                    const raIds = reqActividades.map(a => a.id);
                     const evidencias = await Evidencia.findAll({
-                        where: { registro_id: registro.id }
+                        where: { registro_actividad_id: { [Op.in]: raIds } },
+                        attributes: ['registro_actividad_id']
                     });
+                    const raIdsWithEvidence = evidencias.map(e => e.registro_actividad_id);
+                    const missing = reqActividades.filter(ra => !raIdsWithEvidence.includes(ra.id));
 
-                    // Map activity_ids covered by evidences
-                    const coveredActivityIds = evidencias
-                        .map(e => e.actividad_id)
-                        .filter(id => id !== null);
-
-                    const missingActivities = actividadesRequeridas.filter(ra => !coveredActivityIds.includes(ra.actividad_id));
-
-                    // Also check if RegistroActividad table has 'evidencia_url' usage (legacy?)
-                    // If your system uses 'Evidencia' model, strictly check that.
-
-                    if (missingActivities.length > 0) {
+                    if (missing.length > 0) {
+                        const codigos = missing.map(m => m.actividad?.codigo).join(', ');
+                        const context = registroData.estado_auditoria === 'subsanado' ? 'enviar la subsanación' : 'cerrar el registro';
                         return res.status(400).json({
                             success: false,
-                            message: `Faltan evidencias para actividades obligatorias: ${missingActivities.map(a => a.actividad.codigo).join(', ')}`
+                            message: `⚠️ No se puede ${context}: Faltan evidencias obligatorias para las actividades [${codigos}]. Por favor, adjunte los documentos requeridos antes de finalizar.`
                         });
                     }
                 }
 
-                // Notify Auditor (Simulated: Send to generic auditor or fetch based on assignment if possible)
-                // For MVP, we send to a fixed auditor email or admin
-                console.log(`[MOCK EMAIL] Registro Enviado/Cerrado: ${registro.periodo}`);
-                await emailService.notifyRegistroEnviado(registro, 'ana.auditora@abastible.cl');
+                // Notify Auditor (PARKO)
+                try {
+                    const admins = await Administracion.findAll({
+                        where: { vinculacion_id: registro.contratista_asignacion_id, activo: 1 },
+                        include: [{ model: User, as: 'administradorContrato', attributes: ['email'] }]
+                    });
+                    const adminEmails = admins.map(a => a.administradorContrato?.email).filter(Boolean);
+
+                    if (adminEmails.length > 0) {
+                        if (registroData.estado_auditoria === 'subsanado') {
+                            await emailService.notifySubsanacionEnviada(registro, adminEmails);
+                        } else {
+                            await emailService.notifyRegistroEnviado(registro, adminEmails);
+                        }
+                    }
+                } catch (emailErr) {
+                    console.error('Error sending notification emails:', emailErr);
+                }
             }
 
             await registro.update(registroData);
@@ -404,6 +513,27 @@ const registroController = {
             // Update actividades if provided
             if (actividades && actividades.length > 0) {
                 for (const act of actividades) {
+                    // PARKO Validation: If setting to "Cumple" and requires evidence, check presence
+                    if (act.cumple === true || act.cumple === 1) {
+                        const baseAct = await Actividad.findByPk(act.actividad_id);
+                        if (baseAct && baseAct.requiere_evidencia) {
+                            // Check if there are ALREADY evidences for this RA
+                            // If act.id is null (new RA during update?), then it definitely has no evidence yet.
+                            let evidenceExists = false;
+                            if (act.id) {
+                                const count = await Evidencia.count({ where: { registro_actividad_id: act.id } });
+                                evidenceExists = count > 0;
+                            }
+
+                            if (!evidenceExists) {
+                                return res.status(400).json({
+                                    success: false,
+                                    message: `La actividad ${baseAct.codigo} requiere evidencia para ser marcada como "Cumple".`
+                                });
+                            }
+                        }
+                    }
+
                     if (act.id) {
                         await RegistroActividad.update(act, { where: { id: act.id } });
                     } else {

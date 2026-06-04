@@ -1,0 +1,91 @@
+/* 
+  Abastible Platform - Tutorial Theme 
+  IEEE Trace: REQ-TUT-001 | Premium Theme Mode
+*/
+
+.theme_mode_tutorial .driver-popover {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(254, 80, 0, 0.2);
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    padding: 24px;
+    max-width: 400px;
+    font-family: 'Inter', sans-serif;
+}
+
+.theme_mode_tutorial .driver-popover-title {
+    color: #003594; /* Abastible Blue */
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+}
+
+.theme_mode_tutorial .driver-popover-description {
+    color: #4b5563;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.theme_mode_tutorial .driver-popover-footer {
+    border-top: 1px solid #f3f4f6;
+    margin-top: 16px;
+    padding-top: 16px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.theme_mode_tutorial .driver-popover-next-btn {
+    background: #fe5000 !important; /* Abastible Orange */
+    color: white !important;
+    text-shadow: none !important;
+    border: none !important;
+    padding: 8px 20px !important;
+    border-radius: 8px !important;
+    transition: all 0.2s;
+    font-weight: 600 !important;
+}
+
+.theme_mode_tutorial .driver-popover-next-btn:hover {
+    background: #e64a00 !important;
+    transform: translateY(-1px);
+}
+
+.theme_mode_tutorial .driver-popover-prev-btn {
+    color: #6b7280 !important;
+    border: 1px solid #e5e7eb !important;
+    background: white !important;
+    border-radius: 8px !important;
+    padding: 8px 16px !important;
+}
+
+/* The highlight stage */
+.theme_mode_tutorial .driver-stage {
+    outline: 4px solid #fe5000 !important;
+    outline-offset: 4px;
+    border-radius: 8px;
+    box-shadow: 0 0 0 9999px rgba(0, 53, 148, 0.6) !important; /* Blue deep overlay */
+}
+
+/* Specialized Video Capsule Styles */
+.video-capsule-container {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+    aspect-ratio: 16/9;
+}
+
+.video-capsule-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(254, 80, 0, 0.9);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 100px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    z-index: 10;
+}

@@ -1,343 +1,176 @@
 [
     {
-        "id": "dashboard-tour-user",
-        "title": "Conociendo el Dashboard",
+        "id": "recorrido-dashboard",
+        "title": "Explorando su Panel de Control",
         "role": "contratista_user",
         "module": "Inicio",
         "startUrl": "/",
-        "description": "Recorrido por los indicadores principales de su gestión.",
+        "description": "Descubra cómo interpretar sus KPIs de cumplimiento y gestionar sus tareas pendientes.",
         "steps": [
             {
                 "element": "#kpi-card-0",
                 "popover": {
                     "title": "Registros Pendientes",
-                    "description": "Cantidad de registros que requieren su atención inmediata."
+                    "description": "Aquí verá cuántos registros aún no ha enviado para revisión este mes.",
+                    "side": "bottom",
+                    "align": "start"
                 }
             },
             {
-                "element": "#kpi-card-1",
+                "element": "#btn-tab-registros",
                 "popover": {
-                    "title": "% Auditados",
-                    "description": "Porcentaje de registros que ya han sido revisados, en terreno o sistema."
-                }
-            },
-            {
-                "element": "#kpi-card-2",
-                "popover": {
-                    "title": "Evidencias",
-                    "description": "Cantidad total de documentos y fotos subidas este periodo."
-                }
-            }
-        ]
-    },
-    {
-        "id": "crear-registro-contratista",
-        "title": "Crear Nuevo Registro Mensual",
-        "role": "contratista_admin",
-        "module": "Gestión de Registros",
-        "startUrl": "/registros",
-        "description": "Guía paso a paso para crear un nuevo registro de cumplimiento mensual.",
-        "steps": [
-            {
-                "element": "#btn-nuevo-registro",
-                "popover": {
-                    "title": "Iniciar Nuevo Registro",
-                    "description": "Haga clic aquí para comenzar un nuevo registro de cumplimiento para el mes actual.",
-                    "side": "bottom"
-                }
-            },
-            {
-                "element": "#select-servicio",
-                "popover": {
-                    "title": "Seleccionar Servicio",
-                    "description": "Elija el contrato o servicio asociado a este registro.",
-                    "side": "right"
-                }
-            },
-            {
-                "element": "#select-dependencia",
-                "popover": {
-                    "title": "Seleccionar Dependencia",
-                    "description": "Indique la instalación o dependencia donde se prestó el servicio.",
-                    "side": "right"
-                }
-            },
-            {
-                "element": "#btn-guardar-registro",
-                "popover": {
-                    "title": "Crear Borrador",
-                    "description": "Guarde la información inicial para generar el registro y comenzar a cargar evidencias.",
+                    "title": "Acceso Rápido",
+                    "description": "Utilice estas pestañas para navegar rápidamente entre sus registros y planes de acción.",
                     "side": "top"
                 }
             }
         ]
     },
     {
-        "id": "carga-evidencias",
-        "title": "Carga de Evidencias",
-        "role": "contratista_admin",
+        "id": "creacion-registro-completo",
+        "title": "Flujo de Creación: Desde el Dashboard al Envío",
+        "role": "contratista_user",
         "module": "Gestión de Registros",
-        "startUrl": "/registros",
-        "description": "Cómo subir documentos obligatorios para validar sus actividades.",
+        "startUrl": "/",
+        "description": "Aprenda el flujo completo de generación de un registro mensual, carga de evidencias y envío a auditoría.",
         "steps": [
             {
-                "element": ">> row-status:pendiente .tutorial-btn-editar",
+                "element": "#btn-tab-registros",
                 "popover": {
-                    "title": "Editar Registro",
-                    "description": "Seleccione un registro pendiente para ingresar y cargar evidencias."
+                    "title": "Ir a Registros",
+                    "description": "Primero, navegaremos a la sección de registros para crear uno nuevo.",
+                    "side": "bottom"
                 }
             },
             {
-                "element": ".tutorial-evidence-section",
+                "element": "#btn-nuevo-registro",
                 "popover": {
-                    "title": "Sección de Evidencias",
-                    "description": "Aquí puede subir fotos o documentos. Recuerde que si la actividad lo requiere (*), es obligatorio."
+                    "title": "Nuevo Registro",
+                    "description": "Haga clic aquí para iniciar el proceso de declaración mensual.",
+                    "side": "left"
                 }
             },
             {
-                "element": "#btn-save-registro",
+                "element": "#form-assignment",
                 "popover": {
-                    "title": "Guardar Cambios",
-                    "description": "No olvide guardar el registro para que las evidencias queden registradas en el sistema."
+                    "title": "Seleccionar Asignación",
+                    "description": "Elija la vinculación (Contrato/Servicio/Dependencia) a la que corresponde este registro.",
+                    "side": "bottom"
+                }
+            },
+            {
+                "element": "#form-dotacion-total",
+                "popover": {
+                    "title": "Ingresar Dotación",
+                    "description": "Indique la cantidad total de personas que trabajaron en este servicio durante el mes.",
+                    "side": "right"
+                }
+            },
+            {
+                "element": "#btn-save-draft",
+                "popover": {
+                    "title": "Guardar Borrador",
+                    "description": "Guarde sus cambios iniciales. Esto habilitará la carga de evidencias en las actividades inferiores.",
+                    "side": "top"
+                }
+            },
+            {
+                "element": "#btn-send-review",
+                "popover": {
+                    "title": "Finalizar y Enviar",
+                    "description": "Una vez cargadas todas las evidencias requeridas (*), presione este botón para enviar el registro al Auditor.",
+                    "side": "top"
                 }
             }
         ]
     },
     {
-        "id": "solicitud-reapertura",
-        "title": "Solicitar Reapertura",
-        "role": "contratista_admin",
-        "module": "Solicitudes",
+        "id": "auditoria-paso-a-paso",
+        "title": "Ciclo de Auditoría (Administrador)",
+        "role": "administrador_contrato",
+        "module": "Auditoría",
         "startUrl": "/registros",
-        "description": "Qué hacer si su registro fue cerrado pero necesita corregir algo.",
+        "description": "Guía para Administradores de Contrato: Cómo realizar la auditoría, levantar hallazgos y finalizar el proceso.",
         "steps": [
             {
                 "element": "#filter-status",
                 "popover": {
-                    "title": "Buscar Registro",
-                    "description": "Filtre por 'Cerrado' o 'Auditado' para encontrar registros antiguos."
+                    "title": "Filtrar por Estado",
+                    "description": "Para auditar, buscaremos los registros que están en estado 'Pendiente'.",
+                    "side": "bottom"
                 }
             },
             {
-                "element": ">> row-status:auditada .tutorial-btn-reabrir",
+                "element": ">> [id^='btn-audit-']",
                 "popover": {
-                    "title": "Solicitar Reapertura",
-                    "description": "Este botón permite enviar una solicitud al administrador para volver a editar el registro."
-                }
-            },
-            {
-                "element": "#reapertura-motivo",
-                "popover": {
-                    "title": "Justificación",
-                    "description": "Explique claramente por qué necesita abrir nuevamente el registro (ej. 'Faltó subir un documento')."
-                },
-                "action": {
-                    "type": "input",
-                    "value": "Solicito reapertura para corregir documento erróneo."
-                }
-            },
-            {
-                "element": "#btn-enviar-reapertura",
-                "popover": {
-                    "title": "Enviar Solicitud",
-                    "description": "El administrador recibirá su petición y le notificará si es aprobada o rechazada."
-                }
-            }
-        ]
-    },
-    {
-        "id": "gestion-programas",
-        "title": "Gestión de Programas de Auditoría",
-        "role": "admin",
-        "module": "Programas",
-        "startUrl": "/programas",
-        "description": "Cómo crear y configurar programas de auditoría.",
-        "steps": [
-            {
-                "element": ".page-header",
-                "popover": {
-                    "title": "Gestión de Programas",
-                    "description": "Aquí puede ver todos los programas de auditoría vigentes."
-                }
-            },
-            {
-                "element": "#btn-new-program",
-                "popover": {
-                    "title": "Crear Programa",
-                    "description": "Use este botón para definir un nuevo estándar o programa de cumplimiento."
-                }
-            },
-            {
-                "element": ".program-card",
-                "popover": {
-                    "title": "Tarjeta de Programa",
-                    "description": "Cada tarjeta muestra el estado y configuración general del programa."
-                }
-            },
-            {
-                "element": ".btn-view-elements",
-                "popover": {
-                    "title": "Ver Elementos",
-                    "description": "Haga clic aquí para configurar los Elementos y Actividades específicas de este programa."
-                }
-            }
-        ]
-    },
-    {
-        "id": "gestion-elementos",
-        "title": "Configuración de Elementos y Actividades",
-        "role": "admin",
-        "module": "Programas",
-        "//comment": "This tutorial assumes user is inside ElementoList",
-        "description": "Cómo agregar estructura (elementos y actividades) a un programa.",
-        "steps": [
-            {
-                "element": ".btn-new-element",
-                "popover": {
-                    "title": "Nuevo Elemento",
-                    "description": "Cree un agrupador o categoría principal para sus actividades (ej. 'Seguridad Laboral')."
-                }
-            },
-            {
-                "element": ".element-container",
-                "popover": {
-                    "title": "Elemento",
-                    "description": "Aquí verá el desglose del elemento creado."
-                }
-            },
-            {
-                "element": ".btn-add-activity",
-                "popover": {
-                    "title": "Agregar Actividad",
-                    "description": "Defina las tareas específicas que el contratista debe cumplir y evidenciar."
-                }
-            },
-            {
-                "element": ".activities-table",
-                "popover": {
-                    "title": "Tabla de Actividades",
-                    "description": "Revise códigos, descripciones y si requieren evidencia obligatoria."
-                }
-            }
-        ]
-    },
-    {
-        "id": "gestion-contratistas",
-        "title": "Gestión de Empresas Contratistas",
-        "role": "admin",
-        "module": "Contratistas",
-        "startUrl": "/contratistas",
-        "description": "Administración de empresas, servicios y administradores de contrato.",
-        "steps": [
-            {
-                "element": "#btn-sync-contractors",
-                "popover": {
-                    "title": "Sincronizar",
-                    "description": "Importe o actualice la lista de contratistas desde fuentes externas si está configurado."
-                }
-            },
-            {
-                "element": "#btn-new-contractor",
-                "popover": {
-                    "title": "Crear Contratista",
-                    "description": "Registre manualmente una nueva empresa contratista."
-                }
-            },
-            {
-                "element": ".contratista-card",
-                "popover": {
-                    "title": "Ficha de Contratista",
-                    "description": "Vea la información básica, RUT y estado."
-                }
-            },
-            {
-                "element": ".action-btn",
-                "popover": {
-                    "title": "Ver Vinculaciones",
-                    "description": "Despliegue para asignar Servicios, Dependencias y Administradores de Contrato."
-                }
-            }
-        ]
-    },
-    {
-        "id": "auditar-registro",
-        "title": "Auditoría de Registro Mensual",
-        "role": "administrador_contrato",
-        "module": "Auditoría",
-        "startUrl": "/registros",
-        "description": "Flujo completo para validar el cumplimiento de un contratista.",
-        "steps": [
-            {
-                "element": ">> row-status:pendiente .tutorial-btn-editar",
-                "popover": {
-                    "title": "Iniciar Auditoría",
-                    "description": "Seleccione un registro en estado 'Pendiente' para comenzar la revisión."
+                    "title": "Comenzar Auditoría",
+                    "description": "Seleccione el registro que desea revisar haciendo clic en 'Auditar'.",
+                    "side": "left"
                 }
             },
             {
                 "element": "#btn-iniciar-auditoria",
                 "popover": {
-                    "title": "Confirmar Inicio",
-                    "description": "Al iniciar, el registro cambiará a estado 'Auditando' y el contratista no podrá hacer cambios."
+                    "title": "Iniciar Proceso",
+                    "description": "Al iniciar la auditoría, el registro se bloquea para el contratista.",
+                    "side": "bottom"
                 }
             },
             {
-                "element": ".audit-section",
+                "element": ">> [id^='btn-cumple-']",
                 "popover": {
-                    "title": "Zona de Auditoría",
-                    "description": "Aquí puede marcar Cumple/No Cumple y dejar observaciones para cada actividad."
+                    "title": "Validar Actividad",
+                    "description": "Revise la evidencia del contratista y marque 'Cumple' o 'No Cumple' según corresponda.",
+                    "side": "right"
                 }
             },
             {
-                "element": "#btn-add-hallazgo",
+                "element": "#audit-comentario-general",
                 "popover": {
-                    "title": "Levantar Hallazgo",
-                    "description": "Si detecta incumplimientos, agregue un hallazgo formal para seguimiento."
+                    "title": "Observaciones Generales",
+                    "description": "Deje un resumen del desempeño general del contratista en este periodo.",
+                    "side": "top"
                 }
             },
             {
-                "element": "#btn-save-registro",
+                "element": "#btn-finalizar-auditoria",
                 "popover": {
-                    "title": "Guardar Avance/Finalizar",
-                    "description": "Guarde sus observaciones y cambie el estado del registro a 'Auditada' o 'Rechazada'."
+                    "title": "Cerrar Auditoría",
+                    "description": "Finalice el proceso. Si hubo incumplimientos, el registro pasará a estado 'Auditado' con hallazgos pendientes.",
+                    "side": "top"
                 }
             }
         ]
     },
     {
-        "id": "generacion-reportes",
-        "title": "Generación de Reportes",
-        "role": "admin",
-        "module": "Reportes",
-        "startUrl": "/reportes",
-        "description": "Cómo consultar y exportar datos de cumplimiento.",
+        "id": "subsanacion-contratista",
+        "title": "Proceso de Subsanación",
+        "role": "contratista_user",
+        "module": "Gestión de Registros",
+        "startUrl": "/registros",
         "steps": [
             {
-                "element": "#filter-periodo-report",
+                "element": "#filter-status",
                 "popover": {
-                    "title": "Seleccionar Periodo",
-                    "description": "Elija el mes y año que desea analizar."
+                    "title": "Ver Reabiertos",
+                    "description": "Filtre para ver los registros 'Reabiertos' que requieren correcciones.",
+                    "side": "bottom"
                 }
             },
             {
-                "element": "#report-card-compliance",
+                "element": ">> [id^='btn-edit-']",
                 "popover": {
-                    "title": "Gráficos de Cumplimiento",
-                    "description": "Visualice el desempeño por elemento del programa."
+                    "title": "Corregir Registro",
+                    "description": "Haga clic en editar para subir la nueva evidencia o corregir lo solicitado por el auditor.",
+                    "side": "left"
                 }
             },
             {
-                "element": "#btn-export-excel",
+                "element": "#btn-end-subsanacion",
                 "popover": {
-                    "title": "Exportar Excel",
-                    "description": "Descargue la data cruda para análisis detallados."
-                }
-            },
-            {
-                "element": "#btn-export-pdf",
-                "popover": {
-                    "title": "Exportar PDF",
-                    "description": "Genere un informe ejecutivo listo para imprimir o compartir."
+                    "title": "Finalizar Subsanación",
+                    "description": "Una vez corregido, notifique al auditor que el registro está listo para ser revisado nuevamente.",
+                    "side": "top"
                 }
             }
         ]

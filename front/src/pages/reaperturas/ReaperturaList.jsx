@@ -19,6 +19,7 @@ export default function ReaperturaList() {
     const [selectedSolicitud, setSelectedSolicitud] = useState(null);
     const [actionType, setActionType] = useState(null); // 'aprobar' | 'rechazar'
     const [actionReason, setActionReason] = useState('');
+    const [fechaLimite, setFechaLimite] = useState('');
 
     const isAdmin = ['admin', 'administrador_contrato'].includes(user?.role);
 
@@ -44,6 +45,7 @@ export default function ReaperturaList() {
         setSelectedSolicitud(solicitud);
         setActionType(type);
         setActionReason('');
+        setFechaLimite('');
         setModalOpen(true);
     };
 
@@ -55,7 +57,10 @@ export default function ReaperturaList() {
 
         try {
             const endpoint = `/reaperturas/${selectedSolicitud.id}/${actionType}`;
-            await api.put(endpoint, { respuesta: actionReason });
+            await api.put(endpoint, { 
+                respuesta: actionReason,
+                fecha_limite: actionType === 'aprobar' ? fechaLimite : undefined
+            });
             setModalOpen(false);
             fetchSolicitudes();
         } catch (err) {
@@ -120,7 +125,7 @@ export default function ReaperturaList() {
                                     <td>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                             {getEstadoIcon(s.estado)}
-                                            <span className={`badge ${s.estado}`}>{s.estado}</span>
+                                            <span className={`badge ${s.estado}`}>{s.estado === 'pendiente' ? 'Reapertura Solicitada' : s.estado}</span>
                                         </div>
                                     </td>
                                     <td>
@@ -180,7 +185,7 @@ export default function ReaperturaList() {
                     {actionType === 'rechazar' && (
                         <div className="bg-red-50 text-red-700 p-3 rounded-md flex items-center gap-2 text-sm">
                             <AlertTriangle size={16} />
-                            <span>Esta acción es irreversible. El contratista deberá corregir y volver a enviar.</span>
+                            <span>Esta acción es irreversible. El registro quedará en estado "Finalizado" y no podrá ser modificado.</span>
                         </div>
                     )}
 
@@ -198,6 +203,25 @@ export default function ReaperturaList() {
                         value={actionReason}
                         onChange={(e) => setActionReason(e.target.value)}
                     />
+
+                    {actionType === 'aprobar' && (
+                        <div className="form-group mt-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <Calendar size={14} className="inline mr-1" />
+                                Fecha Límite de Subsanación (Opcional)
+                            </label>
+                            <input
+                                type="date"
+                                className="form-control"
+                                value={fechaLimite}
+                                onChange={(e) => setFechaLimite(e.target.value)}
+                                min={new Date().toISOString().split('T')[0]}
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                                Define el plazo máximo para que el contratista corrija sus hallazgos.
+                            </p>
+                        </div>
+                    )}
 
                     <div className="flex justify-end gap-2 mt-4">
                         <button

@@ -1,4 +1,4 @@
-﻿// IEEE Trace: REQ-007 | US-051 | config/navigation.js
+// IEEE Trace: REQ-007 | US-051 | config/navigation.js
 import {
     Home,
     FileText,
@@ -12,7 +12,9 @@ import {
     Search,
     Building,
     BookOpen,
-    Link
+    Link,
+    AlertTriangle,
+    DollarSign
 } from 'lucide-react';
 
 export const MODULES = [
@@ -25,18 +27,37 @@ export const MODULES = [
         color: '#3B82F6' // Blue (Tailwind blue-500)
     },
     {
-        id: 'matriz_cumplimiento',
-        label: 'Matriz',
-        path: '/reportes/cumplimiento',
-        icon: Building, // Using Building icon as before
-        module: 'Reportes', // Keep same permission module
-        color: '#8B5CF6' // Purple
+        id: 'oval',
+        label: 'OVAL',
+        icon: DollarSign,
+        color: '#6366F1', // Indigo
+        module: 'OVAL',
+        path: '/oval/billing'
+    },
+    {
+        id: 'pendientes',
+        label: 'Pendientes',
+        path: '/pendientes',
+        icon: AlertTriangle,
+        module: 'Dashboard',
+        color: '#EF4444' // Red
+    },
+    {
+        id: 'reportes',
+        label: 'Reportes',
+        icon: FileText,
+        color: '#10B981', // Emerald
+        module: 'Reportes',
+        items: [
+            { path: '/reportes/cumplimiento', label: 'Matriz de Cumplimiento', icon: Building, module: 'Reportes' },
+            { path: '/reportes', label: 'Reportes Consolidados', icon: FileText, module: 'Reportes' }
+        ]
     },
     {
         id: 'operaciones',
         label: 'Operaciones',
         icon: FileText,
-        color: '#F97316', // Orange (Tailwind orange-500)
+        color: '#fe5000', // Abastible Orange
         module: 'Registros', // General check for the module
         items: [
             { path: '/registros', label: 'Registros y Cumplimiento', icon: FileText, module: 'Registros' },
@@ -46,26 +67,16 @@ export const MODULES = [
     },
 
     {
-        id: 'mi-programa',
-        label: 'Mi Programa',
-        icon: FolderOpen,
-        color: '#8B5CF6',
-        path: '/programas',
-        module: 'Programas'
-    },
-    {
         id: 'configuracion',
         label: 'Configuración',
         icon: Settings,
         color: '#8B5CF6', // Purple (Tailwind violet-500)
         module: 'Gestion_Configuracion',
         items: [
-            { path: '/programas', label: 'Programas y Estándares', icon: FolderOpen, module: 'Gestion_Configuracion' },
+            { path: '/programas', label: 'Programas y Estándares', icon: FolderOpen, module: 'Programas' },
             { path: '/contratistas', label: 'Empresas Contratistas', icon: Building, module: 'Gestion_Configuracion' },
-
-            // { path: '/vinculaciones', label: 'Vinculaciones', icon: Link, module: 'Vinculaciones' }, // REMOVED (Managed via Contratistas)
             { path: '/dependencias', label: 'Dependencias y Plantas', icon: Building, module: 'Gestion_Configuracion' },
-            { path: '/servicios', label: 'Servicios y Tipos', icon: Settings, module: 'Gestion_Configuracion' }
+            { path: '/servicios', label: 'Gerencias, Subgerencias y Servicios', icon: Settings, module: 'Gestion_Configuracion' }
         ]
     },
     {
@@ -111,8 +122,16 @@ export function getVisibleModules(canRead) {
         let visibleItems = [];
         if (module.items) {
             visibleItems = module.items.filter(item => {
-                // If item has a specific module requirement, check it
-                return item.module ? canRead(item.module) : true;
+                // 1. Check module permission
+                if (item.module && !canRead(item.module)) return false;
+
+                // 2. Check role restriction (Sprint 5)
+                if (item.restrictedTo) {
+                    const user = JSON.parse(localStorage.getItem('user')) || {};
+                    if (!item.restrictedTo.includes(user.role)) return false;
+                }
+
+                return true;
             });
 
             // If no items are visible, don't show the module

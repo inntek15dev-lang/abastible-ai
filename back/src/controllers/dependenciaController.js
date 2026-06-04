@@ -39,14 +39,15 @@ const dependenciaController = {
     // POST /api/dependencias
     async store(req, res) {
         try {
-            const { nombre, activo } = req.body;
+            const { nombre, activo, nivel_faena } = req.body;
             if (!nombre) {
                 return res.status(400).json({ success: false, message: 'El nombre es obligatorio' });
             }
 
             const dependencia = await Dependencia.create({
                 nombre,
-                activo: activo !== undefined ? activo : 1
+                activo: activo !== undefined ? activo : 1,
+                nivel_faena
             });
 
             res.status(201).json({ success: true, data: dependencia });
@@ -64,10 +65,11 @@ const dependenciaController = {
                 return res.status(404).json({ success: false, message: 'Dependencia no encontrada' });
             }
 
-            const { nombre, activo } = req.body;
+            const { nombre, activo, nivel_faena } = req.body;
             await dependencia.update({
                 nombre: nombre || dependencia.nombre,
-                activo: activo !== undefined ? activo : dependencia.activo
+                activo: activo !== undefined ? activo : dependencia.activo,
+                nivel_faena: nivel_faena !== undefined ? nivel_faena : dependencia.nivel_faena
             });
 
             res.json({ success: true, data: dependencia });

@@ -10,7 +10,8 @@ export default function VinculacionList() {
     const [vinculaciones, setVinculaciones] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const { canWrite, canExec } = useAuth();
+    const { user, canWrite, canExec } = useAuth();
+    const isADC = user?.role === 'administrador_contrato';
 
     // Filters
     const [filterService, setFilterService] = useState('Todos');
@@ -75,14 +76,7 @@ export default function VinculacionList() {
                             Asignación de Servicios y Dependencias a Contratistas.
                         </p>
                     </div>
-                    {canWrite('Vinculaciones') && (
-                        <div className="flex gap-2">
-                            {/* Assuming Modal implementation or Link to Form page */}
-                            <Link to="/vinculaciones/new" className="btn-primary flex items-center gap-2">
-                                <Plus size={18} /> Nueva Vinculación
-                            </Link>
-                        </div>
-                    )}
+
                 </div>
             </header>
 
@@ -196,12 +190,12 @@ export default function VinculacionList() {
                                     </td>
                                     <td className="actions-cell">
                                         <div className="flex justify-end gap-1">
-                                            {canWrite('Vinculaciones') && (
+                                            {canWrite('Vinculaciones') && !isADC && (
                                                 <button className="btn-icon" title="Editar">
                                                     <Edit size={16} />
                                                 </button>
                                             )}
-                                            {canExec('Vinculaciones') && (
+                                            {canExec('Vinculaciones') && !isADC && (
                                                 <button onClick={() => handleDelete(v.id)} className="btn-icon danger" title="Eliminar">
                                                     <Trash2 size={16} />
                                                 </button>

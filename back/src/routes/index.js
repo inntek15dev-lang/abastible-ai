@@ -88,6 +88,38 @@ const compromisoController = require('../controllers/compromisoController');
  */
 router.post('/auth/login', authController.login);
 
+/**
+ * @swagger
+ * /auth/login-external:
+ *   post:
+ *     summary: Authenticate user via external SSO token
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: External SSO token to be validated
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/LoginResponse'
+ *       400:
+ *         description: Token is missing
+ *       401:
+ *         description: Invalid or expired token, or user disabled
+ */
+router.post('/auth/login-external', authController.loginExternal);
+
 // ============= PROTECTED ROUTES =============
 
 // Auth
@@ -343,6 +375,48 @@ router.delete('/registros/:id', auth, requirePrivilege('Registros', 'excec'), re
  *     responses:
  *       200:
  *         description: Audit finalized
+ *       400:
+ *         description: Missing mandatory evidence
+ *
+ * /registros/{id}/iniciar-revision:
+ *   post:
+ *     summary: Start review process for a subsanated register
+ *     tags: [Auditoria]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Review started
+ *
+ * /registros/{id}/finalizar-revision:
+ *   post:
+ *     summary: Finalize the review of a subsanation
+ *     tags: [Auditoria]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               comentario_general:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Review finalized and register set to FINALIZADO
  *
  * /registros/{id}/comentarios:
  *   post:
@@ -370,6 +444,7 @@ router.delete('/registros/:id', auth, requirePrivilege('Registros', 'excec'), re
  */
 router.post('/registros/:id/auditar', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.iniciarAuditoria);
 router.put('/registros/:id/actividades/:actividadId/auditar', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.auditarActividad);
+router.put('/registros/:id/guardar-avance-auditoria', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.guardarAvance);
 router.post('/registros/:id/finalizar-auditoria', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.finalizarAuditoria);
 router.post('/registros/:id/iniciar-revision', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.iniciarRevision);
 router.post('/registros/:id/finalizar-revision', auth, requirePrivilege('Auditoria', 'write'), auditoriaController.finalizarRevision);
@@ -408,6 +483,7 @@ router.post('/registros/:id/comentarios', auth, auditoriaController.agregarComen
  *         description: List of evidences
  */
 router.get('/evidencias', auth, evidenciaController.index);
+router.get('/evidencias/bulk-download', auth, evidenciaController.downloadSelected);
 router.post('/evidencias', auth, upload.single('archivo'), evidenciaController.store);
 router.get('/evidencias/:id/download', auth, evidenciaController.download);
 router.delete('/evidencias/:id', auth, requirePrivilege('Evidencias', 'excec'), evidenciaController.destroy);
@@ -456,7 +532,71 @@ router.get('/compromisos', auth, compromisoController.index);
 router.get('/compromisos/:id', auth, compromisoController.show);
 router.post('/compromisos', auth, requirePrivilege('Compromisos', 'write'), compromisoController.store);
 router.put('/compromisos/:id', auth, requirePrivilege('Compromisos', 'write'), compromisoController.update);
-router.patch('/compromisos/:id/cumplir', auth, compromisoController.cumplir);
+/**
+ * @swagger
+ * /compromisos/{id}/cumplir:
+ *   patch:
+ *     summary: Mark commitment as completed with optional evidence file and comment (Admin/Admin Contrato only)
+ *     description: Restricts the completion marking to admin and administrador_contrato roles. Other roles will be rejected.
+ *     tags: [Compromisos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               evidencia:
+ *                 type: string
+ *                 format: binary
+ *               comentario_evidencia:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Commitment marked as completed
+ *       403:
+ *         description: Unauthorized role
+ */
+router.patch('/compromisos/:id/cumplir', auth, upload.single('evidencia'), compromisoController.cumplir);
+
+/**
+ * @swagger
+ * /compromisos/{id}/evidencia:
+ *   patch:
+ *     summary: Upload evidence file for commitment (Without state transition to en_proceso for contractors)
+ *     description: Allows contractor users to upload evidence without changing the commitment state.
+ *     tags: [Compromisos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               evidencia:
+ *                 type: string
+ *                 format: binary
+ *               comentario_evidencia:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Evidence uploaded successfully
+ */
+router.patch('/compromisos/:id/evidencia', auth, upload.single('evidencia'), compromisoController.cargarEvidencia);
 router.delete('/compromisos/:id', auth, requirePrivilege('Compromisos', 'excec'), compromisoController.destroy);
 
 
@@ -697,6 +837,17 @@ router.get('/reportes/registro/:id/pdf', auth, reporteController.registroPdf);
  *         description: Compliance report
  */
 router.get('/reportes/cumplimiento', auth, reporteController.cumplimientoGeneral);
+router.get('/reportes/cumplimiento/pdf', auth, reporteController.cumplimientoGeneralPdf);
+router.get('/reportes/cumplimiento/excel', auth, reporteController.cumplimientoGeneralExcel);
+router.get('/reportes/matrix/pdf', auth, reporteController.matrixPdf);
+router.get('/reportes/matrix/excel', auth, reporteController.matrixExcel);
+
+// OVAL Billing
+router.get('/reportes/oval/billing', auth, requirePrivilege('OVAL', 'read'), reporteController.billingReport);
+router.post('/reportes/oval/config', auth, requirePrivilege('OVAL', 'write'), reporteController.updateBillingConfig);
+router.get('/reportes/oval/billing/pdf', auth, requirePrivilege('OVAL', 'read'), reporteController.billingReportPdf);
+router.get('/reportes/oval/billing/excel', auth, requirePrivilege('OVAL', 'read'), reporteController.billingReportExcel);
+router.post('/reportes/oval/billing/send', auth, requirePrivilege('OVAL', 'write'), reporteController.sendBillingReportEmail);
 
 // ============= SPRINT 5: DOCUMENTOS =============
 // Documentos
@@ -798,12 +949,45 @@ const resourceController = require('../controllers/resourceController');
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of services
+ *         description: List of types
+ * 
+ * /resources/gerencias:
+ *   get:
+ *     summary: List gerencias for dropdowns
+ *     tags: [Resources]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of gerencias
+ * 
+ * /resources/subgerencias:
+ *   get:
+ *     summary: List subgerencias for dropdowns
+ *     tags: [Resources]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of subgerencias
+ * 
+ * /resources/adc:
+ *   get:
+ *     summary: List Contract Managers
+ *     tags: [Resources]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of Administradores de Contrato
  */
 router.get('/resources/dependencias', auth, resourceController.dependencias);
+router.get('/resources/roles', auth, resourceController.roles);
 router.get('/resources/tipos-contratista', auth, resourceController.tiposContratista);
-
-
+router.get('/resources/gerencias', auth, resourceController.gerencias);
+router.get('/resources/subgerencias', auth, resourceController.subgerencias);
+router.get('/resources/adc', auth, resourceController.administradoresContrato);
+router.get('/resources/adc-scope', auth, resourceController.adcScope);
 
 // ============= SPRINT 7: GESTIÓN DE ROLES =============
 const roleController = require('../controllers/roleController');
@@ -1065,12 +1249,22 @@ router.delete('/dependencias/:id', auth, requirePrivilege('Gestion_Configuracion
  *       200:
  *         description: Deleted
  */
-// Servicios
+// Servicios & Jerarquía
 router.get('/servicios', auth, servicioController.index);
+router.get('/servicios/hierarchy', auth, servicioController.hierarchy);
 router.get('/servicios/:id', auth, servicioController.show);
 router.post('/servicios', auth, requirePrivilege('Gestion_Configuracion', 'write'), servicioController.store);
 router.put('/servicios/:id', auth, requirePrivilege('Gestion_Configuracion', 'write'), servicioController.update);
 router.delete('/servicios/:id', auth, requirePrivilege('Gestion_Configuracion', 'excec'), servicioController.destroy);
+
+// CRUD Gerencias y Subgerencias (desde módulo jerárquico)
+router.post('/gerencias', auth, requirePrivilege('Gestion_Configuracion', 'write'), servicioController.storeGerencia);
+router.put('/gerencias/:id', auth, requirePrivilege('Gestion_Configuracion', 'write'), servicioController.updateGerencia);
+router.delete('/gerencias/:id', auth, requirePrivilege('Gestion_Configuracion', 'excec'), servicioController.destroyGerencia);
+
+router.post('/subgerencias', auth, requirePrivilege('Gestion_Configuracion', 'write'), servicioController.storeSubgerencia);
+router.put('/subgerencias/:id', auth, requirePrivilege('Gestion_Configuracion', 'write'), servicioController.updateSubgerencia);
+router.delete('/subgerencias/:id', auth, requirePrivilege('Gestion_Configuracion', 'excec'), servicioController.destroySubgerencia);
 
 // ============= SPRINT 9 REFACTOR: CONTRATISTAS =============
 const contratistaController = require('../controllers/contratistaController');
@@ -1189,8 +1383,8 @@ const syncController = require('../controllers/syncController');
  *       200:
  *         description: Sync completed
  */
-router.get('/sync/compare', auth, requirePrivilege('Configuración', 'read'), syncController.compareData);
-router.post('/sync/execute', auth, requirePrivilege('Configuración', 'write'), syncController.syncData);
+router.get('/sync/compare', auth, requirePrivilege('Gestion_Configuracion', 'read'), syncController.compareData);
+router.post('/sync/execute', auth, requirePrivilege('Gestion_Configuracion', 'write'), syncController.syncData);
 
 // ============= VINCULACIONES MODULE =============
 const vinculacionController = require('../controllers/vinculacionController');
@@ -1272,6 +1466,8 @@ router.get('/vinculaciones/:id', auth, requirePrivilege('Vinculaciones', 'read')
 router.post('/vinculaciones', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.store);
 router.post('/vinculaciones/:id/admin', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.assignAdmin);
 router.delete('/vinculaciones/:id/admin/:adminId', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.removeAdmin);
+router.post('/vinculaciones/:id/usuarios', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.assignUser);
+router.delete('/vinculaciones/:id/usuarios/:userId', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.removeUser);
 router.put('/vinculaciones/:id', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.update);
 router.delete('/vinculaciones/:id', auth, requirePrivilege('Vinculaciones', 'excec'), vinculacionController.destroy);
 

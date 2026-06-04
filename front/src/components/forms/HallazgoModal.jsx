@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Save, AlertTriangle, Info, CheckCircle, Clock } from 'lucide-react';
 import api from '../../api';
 import Modal from '../ui/Modal';
@@ -121,108 +121,104 @@ export default function HallazgoModal({ isOpen, onClose, onSuccess, registroId, 
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={isEdit ? 'Editar Hallazgo' : 'Nuevo Hallazgo'}
+            title={isEdit ? 'Revisión de Hallazgo' : 'Registro de Hallazgo / No Conformidad'}
             footer={footerButtons}
-            maxWidth="max-w-lg"
+            maxWidth="max-w-xl"
         >
-            {/* Context Header */}
+            {/* Header: Ficha Style */}
             <div style={{
                 marginBottom: '20px',
-                padding: '16px',
-                backgroundColor: '#f8fafc',
-                borderRadius: '8px',
+                padding: '1.5rem',
+                backgroundColor: '#fff',
+                borderRadius: '12px',
                 border: '1px solid #e2e8f0',
-                display: 'flex',
-                gap: '12px'
+                borderLeft: `6px solid ${tipo === 'no_conformidad' ? '#ef4444' : tipo === 'observacion' ? '#f59e0b' : '#3b82f6'}`,
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
             }}>
-                <div style={{
-                    minWidth: '40px',
-                    height: '40px',
-                    borderRadius: '8px',
-                    backgroundColor: '#e0f2fe',
-                    color: '#0284c7',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 'bold',
-                    fontSize: '0.9rem'
-                }}>
-                    {actividad?.codigo?.split('.')[0] || 'A'}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                    <div>
+                        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700, letterSpacing: '0.05em', marginBottom: '4px' }}>
+                            Código de Identificación
+                        </div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1e293b' }}>
+                            ACT-{actividad?.codigo || '000'}
+                        </div>
+                    </div>
+                    <div style={{
+                        padding: '6px 12px',
+                        borderRadius: '20px',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        backgroundColor: currentTypeConfig.color.split(' ')[1],
+                        color: currentTypeConfig.color.split(' ')[0].replace('text-', '')
+                    }}>
+                        {currentTypeConfig.label}
+                    </div>
                 </div>
-                <div>
-                    <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>
-                        Actividad {actividad?.codigo}
-                    </div>
-                    <div style={{ fontSize: '0.9rem', color: '#334155', fontWeight: 500, lineHeight: '1.4' }}>
-                        {actividad?.descripcion}
-                    </div>
+
+                <div style={{ fontSize: '0.85rem', color: '#475569', lineHeight: '1.5', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+                    <strong>Descripción de Actividad:</strong> {actividad?.descripcion}
                 </div>
             </div>
 
             {error && (
-                <div className="error-message mb-4" style={{
-                    backgroundColor: '#fef2f2',
-                    color: '#991b1b',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    fontSize: '0.85rem',
-                    marginBottom: '20px',
-                    border: '1px solid #fca5a5',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                }}>
-                    <AlertTriangle size={16} />
-                    {error}
+                <div style={{ backgroundColor: '#fef2f2', color: '#991b1b', padding: '12px', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '20px', border: '1px solid #fca5a5', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <AlertTriangle size={16} /> {error}
                 </div>
             )}
 
             <form onSubmit={handleSubmit} id="form-hallazgo">
-                <div className="form-group" style={{ marginBottom: '20px' }}>
-                    <label htmlFor="hallazgo-tipo" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>
-                        Tipo de Hallazgo
-                    </label>
-                    <div style={{ position: 'relative' }}>
-                        <select
-                            id="hallazgo-tipo"
-                            className="form-control"
-                            value={tipo}
-                            onChange={(e) => setTipo(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '10px 12px',
-                                paddingLeft: '40px',
-                                borderRadius: '8px',
-                                border: '1px solid #cbd5e1',
-                                fontSize: '0.95rem',
-                                backgroundColor: '#fff',
-                                appearance: 'none',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            <option value="no_conformidad">No Conformidad</option>
-                            <option value="observacion">Observación</option>
-                            <option value="oportunidad_mejora">Oportunidad de Mejora</option>
-                        </select>
-                        <div style={{
-                            position: 'absolute',
-                            left: '12px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            pointerEvents: 'none',
-                            color: currentTypeConfig.color.includes('red') ? '#dc2626' : currentTypeConfig.color.includes('amber') ? '#d97706' : '#003594'
-                        }}>
-                            <CurrentIcon size={18} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                    <div className="form-group">
+                        <label htmlFor="hallazgo-tipo" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                            Clasificación del Hallazgo
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                            <select
+                                id="hallazgo-tipo"
+                                className="form-control"
+                                value={tipo}
+                                onChange={(e) => setTipo(e.target.value)}
+                                style={{
+                                    width: '100%', padding: '10px 12px', paddingLeft: '36px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', backgroundColor: '#fff', appearance: 'none'
+                                }}
+                            >
+                                <option value="no_conformidad">No Conformidad</option>
+                                <option value="observacion">Observación</option>
+                                <option value="oportunidad_mejora">Oportunidad de Mejora</option>
+                            </select>
+                            <div style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#64748b' }}>
+                                <CurrentIcon size={18} />
+                            </div>
                         </div>
                     </div>
-                    <div style={{ marginTop: '8px', fontSize: '0.75rem', color: '#64748b' }}>
-                        Seleccione el impacto del hallazgo detectado.
+
+                    <div className="form-group">
+                        <label htmlFor="hallazgo-fecha" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                            Plazo de Subsanación
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                            <input
+                                id="hallazgo-fecha"
+                                type="date"
+                                className="form-control"
+                                value={fechaLimite}
+                                onChange={(e) => setFechaLimite(e.target.value)}
+                                min={new Date().toISOString().split('T')[0]}
+                                max={new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                                style={{ width: '100%', padding: '10px 12px', paddingLeft: '36px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                            />
+                            <div style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#64748b' }}>
+                                <Clock size={16} />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div className="form-group" style={{ marginBottom: '20px' }}>
-                    <label htmlFor="hallazgo-descripcion" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>
-                        Descripción Detallada
+                <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                    <label htmlFor="hallazgo-descripcion" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                        Detalle del Hallazgo (Evidencia Detectada)
                     </label>
                     <textarea
                         id="hallazgo-descripcion"
@@ -231,37 +227,18 @@ export default function HallazgoModal({ isOpen, onClose, onSuccess, registroId, 
                         onChange={(e) => setDescripcion(e.target.value)}
                         rows="4"
                         required
-                        placeholder="Describa el hallazgo con claridad y precisión..."
-                        style={{
-                            width: '100%',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            border: '1px solid #cbd5e1',
-                            fontSize: '0.9rem',
-                            resize: 'vertical',
-                            minHeight: '100px'
-                        }}
+                        placeholder="Describa el incumplimiento o la observación detectada..."
+                        style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '2px solid #e2e8f0', fontSize: '0.9rem', minHeight: '120px' }}
                     />
                 </div>
 
-                <div className="form-group">
-                    <label htmlFor="hallazgo-fecha" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Clock size={16} /> Fecha Límite (Opcional)
-                    </label>
-                    <input
-                        id="hallazgo-fecha"
-                        type="date"
-                        className="form-control"
-                        value={fechaLimite}
-                        onChange={(e) => setFechaLimite(e.target.value)}
-                        style={{
-                            width: '100%',
-                            padding: '10px 12px',
-                            borderRadius: '8px',
-                            border: '1px solid #cbd5e1',
-                            fontSize: '0.9rem'
-                        }}
-                    />
+                <div style={{ padding: '12px', backgroundColor: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', color: '#1e40af', fontSize: '0.8rem', fontWeight: 600 }}>
+                        <Info size={16} /> Nota de Auditoría
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#1e3a8a', marginTop: '4px' }}>
+                        Al guardar este hallazgo, el contratista será notificado y se le exigirá cargar un plan de acción correctivo para cerrar el ciclo de auditoría.
+                    </div>
                 </div>
             </form>
         </Modal>

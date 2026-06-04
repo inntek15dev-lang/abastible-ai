@@ -1,4 +1,4 @@
-﻿// IEEE Trace: REQ-003 | US-003 | pages/registros/RegistroAudit.jsx
+// IEEE Trace: REQ-003 | US-003 | pages/registros/RegistroAudit.jsx
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -25,6 +25,9 @@ import {
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import HallazgoModal from '../../components/forms/HallazgoModal';
+import ConfirmationModal from '../../components/modals/ConfirmationModal';
+import { toast } from 'react-hot-toast';
 
 export default function RegistroAudit() {
     const { id } = useParams();
@@ -44,6 +47,12 @@ export default function RegistroAudit() {
     const [compromisos, setCompromisos] = useState([]);
     const [nuevoCompromiso, setNuevoCompromiso] = useState({ descripcion: '', fecha_compromiso: '' });
     const [loadingCompromisos, setLoadingCompromisos] = useState(false);
+    const [hallazgoModal, setHallazgoModal] = useState({ show: false, actividad: null, hallazgo: null });
+    const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', action: null });
+
+    // Participants State
+    const [participantes, setParticipantes] = useState([]);
+    const [nuevoParticipante, setNuevoParticipante] = useState({ nombre: '', rut: '', cargo: '', empresa: '' });
 
     useEffect(() => {
         fetchRegistro();
@@ -54,6 +63,15 @@ export default function RegistroAudit() {
             const response = await api.get(`/registros/${id}`);
             setRegistro(response.data.data);
             setComentarioGeneral(response.data.data.comentario_general || '');
+
+            const participantsComment = response.data.data.comentarios?.find(c => c.tipo === 'participantes');
+            if (participantsComment) {
+                try {
+                    setParticipantes(JSON.parse(participantsComment.comentario));
+                } catch (e) {
+                    console.error('Error parsing participants:', e);
+                }
+            }
 
             // Initialize local audit state
             const initialAuditState = {};
@@ -179,12 +197,37 @@ export default function RegistroAudit() {
         try {
             await api.put(`/registros/${id}/actividades/${actividadId}/auditar`, {
                 cumple_auditor: auditState[actividadId]?.cumple,
-                observacion_auditor: auditState[actividadId]?.observacion
+                observacion_auditor: auditState[actividadId]?.observacion || ''
             });
-            // alert('Observación guardada'); // Feedback
+            // toast.success('Observación guardada');
         } catch (err) {
             setError('Error al guardar observación');
         }
+    };
+
+    const handleSaveProgress = async () => {
+        setSaving(true);
+        try {
+            await api.put(`/registros/${id}/guardar-avance-auditoria`, {
+                comentario_general: comentarioGeneral,
+                participantes: JSON.stringify(participantes)
+            });
+            toast.success('Progreso guardado correctamente');
+        } catch (err) {
+            toast.error('Error al guardar progreso');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleHallazgoSuccess = (newHallazgo) => {
+        toast.success('Hallazgo registrado exitosamente');
+        // Optionally update local activity state if it has a list of hallazgos
+        fetchRegistro(); 
+    };
+
+    const openHallazgoModal = (actividad, hallazgo = null) => {
+        setHallazgoModal({ show: true, actividad, hallazgo });
     };
 
     const handleFinalizarAuditoria = async () => {
@@ -193,6 +236,7 @@ export default function RegistroAudit() {
             await api.post(`/registros/${id}/finalizar-auditoria`, {
                 comentario_general: comentarioGeneral
             });
+            toast.success('Auditoría finalizada y registro cerrado exitosamente');
             navigate('/registros');
         } catch (err) {
             setError(err.response?.data?.message || 'Error al finalizar auditoría');
@@ -246,6 +290,7 @@ export default function RegistroAudit() {
     const isFinalizado = registro.estado_auditoria === 'finalizado';
     const isAuditado = ['auditada', 'cerrado', 'finalizado'].includes(registro.estado_auditoria);
     const isPendiente = registro.estado_auditoria === 'pendiente';
+    const isAuditable = registro.estado_auditoria === 'auditable';
 
     // Mock Element Names (Ideally fetch from backend)
     const elementNames = {
@@ -306,7 +351,7 @@ export default function RegistroAudit() {
                     </div>
                     <div className="summary-card">
                         <div className="summary-label">DEPENDENCIA</div>
-                        <div className="summary-value" style={{ fontSize: '1rem' }}>{registro.dependencia}</div>
+                        <div className="summary-value" style={{ fontSize: '1rem' }}>{registro.dependencia || registro.asignacion?.dependencia?.nombre || registro.vinculacionEntidad?.dependencia?.nombre || 'N/A'}</div>
                     </div>
                     <div className="summary-card">
                         <div className="summary-label">PERIODO</div>
@@ -353,7 +398,7 @@ export default function RegistroAudit() {
                             <Shield size={18} /> Panel de Revisión y Auditoría
                         </div>
                         <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '4px' }}>
-                            PROGRAMA: OIEM DISTRIBUCIÓN GRANEL {/* Hardcoded */}
+                            PROGRAMA: {registro.programa?.nombre || registro.asignacion?.servicio?.programa?.nombre || 'N/A'}
                         </div>
                     </div>
                     <div>
@@ -369,9 +414,9 @@ export default function RegistroAudit() {
                     </div>
                 </div>
 
-                {(isPendiente || isSubsanado) && canWrite('Auditoria') ? (
+                {(isPendiente || isSubsanado || isAuditable) && canWrite('Auditoria') ? (
                     <div style={{ padding: '40px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
-                        {isPendiente && (
+                        {(isPendiente || (isAuditable && !registro.auditado)) && (
                             <button
                                 id="btn-iniciar-auditoria"
                                 className="btn-primary"
@@ -396,7 +441,7 @@ export default function RegistroAudit() {
                                 <Shield size={24} /> Iniciar Proceso de Auditoría
                             </button>
                         )}
-                        {isSubsanado && (
+                        {(isSubsanado || (isAuditable && registro.auditado)) && (
                             <button
                                 id="btn-iniciar-revision"
                                 className="btn-primary"
@@ -443,7 +488,11 @@ export default function RegistroAudit() {
                             {Object.keys(groupedActivities).sort().map(elementKey => {
                                 const acts = groupedActivities[elementKey];
                                 return acts.map((act, idx) => (
-                                    <tr key={act.id} className="audit-table-row">
+                                    <tr 
+                                        key={act.id} 
+                                        className="audit-table-row"
+                                        style={act.hallazgos?.length > 0 && act.evidencias?.length > 0 ? { backgroundColor: '#fffbeb' } : {}}
+                                    >
                                         {/* Element grouping cell */}
                                         {idx === 0 && (
                                             <td rowSpan={acts.length} className="audit-group-cell" style={{ borderRight: '1px solid #e5e7eb' }}>
@@ -461,9 +510,14 @@ export default function RegistroAudit() {
 
                                         {/* Activity Details */}
                                         <td style={{ verticalAlign: 'top' }}>
-                                            <div style={{ fontWeight: 600, marginBottom: '4px' }}>{act.actividad?.descripcion}</div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                <div style={{ fontWeight: 600 }}>{act.actividad?.descripcion}</div>
+                                                {act.hallazgos?.length > 0 && act.evidencias?.length > 0 && (
+                                                    <span className="badge warning" style={{ fontSize: '0.65rem', padding: '2px 6px', background: '#fef08a', color: '#854d0e', borderRadius: '4px', fontWeight: 700 }}>MODIFICADO</span>
+                                                )}
+                                            </div>
                                             <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: '8px' }}>
-                                                {act.actividad?.verificadores}
+                                                {act.actividad?.verificadores || act.actividad?.criterios}
                                             </div>
 
                                             {/* Evidence Logic was here, removing it */}
@@ -586,6 +640,7 @@ export default function RegistroAudit() {
                                             {(isAuditando || isEnRevision) && canWrite('Auditoria') ? (
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                     <button
+                                                        id={`btn-cumple-${act.id}`}
                                                         onClick={() => handleAuditarActividad(act.id, true)}
                                                         className={`btn-action`}
                                                         style={{
@@ -600,6 +655,7 @@ export default function RegistroAudit() {
                                                         ✓ CUMPLE
                                                     </button>
                                                     <button
+                                                        id={`btn-nocumple-${act.id}`}
                                                         onClick={() => handleAuditarActividad(act.id, false)}
                                                         className={`btn-action`}
                                                         style={{
@@ -613,6 +669,22 @@ export default function RegistroAudit() {
                                                     >
                                                         X NO CUMPLE
                                                     </button>
+                                                    {auditState[act.id]?.cumple === false && (
+                                                        <button
+                                                            onClick={() => openHallazgoModal(act)}
+                                                            className="btn-action"
+                                                            style={{
+                                                                marginTop: '4px',
+                                                                justifyContent: 'center',
+                                                                background: '#fef3c7',
+                                                                color: '#92400e',
+                                                                border: '1px solid #f59e0b',
+                                                                fontSize: '0.7rem'
+                                                            }}
+                                                        >
+                                                            <AlertTriangle size={12} /> Hallazgo
+                                                        </button>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <div className={`badge ${act.cumple_auditor ? 'success' : 'danger'}`} style={{ width: '100%', justifyContent: 'center' }}>
@@ -664,6 +736,7 @@ export default function RegistroAudit() {
                                 Observaciones Generales del Auditor
                             </label>
                             <textarea
+                                id="audit-comentario-general"
                                 className="form-control"
                                 rows={6}
                                 placeholder="Escriba sus conclusiones generales aquí..."
@@ -736,7 +809,7 @@ export default function RegistroAudit() {
                             )}
                         </div>
 
-                        {(isAuditando || isEnRevision) && canWrite('Auditoria') && (
+
                             <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', marginTop: '20px', border: '1px solid #e2e8f0' }}>
                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                     <div style={{ flex: '1 1 auto', minWidth: 0 }}>
@@ -756,6 +829,8 @@ export default function RegistroAudit() {
                                             style={{ fontSize: '0.9rem', borderRadius: '8px', width: '100%' }}
                                             value={nuevoCompromiso.fecha_compromiso}
                                             onChange={(e) => setNuevoCompromiso(prev => ({ ...prev, fecha_compromiso: e.target.value }))}
+                                            min={new Date().toISOString().split('T')[0]}
+                                            max={new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
                                         />
                                     </div>
                                     <div style={{ flex: '0 0 auto' }}>
@@ -778,27 +853,170 @@ export default function RegistroAudit() {
                                         </button>
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                    </div>
+                </div>
+            </div>
+            )}
+
+            {/* Participants Section */}
+            {(isAuditando || isEnRevision) && (
+                <div className="form-card" style={{ marginTop: '32px', padding: '24px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#1e40af', fontWeight: 700, marginBottom: '20px' }}>
+                        <FileText size={20} /> <span style={{ fontSize: '1.1rem' }}>Participantes de la Reunión de Accounting</span>
+                    </div>
+                    
+                    <div style={{ overflowX: 'auto', marginBottom: '20px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                            <thead>
+                                <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                                    <th style={{ padding: '12px', textAlign: 'left', color: '#64748b', fontWeight: 600 }}>Nombre</th>
+                                    <th style={{ padding: '12px', textAlign: 'left', color: '#64748b', fontWeight: 600 }}>RUT</th>
+                                    <th style={{ padding: '12px', textAlign: 'left', color: '#64748b', fontWeight: 600 }}>Cargo</th>
+                                    <th style={{ padding: '12px', textAlign: 'left', color: '#64748b', fontWeight: 600 }}>Empresa</th>
+                                    <th style={{ padding: '12px', textAlign: 'center', color: '#64748b', fontWeight: 600 }}>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {participantes.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="5" style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>
+                                            No hay participantes registrados
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    participantes.map((p, index) =>
+                                        <tr key={index} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                            <td style={{ padding: '12px', color: '#1f2937' }}>{p.nombre}</td>
+                                            <td style={{ padding: '12px', color: '#1f2937' }}>{p.rut}</td>
+                                            <td style={{ padding: '12px', color: '#1f2937' }}>{p.cargo}</td>
+                                            <td style={{ padding: '12px', color: '#1f2937' }}>{p.empresa}</td>
+                                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                <button
+                                                    onClick={() => setParticipantes(prev => prev.filter((_, i) => i !== index))}
+                                                    style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+                                                    disabled={!(registro.estado_auditoria === 'auditando' || registro.estado_auditoria === 'en_revision') || !canWrite('Auditoria')}
+                                                >
+                                                    <Trash size={16} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    )
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
+                        <div>
+                            <label style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px', display: 'block' }}>Nombre</label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={nuevoParticipante.nombre}
+                                onChange={(e) => setNuevoParticipante(prev => ({ ...prev, nombre: e.target.value }))}
+                                style={{ fontSize: '0.85rem' }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px', display: 'block' }}>RUT</label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={nuevoParticipante.rut}
+                                onChange={(e) => setNuevoParticipante(prev => ({ ...prev, rut: e.target.value }))}
+                                style={{ fontSize: '0.85rem' }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px', display: 'block' }}>Cargo</label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={nuevoParticipante.cargo}
+                                onChange={(e) => setNuevoParticipante(prev => ({ ...prev, cargo: e.target.value }))}
+                                style={{ fontSize: '0.85rem' }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px', display: 'block' }}>Empresa</label>
+                            <select
+                                className="form-control"
+                                value={nuevoParticipante.empresa}
+                                onChange={(e) => setNuevoParticipante(prev => ({ ...prev, empresa: e.target.value }))}
+                                style={{ fontSize: '0.85rem' }}
+                            >
+                                <option value="">Seleccione...</option>
+                                <option value={registro.eecc_nombre}>{registro.eecc_nombre}</option>
+                                <option value="Abastible">Abastible</option>
+                                <option value="Asesor Mutual Nacional">Asesor Mutual Nacional</option>
+                            </select>
+                        </div>
+                        <button
+                            className="btn-primary"
+                            onClick={() => {
+                                if (!nuevoParticipante.nombre || !nuevoParticipante.rut || !nuevoParticipante.cargo || !nuevoParticipante.empresa) {
+                                    alert('Por favor complete todos los campos del participante.');
+                                    return;
+                                }
+                                setParticipantes(prev => [...prev, nuevoParticipante]);
+                                setNuevoParticipante({ nombre: '', rut: '', cargo: '', empresa: '' });
+                            }}
+                            style={{ height: '38px', padding: '0 12px', borderRadius: '8px', background: '#003594', border: 'none' }}
+                        >
+                            <Plus size={16} />
+                        </button>
                     </div>
                 </div>
             )}
 
             {/* Final Actions */}
-            {(isAuditando || isEnRevision) && canWrite('Auditoria') && (
+            {(isAuditando || isEnRevision) && canWrite('Auditoria') &&
                 <div style={{ marginTop: '32px', padding: '24px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px' }}>
                     <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Revise los datos antes de finalizar el proceso oficial.</span>
                     <button
+                        id="btn-save-progress"
+                        type="button"
+                        onClick={handleSaveProgress}
+                        disabled={saving}
+                        style={{ 
+                            backgroundColor: '#f3f4f6', color: '#374151', padding: '0.75rem 1.5rem', borderRadius: '10px', 
+                            border: '1px solid #d1d5db', fontWeight: 600, cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '0.5rem'
+                        }}
+                    >
+                        <Save size={18} />
+                        {saving ? 'Guardando...' : 'Guardar Avance'}
+                    </button>
+                    <button
+                        id="btn-finalizar-auditoria"
                         className="btn-primary"
                         onClick={isEnRevision ? handleFinalizarRevision : handleFinalizarAuditoria}
                         disabled={saving}
-                        style={{ background: '#10b981', padding: '12px 32px', fontSize: '1rem', fontWeight: 600, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}
+                        style={{ background: '#10b981', padding: '0.75rem 2rem', fontSize: '1rem', fontWeight: 600, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', border: 'none', color: 'white', cursor: 'pointer' }}
                     >
-                        <Save size={20} />
+                        <Check size={20} />
                         {saving ? 'Cerrando...' : isEnRevision ? 'Finalizar Revisión de Subsanación' : 'Finalizar Auditoría'}
                     </button>
                 </div>
-            )}
+            }
+
+            {/* Modals */}
+            <HallazgoModal
+                isOpen={hallazgoModal.show}
+                onClose={() => setHallazgoModal({ show: false, actividad: null, hallazgo: null })}
+                onSuccess={handleHallazgoSuccess}
+                registroId={id}
+                actividad={hallazgoModal.actividad}
+                hallazgo={hallazgoModal.hallazgo}
+            />
+
+            <ConfirmationModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                onConfirm={confirmModal.action}
+            />
         </div>
     );
 }
