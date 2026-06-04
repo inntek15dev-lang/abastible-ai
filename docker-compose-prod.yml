@@ -30,7 +30,7 @@ services:
       - PIZZA_API_URL=${PIZZA_API_URL}
       - PIZZA_API_KEY=${PIZZA_API_KEY}
       - EXTERNAL_API_KEY=${EXTERNAL_API_KEY}
-      - PORT=4078
+      - PORT=${PORT}
     env_file:
       - .env
     ports:
