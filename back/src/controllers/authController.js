@@ -1,7 +1,7 @@
 // IEEE Trace: REQ-007 | US-006 | authController.js
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { User, Role, Privilegio } = require('../database/models');
+const { User, Role, Privilegio, Contratista } = require('../database/models');
 
 const authController = {
     // POST /api/auth/login
@@ -195,6 +195,39 @@ const authController = {
             // Find or create user
             let user = await User.findOne({ where: { email: userData.email } });
 
+            // Resolve and assign contractor if role is contratista_admin
+            let contratistaId = null;
+            let eeccNombre = null;
+
+            if (mappedRole === 'contratista_admin') {
+                const cleanRutString = (rut) => {
+                    if (!rut) return '';
+                    return String(rut).toUpperCase().replace(/[^0-9K]/g, '');
+                };
+
+                const rutContratista = userData.rut_contratista || userData.contratista_rut || userData.rut_empresa || userData.eecc_rut || userData.cot_rut;
+                const nombreContratista = userData.eecc_nombre || userData.contratista_nombre || userData.nombre_contratista || userData.empresa || userData.contratista || userData.cot_razon_social || userData.razon_social;
+
+                if (rutContratista) {
+                    const cleanExtRut = cleanRutString(rutContratista);
+                    const contratistas = await Contratista.findAll();
+                    let contratista = contratistas.find(c => cleanRutString(c.rut) === cleanExtRut);
+
+                    if (!contratista) {
+                        contratista = await Contratista.create({
+                            rut: rutContratista,
+                            nombre: nombreContratista || `Contratista ${rutContratista}`,
+                            activo: 1
+                        });
+                    } else if (nombreContratista && contratista.nombre !== nombreContratista && nombreContratista !== rutContratista) {
+                        await contratista.update({ nombre: nombreContratista });
+                    }
+
+                    contratistaId = contratista.id;
+                    eeccNombre = contratista.nombre;
+                }
+            }
+
             if (!user) {
                 // Register user locally
                 user = await User.create({
@@ -204,6 +237,8 @@ const authController = {
                     usu_id_pizza: userData.usu_id,
                     password: bcrypt.hashSync(require('crypto').randomBytes(16).toString('hex'), 10),
                     role: mappedRole,
+                    contratista_id: contratistaId,
+                    eecc_nombre: eeccNombre,
                     activo: 1
                 });
             } else {
@@ -219,6 +254,14 @@ const authController = {
                 }
                 if (user.role !== mappedRole) {
                     user.role = mappedRole;
+                    updated = true;
+                }
+                if (contratistaId && user.contratista_id !== contratistaId) {
+                    user.contratista_id = contratistaId;
+                    updated = true;
+                }
+                if (eeccNombre && user.eecc_nombre !== eeccNombre) {
+                    user.eecc_nombre = eeccNombre;
                     updated = true;
                 }
                 if (updated) {
