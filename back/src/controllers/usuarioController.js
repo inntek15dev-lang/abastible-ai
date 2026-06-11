@@ -360,10 +360,7 @@ const usuarioController = {
             // Sync multiple contractors if role is contratista_admin
             if (usuario.role === 'contratista_admin') {
                 let multipleContractorIds = req.body.contratista_ids;
-                // If not explicitly sent but a single contratista_id was updated, sync it
-                if (!multipleContractorIds && updateData.contratista_id) {
-                    multipleContractorIds = [updateData.contratista_id];
-                }
+                
                 if (multipleContractorIds && Array.isArray(multipleContractorIds)) {
                     await ContratistaUsuario.destroy({ where: { user_id: usuario.id } });
                     if (multipleContractorIds.length > 0) {
@@ -372,6 +369,37 @@ const usuarioController = {
                             contratista_id: cId
                         }));
                         await ContratistaUsuario.bulkCreate(assocData);
+                        
+                        if (usuario.contratista_id !== multipleContractorIds[0]) {
+                            await usuario.update({ contratista_id: multipleContractorIds[0] });
+                        }
+                    } else {
+                        await usuario.update({ contratista_id: null });
+                    }
+                } else if (req.body.contratista_id !== undefined) {
+                    const cId = req.body.contratista_id;
+                    if (cId) {
+                        await ContratistaUsuario.findOrCreate({
+                            where: { user_id: usuario.id, contratista_id: cId }
+                        });
+                    }
+                }
+
+                // Handle specific removal of a contractor association
+                if (req.body.remove_contratista_id) {
+                    const removeId = Number(req.body.remove_contratista_id);
+                    await ContratistaUsuario.destroy({
+                        where: { user_id: usuario.id, contratista_id: removeId }
+                    });
+
+                    // If the primary contratista_id was the one removed, find another one
+                    if (Number(usuario.contratista_id) === removeId) {
+                        const nextAssoc = await ContratistaUsuario.findOne({
+                            where: { user_id: usuario.id },
+                            attributes: ['contratista_id']
+                        });
+                        const nextId = nextAssoc ? nextAssoc.contratista_id : null;
+                        await usuario.update({ contratista_id: nextId });
                     }
                 }
             }

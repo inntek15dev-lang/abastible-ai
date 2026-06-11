@@ -93,9 +93,9 @@ export default function ContratistaList() {
         }
     };
 
-    const handleCAdminRemove = async (userId) => {
+    const handleCAdminRemove = async (userId, contratistaId) => {
         try {
-            await api.put(`/usuarios/${userId}`, { contratista_id: null });
+            await api.put(`/usuarios/${userId}`, { remove_contratista_id: contratistaId });
             toast.success('Administrador removido correctamente');
             fetchContratistas();
         } catch (err) {
@@ -477,7 +477,7 @@ export default function ContratistaList() {
                                                 {admin.name}
                                                 {canWrite('Configuración') && !isADC && (
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); handleCAdminRemove(admin.id); }}
+                                                        onClick={(e) => { e.stopPropagation(); handleCAdminRemove(admin.id, c.id); }}
                                                         style={{
                                                             marginLeft: '4px',
                                                             border: 'none',
