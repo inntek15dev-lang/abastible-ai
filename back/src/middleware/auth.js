@@ -1,6 +1,6 @@
 // IEEE Trace: REQ-007 | middleware/auth.js
 const jwt = require('jsonwebtoken');
-const { User, Role, Privilegio } = require('../database/models');
+const { User, Role, Privilegio, ContratistaUsuario } = require('../database/models');
 
 const authMiddleware = async (req, res, next) => {
     try {
@@ -46,8 +46,20 @@ const authMiddleware = async (req, res, next) => {
             }));
         }
 
+        // Retrieve multiple assigned contractors (for contratista_admin many-to-many relationship)
+        const assigned = await ContratistaUsuario.findAll({
+            where: { user_id: user.id },
+            attributes: ['contratista_id']
+        });
+        const contratistaIds = [...new Set(assigned.map(c => Number(c.contratista_id)))];
+        // Ensure legacy user.contratista_id is included as fallback
+        if (user.contratista_id && !contratistaIds.includes(Number(user.contratista_id))) {
+            contratistaIds.push(Number(user.contratista_id));
+        }
+
         req.user = {
             ...user.toJSON(),
+            contratista_ids: contratistaIds,
             privileges
         };
 

@@ -24,12 +24,13 @@ const resourceController = {
                 const { dependencia_id } = req.user;
                 where.id = dependencia_id;
             } else if (role === 'contratista_admin') {
-                const cId = contratista_id || req.user.contratista_id;
+                const { Op } = require('sequelize');
+                const cIds = req.user.contratista_ids || (contratista_id ? [contratista_id] : (req.user.contratista_id ? [req.user.contratista_id] : []));
 
                 include = [{
                     model: Vinculacion,
                     as: 'vinculaciones',
-                    where: { contratista_id: cId, activo: 1 },
+                    where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
                     required: true
                 }];
             }
@@ -130,12 +131,13 @@ const resourceController = {
                 const { tipo_contratista_id } = req.user;
                 where.id = tipo_contratista_id;
             } else if (role === 'contratista_admin') {
-                const cId = contratista_id || req.user.contratista_id;
+                const { Op } = require('sequelize');
+                const cIds = req.user.contratista_ids || (contratista_id ? [contratista_id] : (req.user.contratista_id ? [req.user.contratista_id] : []));
 
                 include = [{
                     model: Vinculacion,
                     as: 'vinculaciones',
-                    where: { contratista_id: cId, activo: 1 },
+                    where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
                     required: true
                 }];
             }

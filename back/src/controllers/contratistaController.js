@@ -49,9 +49,10 @@ const contratistaController = {
                 includeVinculacion.include[2].where = { administrador_contrato_id: id, activo: 1 };
                 includeVinculacion.include[2].required = true;
             } else if (role === 'contratista_admin') {
-                // Only their own company
-                const cId = contratista_id || req.user.contratista_id;
-                whereContratista.id = cId;
+                // Only their own companies
+                const { Op } = require('sequelize');
+                const cIds = req.user.contratista_ids || (contratista_id ? [contratista_id] : (req.user.contratista_id ? [req.user.contratista_id] : []));
+                whereContratista.id = { [Op.in]: cIds };
             } else if (role === 'contratista_user') {
                 // Only their own company, and strictly filtered vinculations if needed
                 const cId = contratista_id || req.user.contratista_id;

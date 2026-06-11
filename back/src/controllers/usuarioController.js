@@ -1,6 +1,6 @@
 // IEEE Trace: REQ-007 | US-006, US-007 | usuarioController.js
 const bcrypt = require('bcryptjs');
-const { User, TipoContratista, Dependencia, ContratistaAsignacion, Contratista, Vinculacion, Administracion, Programa } = require('../database/models');
+const { User, TipoContratista, Dependencia, ContratistaAsignacion, Contratista, Vinculacion, Administracion, Programa, ContratistaUsuario } = require('../database/models');
 
 const usuarioController = {
     // GET /api/usuarios
@@ -30,11 +30,12 @@ const usuarioController = {
             if (req.user.role === 'contratista_admin' || req.user.role === 'contratista_user') {
                 // Contratistas only see admins assigned to THEIR vinculations
                 // const { Vinculacion, Administracion } = require('../database/models'); // Imported at top
-                const cId = req.user.contratista_id;
+                const { Op } = require('sequelize');
                 const isUser = req.user.role === 'contratista_user';
+                const cIds = isUser ? [req.user.contratista_id] : (req.user.contratista_ids || (req.user.contratista_id ? [req.user.contratista_id] : []));
 
                 const adminsSearchWhere = { activo: 1 };
-                const vincSearchWhere = { contratista_id: cId, activo: 1 };
+                const vincSearchWhere = { contratista_id: { [Op.in]: cIds }, activo: 1 };
 
                 if (isUser) {
                     // Contratista User: only see users within their SAME vinculation (service/dependencia)
@@ -104,7 +105,13 @@ const usuarioController = {
                 include: [
                     { model: TipoContratista, as: 'tipoContratista' },
                     { model: Dependencia, as: 'dependencia' },
-                    { model: User, as: 'parent', attributes: ['id', 'name', 'eecc_nombre'] }
+                    { model: User, as: 'parent', attributes: ['id', 'name', 'eecc_nombre'] },
+                    {
+                        model: Contratista,
+                        as: 'contratistasAsignados',
+                        attributes: ['id', 'rut', 'nombre'],
+                        through: { attributes: [] }
+                    }
                 ]
             });
 
@@ -141,6 +148,12 @@ const usuarioController = {
                                 ]
                             }
                         ]
+                    },
+                    {
+                        model: Contratista,
+                        as: 'contratistasAsignados',
+                        attributes: ['id', 'rut', 'nombre'],
+                        through: { attributes: [] }
                     }
                 ]
             });
@@ -223,6 +236,21 @@ const usuarioController = {
                 telefono,
                 activo: 1
             });
+
+            // Assign multiple contractors if role is contratista_admin and contratista_ids is provided
+            if (finalRole === 'contratista_admin') {
+                let multipleContractorIds = req.body.contratista_ids;
+                if (!multipleContractorIds && finalContratistaId) {
+                    multipleContractorIds = [finalContratistaId];
+                }
+                if (multipleContractorIds && Array.isArray(multipleContractorIds) && multipleContractorIds.length > 0) {
+                    const assocData = multipleContractorIds.map(cId => ({
+                        user_id: usuario.id,
+                        contratista_id: cId
+                    }));
+                    await ContratistaUsuario.bulkCreate(assocData);
+                }
+            }
 
             // Create Initial Assignment if Contractor role and data provided
             if (['contratista_admin', 'contratista_user'].includes(finalRole) && asignacion_inicial) {
@@ -328,6 +356,25 @@ const usuarioController = {
             delete updateData.id;
 
             await usuario.update(updateData);
+
+            // Sync multiple contractors if role is contratista_admin
+            if (usuario.role === 'contratista_admin') {
+                let multipleContractorIds = req.body.contratista_ids;
+                // If not explicitly sent but a single contratista_id was updated, sync it
+                if (!multipleContractorIds && updateData.contratista_id) {
+                    multipleContractorIds = [updateData.contratista_id];
+                }
+                if (multipleContractorIds && Array.isArray(multipleContractorIds)) {
+                    await ContratistaUsuario.destroy({ where: { user_id: usuario.id } });
+                    if (multipleContractorIds.length > 0) {
+                        const assocData = multipleContractorIds.map(cId => ({
+                            user_id: usuario.id,
+                            contratista_id: cId
+                        }));
+                        await ContratistaUsuario.bulkCreate(assocData);
+                    }
+                }
+            }
 
             const userData = usuario.toJSON();
             delete userData.password;

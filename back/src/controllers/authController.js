@@ -1,7 +1,7 @@
 // IEEE Trace: REQ-007 | US-006 | authController.js
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { User, Role, Privilegio, Contratista } = require('../database/models');
+const { User, Role, Privilegio, Contratista, ContratistaUsuario } = require('../database/models');
 
 const authController = {
     // POST /api/auth/login
@@ -85,6 +85,16 @@ const authController = {
                 { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
             );
 
+            // Retrieve multiple assigned contractors (for contratista_admin many-to-many relationship)
+            const assigned = await ContratistaUsuario.findAll({
+                where: { user_id: user.id },
+                attributes: ['contratista_id']
+            });
+            const contratistaIds = [...new Set(assigned.map(c => Number(c.contratista_id)))];
+            if (user.contratista_id && !contratistaIds.includes(Number(user.contratista_id))) {
+                contratistaIds.push(Number(user.contratista_id));
+            }
+
             const userData = user.toJSON();
             delete userData.password;
 
@@ -93,6 +103,7 @@ const authController = {
                 token,
                 user: {
                     ...userData,
+                    contratista_ids: contratistaIds,
                     privileges
                 }
             });
@@ -196,8 +207,9 @@ const authController = {
             let user = await User.findOne({ where: { email: userData.email } });
 
             // Resolve and assign contractor if role is contratista_admin
-            let contratistaId = null;
-            let eeccNombre = null;
+            let firstContratistaId = null;
+            let firstEeccNombre = null;
+            let resolvedContractorIds = [];
 
             if (mappedRole === 'contratista_admin') {
                 const cleanRutString = (rut) => {
@@ -208,23 +220,40 @@ const authController = {
                 const rutContratista = userData.rut_contratista || userData.contratista_rut || userData.rut_empresa || userData.eecc_rut || userData.cot_rut;
                 const nombreContratista = userData.eecc_nombre || userData.contratista_nombre || userData.nombre_contratista || userData.empresa || userData.contratista || userData.cot_razon_social || userData.razon_social;
 
-                if (rutContratista) {
-                    const cleanExtRut = cleanRutString(rutContratista);
-                    const contratistas = await Contratista.findAll();
+                let resolvedContractors = [];
+                if (Array.isArray(userData.contratistas)) {
+                    for (const c of userData.contratistas) {
+                        const rut = c.rut || c.rut_contratista || c.contratista_rut;
+                        const nombre = c.nombre || c.eecc_nombre || c.contratista_nombre;
+                        if (rut) {
+                            resolvedContractors.push({ rut, nombre });
+                        }
+                    }
+                } else if (rutContratista) {
+                    resolvedContractors.push({ rut: rutContratista, nombre: nombreContratista });
+                }
+
+                const contratistas = await Contratista.findAll();
+
+                for (const rc of resolvedContractors) {
+                    const cleanExtRut = cleanRutString(rc.rut);
                     let contratista = contratistas.find(c => cleanRutString(c.rut) === cleanExtRut);
 
                     if (!contratista) {
                         contratista = await Contratista.create({
-                            rut: rutContratista,
-                            nombre: nombreContratista || `Contratista ${rutContratista}`,
+                            rut: rc.rut,
+                            nombre: rc.nombre || `Contratista ${rc.rut}`,
                             activo: 1
                         });
-                    } else if (nombreContratista && contratista.nombre !== nombreContratista && nombreContratista !== rutContratista) {
-                        await contratista.update({ nombre: nombreContratista });
+                    } else if (rc.nombre && contratista.nombre !== rc.nombre && rc.nombre !== rc.rut) {
+                        await contratista.update({ nombre: rc.nombre });
                     }
 
-                    contratistaId = contratista.id;
-                    eeccNombre = contratista.nombre;
+                    resolvedContractorIds.push(contratista.id);
+                    if (!firstContratistaId) {
+                        firstContratistaId = contratista.id;
+                        firstEeccNombre = contratista.nombre;
+                    }
                 }
             }
 
@@ -237,8 +266,8 @@ const authController = {
                     usu_id_pizza: userData.usu_id,
                     password: bcrypt.hashSync(require('crypto').randomBytes(16).toString('hex'), 10),
                     role: mappedRole,
-                    contratista_id: contratistaId,
-                    eecc_nombre: eeccNombre,
+                    contratista_id: firstContratistaId,
+                    eecc_nombre: firstEeccNombre,
                     activo: 1
                 });
             } else {
@@ -256,17 +285,27 @@ const authController = {
                     user.role = mappedRole;
                     updated = true;
                 }
-                if (contratistaId && user.contratista_id !== contratistaId) {
-                    user.contratista_id = contratistaId;
+                if (firstContratistaId && user.contratista_id !== firstContratistaId) {
+                    user.contratista_id = firstContratistaId;
                     updated = true;
                 }
-                if (eeccNombre && user.eecc_nombre !== eeccNombre) {
-                    user.eecc_nombre = eeccNombre;
+                if (firstEeccNombre && user.eecc_nombre !== firstEeccNombre) {
+                    user.eecc_nombre = firstEeccNombre;
                     updated = true;
                 }
                 if (updated) {
                     await user.save();
                 }
+            }
+
+            // Sincronizar tabla de muchos a muchos contratista_usuarios
+            if (mappedRole === 'contratista_admin' && resolvedContractorIds.length > 0) {
+                await ContratistaUsuario.destroy({ where: { user_id: user.id } });
+                const assocData = resolvedContractorIds.map(cId => ({
+                    user_id: user.id,
+                    contratista_id: cId
+                }));
+                await ContratistaUsuario.bulkCreate(assocData);
             }
 
             if (!user.activo) {
@@ -304,6 +343,16 @@ const authController = {
                 { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
             );
 
+            // Retrieve multiple assigned contractors (for contratista_admin many-to-many relationship)
+            const assigned = await ContratistaUsuario.findAll({
+                where: { user_id: user.id },
+                attributes: ['contratista_id']
+            });
+            const contratistaIds = [...new Set(assigned.map(c => Number(c.contratista_id)))];
+            if (user.contratista_id && !contratistaIds.includes(Number(user.contratista_id))) {
+                contratistaIds.push(Number(user.contratista_id));
+            }
+
             const userJson = user.toJSON();
             delete userJson.password;
 
@@ -312,6 +361,7 @@ const authController = {
                 token: jwtToken,
                 user: {
                     ...userJson,
+                    contratista_ids: contratistaIds,
                     privileges
                 }
             });
