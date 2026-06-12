@@ -341,7 +341,7 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                     <div className="tooltip-tree">
                         <span className="tooltip-node root">Contratistas</span>
                         <span className="tooltip-arrow">➔</span>
-                        <span className="tooltip-node">RUT: {item.rut_contratista}</span>
+                        <span className="tooltip-node">RUTs: {item.rut_contratistas ? item.rut_contratistas.join(', ') : item.rut_contratista}</span>
                         <span className="tooltip-arrow">➔</span>
                         <span className="tooltip-node active">Admin Contratista: {item.nombre} ({item.email})</span>
                     </div>
