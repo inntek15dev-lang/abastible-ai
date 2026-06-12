@@ -503,11 +503,13 @@ const syncData = async (req, res) => {
 
         // Fetch external data for enrichment
         let externalContratistas = [];
+        let fullResponse = {};
         try {
             const response = await axios.get(EXTERNAL_API_URL, {
                 headers: { 'api-key': API_KEY, 'Origin': ORIGIN }
             });
-            externalContratistas = response.data?.contratistas || [];
+            fullResponse = response.data || {};
+            externalContratistas = fullResponse.contratistas || [];
         } catch (e) {
             console.warn('⚠️ No se pudo obtener la API externa para enriquecer nombres de contratistas:', e.message);
         }
@@ -613,11 +615,51 @@ const syncData = async (req, res) => {
                     }
                 }
             } else if (entityType === 'contratista_admin') {
+                // Gather complete list of RUTs per admin email from external response as a source of truth
+                const extAdminEmailToRuts = new Map();
+                if (fullResponse.contratista_admin) {
+                    fullResponse.contratista_admin.forEach(admin => {
+                        if (admin.email) {
+                            const emailNorm = normalize(admin.email);
+                            const resolved = resolveContractor(admin.rut_contratista);
+                            if (!extAdminEmailToRuts.has(emailNorm)) {
+                                extAdminEmailToRuts.set(emailNorm, new Set());
+                            }
+                            extAdminEmailToRuts.get(emailNorm).add(resolved.rut);
+                        }
+                    });
+                }
+                if (Array.isArray(externalContratistas)) {
+                    externalContratistas.forEach(c => {
+                        let rawRut = c.rut;
+                        if (!rawRut && c.cot_rut) {
+                            rawRut = `${c.cot_rut}-${c.cot_dv}`;
+                        }
+                        if (!rawRut) return;
+                        const resolvedC = resolveContractor(rawRut);
+
+                        const admins = c.contratista_admin || (c.data && c.data.contratista_admin);
+                        if (admins && Array.isArray(admins)) {
+                            admins.forEach(admin => {
+                                if (admin.email) {
+                                    const emailNorm = normalize(admin.email);
+                                    if (!extAdminEmailToRuts.has(emailNorm)) {
+                                        extAdminEmailToRuts.set(emailNorm, new Set());
+                                    }
+                                    extAdminEmailToRuts.get(emailNorm).add(resolvedC.rut);
+                                }
+                            });
+                        }
+                    });
+                }
+
                 // Pre-sync parent contratistas first
                 const parentContratistas = [];
                 const seenContratistas = new Set();
                 for (const item of entityItems) {
-                    const ruts = item.rut_contratistas || [item.rut_contratista || '99999999-9'];
+                    const emailNorm = normalize(item.email);
+                    const extRutsSet = extAdminEmailToRuts.get(emailNorm);
+                    const ruts = extRutsSet ? Array.from(extRutsSet) : (item.rut_contratistas || [item.rut_contratista || '99999999-9']);
                     for (const cRut of ruts) {
                         const resolved = resolveContractor(cRut, item.contratista);
                         const normC = normalize(resolved.rut);
@@ -630,7 +672,11 @@ const syncData = async (req, res) => {
                 await syncEntityBatch('contratistas', parentContratistas);
 
                 for (const item of entityItems) {
-                    const ruts = item.rut_contratistas || [item.rut_contratista || '99999999-9'];
+                    if (!item.email) continue;
+                    const emailNorm = normalize(item.email);
+                    const extRutsSet = extAdminEmailToRuts.get(emailNorm);
+                    const ruts = extRutsSet ? Array.from(extRutsSet) : (item.rut_contratistas || [item.rut_contratista || '99999999-9']);
+
                     const allLocal = await Contratista.findAll({ transaction });
                     const associatedContratistas = [];
 
@@ -643,7 +689,7 @@ const syncData = async (req, res) => {
                         }
                     }
 
-                    if (item.email && associatedContratistas.length > 0) {
+                    if (associatedContratistas.length > 0) {
                         const primaryContratista = associatedContratistas[0];
                         const [user, created] = await User.findOrCreate({
                             where: { email: item.email },
@@ -657,12 +703,17 @@ const syncData = async (req, res) => {
                             transaction
                         });
 
-                        // If user already exists, update role and primary company if necessary
-                        if (!created && user.role !== 'contratista_admin') {
-                            await user.update({ role: 'contratista_admin' }, { transaction });
-                        }
-                        if (user.contratista_id !== primaryContratista.id) {
-                            await user.update({ contratista_id: primaryContratista.id }, { transaction });
+                        // If user already exists, update role, primary company, active status, and name if necessary
+                        if (!created) {
+                            const updateFields = {};
+                            if (user.role !== 'contratista_admin') updateFields.role = 'contratista_admin';
+                            if (user.contratista_id !== primaryContratista.id) updateFields.contratista_id = primaryContratista.id;
+                            if (user.activo !== 1) updateFields.activo = 1;
+                            if (item.nombre && user.name !== item.nombre) updateFields.name = item.nombre;
+                            
+                            if (Object.keys(updateFields).length > 0) {
+                                await user.update(updateFields, { transaction });
+                            }
                         }
 
                         // Associate all resolved contractors in the pivot table
