@@ -783,23 +783,36 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            {(item.estado === 'new' || item.estado === 'updated') ? (
-                                                <button
-                                                    onClick={() => handleSingleSync(item, currentKey)}
-                                                    disabled={isItemSyncing || syncing || fullSyncing}
-                                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded flex items-center gap-1 ml-auto disabled:opacity-50"
-                                                    title="Sincronizar este elemento individualmente"
-                                                >
-                                                    {isItemSyncing ? (
-                                                        <Loader2 className="animate-spin w-3 h-3" />
-                                                    ) : (
-                                                        <RefreshCw className="w-3 h-3" />
-                                                    )}
-                                                    {isItemSyncing ? 'Sincronizando' : 'Sincronizar'}
-                                                </button>
-                                            ) : (
-                                                <span className="text-gray-400 text-xs italic">Listo</span>
-                                            )}
+                                             <div className="flex gap-2 justify-end items-center">
+                                                 {(item.estado === 'new' || item.estado === 'updated') && (
+                                                     <button
+                                                         onClick={() => handleSingleSync(item, currentKey)}
+                                                         disabled={isItemSyncing || syncing || fullSyncing}
+                                                         className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded flex items-center gap-1 disabled:opacity-50"
+                                                         title="Sincronizar este elemento individualmente"
+                                                     >
+                                                         {isItemSyncing ? (
+                                                             <Loader2 className="animate-spin w-3 h-3" />
+                                                         ) : (
+                                                             <RefreshCw className="w-3 h-3" />
+                                                         )}
+                                                         {isItemSyncing ? 'Sincronizando' : 'Sincronizar'}
+                                                     </button>
+                                                 )}
+                                                 <button
+                                                     onClick={() => handleSingleSync(item, currentKey)}
+                                                     disabled={isItemSyncing || syncing || fullSyncing}
+                                                     className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded flex items-center gap-1 disabled:opacity-50"
+                                                     title="Re-sincronizar este elemento de forma completa"
+                                                 >
+                                                     {isItemSyncing ? (
+                                                         <Loader2 className="animate-spin w-3 h-3" />
+                                                     ) : (
+                                                         <RefreshCw className="w-3 h-3" />
+                                                     )}
+                                                     Re-sincronizar
+                                                 </button>
+                                             </div>
                                         </td>
                                     </tr>
                                 );
