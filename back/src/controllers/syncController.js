@@ -1,6 +1,6 @@
 const axios = require('axios');
 const bcrypt = require('bcryptjs');
-const { sequelize, Contratista, TipoContratista, Dependencia, Vinculacion, User, Administracion, Gerencia, Subgerencia } = require('../database/models');
+const { sequelize, Contratista, TipoContratista, Dependencia, Vinculacion, User, Administracion, Gerencia, Subgerencia, ContratistaUsuario } = require('../database/models');
 
 const EXTERNAL_API_URL = process.env.PIZZA_API_URL || 'https://prepro.ovalcontrol.com/api/getContratistasAbastible';
 const API_KEY = process.env.PIZZA_API_KEY;
@@ -706,7 +706,9 @@ const syncData = async (req, res) => {
                         // If user already exists, update role, primary company, active status, and name if necessary
                         if (!created) {
                             const updateFields = {};
-                            if (user.role !== 'contratista_admin') updateFields.role = 'contratista_admin';
+                            if (user.role !== 'contratista_admin' && user.role !== 'admin' && user.role !== 'administrador_contrato') {
+                                updateFields.role = 'contratista_admin';
+                            }
                             if (user.contratista_id !== primaryContratista.id) updateFields.contratista_id = primaryContratista.id;
                             if (user.activo !== 1) updateFields.activo = 1;
                             if (item.nombre && user.name !== item.nombre) updateFields.name = item.nombre;
@@ -980,7 +982,7 @@ const syncData = async (req, res) => {
                     transaction
                 });
 
-                if (!created && user.role !== 'administrador_contrato') {
+                if (!created && user.role !== 'administrador_contrato' && user.role !== 'admin') {
                     await user.update({ role: 'administrador_contrato' }, { transaction });
                 }
 

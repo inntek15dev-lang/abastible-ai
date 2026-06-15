@@ -217,7 +217,8 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
             });
         } catch (error) {
             console.error('Error syncing individual item:', error);
-            toast.error('Error al sincronizar el elemento');
+            const errMsg = error.response?.data?.message || error.response?.data?.error || 'Error al sincronizar el elemento';
+            toast.error(errMsg);
         } finally {
             setSyncingItems(prev => {
                 const copy = { ...prev };
@@ -236,7 +237,8 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
             await fetchComparison();
         } catch (error) {
             console.error('Error syncing:', error);
-            toast.error('Error al sincronizar datos');
+            const errMsg = error.response?.data?.message || error.response?.data?.error || 'Error al sincronizar datos';
+            toast.error(errMsg);
         } finally {
             setSyncing(false);
         }
@@ -284,7 +286,8 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
             await fetchComparison();
         } catch (error) {
             console.error('Error in sequential Full Sync:', error);
-            toast.error('La sincronización completa falló en un paso intermedio.');
+            const errMsg = error.response?.data?.message || error.response?.data?.error || 'La sincronización completa falló en un paso intermedio.';
+            toast.error(errMsg);
             setFullSyncProgress(prev => prev.map(p => p.status === 'syncing' ? { ...p, status: 'error' } : p));
         }
     };

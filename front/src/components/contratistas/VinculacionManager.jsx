@@ -283,9 +283,7 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                                             )}
                                         </div>
                                     </div>
-
-                                    <div></div>
-
+                                    
                                     {/* CONTRATISTAS USUARIOS - Vinculacion Specific */}
                                     <div className="admin-tags-cell">
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
