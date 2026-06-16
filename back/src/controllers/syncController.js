@@ -82,12 +82,43 @@ const buildContractorLookups = (externalContratistas) => {
 const compareData = async (req, res) => {
     try {
         console.log('🔄 Iniciando comparación de datos completa...');
+        console.log(`📡 Consultando API Externa: ${EXTERNAL_API_URL}`);
 
-        const response = await axios.get(EXTERNAL_API_URL, {
-            headers: { 'api-key': API_KEY, 'Origin': ORIGIN }
-        });
-        const fullResponse = response.data;
-        const externalContratistas = fullResponse.contratistas || [];
+        let response;
+        try {
+            response = await axios.get(EXTERNAL_API_URL, {
+                headers: { 'api-key': API_KEY, 'Origin': ORIGIN },
+                timeout: 15000 // 15s timeout
+            });
+        } catch (axiosError) {
+            console.error('❌ Error de Axios al consultar la API externa:', {
+                message: axiosError.message,
+                code: axiosError.code,
+                url: EXTERNAL_API_URL,
+                status: axiosError.response?.status,
+                headers: axiosError.response?.headers,
+                data: axiosError.response?.data
+            });
+
+            const errorMsg = axiosError.response?.data?.message || axiosError.message;
+            return res.status(502).json({
+                message: 'Error al consultar la API externa de contratistas (getContratistasAbastible)',
+                error: errorMsg,
+                statusCode: axiosError.response?.status || null,
+                details: axiosError.response?.data || null
+            });
+        }
+
+        const fullResponse = response.data || {};
+        if (!fullResponse || typeof fullResponse !== 'object') {
+            console.error('❌ La API externa retornó un formato de datos inválido (no es un objeto JSON).');
+            return res.status(502).json({
+                message: 'La API externa retornó un formato de datos inválido.',
+                details: typeof fullResponse
+            });
+        }
+
+        const externalContratistas = Array.isArray(fullResponse.contratistas) ? fullResponse.contratistas : [];
         const { resolveContractor } = buildContractorLookups(externalContratistas);
 
         const extGerencias = new Map();
@@ -109,15 +140,15 @@ const compareData = async (req, res) => {
         });
 
         // 1. Process Top-Level Arrays (New standard)
-        if (fullResponse.gerencias) {
+        if (Array.isArray(fullResponse.gerencias)) {
             fullResponse.gerencias.forEach(g => {
-                if (g.nombre) extGerencias.set(normalize(g.nombre), g.nombre);
+                if (g && g.nombre) extGerencias.set(normalize(g.nombre), g.nombre);
             });
         }
 
-        if (fullResponse.subgerencias) {
+        if (Array.isArray(fullResponse.subgerencias)) {
             fullResponse.subgerencias.forEach(s => {
-                if (s.nombre && s.gerencia) {
+                if (s && s.nombre && s.gerencia) {
                     extSubgerencias.set(normalize(s.gerencia + '|' + s.nombre), {
                         nombre: s.nombre,
                         gerencia: s.gerencia
@@ -128,9 +159,9 @@ const compareData = async (req, res) => {
             });
         }
 
-        if (fullResponse.servicios) {
+        if (Array.isArray(fullResponse.servicios)) {
             fullResponse.servicios.forEach(s => {
-                if (s.nombre && s.subgerencia) {
+                if (s && s.nombre && s.subgerencia) {
                     const gerenciaName = s.gerencia || subgerenciaToGerenciaMap.get(normalize(s.subgerencia)) || null;
                     extServicios.set(normalize(s.subgerencia + '|' + s.nombre), {
                         nombre: s.nombre,
@@ -141,15 +172,15 @@ const compareData = async (req, res) => {
             });
         }
 
-        if (fullResponse.dependencias) {
+        if (Array.isArray(fullResponse.dependencias)) {
             fullResponse.dependencias.forEach(d => {
-                if (d.nombre) extDependencias.set(normalize(d.nombre), d.nombre);
+                if (d && d.nombre) extDependencias.set(normalize(d.nombre), d.nombre);
             });
         }
 
-        if (fullResponse.contratista_admin) {
+        if (Array.isArray(fullResponse.contratista_admin)) {
             fullResponse.contratista_admin.forEach(admin => {
-                if (admin.email) {
+                if (admin && admin.email) {
                     const resolved = resolveContractor(admin.rut_contratista);
                     const emailNorm = normalize(admin.email);
                     if (extContratistaAdmins.has(emailNorm)) {
@@ -169,12 +200,13 @@ const compareData = async (req, res) => {
             });
         }
 
-        if (fullResponse.administrador_contrato) {
+        if (Array.isArray(fullResponse.administrador_contrato)) {
             fullResponse.administrador_contrato.forEach(admin => {
-                if (admin.email) {
+                if (admin && admin.email) {
                     let key = normalize(admin.email);
                     let existing = extAdministradorContratos.get(key);
                     const formattedAsigs = (admin.asignaciones || []).map(asig => {
+                        if (!asig) return null;
                         const resolved = resolveContractor(asig.rut_contratista || asig.cot_rut);
                         return {
                             rut_contratista: resolved.rut,
@@ -184,7 +216,7 @@ const compareData = async (req, res) => {
                             gerencia: normalize(asig.gerencia),
                             contrato: asig.contrato || asig.numero_contrato || null
                         };
-                    });
+                    }).filter(Boolean);
 
                     if (existing) {
                         const mergedAsignaciones = [...existing.asignaciones];
@@ -222,24 +254,27 @@ const compareData = async (req, res) => {
             });
         }
 
-        if (fullResponse.vinculaciones) {
+        if (Array.isArray(fullResponse.vinculaciones)) {
             fullResponse.vinculaciones.forEach(v => {
-                const resolved = resolveContractor(v.rut_contratista);
-                extVinculaciones.push({
-                    rut_contratista: resolved.rut,
-                    servicio: normalize(v.servicio),
-                    dependencia: normalize(v.dependencia),
-                    subgerencia: normalize(v.subgerencia),
-                    gerencia: normalize(v.gerencia),
-                    numero_contrato: v.numero_contrato || null,
-                    fecha_inicio_contrato: v.fecha_inicio_contrato || null,
-                    fecha_termino_contrato: v.fecha_termino_contrato || null
-                });
+                if (v) {
+                    const resolved = resolveContractor(v.rut_contratista);
+                    extVinculaciones.push({
+                        rut_contratista: resolved.rut,
+                        servicio: normalize(v.servicio),
+                        dependencia: normalize(v.dependencia),
+                        subgerencia: normalize(v.subgerencia),
+                        gerencia: normalize(v.gerencia),
+                        numero_contrato: v.numero_contrato || null,
+                        fecha_inicio_contrato: v.fecha_inicio_contrato || null,
+                        fecha_termino_contrato: v.fecha_termino_contrato || null
+                    });
+                }
             });
         }
 
         // 2. Process Contratistas and Nested Data (Legacy/Backup)
         externalContratistas.forEach(c => {
+            if (!c) return;
             let rawRut = c.rut;
             if (!rawRut && c.cot_rut) {
                 rawRut = `${c.cot_rut}-${c.cot_dv}`;
@@ -252,7 +287,7 @@ const compareData = async (req, res) => {
             const admins = c.contratista_admin || (c.data && c.data.contratista_admin);
             if (admins && Array.isArray(admins)) {
                 admins.forEach(admin => {
-                    if (admin.email) {
+                    if (admin && admin.email) {
                         const resolvedAdminRut = resolveContractor(rawRut);
                         const emailNorm = normalize(admin.email);
                         if (extContratistaAdmins.has(emailNorm)) {
@@ -275,6 +310,7 @@ const compareData = async (req, res) => {
             const asigs = c.asignaciones || (c.data && c.data.asignaciones);
             if (asigs && Array.isArray(asigs)) {
                 asigs.forEach(a => {
+                    if (!a) return;
                     if (a.gerencia) extGerencias.set(normalize(a.gerencia), a.gerencia);
 
                     if (a.subgerencia && a.gerencia) {
@@ -311,13 +347,19 @@ const compareData = async (req, res) => {
                             contratista: resolvedAsigContractor.nombre
                         });
 
-                        if (a.administrador_contrato) {
-                            a.administrador_contrato.forEach(admin => {
-                                if (admin.email) {
-                                    let key = normalize(admin.email);
+                        const adminList = a.administradores_contrato || a.administrador_contrato;
+                        if (adminList && Array.isArray(adminList)) {
+                            adminList.forEach(admin => {
+                                if (!admin) return;
+                                // Handle both object and string format (since response has array of strings sometimes)
+                                const email = admin.email || (typeof admin === 'string' && admin.includes('@') ? admin : null);
+                                const nombre = admin.nombre || (typeof admin === 'string' ? admin : null);
+                                
+                                if (email) {
+                                    let key = normalize(email);
                                     let adminObj = extAdministradorContratos.get(key);
                                     if (!adminObj) {
-                                        adminObj = { nombre: admin.nombre, email: admin.email, asignaciones: [] };
+                                        adminObj = { nombre: nombre || email.split('@')[0], email: email, asignaciones: [] };
                                         extAdministradorContratos.set(key, adminObj);
                                     }
                                     
@@ -460,13 +502,14 @@ const compareData = async (req, res) => {
         const diffAdministradorContrato = [];
         extAdministradorContratos.forEach((data, normEmail) => {
             const resolvedAsignaciones = (data.asignaciones || []).map(asig => {
+                if (!asig) return null;
                 const resolved = resolveContractor(asig.rut_contratista, asig.contratista);
                 return {
                     ...asig,
                     rut_contratista: resolved.rut,
                     contratista: resolved.nombre
                 };
-            });
+            }).filter(Boolean);
             diffAdministradorContrato.push({
                 ...data,
                 asignaciones: resolvedAsignaciones,
@@ -486,8 +529,8 @@ const compareData = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error in compareData:', error);
-        res.status(500).json({ message: 'Internal Server Error' });
+        console.error('❌ Error no controlado en compareData:', error);
+        res.status(500).json({ message: 'Internal Server Error', error: error.message });
     }
 };
 
