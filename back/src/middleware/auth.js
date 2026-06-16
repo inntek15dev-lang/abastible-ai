@@ -1,19 +1,24 @@
 // IEEE Trace: REQ-007 | middleware/auth.js
 const jwt = require('jsonwebtoken');
-const { User, Role, Privilegio } = require('../database/models');
+const { User, Role, Privilegio, ContratistaUsuario } = require('../database/models');
 
 const authMiddleware = async (req, res, next) => {
     try {
+        let token;
         const authHeader = req.headers.authorization;
 
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            token = authHeader.split(' ')[1];
+        } else if (req.query.token) {
+            token = req.query.token;
+        }
+
+        if (!token) {
             return res.status(401).json({
                 success: false,
                 message: 'Token de acceso no proporcionado'
             });
         }
-
-        const token = authHeader.split(' ')[1];
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         const user = await User.findByPk(decoded.id, {
@@ -41,8 +46,20 @@ const authMiddleware = async (req, res, next) => {
             }));
         }
 
+        // Retrieve multiple assigned contractors (for contratista_admin many-to-many relationship)
+        const assigned = await ContratistaUsuario.findAll({
+            where: { user_id: user.id },
+            attributes: ['contratista_id']
+        });
+        const contratistaIds = [...new Set(assigned.map(c => Number(c.contratista_id)))];
+        // Ensure legacy user.contratista_id is included as fallback
+        if (user.contratista_id && !contratistaIds.includes(Number(user.contratista_id))) {
+            contratistaIds.push(Number(user.contratista_id));
+        }
+
         req.user = {
             ...user.toJSON(),
+            contratista_ids: contratistaIds,
             privileges
         };
 

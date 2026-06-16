@@ -29,6 +29,7 @@ services:
       - DB_NAME=${DB_NAME}
       - PIZZA_API_URL=${PIZZA_API_URL}
       - PIZZA_API_KEY=${PIZZA_API_KEY}
+      - EXTERNAL_API_KEY=${EXTERNAL_API_KEY}
       - PORT=4077
     # Forzamos la lectura del .env que está en la raíz del servidor
     env_file:
@@ -56,3 +57,4 @@ services:
 networks:
   abastible_default:
     driver: bridge
+

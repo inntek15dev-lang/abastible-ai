@@ -20,13 +20,22 @@ const Vinculacion = sequelize.define('Vinculacion', {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: false
     },
+    gerencia_id: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: false
+    },
+    subgerencia_id: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: false
+    },
     periodo_inicio: {
         type: DataTypes.DATE,
         allowNull: true
     },
     numero_contrato: {
         type: DataTypes.STRING,
-        allowNull: true
+        allowNull: false,
+        unique: true
     },
     fecha_inicio_contrato: {
         type: DataTypes.DATEONLY,

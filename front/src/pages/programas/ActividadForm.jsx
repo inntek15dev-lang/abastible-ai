@@ -2,11 +2,19 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import api from '../../api';
 import { Save, ArrowLeft, Paperclip, Pencil, Upload } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 export default function ActividadForm() {
     const { id } = useParams();
+    const { user } = useAuth();
     const navigate = useNavigate();
     const isEdit = Boolean(id);
+
+    useEffect(() => {
+        if (user?.role === 'administrador_contrato') {
+            navigate('/programas');
+        }
+    }, [user, navigate]);
 
     const [form, setForm] = useState({
         elemento_id: '',

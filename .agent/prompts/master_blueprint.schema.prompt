@@ -4,9 +4,9 @@ ESTÁNDAR MAESTRO DE INGENIERÍA DE SOFTWARE (STRICT MODE - MYSQL EDITION)
 Este documento es el meta-esquema obligatorio para la skill ieee-gen. Cualquier salida que no valide contra estas reglas o que intente utilizar un motor de base de datos distinto a MySQL será rechazada por el motor de ejecución make-software.
 
 I. PROTOCOLO DE IDENTIDAD Y GOBERNANZA (IEEE 1058)
-Toda salida debe# Source: c:\laragon\www\abastible-ai\info
-# Last Updated: 2026-03-03T09:44:00-03:00 (PARKO Protocol - Added Producción Movilizado Program Data) de gobernanza que establezca el contexto legal y administrativo del software.
-
+# Source: c:\laragon\www\abastible-ai\info
+# Last Updated: 2026-06-15T14:43:00-04:00 (PARKO Protocol - Verification complete)
+Toda salida debe tener de gobernanza que establezca el contexto legal y administrativo del software.
 
 Metadata: UUID del proyecto, versión del estándar (IEEE 12207:2017) y nivel de criticidad.
 

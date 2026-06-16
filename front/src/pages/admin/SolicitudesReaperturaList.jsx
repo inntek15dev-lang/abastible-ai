@@ -1,13 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import api from '../../api';
-import { useAuth } from '../../context/AuthContext';
-import { Check, X, RefreshCw, FileText } from 'lucide-react';
+import { Check, X, RefreshCw, FileText, AlertCircle } from 'lucide-react';
+import ReaperturaActionModal from '../../components/modals/ReaperturaActionModal';
 
 export default function SolicitudesReaperturaList() {
     const [solicitudes, setSolicitudes] = useState([]);
     const [loading, setLoading] = useState(true);
     const { user, canExec, canWrite } = useAuth();
     const [processing, setProcessing] = useState(null);
+    
+    // Modal State
+    const [modal, setModal] = useState({
+        isOpen: false,
+        solicitud: null,
+        actionType: null
+    });
 
     useEffect(() => {
         fetchSolicitudes();
@@ -25,23 +30,25 @@ export default function SolicitudesReaperturaList() {
         }
     };
 
-    const handleAction = async (id, action) => {
-        if (!window.confirm(`¿Seguro que desea ${action} esta solicitud?`)) return;
+    const handleOpenModal = (solicitud, action) => {
+        setModal({
+            isOpen: true,
+            solicitud,
+            actionType: action
+        });
+    };
 
+    const handleConfirmAction = async (id, action, data) => {
         const endpoint = action === 'aprobar' ? 'aprobar' : 'rechazar';
-        const motivo = action === 'rechazar' ? prompt('Motivo del rechazo:') : 'Aprobado';
-
-        if (action === 'rechazar' && !motivo) return;
-
-        setProcessing(id);
+        
         try {
-            await api.put(`/reaperturas/${id}/${endpoint}`, { respuesta: motivo });
-            alert(`Solicitud ${action === 'aprobar' ? 'aprobada' : 'rechazada'} exitosamente`);
+            await api.put(`/reaperturas/${id}/${endpoint}`, { 
+                respuesta: data.respuesta,
+                fecha_limite: data.fecha_limite 
+            });
             fetchSolicitudes();
         } catch (error) {
-            alert(error.response?.data?.message || 'Error procesando solicitud');
-        } finally {
-            setProcessing(null);
+            throw new Error(error.response?.data?.message || 'Error procesando solicitud');
         }
     };
 
@@ -99,7 +106,7 @@ export default function SolicitudesReaperturaList() {
                                                 <>
                                                     <button
                                                         className="btn-icon success btn-reapertura-aprobar"
-                                                        onClick={() => handleAction(s.id, 'aprobar')}
+                                                        onClick={() => handleOpenModal(s, 'aprobar')}
                                                         disabled={processing === s.id}
                                                         title="Aprobar"
                                                     >
@@ -107,7 +114,7 @@ export default function SolicitudesReaperturaList() {
                                                     </button>
                                                     <button
                                                         className="btn-icon danger btn-reapertura-rechazar"
-                                                        onClick={() => handleAction(s.id, 'rechazar')}
+                                                        onClick={() => handleOpenModal(s, 'rechazar')}
                                                         disabled={processing === s.id}
                                                         title="Rechazar"
                                                     >
@@ -123,6 +130,14 @@ export default function SolicitudesReaperturaList() {
                     </tbody>
                 </table>
             </div>
+
+            <ReaperturaActionModal 
+                isOpen={modal.isOpen}
+                onClose={() => setModal({ ...modal, isOpen: false })}
+                onConfirm={handleConfirmAction}
+                solicitud={modal.solicitud}
+                actionType={modal.actionType}
+            />
         </div>
     );
 }

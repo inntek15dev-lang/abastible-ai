@@ -1,4 +1,4 @@
-﻿/* ============================================
+/* ============================================
   @import '../.agent/themes/skin-abastible.css';
 
    Generated: 2026-02-06
@@ -66,9 +66,9 @@
   /* Spacing System */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
+  --spacing-md: 12px;
+  --spacing-lg: 18px;
+  --spacing-xl: 24px;
 
   /* Borders & Radius */
   --border-radius-sm: 4px;
@@ -84,12 +84,26 @@
   --shadow-depth: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 
   /* Navbar Height */
-  --header-height: 64px;
+  --header-height: 54px;
 }
 
 /* -----------------------------
    2. BASE ELEMENTS
    ----------------------------- */
+
+html {
+  zoom: 0.85; /* Replicates browser zoom at 85% */
+  box-sizing: border-box;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
+/* Fix flex/grid items overflow */
+.flex > *, .grid > *, [style*="display: flex"] > *, [style*="display: grid"] > * {
+  min-width: 0;
+}
 
 body {
   background: var(--color-bg-body);
@@ -716,8 +730,12 @@ a {
   outline: none;
 }
 
-.text-red-600 {
-  color: #dc2626;
+.text-brand-color {
+  color: #fe5000;
+}
+
+.brand-border {
+  border-color: #fe5000;
 }
 
 .bg-red-50 {
@@ -1449,7 +1467,7 @@ select {
 }
 
 .parko-title-icon {
-  color: #f97316;
+  color: #fe5000;
   /* orange-500 */
 }
 
@@ -1522,9 +1540,9 @@ select {
 .parko-select:focus,
 .parko-textarea:focus {
   outline: none;
-  border-color: #f97316;
+  border-color: #fe5000;
   /* orange-500 */
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+  box-shadow: 0 0 0 3px rgba(254, 80, 0, 0.1);
 }
 
 .parko-input::placeholder,

@@ -1,4 +1,4 @@
-const { Dependencia, TipoContratista, Vinculacion, Administracion } = require('../database/models');
+const { Dependencia, TipoContratista, Vinculacion, Administracion, Gerencia, Subgerencia, User, Role, Contratista } = require('../database/models');
 
 const resourceController = {
     // GET /api/resources/dependencias
@@ -24,12 +24,13 @@ const resourceController = {
                 const { dependencia_id } = req.user;
                 where.id = dependencia_id;
             } else if (role === 'contratista_admin') {
-                const cId = contratista_id || req.user.contratista_id;
+                const { Op } = require('sequelize');
+                const cIds = req.user.contratista_ids || (contratista_id ? [contratista_id] : (req.user.contratista_id ? [req.user.contratista_id] : []));
 
                 include = [{
                     model: Vinculacion,
                     as: 'vinculaciones',
-                    where: { contratista_id: cId, activo: 1 },
+                    where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
                     required: true
                 }];
             }
@@ -130,12 +131,13 @@ const resourceController = {
                 const { tipo_contratista_id } = req.user;
                 where.id = tipo_contratista_id;
             } else if (role === 'contratista_admin') {
-                const cId = contratista_id || req.user.contratista_id;
+                const { Op } = require('sequelize');
+                const cIds = req.user.contratista_ids || (contratista_id ? [contratista_id] : (req.user.contratista_id ? [req.user.contratista_id] : []));
 
                 include = [{
                     model: Vinculacion,
                     as: 'vinculaciones',
-                    where: { contratista_id: cId, activo: 1 },
+                    where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
                     required: true
                 }];
             }
@@ -170,6 +172,130 @@ const resourceController = {
         } catch (error) {
             console.error('Error fetching tipos contratista:', error);
             res.status(500).json({ success: false, message: 'Error al obtener tipos de contratista' });
+        }
+    },
+
+    // GET /api/resources/gerencias
+    async gerencias(req, res) {
+        try {
+            // Nota: Para este MVP y filtros, devolveremos todas las gerencias activas.
+            // Si el user scope limita vistas, las dependencias filtradas actuarán en cascada.
+            const data = await Gerencia.findAll({
+                attributes: ['id', 'nombre'],
+                where: { activo: 1 },
+                order: [['nombre', 'ASC']]
+            });
+            res.json({ success: true, data });
+        } catch (error) {
+            console.error('Error fetching gerencias:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener gerencias' });
+        }
+    },
+
+    // GET /api/resources/subgerencias
+    async subgerencias(req, res) {
+        try {
+            const { gerencia_id } = req.query;
+            let where = { activo: 1 };
+            
+            // Filtro cascada si se envía gerencia_id
+            if (gerencia_id && gerencia_id !== 'todas') {
+                where.gerencia_id = gerencia_id;
+            }
+
+            const data = await Subgerencia.findAll({
+                attributes: ['id', 'nombre', 'gerencia_id'],
+                where,
+                order: [['nombre', 'ASC']]
+            });
+            res.json({ success: true, data });
+        } catch (error) {
+            console.error('Error fetching subgerencias:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener subgerencias' });
+        }
+    },
+
+    // GET /api/resources/adc
+    async administradoresContrato(req, res) {
+        try {
+            // Usuarios con rol de administrador_contrato que están activos
+            const data = await User.findAll({
+                attributes: ['id', 'name', 'email'],
+                where: { role: 'administrador_contrato', activo: true },
+                order: [['name', 'ASC']]
+            });
+            res.json({ success: true, data });
+        } catch (error) {
+            console.error('Error fetching ADCs:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener administradores de contrato' });
+        }
+    },
+
+    // GET /api/resources/adc-scope
+    async adcScope(req, res) {
+        try {
+            const { role, id } = req.user;
+            if (role !== 'administrador_contrato') {
+                return res.json({ success: true, data: { empresas: [], dependencias: [] } });
+            }
+
+            const administraciones = await Administracion.findAll({
+                where: { administrador_contrato_id: id, activo: 1 },
+                include: [{
+                    model: Vinculacion,
+                    as: 'vinculacion',
+                    required: true,
+                    include: [
+                        { model: Contratista, as: 'contratista', required: true },
+                        { model: Dependencia, as: 'dependencia', required: true }
+                    ]
+                }]
+            });
+
+            const empresasMap = new Map();
+            const dependenciasMap = new Map();
+
+            administraciones.forEach(adm => {
+                const v = adm.vinculacion;
+                if (v && v.contratista) {
+                    empresasMap.set(v.contratista.id, {
+                        id: v.contratista.id,
+                        nombre: v.contratista.nombre,
+                        rut: v.contratista.rut
+                    });
+                }
+                if (v && v.dependencia) {
+                    dependenciasMap.set(v.dependencia.id, {
+                        id: v.dependencia.id,
+                        nombre: v.dependencia.nombre
+                    });
+                }
+            });
+
+            res.json({
+                success: true,
+                data: {
+                    empresas: Array.from(empresasMap.values()),
+                    dependencias: Array.from(dependenciasMap.values())
+                }
+            });
+        } catch (error) {
+            console.error('Error fetching ADC scope:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener alcance del ADC' });
+        }
+    },
+
+    // GET /api/resources/roles
+    async roles(req, res) {
+        try {
+            const roles = await Role.findAll({
+                attributes: ['id', 'name'],
+                order: [['name', 'ASC']]
+            });
+            res.json({ success: true, data: roles });
+        } catch (error) {
+            console.error('Error fetching roles:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener roles' });
         }
     }
 };

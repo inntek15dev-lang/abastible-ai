@@ -11,7 +11,8 @@ export default function ProgramaList() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [expanded, setExpanded] = useState({});
-    const { canWrite, canExec } = useAuth();
+    const { user, canWrite, canExec } = useAuth();
+    const isADC = user?.role === 'administrador_contrato';
 
     useEffect(() => {
         fetchProgramas();
@@ -97,7 +98,7 @@ export default function ProgramaList() {
             formData.append('descripcion', newItem.descripcion);
             formData.append('frecuencia', newItem.frecuencia);
             if (newItem.criterios) formData.append('criterios', newItem.criterios);
-            if (newItem.template) formData.append('template', newItem.template);
+            if (newItem.template) formData.append('plantilla', newItem.template);
 
             // Ensure actividad is sent
             formData.append('actividad', newItem.actividad || newItem.descripcion.substring(0, 50));
@@ -138,7 +139,7 @@ export default function ProgramaList() {
                 <h1 className="page-title">
                     <span role="img" aria-label="programs">📋</span> Gestión de Programas
                 </h1>
-                {canWrite('Programas') && (
+                {canWrite('Programas') && !isADC && (
                     <Link to="/programas/new" id="btn-new-program" className="btn-primary-add">
                         <Plus size={18} /> Nuevo Programa
                     </Link>
@@ -191,13 +192,13 @@ export default function ProgramaList() {
                                 Ver Elementos
                             </Link>
 
-                            {canWrite('Programas') && (
+                            {canWrite('Programas') && !isADC && (
                                 <Link to={`/programas/${programa.id}/edit`} className="btn-card-action btn-edit" style={{ textDecoration: 'none' }}>
                                     Editar
                                 </Link>
                             )}
 
-                            {canExec('Programas') && (
+                            {canExec('Programas') && !isADC && (
                                 <button
                                     className="btn-card-action btn-delete-icon"
                                     onClick={(e) => { e.stopPropagation(); handleDelete(programa.id); }}
@@ -213,7 +214,7 @@ export default function ProgramaList() {
                             <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '10px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                                     <h4 style={{ fontSize: '0.9rem' }}>Elementos</h4>
-                                    {canWrite('Programas') && (
+                                    {canWrite('Programas') && !isADC && (
                                         <button className="btn-link sm" onClick={() => openElemModal(programa.id)}>
                                             + Agregar
                                         </button>
@@ -223,13 +224,13 @@ export default function ProgramaList() {
                                     <div key={el.id} style={{ marginBottom: '8px' }}>
                                         <div style={{ fontSize: '0.85rem', fontWeight: 600, display: 'flex', justifyContent: 'space-between' }}>
                                             <span>{el.numero}. {el.nombre}</span>
-                                            {canExec('Programas') && <Trash2 size={12} className="text-danger cursor-pointer" onClick={() => handleDeleteElement(el.id)} />}
+                                            {canExec('Programas') && !isADC && <Trash2 size={12} className="text-danger cursor-pointer" onClick={() => handleDeleteElement(el.id)} />}
                                         </div>
                                         {/* Activities List under Element */}
                                         <div style={{ paddingLeft: '1rem', marginTop: '4px' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                                                 <small style={{ color: '#666' }}>Actividades</small>
-                                                {canWrite('Programas') && (
+                                                {canWrite('Programas') && !isADC && (
                                                     <button className="btn-link sm" style={{ fontSize: '0.7em' }} onClick={() => openActModal(el.id)}>
                                                         + Actividad
                                                     </button>
@@ -239,9 +240,9 @@ export default function ProgramaList() {
                                                 <div key={act.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '2px', padding: '2px 0', borderBottom: '1px dashed #eee' }}>
                                                     <span title={act.descripcion}>{act.codigo} - {act.actividad || act.descripcion?.substring(0, 30)}</span>
                                                     <div style={{ display: 'flex', gap: '5px' }}>
-                                                        {act.template_url && <span title="Plantilla disponible">📎</span>}
-                                                        {canWrite('Programas') && <Edit size={12} className="text-primary cursor-pointer" onClick={() => openEditActModal(act)} />}
-                                                        {canExec('Programas') && <Trash2 size={12} className="text-danger cursor-pointer" onClick={() => handleDeleteActivity(act.id)} />}
+                                                        {act.template_url && !isADC && <span title="Plantilla disponible">📎</span>}
+                                                        {canWrite('Programas') && !isADC && <Edit size={12} className="text-primary cursor-pointer" onClick={() => openEditActModal(act)} />}
+                                                        {canExec('Programas') && !isADC && <Trash2 size={12} className="text-danger cursor-pointer" onClick={() => handleDeleteActivity(act.id)} />}
                                                     </div>
                                                 </div>
                                             ))}

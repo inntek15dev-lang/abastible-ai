@@ -60,30 +60,29 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.5rem 1rem;
+    padding: 0.5rem 1.25rem;
     border-radius: 9999px;
     /* Pill shape */
     font-size: 0.875rem;
-    font-weight: 500;
-    color: #4b5563;
+    font-weight: 600;
+    color: #fe5000;
     transition: all 0.2s ease;
-    border: 1px solid transparent;
-    background: transparent;
+    border: none;
+    background-color: #fff1f0;
     cursor: pointer;
     white-space: nowrap;
 }
 
 .module-link:hover {
-    background-color: #f3f4f6;
-    color: #111827;
+    background-color: #ffe4e0;
+    transform: translateY(-1px);
 }
 
 .module-link.active {
-    background-color: #f3f4f6;
-    color: var(--module-color, #111827);
-    /* Fallback to dark gray */
-    font-weight: 700;
-    box-shadow: 0 0 0 1px var(--module-color, #d1d5db);
+    background: var(--module-color);
+    color: #ffffff !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    border-color: transparent !important;
 }
 
 /* Dropdown Menu */

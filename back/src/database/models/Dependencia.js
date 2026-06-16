@@ -16,6 +16,14 @@ const Dependencia = sequelize.define('Dependencia', {
         type: DataTypes.TINYINT(1),
         allowNull: false,
         defaultValue: 1
+    },
+    subgerencia_id: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: true,
+        references: {
+            model: 'subgerencias',
+            key: 'id'
+        }
     }
 }, {
     tableName: 'dependencias',

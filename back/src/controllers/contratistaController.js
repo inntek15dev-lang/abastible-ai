@@ -1,20 +1,27 @@
 // IEEE Trace: REQ-009 | US-051 | contratistaController.js
-const { Contratista, Vinculacion, Administracion, User, TipoContratista, Dependencia, Programa, sequelize } = require('../database/models');
+const { Contratista, Vinculacion, Administracion, VinculacionUsuario, User, TipoContratista, Dependencia, Programa, Gerencia, Subgerencia, sequelize } = require('../database/models');
 
 const contratistaController = {
     // GET /api/contratistas
     async index(req, res) {
         try {
             const { role, id, contratista_id } = req.user;
-            let whereContratista = { activo: 1 };
+            const { activo } = req.query;
+            
+            let whereContratista = {};
+            if (activo !== undefined) {
+                whereContratista.activo = activo === 'true' || activo === '1' ? 1 : 0;
+            }
+
             let includeVinculacion = {
                 model: Vinculacion,
                 as: 'vinculaciones',
-                where: { activo: 1 },
                 required: false,
                 include: [
                     { model: TipoContratista, as: 'servicio', include: [{ model: Programa, as: 'programa', attributes: ['id', 'nombre'] }] },
                     { model: Dependencia, as: 'dependencia' },
+                    { model: Gerencia, as: 'gerencia' },
+                    { model: Subgerencia, as: 'subgerencia' },
                     {
                         model: Administracion,
                         as: 'administraciones',
@@ -22,6 +29,15 @@ const contratistaController = {
                         required: false,
                         include: [
                             { model: User, as: 'administradorContrato', attributes: ['id', 'name', 'email'] }
+                        ]
+                    },
+                    {
+                        model: VinculacionUsuario,
+                        as: 'usuariosVinculados',
+                        where: { activo: 1 },
+                        required: false,
+                        include: [
+                            { model: User, as: 'usuario', attributes: ['id', 'name', 'email', 'role'] }
                         ]
                     }
                 ]
@@ -33,9 +49,10 @@ const contratistaController = {
                 includeVinculacion.include[2].where = { administrador_contrato_id: id, activo: 1 };
                 includeVinculacion.include[2].required = true;
             } else if (role === 'contratista_admin') {
-                // Only their own company
-                const cId = contratista_id || req.user.contratista_id;
-                whereContratista.id = cId;
+                // Only their own companies
+                const { Op } = require('sequelize');
+                const cIds = req.user.contratista_ids || (contratista_id ? [contratista_id] : (req.user.contratista_id ? [req.user.contratista_id] : []));
+                whereContratista.id = { [Op.in]: cIds };
             } else if (role === 'contratista_user') {
                 // Only their own company, and strictly filtered vinculations if needed
                 const cId = contratista_id || req.user.contratista_id;
@@ -51,9 +68,26 @@ const contratistaController = {
 
             const contratistas = await Contratista.findAll({
                 where: whereContratista,
-                include: [includeVinculacion]
+                include: [
+                    includeVinculacion,
+                    { 
+                        model: User, 
+                        as: 'usuariosAsignados', 
+                        where: { role: 'contratista_admin', activo: 1 }, 
+                        required: false,
+                        through: { attributes: [] },
+                        attributes: ['id', 'name', 'email', 'role']
+                    }
+                ]
             });
-            res.json({ success: true, data: contratistas });
+
+            const mappedData = contratistas.map(c => {
+                const json = c.toJSON();
+                json.usuarios = json.usuariosAsignados || [];
+                return json;
+            });
+
+            res.json({ success: true, data: mappedData });
         } catch (error) {
             console.error('Contratistas index error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener contratistas' });
@@ -66,6 +100,14 @@ const contratistaController = {
             const contratista = await Contratista.findByPk(req.params.id, {
                 include: [
                     {
+                        model: User,
+                        as: 'usuariosAsignados',
+                        where: { role: 'contratista_admin', activo: 1 },
+                        required: false,
+                        through: { attributes: [] },
+                        attributes: ['id', 'name', 'email', 'role']
+                    },
+                    {
                         model: Vinculacion,
                         as: 'vinculaciones',
                         where: { activo: 1 },
@@ -73,6 +115,8 @@ const contratistaController = {
                         include: [
                             { model: TipoContratista, as: 'servicio' },
                             { model: Dependencia, as: 'dependencia' },
+                            { model: Gerencia, as: 'gerencia' },
+                            { model: Subgerencia, as: 'subgerencia' },
                             {
                                 model: Administracion,
                                 as: 'administraciones',
@@ -80,6 +124,15 @@ const contratistaController = {
                                 required: false,
                                 include: [
                                     { model: User, as: 'administradorContrato', attributes: ['id', 'name', 'email'] }
+                                ]
+                            },
+                            {
+                                model: VinculacionUsuario,
+                                as: 'usuariosVinculados',
+                                where: { activo: 1 },
+                                required: false,
+                                include: [
+                                    { model: User, as: 'usuario', attributes: ['id', 'name', 'email', 'role'] }
                                 ]
                             }
                         ]
@@ -91,7 +144,10 @@ const contratistaController = {
                 return res.status(404).json({ success: false, message: 'Contratista no encontrado' });
             }
 
-            res.json({ success: true, data: contratista });
+            const json = contratista.toJSON();
+            json.usuarios = json.usuariosAsignados || [];
+
+            res.json({ success: true, data: json });
         } catch (error) {
             console.error('Contratista show error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener contratista' });

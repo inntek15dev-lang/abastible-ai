@@ -71,6 +71,10 @@ docker compose logs -f db
    ```bash
    docker exec -it oiem_abastible_api npm run seed
    ```
+   **[NUEVO] Reset Destructivo (Misión Crítica):** Si la base de datos presenta datos huérfanos, inconsistencias de versión, o necesitas limpiar un ambiente Preprod por completo para regenerarlo desde cero (borrará TODAS las tablas definidas), utiliza el flag forzado:
+   ```bash
+   docker exec -it oiem_abastible_api node src/seed.js --force
+   ```
 
 ## Mantenimiento
 
@@ -88,5 +92,32 @@ docker compose up -d --build --force-recreate
 docker compose down
 ```
 
-### Manejo de Archivos (Persistencia)
-Los archivos subidos (Templates PDF, Evidencias, Imágenes) a través de la carpeta `storage` están mapeados como volumen en `docker-compose.yml`. Aunque destruyas el contenedor, los archivos persistirán físicamente en el servidor anfitrión dentro del directorio `./storage/`.
+## Resolución de Problemas Críticos (CSP/CORS)
+
+Si al acceder al sistema los módulos no cargan y la consola (F12) muestra errores de **CORS** o violaciones de **CSP (Content Security Policy)** como `connect-src 'none'`, el problema se encuentra en el **Proxy Reverso del Servidor Host** (fuera de Docker).
+
+### 1. Error de CSP (`connect-src 'none'`)
+Este error bloquea toda comunicación saliente del navegador hacia la API.
+- **Solución en Nginx Proxy Manager**: 
+  - Ve a la configuración del Host (`oiem-abastible.inntek.cl`).
+  - Revisa la pestaña **SSL** y asegúrate de que "HSTS" no esté inyectando políticas restrictivas de forma accidental.
+  - Revisa la pestaña **Advanced** y busca si hay una directiva `add_header Content-Security-Policy`.
+  - **Recomendación**: Asegúrate de que `connect-src` incluya tanto el dominio del front como el de la api:
+    `Content-Security-Policy: default-src 'self'; connect-src 'self' https://oiem-abastible-api.inntek.cl; ...`
+
+### 2. Error de CORS (`No Access-Control-Allow-Origin`)
+Si la API responde pero el navegador bloquea el resultado:
+- Asegúrate de que el Proxy Reverso esté pasando los encabezados correctamente.
+- En la configuración de Nginx del host, añade o verifica que estas directivas NO estén duplicadas (pueden venir del backend y del proxy al mismo tiempo):
+  ```nginx
+  proxy_set_header Host $host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  ```
+
+### 3. Forzar Reinicio Limpio
+Si los cambios en el código no se reflejan, usa el comando de reinicio forzado:
+```bash
+docker compose up -d --force-recreate
+```

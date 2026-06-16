@@ -29,6 +29,17 @@ export function AuthProvider({ children }) {
         return userData;
     };
 
+    const loginWithExternalToken = async (token) => {
+        const response = await api.post('/auth/login-external', { token });
+        const { token: jwtToken, user: userData } = response.data;
+
+        localStorage.setItem('token', jwtToken);
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+
+        return userData;
+    };
+
     const logout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -37,6 +48,11 @@ export function AuthProvider({ children }) {
 
     // Privilege check methods (privilegios-engine integration)
     const checkPrivilege = useCallback((module, action) => {
+        // REGLA CRÍTICA PARKO: El módulo OVAL es EXCLUSIVO para el rol 'oval'
+        if (module === 'OVAL') {
+            return user?.role === 'oval';
+        }
+
         if (user?.role === 'admin') return true;
         if (!user?.privileges) return false;
 
@@ -46,6 +62,9 @@ export function AuthProvider({ children }) {
 
         // Hardcode: Contratista Admin has access to Usuarios
         if (user.role === 'contratista_admin' && module === 'Usuarios') return true;
+
+        // Hardcode: Contratistas have access to Compromisos
+        if (['contratista_admin', 'contratista_user'].includes(user?.role) && module === 'Compromisos') return true;
 
         // Check specific module
         return user.privileges.some(p => p.module === module && p[action]);
@@ -61,6 +80,7 @@ export function AuthProvider({ children }) {
         user,
         loading,
         login,
+        loginWithExternalToken,
         logout,
         canRead,
         canWrite,

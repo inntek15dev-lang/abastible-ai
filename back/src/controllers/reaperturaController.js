@@ -4,7 +4,8 @@ const {
     Registro,
     RegistroLog,
 
-    User
+    User,
+    Administracion
 } = require('../database/models');
 const emailService = require('../services/emailService');
 
@@ -61,7 +62,7 @@ const reaperturaController = {
                 return res.status(404).json({ success: false, message: 'Registro no encontrado' });
             }
 
-            if (!['auditado', 'auditada', 'AUDITADA', 'cerrado'].includes(registro.estado_auditoria)) {
+            if (!['auditado', 'auditada', 'AUDITADA', 'cerrado', 'finalizado'].includes(registro.estado_auditoria)) {
                 return res.status(400).json({
                     success: false,
                     message: 'El registro no está en un estado que permita reapertura'
@@ -88,8 +89,8 @@ const reaperturaController = {
                 estado_previo: registro.estado_auditoria
             });
 
-            // Mark registro as reapertura_pendiente
-            await registro.update({ estado_auditoria: 'reapertura_pendiente' });
+            // Mark registro as reapertura_solicitada
+            await registro.update({ estado_auditoria: 'reapertura_solicitada' });
 
             // Log
             await RegistroLog.create({
@@ -100,11 +101,20 @@ const reaperturaController = {
                 ip_address: req.ip
             });
 
-            // Notify Admin (Mock)
-            await emailService.notifyReaperturaSolicitada(registro, req.user, 'admin@abastible.cl');
-            // Notify Admin (Mock)
-            await emailService.notifyReaperturaSolicitada(registro, req.user, 'admin@abastible.cl');
-            console.log(`[MOCK EMAIL] Solicitud Reapertura: ${registro.periodo} - ${motivo}`);
+            // Notify ADC(s) (PARKO)
+            try {
+                const admins = await Administracion.findAll({
+                    where: { vinculacion_id: registro.contratista_asignacion_id, activo: 1 },
+                    include: [{ model: User, as: 'administradorContrato', attributes: ['email'] }]
+                });
+                const adminEmails = admins.map(a => a.administradorContrato?.email).filter(Boolean);
+                
+                if (adminEmails.length > 0) {
+                    await emailService.notifyReaperturaSolicitada(registro, req.user, adminEmails, motivo);
+                }
+            } catch (emailErr) {
+                console.error('Error notifying admins of reopening:', emailErr);
+            }
 
             res.status(201).json({ success: true, data: solicitud });
         } catch (error) {
@@ -117,7 +127,10 @@ const reaperturaController = {
     async aprobar(req, res) {
         try {
             const solicitud = await SolicitudReapertura.findByPk(req.params.id, {
-                include: [{ model: Registro, as: 'registro' }]
+                include: [
+                    { model: Registro, as: 'registro' },
+                    { model: User, as: 'solicitante', attributes: ['email'] }
+                ]
             });
 
             if (!solicitud) {
@@ -135,10 +148,14 @@ const reaperturaController = {
                 fecha_respuesta: new Date()
             });
 
+            let fLimite = req.body.fecha_limite ? String(req.body.fecha_limite).trim() : null;
+            if (fLimite === '' || fLimite === 'null' || fLimite === 'undefined') fLimite = null;
+
             // Reopen the registro
             await solicitud.registro.update({
-                estado_auditoria: 'reabierto',
-                cerrado: 0
+                estado_auditoria: 'pendiente_subsanacion',
+                cerrado: 0,
+                fecha_limite_subsanacion: fLimite
             });
 
             // Log
@@ -150,8 +167,10 @@ const reaperturaController = {
                 ip_address: req.ip
             });
 
-            // Notify Solicitor (Mock)
-            // await emailService.notifyReaperturaProcessed(solicitud.solicitante.email, solicitud.registro, 'aprobada', req.body.respuesta);
+            // Notify Solicitor (Real Mock/Service)
+            if (solicitud.solicitante?.email) {
+                await emailService.notifyReaperturaResult(solicitud, solicitud.registro, solicitud.solicitante.email);
+            }
             console.log(`[MOCK EMAIL] Reapertura Aprobada: ${solicitud.registro_id}`);
 
             res.json({ success: true, data: solicitud, message: 'Reapertura aprobada' });
@@ -173,7 +192,12 @@ const reaperturaController = {
                 });
             }
 
-            const solicitud = await SolicitudReapertura.findByPk(req.params.id);
+            const solicitud = await SolicitudReapertura.findByPk(req.params.id, {
+                include: [
+                    { model: Registro, as: 'registro' },
+                    { model: User, as: 'solicitante', attributes: ['email'] }
+                ]
+            });
 
             if (!solicitud) {
                 return res.status(404).json({ success: false, message: 'Solicitud no encontrada' });
@@ -190,11 +214,11 @@ const reaperturaController = {
                 fecha_respuesta: new Date()
             });
 
-            // Revert registro estado to previous state
+            // Revert registro estado to finalizado as per business rule (reopening rejected)
             const registro = await Registro.findByPk(solicitud.registro_id);
-            if (registro && registro.estado_auditoria === 'reapertura_pendiente') {
+            if (registro) {
                 await registro.update({
-                    estado_auditoria: solicitud.estado_previo || 'auditada'
+                    estado_auditoria: 'finalizado'
                 });
             }
 
@@ -206,6 +230,11 @@ const reaperturaController = {
                 descripcion: `Reapertura rechazada: ${respuesta}`,
                 ip_address: req.ip
             });
+
+            // Notify Solicitor
+            if (solicitud.solicitante?.email) {
+                await emailService.notifyReaperturaResult(solicitud, solicitud.registro, solicitud.solicitante.email);
+            }
 
             res.json({ success: true, data: solicitud, message: 'Reapertura rechazada' });
         } catch (error) {
@@ -229,7 +258,7 @@ const reaperturaController = {
             }
 
             // Verify state
-            if (!['auditado', 'auditada', 'AUDITADA', 'cerrado', 'reapertura_pendiente'].includes(registro.estado_auditoria)) {
+            if (!['auditado', 'auditada', 'AUDITADA', 'cerrado', 'reapertura_pendiente', 'finalizado'].includes(registro.estado_auditoria)) {
                 return res.status(400).json({
                     success: false,
                     message: 'El registro no está en un estado que permita reapertura'
@@ -240,7 +269,10 @@ const reaperturaController = {
             await registro.update({
                 estado_auditoria: 'pendiente',
                 cerrado: 0,
-                auditado: 0
+                auditado: 0,
+                porcentaje_cumplimiento_auditor: null,
+                fecha_auditoria: null,
+                auditado_por: null
             });
 
             // Log

@@ -1,4 +1,4 @@
-﻿// IEEE Trace: REQ-001 | US-001 | pages/programas/ElementoList.jsx
+// IEEE Trace: REQ-001 | US-001 | pages/programas/ElementoList.jsx
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -15,7 +15,8 @@ export default function ElementoList() {
     const [elementos, setElementos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const { canWrite, canExec } = useAuth();
+    const { user, canWrite, canExec } = useAuth();
+    const isADC = user?.role === 'administrador_contrato';
 
     // Modal states (reused from previous logic, simplified for brevity here)
     // In a real refactor, these should be separate components or keep existing modal logic.
@@ -50,6 +51,26 @@ export default function ElementoList() {
         }
     };
 
+    const handleDeleteActivity = async (id) => {
+        if (!window.confirm('¿Está seguro de eliminar esta actividad? Esta acción no se puede deshacer.')) return;
+        try {
+            await api.delete(`/actividades/${id}`);
+            fetchProgramData(); // Refresh list
+        } catch (err) {
+            alert('Error al eliminar la actividad. Verifique si tiene permisos o si la actividad tiene registros asociados.');
+        }
+    };
+
+    const handleDeleteElement = async (id) => {
+        if (!window.confirm('¿Está seguro de eliminar este elemento? Se eliminarán todas sus actividades asociadas. Esta acción no se puede deshacer.')) return;
+        try {
+            await api.delete(`/elementos/${id}`);
+            fetchProgramData(); // Refresh list
+        } catch (err) {
+            alert('Error al eliminar el elemento. Verifique si tiene permisos.');
+        }
+    };
+
     if (loading) return <div className="loading">Cargando...</div>;
     if (error) return <div className="error-message">{error}</div>;
     if (!program) return <div className="error-message">Programa no encontrado</div>;
@@ -72,7 +93,7 @@ export default function ElementoList() {
                         </h1>
                     </div>
                 </div>
-                {canWrite('Programas') && (
+                {canWrite('Programas') && !isADC && (
                     <Link to={`/programas/${program.id}/edit`} className="btn-edit-program">
                         <Pencil size={16} /> Editar Programa
                     </Link>
@@ -106,7 +127,7 @@ export default function ElementoList() {
                     <FolderOpen size={20} />
                     <span>Elementos y Actividades</span>
                 </div>
-                {canWrite('Programas') && (
+                {canWrite('Programas') && !isADC && (
                     <Link to={`/elementos/new?programa_id=${program.id}`} className="btn-new-element">
                         <Plus size={16} /> Nuevo Elemento
                     </Link>
@@ -132,7 +153,7 @@ export default function ElementoList() {
                                     </div>
                                 </div>
                                 <div className="element-actions">
-                                    {canWrite('Programas') && (
+                                    {canWrite('Programas') && !isADC && (
                                         <>
                                             <button
                                                 className="btn-add-activity"
@@ -143,6 +164,12 @@ export default function ElementoList() {
                                             <Link to={`/elementos/${elem.id}/edit`} className="btn-edit-text">
                                                 <Pencil size={14} /> Editar
                                             </Link>
+                                            <button
+                                                className="btn-delete-text"
+                                                onClick={() => handleDeleteElement(elem.id)}
+                                            >
+                                                <Trash2 size={14} /> Eliminar
+                                            </button>
                                         </>
                                     )}
                                 </div>
@@ -172,7 +199,7 @@ export default function ElementoList() {
                                                     <td>{act.criterios || '-'}</td>
                                                     <td>{act.frecuencia}</td>
                                                     <td style={{ textAlign: 'center' }}>
-                                                        {act.template_url ? (
+                                                        {!isADC && act.template_url ? (
                                                             <a
                                                                 href={`${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${act.template_url}`}
                                                                 target="_blank"
@@ -190,18 +217,27 @@ export default function ElementoList() {
                                                                 <Paperclip size={16} />
                                                             </a>
                                                         ) : (
-                                                            (act.requiere_evidencia ? <span title="Requiere evidencia, sin plantilla" style={{ color: '#d1d5db' }}>-</span> : <span style={{ color: '#9ca3af' }}>-</span>)
+                                                            <span style={{ color: '#9ca3af' }}>-</span>
                                                         )}
                                                     </td>
                                                     <td>
-                                                        {canWrite('Programas') && (
-                                                            <button
-                                                                className="btn-icon-only"
-                                                                onClick={() => navigate(`/actividades/${act.id}/edit`)}
-                                                                title="Editar actividad"
-                                                            >
-                                                                <Pencil size={14} className="text-gray-500 hover:text-blue-600" />
-                                                            </button>
+                                                        {canWrite('Programas') && !isADC && (
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    className="btn-icon-only"
+                                                                    onClick={() => navigate(`/actividades/${act.id}/edit`)}
+                                                                    title="Editar actividad"
+                                                                >
+                                                                    <Pencil size={14} className="text-gray-500 hover:text-blue-600" />
+                                                                </button>
+                                                                <button
+                                                                    className="btn-icon-only"
+                                                                    onClick={() => handleDeleteActivity(act.id)}
+                                                                    title="Eliminar actividad"
+                                                                >
+                                                                    <Trash2 size={14} className="text-gray-500 hover:text-red-600" />
+                                                                </button>
+                                                            </div>
                                                         )}
                                                     </td>
                                                 </tr>

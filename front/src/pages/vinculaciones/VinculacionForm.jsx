@@ -4,11 +4,20 @@ import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api';
 import { toast } from 'react-hot-toast';
 import { Save, ArrowLeft } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 export default function VinculacionForm() {
+    const { user } = useAuth();
     const { id } = useParams();
     const navigate = useNavigate();
     const isEditing = !!id;
+
+    useEffect(() => {
+        if (user?.role === 'administrador_contrato') {
+            toast.error('No tiene permisos para gestionar vinculaciones');
+            navigate('/vinculaciones');
+        }
+    }, [user, navigate]);
 
     const [formData, setFormData] = useState({
         contratista_id: '',

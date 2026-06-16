@@ -1,4 +1,4 @@
-﻿/* ============================================
+/* ============================================
    Theme: ContratistaManager
    Source: info/medias/vista-gestion-contratistas.png
    ============================================ */
@@ -14,7 +14,7 @@
     --color-primary: #003594;
     /* Blue actions */
     --color-primary-hover: #1D4ED8;
-    --color-secondary: #F97316;
+    --color-secondary: #fe5000;
     /* Orange accents */
 
     --color-text-main: #111827;
@@ -117,7 +117,7 @@
    ----------------------------- */
 .table-header {
     display: grid;
-    grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1.2fr 0.9fr 0.9fr 100px;
+    grid-template-columns: 2fr 120px 1.2fr 2fr 1.2fr 100px 100px 80px;
     /* Adjust based on content */
     padding: 0 var(--spacing-md) var(--spacing-sm);
     font-size: 0.75rem;
@@ -163,7 +163,7 @@
 
 .contratista-main-row {
     display: grid;
-    grid-template-columns: 2fr 1fr 1.2fr 1.2fr 1.2fr 0.9fr 0.9fr 100px;
+    grid-template-columns: 2fr 120px 1.2fr 2fr 1.2fr 100px 100px 80px;
     padding: var(--spacing-md);
     align-items: center;
     border-bottom: 1px solid transparent;
@@ -172,6 +172,15 @@
 .contratista-card.expanded .contratista-main-row {
     border-bottom-color: var(--color-border);
     background-color: #FAFAFA;
+}
+
+.actions-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 0;
 }
 
 .contratista-name {
@@ -288,20 +297,53 @@
 }
 
 .action-btn {
-    background: none;
-    border: none;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
     cursor: pointer;
-    padding: 4px;
-    border-radius: 4px;
-    color: var(--color-text-secondary);
+    padding: 0;
+    border-radius: 8px;
+    color: #64748b;
+    vertical-align: middle;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    flex-shrink: 0;
+}
+
+.action-btn svg {
+    width: 22px !important;
+    height: 22px !important;
 }
 
 .action-btn.danger {
-    color: #EF4444;
+    color: #ef4444;
+}
+
+.action-btn.success {
+    color: #10b981;
 }
 
 .action-btn:hover {
-    background-color: #F3F4F6;
+    background-color: #f8fafc;
+    border-color: #cbd5e1;
+    color: var(--color-primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.action-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.action-btn.danger:hover {
+    border-color: #fee2e2;
+    background-color: #fef2f2;
+    color: #ef4444;
 }
 
 /* -----------------------------
@@ -323,7 +365,7 @@
 
 .vinc-list-header {
     display: grid;
-    grid-template-columns: 1fr 1fr 1.5fr 1fr 1fr 40px;
+    grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) 1.5fr 1.5fr 1.5fr 100px 100px 100px 80px;
     padding: 0 12px;
     margin-bottom: 8px;
     font-size: 0.75rem;
@@ -334,7 +376,7 @@
 
 .vinc-item {
     display: grid;
-    grid-template-columns: 1fr 1fr 1.5fr 1fr 1fr 40px;
+    grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) 1.5fr 1.5fr 1.5fr 100px 100px 100px 80px;
     align-items: center;
     background: #FFFFFF;
     padding: 8px 12px;
@@ -366,4 +408,21 @@
     border-radius: 4px;
     font-size: 0.8rem;
     font-weight: 500;
+}
+
+/* Custom styles for vinculacion editing inputs */
+.add-vinc-admin-select {
+    border-radius: 10px;
+    background-color: #e0f2fe;
+    border: 1px solid #0376b0;
+    color: #0376b0;
+    font-size: 0.85rem;
+    padding: 4px 8px;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.add-vinc-admin-select:focus {
+    box-shadow: 0 0 0 2px rgba(3, 118, 176, 0.2);
+    border-color: #0284c7;
 }

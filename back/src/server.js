@@ -12,38 +12,37 @@ const PORT = process.env.PORT || 4000;
 // Trust Proxy (Required for Nginx/Load Balancers to handle CORS/IPs correctly)
 app.set('trust proxy', 1);
 
-// Middleware
-const allowedOrigins = [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:3000',
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:5174',
-    'http://127.0.0.1:3000',
-    'http://oiem-abastible.inntek.cl',
-    'https://oiem-abastible.inntek.cl',
-    'http://oiem-abastible-api.inntek.cl',
-    'https://oiem-abastible-api.inntek.cl'
-];
+// Middleware de CORS Atómico (OPCIÓN NUCLEAR - Misión Crítica)
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    
+    // Loguear solo en desarrollo para no saturar logs de prod, 
+    // pero habilitar headers para cualquier subdominio de inntek.cl
+    if (origin) {
+        const originLower = origin.toLowerCase();
+        const isInntekOrOval = originLower.includes('inntek.cl') || 
+                               originLower.includes('ovalcontrol.com') ||
+                               originLower.includes('localhost') || 
+                               originLower.includes('127.0.0.1');
 
-app.use(cors({
-    origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl)
-        if (!origin) return callback(null, true);
-
-        // Normalize origin (remove trailing slashes for comparison)
-        const normalizedOrigin = origin.endsWith('/') ? origin.slice(0, -1) : origin;
-
-        if (allowedOrigins.indexOf(normalizedOrigin) !== -1 || process.env.NODE_ENV === 'development') {
-            callback(null, true);
-        } else {
-            console.warn(`🚨 CORS Blocked for origin: ${origin}`);
-            callback(new Error('Not allowed by CORS'));
+        if (isInntekOrOval) {
+            res.setHeader('Access-Control-Allow-Origin', origin);
+            res.setHeader('Access-Control-Allow-Credentials', 'true');
         }
-    },
-    credentials: true,
-    optionsSuccessStatus: 200
-}));
+    }
+
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Api-Key');
+    res.setHeader('X-CORS-Status', 'Nuclear-Applied'); // Header de depuración
+
+    // Manejo Inmediato y Agresivo de Preflight (OPTIONS)
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    next();
+});
+
+// Middleware de parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 

@@ -29,8 +29,8 @@ const ComplianceChart = ({ data }) => {
     }
 
     return (
-        <div style={{ width: '100%', height: 380, minWidth: 300 }}>
-            <ResponsiveContainer width="100%" height="100%" debounce={50}>
+        <div style={{ width: '100%', height: 380, minWidth: 0, position: 'relative' }}>
+            <ResponsiveContainer width="100%" height="100%" debounce={50} minWidth={0}>
                 <BarChart
                     data={data}
                     margin={{ top: 20, right: 30, left: 0, bottom: 20 }}

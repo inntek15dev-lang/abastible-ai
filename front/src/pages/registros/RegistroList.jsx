@@ -1,9 +1,9 @@
-﻿// IEEE Trace: REQ-002 | US-002, US-050 | pages/registros/RegistroList.jsx
-import { useState, useEffect, useMemo } from 'react';
+// IEEE Trace: REQ-002 | US-002, US-050 | pages/registros/RegistroList.jsx
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
-import { Plus, Eye, Edit, Edit2, RefreshCw, Trash2, FileText, Search, Filter, Calendar, Building, List, ClipboardCheck, Monitor, X, Lock } from 'lucide-react';
+import { Plus, Eye, Edit, Edit2, RefreshCw, Trash2, FileText, Search, Filter, Calendar, Building, List, ClipboardCheck, Monitor, X, Lock, Check, Clock, AlertTriangle } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toast } from 'react-hot-toast'; // Import toast
@@ -70,6 +70,8 @@ export default function RegistroList() {
     const [services, setServices] = useState([]); // Tipos de Contratista
     const [programs, setPrograms] = useState([]);
     const [admins, setAdmins] = useState([]);
+    const [gerencias, setGerencias] = useState([]);
+    const [subgerenciasRaw, setSubgerenciasRaw] = useState([]);
 
     // Advanced Filters State (US-050)
     const [filters, setFilters] = useState({
@@ -79,9 +81,40 @@ export default function RegistroList() {
         servicio: 'Todos',
         dependencia: 'Todas',
         programa: 'Todos',
-        auditoria: 'Todos',
-        admin_contrato: 'Todos'
+        admin_contrato: 'Todos',
+        gerencia: 'Todas',
+        subgerencia: 'Todas'
     });
+
+    // Check if a record is past its reporting or subsanation deadline
+    const isOutOfDeadline = useCallback((registro) => {
+        if (!registro.periodo) return false;
+        
+        // Grace period for monthly reporting (5th day of next month)
+        const GRACE_DAYS = 5;
+        const [year, month] = registro.periodo.split('-').map(Number);
+        const deadlineDate = new Date(year, month, GRACE_DAYS + 1);
+
+        // 1. Check Reporting Deadline
+        if (registro.created_at) {
+            // If already submitted, was it late?
+            const submissionDate = new Date(registro.created_at);
+            if (submissionDate > deadlineDate) return true;
+        } else if (new Date() > deadlineDate) {
+            // If not submitted and current date is past deadline
+            return true;
+        }
+
+        // 2. Check Subsanacion Deadline (if record is in that state)
+        if (registro.fecha_limite_subsanacion) {
+            const limit = new Date(registro.fecha_limite_subsanacion);
+            // End of the day for the limit
+            limit.setHours(23, 59, 59, 999);
+            if (new Date() > limit) return true;
+        }
+
+        return false;
+    }, []);
 
     useEffect(() => {
         fetchRegistros();
@@ -102,14 +135,18 @@ export default function RegistroList() {
 
     const fetchResources = async () => {
         try {
-            const [servRes, progRes, userRes] = await Promise.all([
+            const [servRes, progRes, userRes, gerRes, subgRes] = await Promise.all([
                 api.get('/resources/tipos-contratista'),
                 api.get('/programas'),
-                api.get('/usuarios?role=administrador_contrato')
+                api.get('/usuarios?role=administrador_contrato'),
+                api.get('/resources/gerencias'),
+                api.get('/resources/subgerencias')
             ]);
             setServices(servRes.data.data);
             setPrograms(progRes.data.data);
             setAdmins(userRes.data.data);
+            setGerencias(gerRes.data.data);
+            setSubgerenciasRaw(subgRes.data.data);
 
             // Initial load of all dependencies
             await fetchDependencies();
@@ -118,9 +155,14 @@ export default function RegistroList() {
         }
     };
 
-    const fetchRegistros = async () => {
+    const fetchRegistros = async (currentFilters = filters) => {
         try {
-            const response = await api.get('/registros');
+            setLoading(true);
+            const params = new URLSearchParams();
+            if (currentFilters.gerencia && currentFilters.gerencia !== 'Todas') params.append('gerencia_id', currentFilters.gerencia);
+            if (currentFilters.subgerencia && currentFilters.subgerencia !== 'Todas') params.append('subgerencia_id', currentFilters.subgerencia);
+            
+            const response = await api.get(`/registros?${params.toString()}`);
             setRegistros(response.data.data);
         } catch (err) {
             setError('Error al cargar registros');
@@ -181,6 +223,16 @@ export default function RegistroList() {
         return averages;
     }, [registros]);
 
+    const filteredSubgerencias = useMemo(() => {
+        if (!filters.gerencia || filters.gerencia === 'Todas') return subgerenciasRaw;
+        return subgerenciasRaw.filter(s => String(s.gerencia_id) === String(filters.gerencia));
+    }, [filters.gerencia, subgerenciasRaw]);
+
+    // Trigger fetch on hierarchy change
+    useEffect(() => {
+        fetchRegistros();
+    }, [filters.gerencia, filters.subgerencia]);
+
     const getAnnualAverage = (reg) => {
         if (!reg.periodo) return 0;
         const year = reg.periodo.substring(0, 4);
@@ -199,22 +251,45 @@ export default function RegistroList() {
             const matchesSearch = !searchText || contractorName.includes(searchText) || contractorRut.includes(searchText);
 
             // Dynamic Filters
-            const regService = reg.asignacion?.tipoContratista?.nombre || (reg.vinculacionEntidad?.servicio?.nombre) || 'GRANEL';
+            const regService = reg.asignacion?.servicio?.nombre || (reg.vinculacionEntidad?.servicio?.nombre) || 'GRANEL';
             const matchesService = !filters.servicio || filters.servicio === 'Todos' || regService === filters.servicio;
 
             const matchesDependency = !filters.dependencia || filters.dependencia === 'Todas' ||
-                reg.dependencia === filters.dependencia || (reg.vinculacionEntidad?.dependencia?.nombre === filters.dependencia);
+                reg.dependencia === filters.dependencia || (reg.vinculacionEntidad?.dependencia?.nombre === filters.dependencia) || (reg.asignacion?.dependencia?.nombre === filters.dependencia);
 
-            const regProgram = reg.programa?.nombre || 'Sin Programa';
+            const regProgram = reg.programa?.nombre || reg.asignacion?.servicio?.programa?.nombre || 'Sin Programa';
             const matchesProgram = !filters.programa || filters.programa === 'Todos' || regProgram === filters.programa;
 
-            const matchesStatus = filters.status === 'all' || reg.estado_auditoria === filters.status;
+            const isMyPending = (r) => {
+                const role = user?.role;
+                if (role === 'contratista_admin' || role === 'contratista_user') {
+                    return r.estado_auditoria === 'pendiente' || r.estado_auditoria === 'pendiente_subsanacion';
+                }
+                if (role === 'administrador_contrato') {
+                    return r.estado_auditoria === 'auditable' || r.estado_auditoria === 'subsanado' || r.estado_auditoria === 'reapertura_solicitada';
+                }
+                if (isAdmin) {
+                    return r.estado_auditoria === 'reapertura_solicitada' || r.estado_auditoria === 'auditable' || r.estado_auditoria === 'subsanado';
+                }
+                return false;
+            };
+
+            const matchesStatus = filters.status === 'all' || 
+                (filters.status === 'mis_pendientes' ? isMyPending(reg) : reg.estado_auditoria === filters.status);
             const matchesPeriod = !filters.period || reg.periodo.startsWith(filters.period);
 
             const adminsInVinc = reg.vinculacionEntidad?.administraciones?.map(a => a.administrador_contrato_id.toString()) || [];
             const matchesAdmin = !filters.admin_contrato || filters.admin_contrato === 'Todos' || adminsInVinc.includes(filters.admin_contrato);
+            
+            // Note: gerencia/subgerencia are now filtered server-side in fetchRegistros
+            // But if we want local check too for consistency:
+            const regGerenciaId = reg.vinculacionEntidad?.dependencia?.subgerencia?.gerencia_id;
+            const regSubgerenciaId = reg.vinculacionEntidad?.dependencia?.subgerencia_id;
+            
+            const matchesGerencia = filters.gerencia === 'Todas' || String(regGerenciaId) === String(filters.gerencia);
+            const matchesSubgerencia = filters.subgerencia === 'Todas' || String(regSubgerenciaId) === String(filters.subgerencia);
 
-            return matchesSearch && matchesStatus && matchesPeriod && matchesService && matchesDependency && matchesProgram && matchesAdmin;
+            return matchesSearch && matchesStatus && matchesPeriod && matchesService && matchesDependency && matchesProgram && matchesAdmin && matchesGerencia && matchesSubgerencia;
         });
     }, [registros, filters]);
 
@@ -238,6 +313,33 @@ export default function RegistroList() {
                 if (sortConfig.key === 'eecc_nombre') {
                     aValue = a.eecc_nombre || a.usuario?.eecc_nombre || '';
                     bValue = b.eecc_nombre || b.usuario?.eecc_nombre || '';
+                } else if (sortConfig.key === 'rut') {
+                    aValue = a.usuario?.rut || '';
+                    bValue = b.usuario?.rut || '';
+                } else if (sortConfig.key === 'programa') {
+                    aValue = a.programa?.nombre || '';
+                    bValue = b.programa?.nombre || '';
+                } else if (sortConfig.key === 'servicio') {
+                    aValue = a.asignacion?.servicio?.nombre || a.vinculacionEntidad?.servicio?.nombre || '';
+                    bValue = b.asignacion?.servicio?.nombre || a.vinculacionEntidad?.servicio?.nombre || '';
+                } else if (sortConfig.key === 'dependencia') {
+                    aValue = a.dependencia || a.asignacion?.dependencia?.nombre || '';
+                    bValue = b.dependencia || a.asignacion?.dependencia?.nombre || '';
+                } else if (sortConfig.key === 'estado_auditoria') {
+                    aValue = a.estado_auditoria || '';
+                    bValue = b.estado_auditoria || '';
+                } else if (sortConfig.key === 'created_at') {
+                    aValue = new Date(a.created_at).getTime();
+                    bValue = new Date(b.created_at).getTime();
+                } else if (sortConfig.key === 'porcentaje_cumplimiento') {
+                    aValue = parseFloat(a.porcentaje_cumplimiento) || 0;
+                    bValue = parseFloat(b.porcentaje_cumplimiento) || 0;
+                } else if (sortConfig.key === 'porcentaje_cumplimiento_auditor') {
+                    aValue = a.porcentaje_cumplimiento_auditor !== null ? parseFloat(a.porcentaje_cumplimiento_auditor) : -1;
+                    bValue = b.porcentaje_cumplimiento_auditor !== null ? parseFloat(b.porcentaje_cumplimiento_auditor) : -1;
+                } else if (sortConfig.key === 'periodo') {
+                    aValue = a.periodo || '';
+                    bValue = b.periodo || '';
                 }
 
                 if (aValue < bValue) {
@@ -266,10 +368,13 @@ export default function RegistroList() {
             title: 'Reabrir Registro',
             message: '¿Está seguro de reabrir este registro? Pasará a estado "Pendiente" y podrá ser editado nuevamente.',
             action: async () => {
+                const motivo = window.prompt('Ingrese el motivo de la reapertura:', 'Reapertura directa por administración');
+                if (motivo === null) return; // User cancelled prompt
+                
                 try {
                     await api.post('/reaperturas/directa', {
                         registro_id: registroId,
-                        motivo: 'Reapertura directa por administración'
+                        motivo: motivo || 'Reapertura directa por administración'
                     });
                     toast.success('Registro reabierto exitosamente');
                     fetchRegistros();
@@ -340,7 +445,11 @@ export default function RegistroList() {
             doc.setFontSize(14);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(0, 0, 0);
-            const spanishMonth = new Date(registro.periodo).toLocaleDateString('es-CL', { month: 'long', year: 'numeric', timeZone: 'UTC' }).toUpperCase();
+            const spanishMonth = (() => {
+                if (!registro.periodo) return 'N/A';
+                const [y, m] = registro.periodo.split('-');
+                return new Date(parseInt(y), parseInt(m) - 1, 1).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' }).toUpperCase();
+            })();
             doc.text(spanishMonth, pageWidth - 35 - margin, 24, { align: 'center' });
 
             // Orange Line Separator
@@ -350,47 +459,47 @@ export default function RegistroList() {
 
             let yPos = 45;
 
-            // Summary Grid (Custom Implementation)
+            // Summary Grid (Updated to include Dotación)
             const gridData = [
                 { label: 'CONTRATISTA', value: registro.eecc_nombre || registro.usuario?.eecc_nombre || 'N/A' },
-                { label: 'SERVICIO', value: registro.vinculacionEntidad?.servicio?.nombre || 'N/A' },
-                { label: 'DEPENDENCIA', value: registro.dependencia || 'N/A' },
+                { label: 'SERVICIO', value: registro.asignacion?.servicio?.nombre || registro.vinculacionEntidad?.servicio?.nombre || 'N/A' },
+                { label: 'DEPENDENCIA', value: registro.dependencia || registro.asignacion?.dependencia?.nombre || 'N/A' },
                 { label: 'PROGRAMA', value: registro.programa?.nombre || 'N/A' },
                 { label: 'ESTADO AUDITORÍA', value: registro.estado_auditoria?.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) },
-                { label: 'CUMPLIMIENTO DECLARADO', value: `${registro.porcentaje_cumplimiento}%`, isGreen: true }
+                { label: 'CUMPLIMIENTO DECLARADO', value: `${registro.porcentaje_cumplimiento}%`, isGreen: true },
+                { label: 'DOTACIÓN TOTAL', value: registro.dotacion_total || 0 },
+                { label: 'PERSONAS NUEVAS', value: registro.personas_nuevas || 0 },
+                { label: 'SUPERVISORES', value: registro.supervisores || 0 },
+                { label: 'PREVENCIONISTAS', value: registro.prevencionistas || 0 }
             ];
 
-            // Draw Grid
-            const boxWidth = (pageWidth - (margin * 2)) / 3;
+            // Draw Grid (4 columns)
+            const boxWidth = (pageWidth - (margin * 2)) / 4;
             const boxHeight = 14;
 
-            doc.setDrawColor(229, 231, 235); // Gray-200
+            doc.setDrawColor(229, 231, 235);
             doc.setLineWidth(0.1);
 
             gridData.forEach((item, index) => {
-                const row = Math.floor(index / 3);
-                const col = index % 3;
+                const row = Math.floor(index / 4);
+                const col = index % 4;
                 const x = margin + (col * boxWidth);
                 const y = yPos + (row * boxHeight);
 
-                // Border
                 doc.rect(x, y, boxWidth, boxHeight);
-
-                // Label
                 doc.setFontSize(6);
-                doc.setTextColor(156, 163, 175); // Gray-400
+                doc.setTextColor(156, 163, 175);
                 doc.setFont('helvetica', 'bold');
                 doc.text(item.label, x + 2, y + 4);
 
-                // Value
-                doc.setFontSize(9);
-                if (item.isGreen) doc.setTextColor(22, 163, 74); // Green-600
+                doc.setFontSize(8);
+                if (item.isGreen) doc.setTextColor(22, 163, 74);
                 else doc.setTextColor(0, 0, 0);
                 doc.setFont('helvetica', 'bold');
                 doc.text(String(item.value), x + 2, y + 10);
             });
 
-            yPos += (boxHeight * 2) + 10;
+            yPos += (boxHeight * Math.ceil(gridData.length / 4)) + 10;
 
             // RESULTADO DE AUDITORIA Section
             doc.setFontSize(11);
@@ -407,14 +516,12 @@ export default function RegistroList() {
 
             // Inside Result Box
             const resY = yPos + 4;
-            // Headers
             doc.setFontSize(6);
             doc.setTextColor(156, 163, 175);
             doc.text('AUDITOR RESPONSABLE', margin + 5, resY);
             doc.text('FECHA REVISIÓN', margin + 60, resY);
             doc.text('RESULTADO FINAL', margin + 110, resY);
 
-            // Values
             const resValY = resY + 5;
             doc.setFontSize(9);
             doc.setTextColor(0, 0, 0);
@@ -422,7 +529,7 @@ export default function RegistroList() {
 
             const fechaAudit = registro.fecha_auditoria
                 ? new Date(registro.fecha_auditoria).toLocaleDateString('es-CL')
-                : new Date().toLocaleDateString('es-CL'); // Fallback to now if not set
+                : new Date().toLocaleDateString('es-CL');
             doc.text(fechaAudit, margin + 60, resValY);
 
             const finalScore = registro.porcentaje_cumplimiento_auditor !== null
@@ -430,125 +537,137 @@ export default function RegistroList() {
                 : 'PENDIENTE';
 
             doc.setFontSize(10);
-            doc.setTextColor(22, 163, 74); // Green
+            doc.setTextColor(22, 163, 74);
             doc.text(finalScore, margin + 110, resValY);
 
-            // Auditado Badge (Right side of box)
             if (registro.porcentaje_cumplimiento_auditor !== null) {
-                doc.setFillColor(220, 252, 231); // Green-100
+                doc.setFillColor(220, 252, 231);
                 doc.setDrawColor(220, 252, 231);
                 doc.roundedRect(pageWidth - margin - 30, yPos + 4, 25, 6, 1, 1, 'FD');
                 doc.setFontSize(7);
-                doc.setTextColor(22, 101, 52); // Green-800
+                doc.setTextColor(22, 101, 52);
                 doc.text('AUDITADO', pageWidth - margin - 17.5, yPos + 8, { align: 'center' });
             }
 
             yPos += resBoxHeight + 10;
 
-            // --- DETALLE DE AUDITORIA Table ---
+            // --- DETALLE DE ACTIVIDADES Table ---
             doc.setFontSize(11);
             doc.setTextColor(...BRAND_ORANGE);
             doc.setFont('helvetica', 'bold');
-            doc.text('DETALLE DE AUDITORIA', margin, yPos);
+            doc.text('DETALLE DE ACTIVIDADES', margin, yPos);
             yPos += 2;
 
-            // Prepare Table Data with Grouping
             const tableBody = [];
-
             if (registro.actividades) {
-                // Sort by Element ID
                 const sortedActs = [...registro.actividades].sort((a, b) => (a.elemento_id || 0) - (b.elemento_id || 0));
-
                 let lastElementId = -1;
 
-                sortedActs.forEach(act => {
-                    // Inject Group Header if new element
+                sortedActs.forEach((act, idx) => {
                     if (act.elemento_id !== lastElementId) {
                         const elemName = act.elemento?.nombre || 'General';
-                        // Add a special row for styling later
-                        tableBody.push([{ content: `ELEMENTO ${act.elemento_id}: ${elemName}`, colSpan: 6, styles: { fillColor: [229, 231, 235], fontStyle: 'bold', textColor: [0, 0, 0] } }]);
+                        tableBody.push([{ content: `ELEMENTO ${act.elemento_id}: ${elemName}`, colSpan: 9, styles: { fillColor: [229, 231, 235], fontStyle: 'bold' } }]);
                         lastElementId = act.elemento_id;
                     }
 
+                    const evidenciasNames = act.evidencias?.map(e => e.nombre_archivo).join(', ') || '-';
+
                     tableBody.push([
-                        act.actividad_id || '-', // ID
-                        act.actividad?.codigo || '-', // Código
-                        act.actividad?.nombre || act.descripcion_actividad, // Nombre
-                        act.cumple ? 'CUMPLE' : 'NO CUMPLE', // Estado Real
-                        act.cumple_auditor === true ? 'CUMPLE' : (act.cumple_auditor === false ? 'NO CUMPLE' : ''), // Auditor
-                        act.observacion_auditor || '' // Obs
+                        idx + 1,
+                        act.actividad?.codigo || '-',
+                        act.actividad?.nombre || act.descripcion_actividad,
+                        act.responsable || '-',
+                        act.descripcion_contratista || '-',
+                        act.cumple ? 'CUMPLE' : 'NO CUMPLE',
+                        act.cumple_auditor === true ? 'CUMPLE' : (act.cumple_auditor === false ? 'NO CUMPLE' : '-'),
+                        act.observacion_auditor || '-',
+                        evidenciasNames
                     ]);
                 });
             }
 
             autoTable(doc, {
                 startY: yPos + 4,
-                head: [['ID', 'CÓDIGO', 'ELEMENTO / ACTIVIDAD', 'ESTADO', 'AUDITOR', 'OBS. AUDITOR']],
+                head: [['#', 'CÓD', 'ACTIVIDAD', 'RESP.', 'OBS. CONTRAT.', 'ESTADO', 'AUDIT.', 'OBS. AUDIT.', 'EVIDENCIAS']],
                 body: tableBody,
                 theme: 'plain',
-                styles: {
-                    fontSize: 7,
-                    cellPadding: 3,
-                    lineColor: [243, 244, 246],
-                    lineWidth: 0.1,
-                },
-                headStyles: {
-                    fillColor: [249, 250, 251],
-                    textColor: [107, 114, 128],
-                    fontSize: 6,
-                    fontStyle: 'bold'
-                },
+                styles: { fontSize: 6, cellPadding: 2, lineColor: [243, 244, 246], lineWidth: 0.1 },
+                headStyles: { fillColor: [249, 250, 251], textColor: [107, 114, 128], fontSize: 5, fontStyle: 'bold' },
                 columnStyles: {
-                    0: { width: 10, textColor: [156, 163, 175] }, // ID
-                    1: { width: 15, fontStyle: 'bold' }, // Codigo (Badge look?)
-                    2: { width: 80 }, // Nombre
-                    3: { width: 20, halign: 'center' }, // Estado
-                    4: { width: 20, halign: 'center' }, // Auditor
-                    5: { width: 35, fontStyle: 'italic', textColor: [107, 114, 128] } // Obs
+                    0: { width: 6 },
+                    1: { width: 12, fontStyle: 'bold' },
+                    2: { width: 45 },
+                    3: { width: 15 },
+                    4: { width: 25 },
+                    5: { width: 15, halign: 'center' },
+                    6: { width: 15, halign: 'center' },
+                    7: { width: 25 },
+                    8: { width: 25, fontSize: 5, textColor: [59, 130, 246] }
                 },
                 didDrawCell: (data) => {
-                    // Custom Badges for State/Auditor columns (indices 3 and 4)
-                    if (data.section === 'body' && (data.column.index === 3 || data.column.index === 4)) {
+                    if (data.section === 'body' && (data.column.index === 5 || data.column.index === 6)) {
                         const text = data.cell.raw;
-                        if (!text) return;
-
-                        // Don't draw default text
-                        // We will draw it manually
-                    }
-                },
-                willDrawCell: (data) => {
-                    // Check if it's a Badge Cell
-                    if (data.section === 'body' && (data.column.index === 3 || data.column.index === 4) && data.cell.raw && typeof data.cell.raw === 'string' && !data.row.raw[0].colSpan) {
-                        const text = data.cell.raw;
+                        if (!text || text === '-') return;
+                        
                         if (text === 'CUMPLE') {
-                            doc.setFillColor(220, 252, 231); // Green-100
-                            doc.setTextColor(22, 101, 52); // Green-800
-                        } else if (text === 'NO CUMPLE') {
-                            doc.setFillColor(254, 226, 226); // Red-100
-                            doc.setTextColor(153, 27, 27); // Red-800
+                            doc.setFillColor(220, 252, 231);
+                            doc.setTextColor(22, 101, 52);
                         } else {
-                            return; // empty
+                            doc.setFillColor(254, 226, 226);
+                            doc.setTextColor(153, 27, 27);
                         }
-
-                        // Draw Badge Rect
                         const { x, y, width, height } = data.cell;
-                        const pad = 1;
-                        doc.roundedRect(x + pad, y + pad + 1, width - (pad * 2), height - (pad * 2) - 2, 1, 1, 'F');
-
-                        // Draw Text Centered
-                        doc.setFontSize(6);
-                        doc.setFont('helvetica', 'bold');
-                        doc.text(text, x + width / 2, y + height / 2 + 1.5, { align: 'center' });
-
-                        // HACK: Prevent default text drawing by setting text color to transparent or empty? 
-                        // jspdf-autotable doesn't have an easy "cancel draw text" in willDrawCell for specific cells without hooks.
-                        // Actually, if we return false/undefined it proceeds. 
-                        // The didDrawCell hook is for AFTER. willDrawCell is BEFORE.
-                        // To hide original text, we can set cell text to empty string in willDrawCell or modify styles.
-                        data.cell.text = []; // Clear text so it doesn't draw over our badge
+                        doc.roundedRect(x + 1, y + 1, width - 2, height - 2, 1, 1, 'F');
+                        doc.setFontSize(5);
+                        doc.text(text, x + width / 2, y + height / 2 + 1, { align: 'center' });
+                        data.cell.text = [];
                     }
                 }
             });
+
+            // --- AUDIT FEEDBACK SECTION ---
+            yPos = doc.lastAutoTable.finalY + 10;
+            if (yPos > pageHeight - 50) { doc.addPage(); yPos = 20; }
+
+            doc.setFontSize(11);
+            doc.setTextColor(...BRAND_ORANGE);
+            doc.setFont('helvetica', 'bold');
+            doc.text('COMENTARIOS DE AUDITORÍA', margin, yPos);
+            yPos += 6;
+
+            doc.setFontSize(9);
+            doc.setTextColor(55, 65, 81);
+            doc.setFont('helvetica', 'normal');
+            const comments = registro.comentario_general || registro.observaciones_auditoria || 'Sin comentarios generales registrados.';
+            const splitComments = doc.splitTextToSize(comments, pageWidth - (margin * 2));
+            doc.text(splitComments, margin, yPos);
+            yPos += (splitComments.length * 5) + 10;
+
+            // Fetch commitments for this registro
+            try {
+                const compRes = await api.get('/compromisos', { params: { registro_id: registro.id } });
+                const compromisos = compRes.data.data;
+
+                if (compromisos && compromisos.length > 0) {
+                    if (yPos > pageHeight - 40) { doc.addPage(); yPos = 20; }
+                    doc.setFontSize(11);
+                    doc.setTextColor(...BRAND_ORANGE);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('COMPROMISOS ADQUIRIDOS', margin, yPos);
+                    yPos += 6;
+
+                    autoTable(doc, {
+                        startY: yPos,
+                        head: [['DESCRIPCIÓN', 'FECHA CUMPLIMIENTO', 'ESTADO']],
+                        body: compromisos.map(c => [c.descripcion, new Date(c.fecha_compromiso).toLocaleDateString('es-CL'), c.estado?.toUpperCase()]),
+                        theme: 'striped',
+                        headStyles: { fillColor: [243, 232, 255], textColor: [107, 33, 168], fontSize: 8 },
+                        styles: { fontSize: 8 }
+                    });
+                }
+            } catch (e) {
+                console.error("Error adding commitments to PDF", e);
+            }
 
             // --- PAGE BREAK / TRACEABILITY ---
             doc.addPage();
@@ -645,22 +764,47 @@ export default function RegistroList() {
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--color-brand-secondary)' }}>
                     Registros de Cumplimiento
                 </h1>
-                {canWrite('Registros') && (
-                    <Link to="/registros/new" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+                {canWrite('Registros') && !isContractor && (
+                    <Link id="btn-nuevo-registro" to="/registros/new" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
                         <Plus size={18} /> Nuevo Registro
                     </Link>
                 )}
             </header>
 
-            {/* Filters Bar (Mockup Style) */}
-            <div className="filters-bar" style={{
-                background: 'white', padding: '16px', borderRadius: '8px',
-                border: '1px solid var(--border-color)', marginBottom: '20px',
-                display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'end'
+            {/* Filters Bar */}
+            <div className="filters-grid" style={{ 
+                display: 'flex', 
+                flexWrap: 'wrap', 
+                gap: '12px', 
+                alignItems: 'flex-end', 
+                background: '#f9fafb', 
+                padding: '16px', 
+                borderRadius: '8px', 
+                marginBottom: '20px',
+                border: '1px solid #e5e7eb' 
             }}>
+                <div className="form-group" style={{ width: '180px' }}>
+                    <label>Gerencia</label>
+                    <select id="filter-gerencia" className="form-control" value={filters.gerencia} onChange={e => setFilters({ ...filters, gerencia: e.target.value, subgerencia: 'Todas' })}>
+                        <option value="Todas">Todas</option>
+                        {gerencias.map(g => (
+                            <option key={g.id} value={g.id}>{g.nombre}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="form-group" style={{ width: '180px' }}>
+                    <label>Subgerencia</label>
+                    <select id="filter-subgerencia" className="form-control" value={filters.subgerencia} onChange={e => setFilters({ ...filters, subgerencia: e.target.value })}>
+                        <option value="Todas">Todas</option>
+                        {filteredSubgerencias.map(s => (
+                            <option key={s.id} value={s.id}>{s.nombre}</option>
+                        ))}
+                    </select>
+                </div>
                 <div className="form-group" style={{ flex: '1 1 200px' }}>
                     <label>Contratista / RUT</label>
                     <input
+                        id="filter-search"
                         type="text"
                         className="form-control"
                         placeholder="Buscar por nombre o RUT..."
@@ -672,7 +816,7 @@ export default function RegistroList() {
 
                 <div className="form-group" style={{ width: '150px' }}>
                     <label>Servicio</label>
-                    <select className="form-control" value={filters.servicio || 'Todos'}
+                    <select id="filter-servicio" className="form-control" value={filters.servicio || 'Todos'}
                         onChange={e => {
                             const val = e.target.value;
                             setFilters({ ...filters, servicio: val, dependencia: 'Todas' });
@@ -687,7 +831,7 @@ export default function RegistroList() {
 
                 <div className="form-group" style={{ width: '180px' }}>
                     <label>Dependencia</label>
-                    <select className="form-control" value={filters.dependencia || 'Todas'} onChange={e => setFilters({ ...filters, dependencia: e.target.value })}>
+                    <select id="filter-dependencia" className="form-control" value={filters.dependencia || 'Todas'} onChange={e => setFilters({ ...filters, dependencia: e.target.value })}>
                         <option value="Todas">Todas</option>
                         {dependencies.map(d => (
                             <option key={d.id} value={d.nombre}>{d.nombre}</option>
@@ -697,7 +841,7 @@ export default function RegistroList() {
 
                 <div className="form-group" style={{ width: '150px' }}>
                     <label>Programa</label>
-                    <select className="form-control" value={filters.programa || 'Todos'} onChange={e => setFilters({ ...filters, programa: e.target.value })}>
+                    <select id="filter-programa" className="form-control" value={filters.programa || 'Todos'} onChange={e => setFilters({ ...filters, programa: e.target.value })}>
                         <option value="Todos">Todos</option>
                         {programs.map(p => (
                             <option key={p.id} value={p.nombre}>{p.nombre}</option>
@@ -706,22 +850,25 @@ export default function RegistroList() {
                 </div>
                 <div className="form-group" style={{ width: '140px' }}>
                     <label>Estado Auditoría</label>
-                    <select className="form-control" value={filters.status || 'all'} onChange={e => setFilters({ ...filters, status: e.target.value })}>
+                    <select id="filter-status" className="form-control" value={filters.status || 'all'} onChange={e => setFilters({ ...filters, status: e.target.value })}>
                         <option value="all">Todos</option>
+                        <option value="mis_pendientes">Mis Pendientes</option>
                         <option value="pendiente">Pendiente</option>
-                        <option value="auditando">Auditando</option>
+                        <option value="auditable">Auditable</option>
+                        <option value="auditando">En Proceso</option>
                         <option value="auditada">Auditada</option>
-                        <option value="reabierto">Reabierto</option>
+                        <option value="pendiente_subsanacion">Pendiente Subsanación</option>
                         <option value="subsanado">Subsanado</option>
                         <option value="en_revision">En Revisión</option>
                         <option value="finalizado">Finalizado</option>
-                        <option value="reapertura_pendiente">Reapertura Pendiente</option>
+                        <option value="reapertura_solicitada">Reapertura Solicitada</option>
                     </select>
                 </div>
 
                 <div className="form-group" style={{ width: '160px' }}>
                     <label>Periodo</label>
                     <input
+                        id="filter-period"
                         type="month"
                         className="form-control"
                         value={filters.period}
@@ -730,7 +877,7 @@ export default function RegistroList() {
                 </div>
                 <div className="form-group" style={{ width: '140px' }}>
                     <label>Admin Contrato</label>
-                    <select className="form-control" value={filters.admin_contrato || 'Todos'} onChange={e => setFilters({ ...filters, admin_contrato: e.target.value })}>
+                    <select id="filter-admin" className="form-control" value={filters.admin_contrato || 'Todos'} onChange={e => setFilters({ ...filters, admin_contrato: e.target.value })}>
                         <option value="Todos">Todos</option>
                         {admins.map(a => (
                             <option key={a.id} value={a.id}>{a.name}</option> // ID or Name? Filter logic above uses ID maybe? logic above says 'Todos' or true. Updated to assume ID match if implemented later.
@@ -743,7 +890,11 @@ export default function RegistroList() {
                 </button>
                 <button className="btn-secondary" style={{ height: '38px', padding: '0 12px', background: 'white', border: '1px solid #ccc' }}
                     onClick={() => {
-                        setFilters({ search: '', period: '', status: 'all', servicio: 'Todos', dependencia: 'Todas', programa: 'Todos', auditoria: 'Todos', admin_contrato: 'Todos' });
+                        setFilters({ 
+                            search: '', period: '', status: 'all', servicio: 'Todos', 
+                            dependencia: 'Todas', programa: 'Todos', admin_contrato: 'Todos',
+                            gerencia: 'Todas', subgerencia: 'Todas'
+                        });
                         fetchDependencies();
                     }}
                     title="Limpiar Filtros"
@@ -756,7 +907,7 @@ export default function RegistroList() {
 
             {/* Pending Registers Widget (Only for Contractor User) */}
             {user?.role === 'contratista_user' && myVinculacion && (
-                <PendingRegistersWidget vinculacion={myVinculacion} existingRegistros={registros} />
+                <PendingRegistersWidget vinculacion={myVinculacion} />
             )}
 
             {/* Data Table */}
@@ -767,19 +918,19 @@ export default function RegistroList() {
                             <th style={{ width: '40px' }}>#</th>
                             <th onClick={() => handleSort('periodo')} style={{ cursor: 'pointer' }}>MES INFORMADO {sortConfig.key === 'periodo' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
                             <th onClick={() => handleSort('eecc_nombre')} style={{ cursor: 'pointer' }}>CONTRATISTA {sortConfig.key === 'eecc_nombre' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
-                            <th>RUT</th>
-                            <th>PROGRAMA</th>
-                            <th>SERVICIO</th>
-                            <th>DEPENDENCIA</th>
+                            <th onClick={() => handleSort('rut')} style={{ cursor: 'pointer' }}>RUT {sortConfig.key === 'rut' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                            <th onClick={() => handleSort('programa')} style={{ cursor: 'pointer' }}>PROGRAMA {sortConfig.key === 'programa' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                            <th onClick={() => handleSort('servicio')} style={{ cursor: 'pointer' }}>SERVICIO {sortConfig.key === 'servicio' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                            <th onClick={() => handleSort('dependencia')} style={{ cursor: 'pointer' }}>DEPENDENCIA {sortConfig.key === 'dependencia' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
                             <th style={{ textAlign: 'center' }}>DOTACIÓN<br />TOTAL</th>
                             <th style={{ textAlign: 'center' }}>PERSONAS<br />NUEVAS</th>
-                            <th style={{ textAlign: 'center' }}>%<br />CONTRATISTA</th>
-                            <th style={{ textAlign: 'center' }}>%<br />AUDITORÍA</th>
+                            <th onClick={() => handleSort('porcentaje_cumplimiento')} style={{ textAlign: 'center', cursor: 'pointer' }}>%<br />CONTRATISTA {sortConfig.key === 'porcentaje_cumplimiento' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
+                            <th onClick={() => handleSort('porcentaje_cumplimiento_auditor')} style={{ textAlign: 'center', cursor: 'pointer' }}>%<br />AUDITORÍA {sortConfig.key === 'porcentaje_cumplimiento_auditor' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
                             <th style={{ textAlign: 'center' }}>% PROMEDIO<br />AÑO</th>
-                            <th>FECHA ENVÍO</th>
+                            <th onClick={() => handleSort('created_at')} style={{ cursor: 'pointer' }}>FECHA ENVÍO {sortConfig.key === 'created_at' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
                             <th>ADMIN<br />CONTRATO</th>
                             <th>AUDITORÍA</th>
-                            <th style={{ textAlign: 'center' }}>ESTADO</th>
+                            <th onClick={() => handleSort('estado_auditoria')} style={{ textAlign: 'center', cursor: 'pointer' }}>ESTADO {sortConfig.key === 'estado_auditoria' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
                             <th style={{ textAlign: 'right' }}>ACCIONES</th>
                         </tr>
                     </thead>
@@ -790,14 +941,34 @@ export default function RegistroList() {
                             </tr>
                         ) : (
                             sortedRegistros.map((registro, idx) => (
-                                <tr key={registro.id}>
+                                <tr key={registro.id} id={`row-${registro.id}`} data-status={registro.estado_auditoria}>
                                     <td style={{ fontWeight: 500, color: '#6b7280', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {idx + 1}
                                     </td>
                                     <td style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <div style={{ fontWeight: 500 }}>
-                                            {new Date(registro.periodo).toLocaleDateString('es-CL', { month: 'long', year: 'numeric', timeZone: 'UTC' }).replace(/^\w/, c => c.toUpperCase())}
+                                            {registro.periodo ? (() => {
+                                                const [y, m] = registro.periodo.split('-');
+                                                return new Date(parseInt(y), parseInt(m) - 1, 1).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase());
+                                            })() : '-'}
                                         </div>
+                                        {isOutOfDeadline(registro) && (
+                                            <div style={{ 
+                                                marginTop: '4px', 
+                                                display: 'inline-flex', 
+                                                alignItems: 'center', 
+                                                gap: '4px', 
+                                                fontSize: '0.65rem', 
+                                                fontWeight: 800, 
+                                                color: '#dc2626', 
+                                                backgroundColor: '#fef2f2', 
+                                                padding: '2px 6px', 
+                                                borderRadius: '4px',
+                                                border: '1px solid #fee2e2'
+                                            }}>
+                                                <Clock size={10} /> FUERA DE PLAZO
+                                            </div>
+                                        )}
                                     </td>
                                     <td style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <div style={{ fontWeight: 600, color: '#111827' }}>
@@ -827,9 +998,27 @@ export default function RegistroList() {
                                     </td>
                                     <td style={{ textAlign: 'center', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {/* Mockup shows distinct style for Audit % */}
-                                        <span className="badge badge--percent-audit">
-                                            {registro.porcentaje_cumplimiento_auditor !== null ? `${registro.porcentaje_cumplimiento_auditor}%` : '-'}
-                                        </span>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                            <span className="badge badge--percent-audit">
+                                                {registro.porcentaje_cumplimiento_auditor !== null ? `${registro.porcentaje_cumplimiento_auditor}%` : '-'}
+                                            </span>
+                                            {registro.hallazgos_count > 0 && (
+                                                <div style={{ 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    gap: '3px', 
+                                                    color: '#dc2626', 
+                                                    fontSize: '0.65rem', 
+                                                    fontWeight: 700,
+                                                    backgroundColor: '#fef2f2',
+                                                    padding: '2px 6px',
+                                                    borderRadius: '10px',
+                                                    border: '1px solid #fee2e2'
+                                                }} title={`${registro.hallazgos_count} Hallazgo(s) detectado(s)`}>
+                                                    <AlertTriangle size={10} /> {registro.hallazgos_count}
+                                                </div>
+                                            )}
+                                        </div>
                                     </td>
                                     <td style={{ textAlign: 'center', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <span className="badge" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #dbeafe' }}>
@@ -857,7 +1046,10 @@ export default function RegistroList() {
                                             let label = 'Pendiente';
                                             let style = { background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb' }; // Gray
 
-                                            if (status === 'auditando') {
+                                            if (status === 'auditable') {
+                                                label = 'Auditable';
+                                                style = { background: '#fef9c3', color: '#854d0e', border: '1px solid #fde047' }; // Yellow
+                                            } else if (status === 'auditando') {
                                                 label = 'En Proceso';
                                                 style = { background: '#eff6ff', color: '#003594', border: '1px solid #dbeafe' }; // Blue
                                             } else if (status === 'auditada') {
@@ -875,9 +1067,12 @@ export default function RegistroList() {
                                             } else if (status === 'finalizado') {
                                                 label = 'Finalizado';
                                                 style = { background: '#f0fdf4', color: '#16a34a', border: '1px solid #dcfce7' }; // Green
-                                            } else if (status === 'reapertura_pendiente') {
-                                                label = 'Solicitud Reapertura';
+                                            } else if (status === 'reapertura_solicitada' || status === 'reapertura_pendiente') {
+                                                label = 'Reapertura Solicitada';
                                                 style = { background: '#fef2f2', color: '#dc2626', border: '1px solid #fee2e2' }; // Red
+                                            } else if (status === 'pendiente_subsanacion' || status === 'reabierto') {
+                                                label = 'Pendiente Subsanación';
+                                                style = { background: '#fff7ed', color: '#ea580c', border: '1px solid #ffedd5' }; // Orange
                                             }
 
                                             return (
@@ -889,18 +1084,25 @@ export default function RegistroList() {
                                     </td>
                                     <td className="actions-cell" style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <div className="flex flex-col gap-1 items-end">
-                                            {/* Action: Audit (US-003) - Admin Contrato Only & Pending Status */}
-                                            {user?.role === 'administrador_contrato' && ['pendiente', 'subsanado', 'auditando', 'en_revision'].includes(registro.estado_auditoria) && (
-                                                <Link to={`/registros/${registro.id}/auditar`} className="btn-action btn-auditar" title="Auditar Registro">
-                                                    <ClipboardCheck size={14} /> <span>Auditar</span>
+                                            {/* Action: Audit (US-003) - Admin Contrato / Admin Only & Auditable Status (PARKO) */}
+                                            {(isAdmin || user?.role === 'administrador_contrato') && ['auditable', 'auditando'].includes(registro.estado_auditoria) && (
+                                                <Link id={`btn-audit-${registro.id}`} to={`/registros/${registro.id}/auditar`} className="btn-action btn-auditar" title="Auditar Registro">
+                                                    <ClipboardCheck size={14} /> <span>{registro.estado_auditoria === 'auditando' ? 'Continuar Auditoría' : 'Auditar'}</span>
                                                 </Link>
                                             )}
 
-                                            {/* Action: Edit - Contractor Only & Pending/Reopened Status */}
+                                            {/* Action: Review Subsanacion (PARKO) - Admin Contrato / Admin Only & Subsanado Status */}
+                                            {(isAdmin || user?.role === 'administrador_contrato') && ['subsanado', 'en_revision'].includes(registro.estado_auditoria) && (
+                                                <Link id={`btn-review-${registro.id}`} to={`/registros/${registro.id}/auditar`} className="btn-action btn-auditar" style={{ background: 'var(--color-brand-primary)', borderColor: 'var(--color-brand-primary)' }} title="Revisar Subsanación">
+                                                    <Check size={14} /> <span>{registro.estado_auditoria === 'en_revision' ? 'Continuar Revisión' : 'Revisar Subsanación'}</span>
+                                                </Link>
+                                            )}
+
+                                            {/* Action: Edit - Contractor Only & Allowed states */}
                                             {['contratista_admin', 'contratista_user'].includes(user?.role) &&
-                                                (registro.estado_auditoria === 'pendiente' || registro.estado_auditoria === 'reabierto' || registro.estado_auditoria === 'reapertura_pendiente') && (
-                                                    <Link to={`/registros/${registro.id}`} className="btn-action" title="Editar Registro">
-                                                        <Edit2 size={14} /> <span>Editar</span>
+                                                (registro.estado_auditoria === 'pendiente' || registro.estado_auditoria === 'pendiente_subsanacion' || registro.estado_auditoria === 'reabierto') && (
+                                                    <Link id={`btn-edit-${registro.id}`} to={`/registros/${registro.id}`} className="btn-action" title="Editar Registro">
+                                                        <Edit2 size={14} /> <span>{registro.estado_auditoria === 'pendiente' ? 'Editar' : 'Subsanar'}</span>
                                                     </Link>
                                                 )}
 

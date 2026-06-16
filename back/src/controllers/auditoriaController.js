@@ -7,7 +7,9 @@ const {
     Hallazgo,
     Compromiso,
     Actividad,
-    AuditoriaComentario
+    AuditoriaComentario,
+    Evidencia,
+    User
 } = require('../database/models');
 const emailService = require('../services/emailService');
 
@@ -23,10 +25,10 @@ const auditoriaController = {
                 return res.status(404).json({ success: false, message: 'Registro no encontrado' });
             }
 
-            if (registro.estado_auditoria !== 'pendiente') {
+            if (!['pendiente', 'auditable'].includes(registro.estado_auditoria)) {
                 return res.status(400).json({
                     success: false,
-                    message: 'El registro ya está siendo auditado o fue auditado'
+                    message: 'El registro ya está siendo auditado o no está en un estado que permita iniciar la auditoría'
                 });
             }
 
@@ -88,10 +90,10 @@ const auditoriaController = {
                 return res.status(404).json({ success: false, message: 'Registro no encontrado' });
             }
 
-            if (registro.estado_auditoria !== 'subsanado') {
+            if (!['subsanado', 'auditable'].includes(registro.estado_auditoria)) {
                 return res.status(400).json({
                     success: false,
-                    message: 'El registro no está en estado subsanado'
+                    message: 'El registro no está en un estado que permita iniciar revisión'
                 });
             }
 
@@ -122,7 +124,11 @@ const auditoriaController = {
             const { comentario_general } = req.body;
 
             const registro = await Registro.findByPk(id, {
-                include: [{ model: RegistroActividad, as: 'actividades' }]
+                include: [{ 
+                    model: RegistroActividad, 
+                    as: 'actividades',
+                    include: [{ model: Actividad, as: 'actividad' }]
+                }]
             });
 
             if (!registro) {
@@ -136,8 +142,38 @@ const auditoriaController = {
                 });
             }
 
-            // Recalculate percentage (same logic as finalizarAuditoria)
+            // 1. Mandatory Evidence Check (PARKO)
             const actividades = registro.actividades || [];
+            const actividadesRequeridas = actividades.filter(a =>
+                (a.cumple_auditor === true || a.cumple_auditor === 1 || a.cumple === true || a.cumple === 1) &&
+                a.actividad?.requiere_evidencia
+            );
+
+            if (actividadesRequeridas.length > 0) {
+                const raIds = actividadesRequeridas.map(a => a.id);
+                const evidenciasCount = await Evidencia.count({
+                    where: { registro_actividad_id: raIds }
+                });
+
+                // Detailed check to identify WHICH one is missing
+                const evidencias = await Evidencia.findAll({
+                    where: { registro_actividad_id: raIds },
+                    attributes: ['registro_actividad_id']
+                });
+                const raIdsWithEvidence = evidencias.map(e => e.registro_actividad_id);
+                const missing = actividadesRequeridas.filter(ra => !raIdsWithEvidence.includes(ra.id));
+
+                if (missing.length > 0) {
+                    const codigos = missing.map(m => m.actividad?.codigo).join(', ');
+                    return res.status(400).json({
+                        success: false,
+                        message: `No se puede finalizar la revisión: Faltan evidencias para actividades obligatorias [${codigos}]`
+                    });
+                }
+            }
+
+            // Recalculate percentage (same logic as finalizarAuditoria)
+            // recalculate activities using existing definition
             const auditables = actividades.filter(a => a.cumple_auditor !== null && a.cumple_auditor !== 2);
             const cumplidas = auditables.filter(a => a.cumple_auditor === true || a.cumple_auditor === 1).length;
             const porcentaje = auditables.length > 0 ? ((cumplidas / auditables.length) * 100).toFixed(2) : 0;
@@ -147,6 +183,12 @@ const auditoriaController = {
                 porcentaje_cumplimiento_auditor: porcentaje,
                 fecha_auditoria: new Date()
             });
+
+            // Fetch contractor email
+            const contractor = await User.findByPk(registro.user_id);
+            if (contractor?.email) {
+                await emailService.notifyRevisionFinalizada(registro, contractor.email);
+            }
 
             if (comentario_general) {
                 await AuditoriaComentario.create({
@@ -180,7 +222,11 @@ const auditoriaController = {
             const { comentario_general } = req.body;
 
             const registro = await Registro.findByPk(id, {
-                include: [{ model: RegistroActividad, as: 'actividades' }]
+                include: [{ 
+                    model: RegistroActividad, 
+                    as: 'actividades',
+                    include: [{ model: Actividad, as: 'actividad' }]
+                }]
             });
 
             if (!registro) {
@@ -194,8 +240,32 @@ const auditoriaController = {
                 });
             }
 
-            // Calculate auditor percentage: Exclude N/A (2) and handle nulls
+            // 1. Mandatory Evidence Check (PARKO)
             const actividades = registro.actividades || [];
+            const actividadesRequeridas = actividades.filter(a =>
+                (a.cumple_auditor === true || a.cumple_auditor === 1 || a.cumple === true || a.cumple === 1) &&
+                a.actividad?.requiere_evidencia
+            );
+
+            if (actividadesRequeridas.length > 0) {
+                const raIds = actividadesRequeridas.map(a => a.id);
+                const evidencias = await Evidencia.findAll({
+                    where: { registro_actividad_id: raIds },
+                    attributes: ['registro_actividad_id']
+                });
+                const raIdsWithEvidence = evidencias.map(e => e.registro_actividad_id);
+                const missing = actividadesRequeridas.filter(ra => !raIdsWithEvidence.includes(ra.id));
+
+                if (missing.length > 0) {
+                    const codigos = missing.map(m => m.actividad?.codigo).join(', ');
+                    return res.status(400).json({
+                        success: false,
+                        message: `No se puede finalizar la auditoría: Faltan evidencias en actividades obligatorias [${codigos}]`
+                    });
+                }
+            }
+
+            // Calculate auditor percentage: Exclude N/A (2) and handle nulls
             // Filter only applicable and audited activities (not null and not 2)
             const auditables = actividades.filter(a => a.cumple_auditor !== null && a.cumple_auditor !== 2);
             // Numerator: count those that are true/1
@@ -212,6 +282,12 @@ const auditoriaController = {
                 porcentaje_cumplimiento_auditor: porcentaje,
                 fecha_auditoria: new Date()
             });
+
+            // Fetch contractor email
+            const contractor = await User.findByPk(registro.user_id);
+            if (contractor?.email) {
+                await emailService.notifyAuditoriaFinalizada(registro, contractor.email);
+            }
 
             // Add general comment if provided
             if (comentario_general) {
@@ -241,6 +317,62 @@ const auditoriaController = {
         } catch (error) {
             console.error('Finalizar auditoria error:', error);
             res.status(500).json({ success: false, message: 'Error al finalizar auditoría' });
+        }
+    },
+
+    // PUT /api/registros/:id/guardar-avance-auditoria
+    async guardarAvance(req, res) {
+        try {
+            const { id } = req.params;
+            const { comentario_general } = req.body;
+
+            const registro = await Registro.findByPk(id);
+            if (!registro) {
+                return res.status(404).json({ success: false, message: 'Registro no encontrado' });
+            }
+
+            // Allow saving if in auditing or review phase
+            const validStates = ['auditando', 'en_revision', 'pendiente_subsanacion'];
+            if (!validStates.includes(registro.estado_auditoria)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'El registro no se encuentra en una fase que permita guardar avance de auditoría'
+                });
+            }
+
+            await registro.update({
+                comentario_general
+            });
+
+            if (req.body.participantes) {
+                const existingComment = await AuditoriaComentario.findOne({
+                    where: { registro_id: id, tipo: 'participantes' }
+                });
+                if (existingComment) {
+                    await existingComment.update({ comentario: req.body.participantes });
+                } else {
+                    await AuditoriaComentario.create({
+                        registro_id: id,
+                        user_id: req.user.id,
+                        comentario: req.body.participantes,
+                        tipo: 'participantes'
+                    });
+                }
+            }
+
+            // Log save activity (optional but good for traceability)
+            await RegistroLog.create({
+                registro_id: registro.id,
+                user_id: req.user.id,
+                accion: 'GUARDAR_AVANCE_AUDITORIA',
+                descripcion: 'Avance de auditoría guardado (comentario general)',
+                ip_address: req.ip
+            });
+
+            res.json({ success: true, data: registro, message: 'Avance guardado correctamente' });
+        } catch (error) {
+            console.error('Guardar avance auditoria error:', error);
+            res.status(500).json({ success: false, message: 'Error al guardar avance de auditoría' });
         }
     },
 

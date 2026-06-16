@@ -20,6 +20,14 @@ const TipoContratista = sequelize.define('TipoContratista', {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: true
     },
+    subgerencia_id: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: true,
+        references: {
+            model: 'subgerencias',
+            key: 'id'
+        }
+    },
     activo: {
         type: DataTypes.TINYINT(1),
         allowNull: false,

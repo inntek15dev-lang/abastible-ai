@@ -3,15 +3,24 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api';
 import { Save, ArrowLeft, MapPin, Pencil } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import './DependenciaForm.css';
 
 export default function DependenciaForm() {
     const { id } = useParams();
+    const { user } = useAuth();
     const navigate = useNavigate();
     const isEdit = Boolean(id);
 
+    useEffect(() => {
+        if (user?.role === 'administrador_contrato') {
+            navigate('/configuracion/dependencias');
+        }
+    }, [user, navigate]);
+
     const [form, setForm] = useState({
-        nombre: ''
+        nombre: '',
+        nivel_faena: ''
     });
 
     const [loading, setLoading] = useState(false);
@@ -82,6 +91,23 @@ export default function DependenciaForm() {
                                 onChange={e => setForm({ ...form, nombre: e.target.value })}
                                 placeholder="Ej: Planta Maipú, Gerencia Legal..."
                             />
+                        </div>
+
+                        <div className="input-group-dependencia" style={{ marginTop: '16px' }}>
+                            <label className="label-dependencia">Nivel Faena (ASEM)</label>
+                            <select
+                                className="input-field-dependencia"
+                                value={form.nivel_faena || ''}
+                                onChange={e => setForm({ ...form, nivel_faena: e.target.value })}
+                            >
+                                <option value="">Seleccione Nivel...</option>
+                                <option value="Gerencia">Gerencia</option>
+                                <option value="Subgerencia">Subgerencia</option>
+                                <option value="Planta">Planta</option>
+                                <option value="Almacén">Almacén</option>
+                                <option value="Oficina">Oficina</option>
+                                <option value="Otro">Otro</option>
+                            </select>
                         </div>
                     </div>
 

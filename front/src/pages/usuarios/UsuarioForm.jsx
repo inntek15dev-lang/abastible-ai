@@ -23,7 +23,8 @@ export default function UsuarioForm() {
         eecc_nombre: '',
         rut: '',
         telefono: '',
-        contratista_id: '' // New field to link to contractor
+        contratista_id: '', // New field to link to contractor
+        activo: true
     });
 
     const [dependencias, setDependencias] = useState([]);
@@ -45,7 +46,7 @@ export default function UsuarioForm() {
                 const promises = [
                     api.get('/resources/dependencias'),
                     api.get('/resources/tipos-contratista'),
-                    api.get('/roles'), // Fetch roles
+                    api.get('/resources/roles'), // Fetch roles from resources
                     // Fetch contractors if user can assign them
                     ['admin', 'administrador_contrato'].includes(currentUser.role)
                         ? api.get('/contratistas?activo=1')
@@ -73,14 +74,17 @@ export default function UsuarioForm() {
                         eecc_nombre: u.eecc_nombre || '',
                         rut: u.rut || '',
                         telefono: u.telefono || '',
-                        contratista_id: u.contratista_id || u.parent_id || '' // parent_id is often used as contratista_id link
+                        contratista_id: u.contratista_id || u.parent_id || '', // parent_id is often used as contratista_id link
+                        activo: u.activo ?? true
                     });
                 } else {
-                    // Pre-fill for Contratista Admin creating a user
-                    if (currentUser.role === 'contratista_admin') {
+                    // Pre-fill for Contratista roles creating a user
+                    if (['contratista_admin', 'contratista_user'].includes(currentUser.role)) {
                         setForm(prev => ({
                             ...prev,
                             contratista_id: currentUser.contratista_id || currentUser.id,
+                            tipo_contratista_id: currentUser.tipo_contratista_id || '',
+                            dependencia_id: currentUser.dependencia_id || '',
                             role: 'contratista_user'
                         }));
                     }
@@ -238,15 +242,19 @@ export default function UsuarioForm() {
 
                         <div className="input-row-usuario">
                             <div className="input-group-usuario">
-                                <label className="label-usuario">{isEdit ? 'Nueva Contraseña (opcional)' : 'Contraseña *'}</label>
+                                <label className="label-usuario">{isEdit ? 'Nueva Contraseña (opcional)' : 'Contraseña'}</label>
                                 <input
                                     type="password"
                                     className="input-field-usuario"
-                                    required={!isEdit}
+                                    required={false}
                                     minLength={6}
                                     value={form.password}
                                     onChange={e => setForm({ ...form, password: e.target.value })}
+                                    placeholder={isEdit ? "Dejar en blanco para mantener" : "Autogenerada si se deja en blanco"}
                                 />
+                                <small style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                                    {!isEdit && "💡 Si no ingresa una clave, el sistema generará una segura automáticamente."}
+                                </small>
                             </div>
                             <div className="input-group-usuario">
                                 <label className="label-usuario">Rol *</label>
@@ -254,11 +262,12 @@ export default function UsuarioForm() {
                                     className="select-field-usuario"
                                     value={form.role}
                                     onChange={e => setForm({ ...form, role: e.target.value })}
-                                    disabled={currentUser.role === 'contratista_admin'}
+                                    disabled={['contratista_admin', 'contratista_user'].includes(currentUser.role) || (isEdit && String(id) === String(currentUser.id))}
                                 >
                                     <option value="">Seleccione Rol...</option>
                                     {roles.filter(r => {
-                                        if (currentUser.role === 'contratista_admin') {
+                                        if (currentUser.role !== 'oval' && r.name === 'oval') return false;
+                                        if (['contratista_admin', 'contratista_user'].includes(currentUser.role)) {
                                             return r.name === 'contratista_user';
                                         }
                                         if (currentUser.role === 'administrador_contrato') {
@@ -270,6 +279,25 @@ export default function UsuarioForm() {
                                     ))}
                                 </select>
                             </div>
+                        </div>
+
+                        <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <input
+                                type="checkbox"
+                                id="user_activo"
+                                checked={form.activo}
+                                onChange={e => setForm({ ...form, activo: e.target.checked })}
+                                disabled={isEdit && String(id) === String(currentUser.id)}
+                                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                            />
+                            <label htmlFor="user_activo" style={{ cursor: 'pointer', fontWeight: '500', color: '#1e293b' }}>
+                                Usuario Activo
+                            </label>
+                            {isEdit && String(id) === String(currentUser.id) && (
+                                <small style={{ color: '#ef4444', marginLeft: '8px', fontWeight: 'bold' }}>
+                                    (No puedes desactivar tu propia cuenta)
+                                </small>
+                            )}
                         </div>
 
                         {/* Fields for Abastible Users */}
@@ -328,7 +356,7 @@ export default function UsuarioForm() {
                                             value={form.tipo_contratista_id}
                                             onChange={val => setForm({ ...form, tipo_contratista_id: val })}
                                             placeholder="Seleccione Servicio..."
-                                            disabled={!form.contratista_id && currentUser.role !== 'contratista_admin'}
+                                            disabled={currentUser.role === 'contratista_user' || (!form.contratista_id && currentUser.role !== 'contratista_admin')}
                                             dropdownTop="calc(34% + 4px)"
                                             containerFlex="1 1 auto"
                                         />
@@ -340,7 +368,7 @@ export default function UsuarioForm() {
                                             value={form.dependencia_id}
                                             onChange={val => setForm({ ...form, dependencia_id: val })}
                                             placeholder="Seleccione Dependencia..."
-                                            disabled={!form.contratista_id && currentUser.role !== 'contratista_admin'}
+                                            disabled={currentUser.role === 'contratista_user' || (!form.contratista_id && currentUser.role !== 'contratista_admin')}
                                             dropdownTop="calc(34% + 4px)"
                                             containerFlex="1 1 auto"
                                         />

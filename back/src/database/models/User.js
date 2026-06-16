@@ -12,6 +12,14 @@ const User = sequelize.define('User', {
         type: DataTypes.STRING(255),
         allowNull: false
     },
+    usuario: {
+        type: DataTypes.STRING(255),
+        allowNull: true
+    },
+    usu_id_pizza: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: true
+    },
     email: {
         type: DataTypes.STRING(255),
         allowNull: false,
