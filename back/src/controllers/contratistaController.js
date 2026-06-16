@@ -49,9 +49,10 @@ const contratistaController = {
                 includeVinculacion.include[2].where = { administrador_contrato_id: id, activo: 1 };
                 includeVinculacion.include[2].required = true;
             } else if (role === 'contratista_admin') {
-                // Only their own company
-                const cId = contratista_id || req.user.contratista_id;
-                whereContratista.id = cId;
+                // Only their own companies
+                const { Op } = require('sequelize');
+                const cIds = req.user.contratista_ids || (contratista_id ? [contratista_id] : (req.user.contratista_id ? [req.user.contratista_id] : []));
+                whereContratista.id = { [Op.in]: cIds };
             } else if (role === 'contratista_user') {
                 // Only their own company, and strictly filtered vinculations if needed
                 const cId = contratista_id || req.user.contratista_id;
@@ -71,14 +72,22 @@ const contratistaController = {
                     includeVinculacion,
                     { 
                         model: User, 
-                        as: 'usuarios', 
+                        as: 'usuariosAsignados', 
                         where: { role: 'contratista_admin', activo: 1 }, 
                         required: false,
+                        through: { attributes: [] },
                         attributes: ['id', 'name', 'email', 'role']
                     }
                 ]
             });
-            res.json({ success: true, data: contratistas });
+
+            const mappedData = contratistas.map(c => {
+                const json = c.toJSON();
+                json.usuarios = json.usuariosAsignados || [];
+                return json;
+            });
+
+            res.json({ success: true, data: mappedData });
         } catch (error) {
             console.error('Contratistas index error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener contratistas' });
@@ -92,9 +101,10 @@ const contratistaController = {
                 include: [
                     {
                         model: User,
-                        as: 'usuarios',
+                        as: 'usuariosAsignados',
                         where: { role: 'contratista_admin', activo: 1 },
                         required: false,
+                        through: { attributes: [] },
                         attributes: ['id', 'name', 'email', 'role']
                     },
                     {
@@ -134,7 +144,10 @@ const contratistaController = {
                 return res.status(404).json({ success: false, message: 'Contratista no encontrado' });
             }
 
-            res.json({ success: true, data: contratista });
+            const json = contratista.toJSON();
+            json.usuarios = json.usuariosAsignados || [];
+
+            res.json({ success: true, data: json });
         } catch (error) {
             console.error('Contratista show error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener contratista' });

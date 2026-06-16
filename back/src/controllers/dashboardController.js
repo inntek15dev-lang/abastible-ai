@@ -44,9 +44,10 @@ const dashboardController = {
                 if (scopeVinculacionIds.length === 0) whereRegistro.id = -1;
                 else whereRegistro.contratista_asignacion_id = { [Op.in]: scopeVinculacionIds };
             } else if (user.role === 'contratista_admin') {
-                if (user.contratista_id) {
+                const cIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
+                if (cIds.length > 0) {
                     const vincs = await Vinculacion.findAll({
-                        where: { contratista_id: user.contratista_id, activo: 1 },
+                        where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
                         attributes: ['id']
                     });
                     scopeVinculacionIds = vincs.map(v => v.id);
@@ -365,7 +366,8 @@ const dashboardController = {
                 });
                 vincWhere.id = { [Op.in]: adminVincs.map(a => a.vinculacion_id) };
             } else if (user.role === 'contratista_admin') {
-                vincWhere.contratista_id = user.contratista_id;
+                const cIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
+                vincWhere.contratista_id = { [Op.in]: cIds };
             } else if (user.role === 'contratista_user') {
                 vincWhere.contratista_id = user.contratista_id;
                 vincWhere.servicio_id = user.tipo_contratista_id;
@@ -446,9 +448,10 @@ const dashboardController = {
                 if (vincIds.length === 0) whereRegistro.id = -1;
                 else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
             } else if (user.role === 'contratista_admin') {
-                if (user.contratista_id) {
+                const cIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
+                if (cIds.length > 0) {
                     const vincs = await Vinculacion.findAll({
-                        where: { contratista_id: user.contratista_id, activo: 1 },
+                        where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
                         attributes: ['id']
                     });
                     const vincIds = vincs.map(v => v.id);
@@ -573,9 +576,10 @@ const dashboardController = {
                 if (vincIds.length === 0) whereRegistro.id = -1;
                 else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
             } else if (user.role === 'contratista_admin') {
-                if (user.contratista_id) {
+                const cIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
+                if (cIds.length > 0) {
                     const vincs = await Vinculacion.findAll({
-                        where: { contratista_id: user.contratista_id, activo: 1 },
+                        where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
                         attributes: ['id']
                     });
                     const vincIds = vincs.map(v => v.id);
@@ -728,8 +732,9 @@ const dashboardController = {
                 const vincIds = adminRecords.map(a => a.vinculacion_id);
                 whereVinculacion.id = vincIds.length > 0 ? { [Op.in]: vincIds } : -1;
             } else if (user.role === 'contratista_admin') {
-                if (user.contratista_id) {
-                    whereVinculacion.contratista_id = user.contratista_id;
+                const cIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
+                if (cIds.length > 0) {
+                    whereVinculacion.contratista_id = { [Op.in]: cIds };
                 } else {
                     whereVinculacion.id = -1;
                 }

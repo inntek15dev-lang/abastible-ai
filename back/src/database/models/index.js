@@ -36,6 +36,7 @@ const Contratista = require('./Contratista');
 const Vinculacion = require('./Vinculacion');
 const Administracion = require('./Administracion');
 const VinculacionUsuario = require('./VinculacionUsuario');
+const ContratistaUsuario = require('./ContratistaUsuario');
 
 // ============= SPRINT 1 ASSOCIATIONS =============
 
@@ -245,6 +246,14 @@ VinculacionUsuario.belongsTo(Vinculacion, { foreignKey: 'vinculacion_id', as: 'v
 User.hasMany(VinculacionUsuario, { foreignKey: 'user_id', as: 'vinculacionesAsignadas' });
 VinculacionUsuario.belongsTo(User, { foreignKey: 'user_id', as: 'usuario', attributes: ['id', 'name', 'email', 'role'] });
 
+// ContratistaUsuario (many-to-many users and contractor companies)
+User.belongsToMany(Contratista, { through: ContratistaUsuario, foreignKey: 'user_id', otherKey: 'contratista_id', as: 'contratistasAsignados' });
+Contratista.belongsToMany(User, { through: ContratistaUsuario, foreignKey: 'contratista_id', otherKey: 'user_id', as: 'usuariosAsignados' });
+User.hasMany(ContratistaUsuario, { foreignKey: 'user_id', as: 'contratistasUsuario' });
+ContratistaUsuario.belongsTo(User, { foreignKey: 'user_id', as: 'usuario' });
+Contratista.hasMany(ContratistaUsuario, { foreignKey: 'contratista_id', as: 'contratistasUsuario' });
+ContratistaUsuario.belongsTo(Contratista, { foreignKey: 'contratista_id', as: 'contratista' });
+
 module.exports = {
     sequelize,
     // Sprint 1
@@ -276,5 +285,6 @@ module.exports = {
     Contratista,
     Vinculacion,
     Administracion,
-    VinculacionUsuario
+    VinculacionUsuario,
+    ContratistaUsuario
 };

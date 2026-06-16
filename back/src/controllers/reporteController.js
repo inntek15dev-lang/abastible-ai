@@ -150,9 +150,10 @@ module.exports = {
                 if (vincIds.length === 0) whereRegistro.id = -1;
                 else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
             } else if (user.role === 'contratista_admin') {
-                if (user.contratista_id) {
+                const cIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
+                if (cIds.length > 0) {
                     const vincs = await Vinculacion.findAll({
-                        where: { contratista_id: user.contratista_id, activo: 1 },
+                        where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
                         attributes: ['id']
                     });
                     const vincIds = vincs.map(v => v.id);
@@ -627,8 +628,11 @@ module.exports = {
             const vincIds = adminRecords.map(a => a.vinculacion_id);
             whereVinculacion.id = vincIds.length > 0 ? { [Op.in]: vincIds } : -1;
         } else if (['contratista_admin', 'contratista_user'].includes(user.role)) {
-            whereVinculacion.contratista_id = user.contratista_id;
-            if (user.role === 'contratista_user') {
+            if (user.role === 'contratista_admin') {
+                const cIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
+                whereVinculacion.contratista_id = { [Op.in]: cIds };
+            } else {
+                whereVinculacion.contratista_id = user.contratista_id;
                 whereVinculacion.servicio_id = user.tipo_contratista_id;
                 whereVinculacion.dependencia_id = user.dependencia_id;
             }
@@ -717,6 +721,36 @@ module.exports = {
         if (user.role === 'administrador_contrato') {
             const adminRecords = await Administracion.findAll({ where: { administrador_contrato_id: user.id, activo: 1 } });
             whereRegistro.contratista_asignacion_id = { [Op.in]: adminRecords.map(a => a.vinculacion_id) };
+        } else if (user.role === 'contratista_admin') {
+            const cIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
+            if (cIds.length > 0) {
+                const vincs = await Vinculacion.findAll({
+                    where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
+                    attributes: ['id']
+                });
+                const vincIds = vincs.map(v => v.id);
+                if (vincIds.length === 0) whereRegistro.id = -1;
+                else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
+            } else {
+                whereRegistro.id = -1;
+            }
+        } else if (user.role === 'contratista_user') {
+            if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
+                const vincs = await Vinculacion.findAll({
+                    where: {
+                        contratista_id: user.contratista_id,
+                        servicio_id: user.tipo_contratista_id,
+                        dependencia_id: user.dependencia_id,
+                        activo: 1
+                    },
+                    attributes: ['id']
+                });
+                const vincIds = vincs.map(v => v.id);
+                if (vincIds.length === 0) whereRegistro.id = -1;
+                else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
+            } else {
+                whereRegistro.id = -1;
+            }
         }
         
         if (req.query.periodo_desde || req.query.periodo_hasta || periodo) {

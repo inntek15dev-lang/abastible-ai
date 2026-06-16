@@ -33,10 +33,11 @@ const registroController = {
             // Apply role-based filtering (RN-002)
             // Apply role-based filtering (RN-002)
             if (req.user.role === 'contratista_admin') {
-                // Contractor Admin sees ALL records for their Company (via Vinculacion)
-                if (req.user.contratista_id) {
+                // Contractor Admin sees ALL records for their Companies (via Vinculacion)
+                const cIds = req.user.contratista_ids || (req.user.contratista_id ? [req.user.contratista_id] : []);
+                if (cIds.length > 0) {
                     const vinculaciones = await Vinculacion.findAll({
-                        where: { contratista_id: req.user.contratista_id },
+                        where: { contratista_id: { [Op.in]: cIds } },
                         attributes: ['id']
                     });
                     const vinculacionIds = vinculaciones.map(v => v.id);
@@ -44,7 +45,7 @@ const registroController = {
                     where = {
                         [Op.or]: [
                             { user_id: req.user.id }, // Created by me
-                            { contratista_asignacion_id: { [Op.in]: vinculacionIds } } // Belonging to my company
+                            { contratista_asignacion_id: { [Op.in]: vinculacionIds } } // Belonging to my companies
                         ]
                     };
                 } else {

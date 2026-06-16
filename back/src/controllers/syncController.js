@@ -1,6 +1,6 @@
 const axios = require('axios');
 const bcrypt = require('bcryptjs');
-const { sequelize, Contratista, TipoContratista, Dependencia, Vinculacion, User, Administracion, Gerencia, Subgerencia } = require('../database/models');
+const { sequelize, Contratista, TipoContratista, Dependencia, Vinculacion, User, Administracion, Gerencia, Subgerencia, ContratistaUsuario } = require('../database/models');
 
 const EXTERNAL_API_URL = process.env.PIZZA_API_URL || 'https://prepro.ovalcontrol.com/api/getContratistasAbastible';
 const API_KEY = process.env.PIZZA_API_KEY;
@@ -151,11 +151,20 @@ const compareData = async (req, res) => {
             fullResponse.contratista_admin.forEach(admin => {
                 if (admin.email) {
                     const resolved = resolveContractor(admin.rut_contratista);
-                    extContratistaAdmins.set(normalize(admin.email), {
-                        nombre: admin.nombre,
-                        email: admin.email,
-                        rut_contratista: resolved.rut
-                    });
+                    const emailNorm = normalize(admin.email);
+                    if (extContratistaAdmins.has(emailNorm)) {
+                        const existing = extContratistaAdmins.get(emailNorm);
+                        if (!existing.rut_contratistas.includes(resolved.rut)) {
+                            existing.rut_contratistas.push(resolved.rut);
+                        }
+                    } else {
+                        extContratistaAdmins.set(emailNorm, {
+                            nombre: admin.nombre,
+                            email: admin.email,
+                            rut_contratista: resolved.rut,
+                            rut_contratistas: [resolved.rut]
+                        });
+                    }
                 }
             });
         }
@@ -245,11 +254,20 @@ const compareData = async (req, res) => {
                 admins.forEach(admin => {
                     if (admin.email) {
                         const resolvedAdminRut = resolveContractor(rawRut);
-                        extContratistaAdmins.set(normalize(admin.email), {
-                            nombre: admin.nombre,
-                            email: admin.email,
-                            rut_contratista: resolvedAdminRut.rut
-                        });
+                        const emailNorm = normalize(admin.email);
+                        if (extContratistaAdmins.has(emailNorm)) {
+                            const existing = extContratistaAdmins.get(emailNorm);
+                            if (!existing.rut_contratistas.includes(resolvedAdminRut.rut)) {
+                                existing.rut_contratistas.push(resolvedAdminRut.rut);
+                            }
+                        } else {
+                            extContratistaAdmins.set(emailNorm, {
+                                nombre: admin.nombre,
+                                email: admin.email,
+                                rut_contratista: resolvedAdminRut.rut,
+                                rut_contratistas: [resolvedAdminRut.rut]
+                            });
+                        }
                     }
                 });
             }
@@ -409,11 +427,15 @@ const compareData = async (req, res) => {
 
         const diffContratistaAdmin = [];
         extContratistaAdmins.forEach((data, normEmail) => {
-            const resolved = resolveContractor(data.rut_contratista);
+            const primaryRut = data.rut_contratista || (data.rut_contratistas && data.rut_contratistas[0]) || '99999999-9';
+            const resolved = resolveContractor(primaryRut);
+            const resolvedNames = (data.rut_contratistas || []).map(r => resolveContractor(r).nombre);
             diffContratistaAdmin.push({
-                ...data,
-                rut_contratista: resolved.rut,
-                contratista: resolved.nombre,
+                nombre: data.nombre,
+                email: data.email,
+                rut_contratista: primaryRut,
+                contratista: resolvedNames.join(', ') || resolved.nombre,
+                rut_contratistas: data.rut_contratistas || [primaryRut],
                 estado: locUsersMap.has(normEmail) ? 'exists' : 'new'
             });
         });
@@ -481,11 +503,13 @@ const syncData = async (req, res) => {
 
         // Fetch external data for enrichment
         let externalContratistas = [];
+        let fullResponse = {};
         try {
             const response = await axios.get(EXTERNAL_API_URL, {
                 headers: { 'api-key': API_KEY, 'Origin': ORIGIN }
             });
-            externalContratistas = response.data?.contratistas || [];
+            fullResponse = response.data || {};
+            externalContratistas = fullResponse.contratistas || [];
         } catch (e) {
             console.warn('⚠️ No se pudo obtener la API externa para enriquecer nombres de contratistas:', e.message);
         }
@@ -591,42 +615,129 @@ const syncData = async (req, res) => {
                     }
                 }
             } else if (entityType === 'contratista_admin') {
+                // Gather complete list of RUTs per admin email from external response as a source of truth
+                const extAdminEmailToRuts = new Map();
+                if (fullResponse.contratista_admin) {
+                    fullResponse.contratista_admin.forEach(admin => {
+                        if (admin.email) {
+                            const emailNorm = normalize(admin.email);
+                            const resolved = resolveContractor(admin.rut_contratista);
+                            if (!extAdminEmailToRuts.has(emailNorm)) {
+                                extAdminEmailToRuts.set(emailNorm, new Set());
+                            }
+                            extAdminEmailToRuts.get(emailNorm).add(resolved.rut);
+                        }
+                    });
+                }
+                if (Array.isArray(externalContratistas)) {
+                    externalContratistas.forEach(c => {
+                        let rawRut = c.rut;
+                        if (!rawRut && c.cot_rut) {
+                            rawRut = `${c.cot_rut}-${c.cot_dv}`;
+                        }
+                        if (!rawRut) return;
+                        const resolvedC = resolveContractor(rawRut);
+
+                        const admins = c.contratista_admin || (c.data && c.data.contratista_admin);
+                        if (admins && Array.isArray(admins)) {
+                            admins.forEach(admin => {
+                                if (admin.email) {
+                                    const emailNorm = normalize(admin.email);
+                                    if (!extAdminEmailToRuts.has(emailNorm)) {
+                                        extAdminEmailToRuts.set(emailNorm, new Set());
+                                    }
+                                    extAdminEmailToRuts.get(emailNorm).add(resolvedC.rut);
+                                }
+                            });
+                        }
+                    });
+                }
+
                 // Pre-sync parent contratistas first
                 const parentContratistas = [];
                 const seenContratistas = new Set();
                 for (const item of entityItems) {
-                    const cRut = item.rut_contratista || '99999999-9';
-                    const resolved = resolveContractor(cRut, item.contratista);
-                    const normC = normalize(resolved.rut);
-                    if (!seenContratistas.has(normC)) {
-                        seenContratistas.add(normC);
-                        parentContratistas.push({ rut: resolved.rut, nombre: resolved.nombre });
+                    const emailNorm = normalize(item.email);
+                    const extRutsSet = extAdminEmailToRuts.get(emailNorm);
+                    const ruts = extRutsSet ? Array.from(extRutsSet) : (item.rut_contratistas || [item.rut_contratista || '99999999-9']);
+                    for (const cRut of ruts) {
+                        const resolved = resolveContractor(cRut, item.contratista);
+                        const normC = normalize(resolved.rut);
+                        if (!seenContratistas.has(normC)) {
+                            seenContratistas.add(normC);
+                            parentContratistas.push({ rut: resolved.rut, nombre: resolved.nombre });
+                        }
                     }
                 }
                 await syncEntityBatch('contratistas', parentContratistas);
 
                 for (const item of entityItems) {
-                    const cRut = item.rut_contratista || '99999999-9';
-                    const resolved = resolveContractor(cRut, item.contratista);
-                    const cleanResolvedRut = cleanRutString(resolved.rut);
-                    const allLocal = await Contratista.findAll({ transaction });
-                    const contratista = allLocal.find(c => cleanRutString(c.rut) === cleanResolvedRut);
+                    if (!item.email) continue;
+                    const emailNorm = normalize(item.email);
+                    const extRutsSet = extAdminEmailToRuts.get(emailNorm);
+                    const ruts = extRutsSet ? Array.from(extRutsSet) : (item.rut_contratistas || [item.rut_contratista || '99999999-9']);
 
-                    if (item.email && contratista) {
+                    const allLocal = await Contratista.findAll({ transaction });
+                    const associatedContratistas = [];
+
+                    for (const cRut of ruts) {
+                        const resolved = resolveContractor(cRut, item.contratista);
+                        const cleanResolvedRut = cleanRutString(resolved.rut);
+                        const contratista = allLocal.find(c => cleanRutString(c.rut) === cleanResolvedRut);
+                        if (contratista && !associatedContratistas.some(c => c.id === contratista.id)) {
+                            associatedContratistas.push(contratista);
+                        }
+                    }
+
+                    if (associatedContratistas.length > 0) {
+                        const primaryContratista = associatedContratistas[0];
                         const [user, created] = await User.findOrCreate({
                             where: { email: item.email },
                             defaults: {
                                 name: item.nombre || item.email.split('@')[0] || 'Administrador Contratista',
                                 password: defaultPasswordHash,
                                 role: 'contratista_admin',
-                                contratista_id: contratista.id,
+                                contratista_id: primaryContratista.id,
                                 activo: 1
                             },
                             transaction
                         });
-                        if (!created && user.contratista_id !== contratista.id) {
-                            await user.update({ contratista_id: contratista.id }, { transaction });
+
+                        // If user already exists, update role, primary company, active status, and name if necessary
+                        if (!created) {
+                            const updateFields = {};
+                            if (user.role !== 'contratista_admin' && user.role !== 'admin' && user.role !== 'administrador_contrato') {
+                                updateFields.role = 'contratista_admin';
+                            }
+                            if (user.contratista_id !== primaryContratista.id) updateFields.contratista_id = primaryContratista.id;
+                            if (user.activo !== 1) updateFields.activo = 1;
+                            if (item.nombre && user.name !== item.nombre) updateFields.name = item.nombre;
+                            
+                            if (Object.keys(updateFields).length > 0) {
+                                await user.update(updateFields, { transaction });
+                            }
                         }
+
+                        // Associate all resolved contractors in the pivot table
+                        const associatedIds = associatedContratistas.map(c => c.id);
+                        for (const cId of associatedIds) {
+                            await ContratistaUsuario.findOrCreate({
+                                where: {
+                                    user_id: user.id,
+                                    contratista_id: cId
+                                },
+                                transaction
+                            });
+                        }
+
+                        // Clean up any other companies they are no longer admin of
+                        await ContratistaUsuario.destroy({
+                            where: {
+                                user_id: user.id,
+                                contratista_id: { [sequelize.Sequelize.Op.notIn]: associatedIds }
+                            },
+                            transaction
+                        });
                     }
                 }
             }
@@ -871,9 +982,11 @@ const syncData = async (req, res) => {
                     transaction
                 });
 
-                if (!created && user.role !== 'administrador_contrato') {
+                if (!created && user.role !== 'administrador_contrato' && user.role !== 'admin') {
                     await user.update({ role: 'administrador_contrato' }, { transaction });
                 }
+
+                const syncedVinculacionIds = [];
 
                 if (item.asignaciones && Array.isArray(item.asignaciones)) {
                     for (const asig of item.asignaciones) {
@@ -902,7 +1015,7 @@ const syncData = async (req, res) => {
                             attempts++;
                         }
 
-                        const [vinculacion] = await Vinculacion.findOrCreate({
+                        const [vinculacion, vincCreated] = await Vinculacion.findOrCreate({
                             where: {
                                 contratista_id: contratista.id,
                                 servicio_id: servicio.id,
@@ -917,7 +1030,20 @@ const syncData = async (req, res) => {
                             transaction
                         });
 
-                        await Administracion.findOrCreate({
+                        if (!vincCreated) {
+                            const updateData = {};
+                            if (vinculacion.activo !== 1) updateData.activo = 1;
+                            if (asig.contrato && normalize(vinculacion.numero_contrato) !== normalize(asig.contrato)) {
+                                updateData.numero_contrato = asig.contrato;
+                            }
+                            if (Object.keys(updateData).length > 0) {
+                                await vinculacion.update(updateData, { transaction });
+                            }
+                        }
+
+                        syncedVinculacionIds.push(vinculacion.id);
+
+                        const [adminAssoc, adminAssocCreated] = await Administracion.findOrCreate({
                             where: {
                                 vinculacion_id: vinculacion.id,
                                 administrador_contrato_id: user.id
@@ -925,8 +1051,24 @@ const syncData = async (req, res) => {
                             defaults: { activo: 1 },
                             transaction
                         });
+
+                        if (!adminAssocCreated && adminAssoc.activo !== 1) {
+                            await adminAssoc.update({ activo: 1 }, { transaction });
+                        }
                     }
                 }
+
+                // Deactivate any other assignments that are not present in this synchronization
+                await Administracion.update(
+                    { activo: 0 },
+                    {
+                        where: {
+                            administrador_contrato_id: user.id,
+                            vinculacion_id: { [sequelize.Sequelize.Op.notIn]: syncedVinculacionIds }
+                        },
+                        transaction
+                    }
+                );
             }
         }
 

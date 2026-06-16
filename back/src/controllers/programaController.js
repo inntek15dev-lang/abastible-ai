@@ -33,7 +33,8 @@ const programaController = {
                 });
             } else if (role === 'contratista_admin') {
                 const { TipoContratista, Vinculacion } = require('../database/models');
-                const cId = contratista_id || req.user.contratista_id;
+                const { Op } = require('sequelize');
+                const cIds = req.user.contratista_ids || (contratista_id ? [contratista_id] : (req.user.contratista_id ? [req.user.contratista_id] : []));
                 includeScoping.push({
                     model: TipoContratista,
                     as: 'tiposContratista',
@@ -43,7 +44,7 @@ const programaController = {
                         model: Vinculacion,
                         as: 'vinculaciones',
                         attributes: [],
-                        where: { contratista_id: cId, activo: 1 },
+                        where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
                         required: true
                     }]
                 });

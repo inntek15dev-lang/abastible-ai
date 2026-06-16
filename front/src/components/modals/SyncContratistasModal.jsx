@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../api';
 import Modal from '../ui/Modal';
 import { toast } from 'react-hot-toast';
 import { 
     RefreshCw, CheckCircle, AlertCircle, Info, Database, Layers, 
-    Check, Loader2, ChevronLeft, ChevronRight, X, Sparkles, Server
+    Check, Loader2, ChevronLeft, ChevronRight, X, Sparkles, Server,
+    Search
 } from 'lucide-react';
 
 const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
@@ -24,6 +25,10 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
 
+    // Search and Autocomplete State
+    const [searchTerm, setSearchTerm] = useState('');
+    const [showSuggestions, setShowSuggestions] = useState(false);
+
     useEffect(() => {
         if (isOpen) {
             fetchComparison();
@@ -36,9 +41,11 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
         }
     }, [isOpen]);
 
-    // Reset pagination when step changes or data loads
+    // Reset pagination and search when step changes or data loads
     useEffect(() => {
         setCurrentPage(1);
+        setSearchTerm('');
+        setShowSuggestions(false);
     }, [step, diffData]);
 
     const fetchComparison = async () => {
@@ -71,9 +78,100 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
     const newItems = currentItems.filter(i => i.estado === 'new' || i.estado === 'updated');
     const existingItems = currentItems.filter(i => i.estado === 'exists');
 
-    // Pagination Logic
-    const totalPages = Math.ceil(currentItems.length / itemsPerPage);
-    const paginatedItems = currentItems.slice(
+    // Filter items based on active entity fields and search term
+    const filteredItems = useMemo(() => {
+        if (!searchTerm) return currentItems;
+        const term = searchTerm.toLowerCase();
+        return currentItems.filter(item => {
+            if (!item) return false;
+            switch (currentKey) {
+                case 'gerencias':
+                case 'dependencias':
+                    return item.nombre?.toLowerCase().includes(term);
+                case 'subgerencias':
+                    return (
+                        item.nombre?.toLowerCase().includes(term) ||
+                        item.gerencia?.toLowerCase().includes(term)
+                    );
+                case 'servicios':
+                    return (
+                        item.nombre?.toLowerCase().includes(term) ||
+                        item.subgerencia?.toLowerCase().includes(term)
+                    );
+                case 'contratistas':
+                    return (
+                        item.nombre?.toLowerCase().includes(term) ||
+                        item.rut?.toLowerCase().includes(term)
+                    );
+                case 'contratista_admin':
+                case 'administrador_contrato':
+                    return (
+                        item.nombre?.toLowerCase().includes(term) ||
+                        item.email?.toLowerCase().includes(term)
+                    );
+                case 'vinculaciones':
+                    return (
+                        item.contratista?.toLowerCase().includes(term) ||
+                        item.rut_contratista?.toLowerCase().includes(term) ||
+                        item.servicio?.toLowerCase().includes(term) ||
+                        item.dependencia?.toLowerCase().includes(term) ||
+                        item.subgerencia?.toLowerCase().includes(term) ||
+                        item.gerencia?.toLowerCase().includes(term) ||
+                        item.numero_contrato?.toLowerCase().includes(term)
+                    );
+                default:
+                    return JSON.stringify(item).toLowerCase().includes(term);
+            }
+        });
+    }, [currentItems, searchTerm, currentKey]);
+
+    // Extract unique autocomplete suggestions matching current search term
+    const suggestions = useMemo(() => {
+        if (!searchTerm) return [];
+        const term = searchTerm.toLowerCase();
+        const results = new Set();
+        
+        for (const item of currentItems) {
+            if (!item) continue;
+            
+            const candidates = [];
+            if (currentKey === 'gerencias' || currentKey === 'dependencias') {
+                if (item.nombre) candidates.push(item.nombre);
+            } else if (currentKey === 'subgerencias') {
+                if (item.nombre) candidates.push(item.nombre);
+                if (item.gerencia) candidates.push(item.gerencia);
+            } else if (currentKey === 'servicios') {
+                if (item.nombre) candidates.push(item.nombre);
+                if (item.subgerencia) candidates.push(item.subgerencia);
+            } else if (currentKey === 'contratistas') {
+                if (item.nombre) candidates.push(item.nombre);
+                if (item.rut) candidates.push(item.rut);
+            } else if (currentKey === 'contratista_admin' || currentKey === 'administrador_contrato') {
+                if (item.nombre) candidates.push(item.nombre);
+                if (item.email) candidates.push(item.email);
+            } else if (currentKey === 'vinculaciones') {
+                if (item.contratista) candidates.push(item.contratista);
+                if (item.rut_contratista) candidates.push(item.rut_contratista);
+                if (item.servicio) candidates.push(item.servicio);
+                if (item.dependencia) candidates.push(item.dependencia);
+                if (item.numero_contrato) candidates.push(item.numero_contrato);
+            }
+            
+            for (const cand of candidates) {
+                if (cand.toLowerCase().includes(term) && cand.toLowerCase() !== term) {
+                    results.add(cand);
+                    if (results.size >= 6) break;
+                }
+            }
+            if (results.size >= 6) break;
+        }
+        
+        return Array.from(results);
+    }, [currentItems, searchTerm, currentKey]);
+
+    // Pagination Logic based on filtered items
+    const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+    const paginatedItems = filteredItems.slice(
         (currentPage - 1) * itemsPerPage,
         currentPage * itemsPerPage
     );
@@ -119,7 +217,8 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
             });
         } catch (error) {
             console.error('Error syncing individual item:', error);
-            toast.error('Error al sincronizar el elemento');
+            const errMsg = error.response?.data?.message || error.response?.data?.error || 'Error al sincronizar el elemento';
+            toast.error(errMsg);
         } finally {
             setSyncingItems(prev => {
                 const copy = { ...prev };
@@ -138,7 +237,8 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
             await fetchComparison();
         } catch (error) {
             console.error('Error syncing:', error);
-            toast.error('Error al sincronizar datos');
+            const errMsg = error.response?.data?.message || error.response?.data?.error || 'Error al sincronizar datos';
+            toast.error(errMsg);
         } finally {
             setSyncing(false);
         }
@@ -186,7 +286,8 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
             await fetchComparison();
         } catch (error) {
             console.error('Error in sequential Full Sync:', error);
-            toast.error('La sincronización completa falló en un paso intermedio.');
+            const errMsg = error.response?.data?.message || error.response?.data?.error || 'La sincronización completa falló en un paso intermedio.';
+            toast.error(errMsg);
             setFullSyncProgress(prev => prev.map(p => p.status === 'syncing' ? { ...p, status: 'error' } : p));
         }
     };
@@ -243,7 +344,7 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                     <div className="tooltip-tree">
                         <span className="tooltip-node root">Contratistas</span>
                         <span className="tooltip-arrow">➔</span>
-                        <span className="tooltip-node">RUT: {item.rut_contratista}</span>
+                        <span className="tooltip-node">RUTs: {item.rut_contratistas ? item.rut_contratistas.join(', ') : item.rut_contratista}</span>
                         <span className="tooltip-arrow">➔</span>
                         <span className="tooltip-node active">Admin Contratista: {item.nombre} ({item.email})</span>
                     </div>
@@ -551,6 +652,65 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                     </div>
                 </div>
 
+                {/* Search and Autocomplete Input */}
+                <div className="relative mb-4 z-20">
+                    <div className="relative flex items-center">
+                        <Search className="absolute left-3 text-gray-400 w-4 h-4" />
+                        <input
+                            type="text"
+                            className="w-full pl-10 pr-10 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white"
+                            placeholder={`Buscar por nombre, ${
+                                currentKey === 'contratistas' ? 'RUT' :
+                                currentKey === 'contratista_admin' || currentKey === 'administrador_contrato' ? 'email' :
+                                currentKey === 'vinculaciones' ? 'RUT, servicio, contrato' : 'detalles'
+                            }...`}
+                            value={searchTerm}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setShowSuggestions(true);
+                                setCurrentPage(1);
+                            }}
+                            onFocus={() => setShowSuggestions(true)}
+                            onBlur={() => {
+                                // Delay hiding so suggestion click can register
+                                setTimeout(() => setShowSuggestions(false), 200);
+                            }}
+                        />
+                        {searchTerm && (
+                            <button
+                                onClick={() => {
+                                    setSearchTerm('');
+                                    setShowSuggestions(false);
+                                    setCurrentPage(1);
+                                }}
+                                className="absolute right-3 text-gray-400 hover:text-gray-600 focus:outline-none"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Autocomplete suggestions dropdown */}
+                    {showSuggestions && suggestions.length > 0 && (
+                        <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto z-50">
+                            {suggestions.map((suggestion, idx) => (
+                                <div
+                                    key={idx}
+                                    className="px-4 py-2 hover:bg-orange-50 cursor-pointer text-sm text-gray-700 hover:text-orange-900 border-b last:border-b-0 border-gray-100 flex items-center justify-between"
+                                    onMouseDown={() => {
+                                        setSearchTerm(suggestion);
+                                        setShowSuggestions(false);
+                                        setCurrentPage(1);
+                                    }}
+                                >
+                                    <span>{suggestion}</span>
+                                    <span className="text-[10px] text-orange-500 bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded font-medium">Autocompletar</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
                 <div className="flex-1 overflow-auto bg-white border rounded">
                     <table className="w-full text-sm text-left text-gray-500">
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
@@ -626,23 +786,36 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                                             )}
                                         </td>
                                         <td className="px-6 py-4 text-right">
-                                            {(item.estado === 'new' || item.estado === 'updated') ? (
-                                                <button
-                                                    onClick={() => handleSingleSync(item, currentKey)}
-                                                    disabled={isItemSyncing || syncing || fullSyncing}
-                                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded flex items-center gap-1 ml-auto disabled:opacity-50"
-                                                    title="Sincronizar este elemento individualmente"
-                                                >
-                                                    {isItemSyncing ? (
-                                                        <Loader2 className="animate-spin w-3 h-3" />
-                                                    ) : (
-                                                        <RefreshCw className="w-3 h-3" />
-                                                    )}
-                                                    {isItemSyncing ? 'Sincronizando' : 'Sincronizar'}
-                                                </button>
-                                            ) : (
-                                                <span className="text-gray-400 text-xs italic">Listo</span>
-                                            )}
+                                             <div className="flex gap-2 justify-end items-center">
+                                                 {(item.estado === 'new' || item.estado === 'updated') && (
+                                                     <button
+                                                         onClick={() => handleSingleSync(item, currentKey)}
+                                                         disabled={isItemSyncing || syncing || fullSyncing}
+                                                         className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded flex items-center gap-1 disabled:opacity-50"
+                                                         title="Sincronizar este elemento individualmente"
+                                                     >
+                                                         {isItemSyncing ? (
+                                                             <Loader2 className="animate-spin w-3 h-3" />
+                                                         ) : (
+                                                             <RefreshCw className="w-3 h-3" />
+                                                         )}
+                                                         {isItemSyncing ? 'Sincronizando' : 'Sincronizar'}
+                                                     </button>
+                                                 )}
+                                                 <button
+                                                     onClick={() => handleSingleSync(item, currentKey)}
+                                                     disabled={isItemSyncing || syncing || fullSyncing}
+                                                     className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded flex items-center gap-1 disabled:opacity-50"
+                                                     title="Re-sincronizar este elemento de forma completa"
+                                                 >
+                                                     {isItemSyncing ? (
+                                                         <Loader2 className="animate-spin w-3 h-3" />
+                                                     ) : (
+                                                         <RefreshCw className="w-3 h-3" />
+                                                     )}
+                                                     Re-sincronizar
+                                                 </button>
+                                             </div>
                                         </td>
                                     </tr>
                                 );
@@ -650,7 +823,7 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                             {paginatedItems.length === 0 && (
                                 <tr>
                                     <td colSpan={currentKey === 'vinculaciones' ? 8 : currentKey === 'subgerencias' || currentKey === 'servicios' ? 5 : 4} className="px-6 py-8 text-center text-gray-500">
-                                        No hay datos pendientes para mostrar en esta entidad.
+                                        {searchTerm ? 'No se encontraron resultados para la búsqueda.' : 'No hay datos pendientes para mostrar en esta entidad.'}
                                     </td>
                                 </tr>
                             )}
