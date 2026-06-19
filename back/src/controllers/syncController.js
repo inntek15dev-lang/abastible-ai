@@ -558,247 +558,248 @@ const syncData = async (req, res) => {
         }
         const { resolveContractor } = buildContractorLookups(externalContratistas);
 
-        // Modular cascading sync routine
-        const syncEntityBatch = async (entityType, entityItems) => {
-            if (!entityItems || entityItems.length === 0) return;
+        // Helper synchronization functions defined inside transaction scope
+        const syncGerencias = async (itemsList) => {
+            if (!itemsList || itemsList.length === 0) return;
+            for (const item of itemsList) {
+                await Gerencia.findOrCreate({
+                    where: { nombre: item.nombre },
+                    transaction
+                });
+            }
+        };
 
-            if (entityType === 'gerencias') {
-                for (const item of entityItems) {
-                    await Gerencia.findOrCreate({
-                        where: { nombre: item.nombre },
+        const syncSubgerencias = async (itemsList) => {
+            if (!itemsList || itemsList.length === 0) return;
+            // Pre-sync parent gerencias first
+            const parentGerencias = [];
+            const seenGerencias = new Set();
+            for (const item of itemsList) {
+                const gName = item.gerencia || 'GERENCIA GENERAL';
+                const normG = normalize(gName);
+                if (!seenGerencias.has(normG)) {
+                    seenGerencias.add(normG);
+                    parentGerencias.push({ nombre: gName });
+                }
+            }
+            await syncGerencias(parentGerencias);
+
+            for (const item of itemsList) {
+                const gName = item.gerencia || 'GERENCIA GENERAL';
+                const gerencia = await Gerencia.findOne({ where: { nombre: gName }, transaction });
+                await Subgerencia.findOrCreate({
+                    where: { nombre: item.nombre, gerencia_id: gerencia.id },
+                    transaction
+                });
+            }
+        };
+
+        const syncServicios = async (itemsList) => {
+            if (!itemsList || itemsList.length === 0) return;
+            // Pre-sync parent subgerencias first
+            const parentSubgerencias = [];
+            const seenSubgerencias = new Set();
+            for (const item of itemsList) {
+                const sName = item.subgerencia || 'SUBGERENCIA GENERAL';
+                const gName = item.gerencia || 'GERENCIA GENERAL';
+                const key = normalize(gName + '|' + sName);
+                if (!seenSubgerencias.has(key)) {
+                    seenSubgerencias.add(key);
+                    parentSubgerencias.push({ nombre: sName, gerencia: gName });
+                }
+            }
+            await syncSubgerencias(parentSubgerencias);
+
+            for (const item of itemsList) {
+                const sName = item.subgerencia || 'SUBGERENCIA GENERAL';
+                const subgerencia = await Subgerencia.findOne({ where: { nombre: sName }, transaction });
+                await TipoContratista.findOrCreate({
+                    where: { nombre: item.nombre, subgerencia_id: subgerencia.id },
+                    defaults: { descripcion: 'Sincronizado desde API', activo: 1 },
+                    transaction
+                });
+            }
+        };
+
+        const syncDependencias = async (itemsList) => {
+            if (!itemsList || itemsList.length === 0) return;
+            for (const item of itemsList) {
+                await Dependencia.findOrCreate({
+                    where: { nombre: item.nombre },
+                    defaults: { activo: 1 },
+                    transaction
+                });
+            }
+        };
+
+        const syncContratistas = async (itemsList) => {
+            if (!itemsList || itemsList.length === 0) return;
+            for (const item of itemsList) {
+                const rawRut = item.rut;
+                if (rawRut) {
+                    const resolved = resolveContractor(rawRut, item.nombre);
+                    const cleanResolvedRut = cleanRutString(resolved.rut);
+
+                    let contractor = await Contratista.findOne({
+                        where: { rut: resolved.rut },
                         transaction
                     });
-                }
-            } else if (entityType === 'subgerencias') {
-                // Pre-sync parent gerencias first
-                const parentGerencias = [];
-                const seenGerencias = new Set();
-                for (const item of entityItems) {
-                    const gName = item.gerencia || 'GERENCIA GENERAL';
-                    const normG = normalize(gName);
-                    if (!seenGerencias.has(normG)) {
-                        seenGerencias.add(normG);
-                        parentGerencias.push({ nombre: gName });
-                    }
-                }
-                await syncEntityBatch('gerencias', parentGerencias);
 
-                for (const item of entityItems) {
-                    const gName = item.gerencia || 'GERENCIA GENERAL';
-                    const gerencia = await Gerencia.findOne({ where: { nombre: gName }, transaction });
-                    await Subgerencia.findOrCreate({
-                        where: { nombre: item.nombre, gerencia_id: gerencia.id },
-                        transaction
-                    });
-                }
-            } else if (entityType === 'servicios') {
-                // Pre-sync parent subgerencias first
-                const parentSubgerencias = [];
-                const seenSubgerencias = new Set();
-                for (const item of entityItems) {
-                    const sName = item.subgerencia || 'SUBGERENCIA GENERAL';
-                    const gName = item.gerencia || 'GERENCIA GENERAL';
-                    const key = normalize(gName + '|' + sName);
-                    if (!seenSubgerencias.has(key)) {
-                        seenSubgerencias.add(key);
-                        parentSubgerencias.push({ nombre: sName, gerencia: gName });
-                    }
-                }
-                await syncEntityBatch('subgerencias', parentSubgerencias);
-
-                for (const item of entityItems) {
-                    const sName = item.subgerencia || 'SUBGERENCIA GENERAL';
-                    const subgerencia = await Subgerencia.findOne({ where: { nombre: sName }, transaction });
-                    await TipoContratista.findOrCreate({
-                        where: { nombre: item.nombre, subgerencia_id: subgerencia.id },
-                        defaults: { descripcion: 'Sincronizado desde API', activo: 1 },
-                        transaction
-                    });
-                }
-            } else if (entityType === 'dependencias') {
-                for (const item of entityItems) {
-                    await Dependencia.findOrCreate({
-                        where: { nombre: item.nombre },
-                        defaults: { activo: 1 },
-                        transaction
-                    });
-                }
-            } else if (entityType === 'contratistas') {
-                for (const item of entityItems) {
-                    const rawRut = item.rut;
-                    if (rawRut) {
-                        const resolved = resolveContractor(rawRut, item.nombre);
-                        const cleanResolvedRut = cleanRutString(resolved.rut);
-
-                        let contractor = await Contratista.findOne({
-                            where: { rut: resolved.rut },
-                            transaction
+                    if (!contractor) {
+                        // Try clean lookup or find without DV
+                        const allLocal = await Contratista.findAll({ transaction });
+                        contractor = allLocal.find(c => {
+                            const localClean = cleanRutString(c.rut);
+                            return localClean === cleanResolvedRut || (localClean.length >= 8 && localClean.slice(0, -1) === cleanResolvedRut.slice(0, -1));
                         });
-
-                        if (!contractor) {
-                            // Try clean lookup or find without DV
-                            const allLocal = await Contratista.findAll({ transaction });
-                            contractor = allLocal.find(c => {
-                                const localClean = cleanRutString(c.rut);
-                                return localClean === cleanResolvedRut || (localClean.length >= 8 && localClean.slice(0, -1) === cleanResolvedRut.slice(0, -1));
-                            });
-                        }
-
-                        if (!contractor) {
-                            contractor = await Contratista.create({
-                                rut: resolved.rut,
-                                nombre: resolved.nombre,
-                                activo: 1
-                            }, { transaction });
-                        } else {
-                            if (resolved.nombre && contractor.nombre !== resolved.nombre && resolved.nombre !== resolved.rut) {
-                                await contractor.update({ nombre: resolved.nombre }, { transaction });
-                            }
-                        }
-                    }
-                }
-            } else if (entityType === 'contratista_admin') {
-                // Gather complete list of RUTs per admin email from external response as a source of truth
-                const extAdminEmailToRuts = new Map();
-                if (fullResponse.contratista_admin) {
-                    fullResponse.contratista_admin.forEach(admin => {
-                        if (admin.email) {
-                            const emailNorm = normalize(admin.email);
-                            const resolved = resolveContractor(admin.rut_contratista);
-                            if (!extAdminEmailToRuts.has(emailNorm)) {
-                                extAdminEmailToRuts.set(emailNorm, new Set());
-                            }
-                            extAdminEmailToRuts.get(emailNorm).add(resolved.rut);
-                        }
-                    });
-                }
-                if (Array.isArray(externalContratistas)) {
-                    externalContratistas.forEach(c => {
-                        let rawRut = c.rut;
-                        if (!rawRut && c.cot_rut) {
-                            rawRut = `${c.cot_rut}-${c.cot_dv}`;
-                        }
-                        if (!rawRut) return;
-                        const resolvedC = resolveContractor(rawRut);
-
-                        const admins = c.contratista_admin || (c.data && c.data.contratista_admin);
-                        if (admins && Array.isArray(admins)) {
-                            admins.forEach(admin => {
-                                if (admin.email) {
-                                    const emailNorm = normalize(admin.email);
-                                    if (!extAdminEmailToRuts.has(emailNorm)) {
-                                        extAdminEmailToRuts.set(emailNorm, new Set());
-                                    }
-                                    extAdminEmailToRuts.get(emailNorm).add(resolvedC.rut);
-                                }
-                            });
-                        }
-                    });
-                }
-
-                // Pre-sync parent contratistas first
-                const parentContratistas = [];
-                const seenContratistas = new Set();
-                for (const item of entityItems) {
-                    const emailNorm = normalize(item.email);
-                    const extRutsSet = extAdminEmailToRuts.get(emailNorm);
-                    const ruts = extRutsSet ? Array.from(extRutsSet) : (item.rut_contratistas || [item.rut_contratista || '99999999-9']);
-                    for (const cRut of ruts) {
-                        const resolved = resolveContractor(cRut, item.contratista);
-                        const normC = normalize(resolved.rut);
-                        if (!seenContratistas.has(normC)) {
-                            seenContratistas.add(normC);
-                            parentContratistas.push({ rut: resolved.rut, nombre: resolved.nombre });
-                        }
-                    }
-                }
-                await syncEntityBatch('contratistas', parentContratistas);
-
-                for (const item of entityItems) {
-                    if (!item.email) continue;
-                    const emailNorm = normalize(item.email);
-                    const extRutsSet = extAdminEmailToRuts.get(emailNorm);
-                    const ruts = extRutsSet ? Array.from(extRutsSet) : (item.rut_contratistas || [item.rut_contratista || '99999999-9']);
-
-                    const allLocal = await Contratista.findAll({ transaction });
-                    const associatedContratistas = [];
-
-                    for (const cRut of ruts) {
-                        const resolved = resolveContractor(cRut, item.contratista);
-                        const cleanResolvedRut = cleanRutString(resolved.rut);
-                        const contratista = allLocal.find(c => cleanRutString(c.rut) === cleanResolvedRut);
-                        if (contratista && !associatedContratistas.some(c => c.id === contratista.id)) {
-                            associatedContratistas.push(contratista);
-                        }
                     }
 
-                    if (associatedContratistas.length > 0) {
-                        const primaryContratista = associatedContratistas[0];
-                        const [user, created] = await User.findOrCreate({
-                            where: { email: item.email },
-                            defaults: {
-                                name: item.nombre || item.email.split('@')[0] || 'Administrador Contratista',
-                                password: defaultPasswordHash,
-                                role: 'contratista_admin',
-                                contratista_id: primaryContratista.id,
-                                activo: 1
-                            },
-                            transaction
-                        });
-
-                        // If user already exists, update role, primary company, active status, and name if necessary
-                        if (!created) {
-                            const updateFields = {};
-                            if (user.role !== 'contratista_admin' && user.role !== 'admin' && user.role !== 'administrador_contrato') {
-                                updateFields.role = 'contratista_admin';
-                            }
-                            if (user.contratista_id !== primaryContratista.id) updateFields.contratista_id = primaryContratista.id;
-                            if (user.activo !== 1) updateFields.activo = 1;
-                            if (item.nombre && user.name !== item.nombre) updateFields.name = item.nombre;
-                            
-                            if (Object.keys(updateFields).length > 0) {
-                                await user.update(updateFields, { transaction });
-                            }
+                    if (!contractor) {
+                        contractor = await Contratista.create({
+                            rut: resolved.rut,
+                            nombre: resolved.nombre,
+                            activo: 1
+                        }, { transaction });
+                    } else {
+                        if (resolved.nombre && contractor.nombre !== resolved.nombre && resolved.nombre !== resolved.rut) {
+                            await contractor.update({ nombre: resolved.nombre }, { transaction });
                         }
-
-                        // Associate all resolved contractors in the pivot table
-                        const associatedIds = associatedContratistas.map(c => c.id);
-                        for (const cId of associatedIds) {
-                            await ContratistaUsuario.findOrCreate({
-                                where: {
-                                    user_id: user.id,
-                                    contratista_id: cId
-                                },
-                                transaction
-                            });
-                        }
-
-                        // Clean up any other companies they are no longer admin of
-                        await ContratistaUsuario.destroy({
-                            where: {
-                                user_id: user.id,
-                                contratista_id: { [sequelize.Sequelize.Op.notIn]: associatedIds }
-                            },
-                            transaction
-                        });
                     }
                 }
             }
         };
 
-        if (type === 'gerencias') {
-            await syncEntityBatch('gerencias', items);
-        } else if (type === 'subgerencias') {
-            await syncEntityBatch('subgerencias', items);
-        } else if (type === 'servicios') {
-            await syncEntityBatch('servicios', items);
-        } else if (type === 'dependencias') {
-            await syncEntityBatch('dependencias', items);
-        } else if (type === 'contratistas') {
-            await syncEntityBatch('contratistas', items);
-        } else if (type === 'contratista_admin') {
-            await syncEntityBatch('contratista_admin', items);
-        } else if (type === 'vinculaciones') {
+        const syncContratistaAdmins = async (itemsList) => {
+            if (!itemsList || itemsList.length === 0) return;
+            // Gather complete list of RUTs per admin email from external response as a source of truth
+            const extAdminEmailToRuts = new Map();
+            if (fullResponse.contratista_admin) {
+                fullResponse.contratista_admin.forEach(admin => {
+                    if (admin.email) {
+                        const emailNorm = normalize(admin.email);
+                        const resolved = resolveContractor(admin.rut_contratista);
+                        if (!extAdminEmailToRuts.has(emailNorm)) {
+                            extAdminEmailToRuts.set(emailNorm, new Set());
+                        }
+                        extAdminEmailToRuts.get(emailNorm).add(resolved.rut);
+                    }
+                });
+            }
+            if (Array.isArray(externalContratistas)) {
+                externalContratistas.forEach(c => {
+                    let rawRut = c.rut;
+                    if (!rawRut && c.cot_rut) {
+                        rawRut = `${c.cot_rut}-${c.cot_dv}`;
+                    }
+                    if (!rawRut) return;
+                    const resolvedC = resolveContractor(rawRut);
+
+                    const admins = c.contratista_admin || (c.data && c.data.contratista_admin);
+                    if (admins && Array.isArray(admins)) {
+                        admins.forEach(admin => {
+                            if (admin.email) {
+                                const emailNorm = normalize(admin.email);
+                                if (!extAdminEmailToRuts.has(emailNorm)) {
+                                    extAdminEmailToRuts.set(emailNorm, new Set());
+                                }
+                                extAdminEmailToRuts.get(emailNorm).add(resolvedC.rut);
+                            }
+                        });
+                    }
+                });
+            }
+
+            // Pre-sync parent contratistas first
+            const parentContratistas = [];
+            const seenContratistas = new Set();
+            for (const item of itemsList) {
+                const emailNorm = normalize(item.email);
+                const extRutsSet = extAdminEmailToRuts.get(emailNorm);
+                const ruts = extRutsSet ? Array.from(extRutsSet) : (item.rut_contratistas || [item.rut_contratista || '99999999-9']);
+                for (const cRut of ruts) {
+                    const resolved = resolveContractor(cRut, item.contratista);
+                    const normC = normalize(resolved.rut);
+                    if (!seenContratistas.has(normC)) {
+                        seenContratistas.add(normC);
+                        parentContratistas.push({ rut: resolved.rut, nombre: resolved.nombre });
+                    }
+                }
+            }
+            await syncContratistas(parentContratistas);
+
+            for (const item of itemsList) {
+                if (!item.email) continue;
+                const emailNorm = normalize(item.email);
+                const extRutsSet = extAdminEmailToRuts.get(emailNorm);
+                const ruts = extRutsSet ? Array.from(extRutsSet) : (item.rut_contratistas || [item.rut_contratista || '99999999-9']);
+
+                const allLocal = await Contratista.findAll({ transaction });
+                const associatedContratistas = [];
+
+                for (const cRut of ruts) {
+                    const resolved = resolveContractor(cRut, item.contratista);
+                    const cleanResolvedRut = cleanRutString(resolved.rut);
+                    const contratista = allLocal.find(c => cleanRutString(c.rut) === cleanResolvedRut);
+                    if (contratista && !associatedContratistas.some(c => c.id === contratista.id)) {
+                        associatedContratistas.push(contratista);
+                    }
+                }
+
+                if (associatedContratistas.length > 0) {
+                    const primaryContratista = associatedContratistas[0];
+                    const [user, created] = await User.findOrCreate({
+                        where: { email: item.email },
+                        defaults: {
+                            name: item.nombre || item.email.split('@')[0] || 'Administrador Contratista',
+                            password: defaultPasswordHash,
+                            role: 'contratista_admin',
+                            contratista_id: primaryContratista.id,
+                            activo: 1
+                        },
+                        transaction
+                    });
+
+                    // If user already exists, update role, primary company, active status, and name if necessary
+                    if (!created) {
+                        const updateFields = {};
+                        if (user.role !== 'contratista_admin' && user.role !== 'admin' && user.role !== 'administrador_contrato') {
+                            updateFields.role = 'contratista_admin';
+                        }
+                        if (user.contratista_id !== primaryContratista.id) updateFields.contratista_id = primaryContratista.id;
+                        if (user.activo !== 1) updateFields.activo = 1;
+                        if (item.nombre && user.name !== item.nombre) updateFields.name = item.nombre;
+                        
+                        if (Object.keys(updateFields).length > 0) {
+                            await user.update(updateFields, { transaction });
+                        }
+                    }
+
+                    // Associate all resolved contractors in the pivot table
+                    const associatedIds = associatedContratistas.map(c => c.id);
+                    for (const cId of associatedIds) {
+                        await ContratistaUsuario.findOrCreate({
+                            where: {
+                                user_id: user.id,
+                                contratista_id: cId
+                            },
+                            transaction
+                        });
+                    }
+
+                    // Clean up any other companies they are no longer admin of
+                    await ContratistaUsuario.destroy({
+                        where: {
+                            user_id: user.id,
+                            contratista_id: { [sequelize.Sequelize.Op.notIn]: associatedIds }
+                        },
+                        transaction
+                    });
+                }
+            }
+        };
+
+        const syncVinculaciones = async (itemsList) => {
+            if (!itemsList || itemsList.length === 0) return;
             // 1. Gather all parent relations for batch sync
             const parentGerencias = [];
             const parentSubgerencias = [];
@@ -812,7 +813,7 @@ const syncData = async (req, res) => {
             const seenD = new Set();
             const seenC = new Set();
 
-            for (const item of items) {
+            for (const item of itemsList) {
                 const gName = item.gerencia || 'GERENCIA GENERAL';
                 const sgName = item.subgerencia || 'SUBGERENCIA GENERAL';
                 const sName = item.servicio || 'SERVICIOS GENERALES';
@@ -844,14 +845,14 @@ const syncData = async (req, res) => {
             }
 
             // Sync all parent batches sequentially
-            await syncEntityBatch('gerencias', parentGerencias);
-            await syncEntityBatch('subgerencias', parentSubgerencias);
-            await syncEntityBatch('servicios', parentServicios);
-            await syncEntityBatch('dependencias', parentDependencias);
-            await syncEntityBatch('contratistas', parentContratistas);
+            await syncGerencias(parentGerencias);
+            await syncSubgerencias(parentSubgerencias);
+            await syncServicios(parentServicios);
+            await syncDependencias(parentDependencias);
+            await syncContratistas(parentContratistas);
 
             // 2. Perform main vinculación sync loop
-            for (const item of items) {
+            for (const item of itemsList) {
                 const gName = item.gerencia || 'GERENCIA GENERAL';
                 const sgName = item.subgerencia || 'SUBGERENCIA GENERAL';
                 const sName = item.servicio || 'SERVICIOS GENERALES';
@@ -916,7 +917,10 @@ const syncData = async (req, res) => {
                     }
                 }
             }
-        } else if (type === 'administrador_contrato') {
+        };
+
+        const syncAdministradoresContrato = async (itemsList) => {
+            if (!itemsList || itemsList.length === 0) return;
             // 1. Gather and resolve all parent relations for batch sync
             const parentGerencias = [];
             const parentSubgerencias = [];
@@ -930,7 +934,7 @@ const syncData = async (req, res) => {
             const seenD = new Set();
             const seenC = new Set();
 
-            for (const item of items) {
+            for (const item of itemsList) {
                 if (item.asignaciones && Array.isArray(item.asignaciones)) {
                     for (const asig of item.asignaciones) {
                         let gerenciaName = asig.gerencia;
@@ -1005,14 +1009,14 @@ const syncData = async (req, res) => {
             }
 
             // Sync all parent batches sequentially
-            await syncEntityBatch('gerencias', parentGerencias);
-            await syncEntityBatch('subgerencias', parentSubgerencias);
-            await syncEntityBatch('servicios', parentServicios);
-            await syncEntityBatch('dependencias', parentDependencias);
-            await syncEntityBatch('contratistas', parentContratistas);
+            await syncGerencias(parentGerencias);
+            await syncSubgerencias(parentSubgerencias);
+            await syncServicios(parentServicios);
+            await syncDependencias(parentDependencias);
+            await syncContratistas(parentContratistas);
 
             // 2. Perform main administrador_contrato sync loop
-            for (const item of items) {
+            for (const item of itemsList) {
                 if (!item.email) continue;
                 const [user, created] = await User.findOrCreate({
                     where: { email: item.email },
@@ -1113,6 +1117,269 @@ const syncData = async (req, res) => {
                     }
                 );
             }
+        };
+
+        if (type === 'gerencias') {
+            await syncGerencias(items);
+        } else if (type === 'subgerencias') {
+            await syncSubgerencias(items);
+        } else if (type === 'servicios') {
+            await syncServicios(items);
+        } else if (type === 'dependencias') {
+            await syncDependencias(items);
+        } else if (type === 'contratistas') {
+            // First sync the selected contractors
+            await syncContratistas(items);
+
+            // Now, find and sync the "complete pack" for each contractor
+            // Gather all associated vinculaciones, contratista_admins, and administrador_contratos
+            const associatedVinculaciones = [];
+            const associatedContratistaAdmins = [];
+            const associatedAdministradoresContrato = [];
+
+            const subgerenciaToGerenciaMap = new Map();
+            const localSubgerenciasForMap = await Subgerencia.findAll({ include: [{ model: Gerencia, as: 'gerencia' }] });
+            localSubgerenciasForMap.forEach(s => {
+                if (s.nombre && s.gerencia && s.gerencia.nombre) {
+                    subgerenciaToGerenciaMap.set(normalize(s.nombre), s.gerencia.nombre);
+                }
+            });
+
+            // Populate mapping from fullResponse.subgerencias if present
+            if (Array.isArray(fullResponse.subgerencias)) {
+                fullResponse.subgerencias.forEach(s => {
+                    if (s && s.nombre && s.gerencia) {
+                        subgerenciaToGerenciaMap.set(normalize(s.nombre), s.gerencia);
+                    }
+                });
+            }
+
+            for (const item of items) {
+                const targetRutClean = cleanRutString(item.rut);
+                if (!targetRutClean) continue;
+
+                // 1. From top-level fullResponse.vinculaciones
+                if (Array.isArray(fullResponse.vinculaciones)) {
+                    fullResponse.vinculaciones.forEach(v => {
+                        if (v) {
+                            const resolved = resolveContractor(v.rut_contratista);
+                            if (cleanRutString(resolved.rut) === targetRutClean) {
+                                associatedVinculaciones.push({
+                                    rut_contratista: resolved.rut,
+                                    servicio: normalize(v.servicio),
+                                    dependencia: normalize(v.dependencia),
+                                    subgerencia: normalize(v.subgerencia),
+                                    gerencia: normalize(v.gerencia),
+                                    numero_contrato: v.numero_contrato || null,
+                                    fecha_inicio_contrato: v.fecha_inicio_contrato || null,
+                                    fecha_termino_contrato: v.fecha_termino_contrato || null,
+                                    contratista: resolved.nombre
+                                });
+                            }
+                        }
+                    });
+                }
+
+                // 2. From top-level fullResponse.contratista_admin
+                if (Array.isArray(fullResponse.contratista_admin)) {
+                    fullResponse.contratista_admin.forEach(admin => {
+                        if (admin && admin.email) {
+                            const resolved = resolveContractor(admin.rut_contratista);
+                            if (cleanRutString(resolved.rut) === targetRutClean) {
+                                // Find if already in the list to avoid duplicate admin structures
+                                const exists = associatedContratistaAdmins.some(a => normalize(a.email) === normalize(admin.email));
+                                if (!exists) {
+                                    associatedContratistaAdmins.push({
+                                        nombre: admin.nombre,
+                                        email: admin.email,
+                                        rut_contratista: resolved.rut,
+                                        rut_contratistas: [resolved.rut]
+                                    });
+                                } else {
+                                    const match = associatedContratistaAdmins.find(a => normalize(a.email) === normalize(admin.email));
+                                    if (match && !match.rut_contratistas.includes(resolved.rut)) {
+                                        match.rut_contratistas.push(resolved.rut);
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // 3. From top-level fullResponse.administrador_contrato
+                if (Array.isArray(fullResponse.administrador_contrato)) {
+                    fullResponse.administrador_contrato.forEach(admin => {
+                        if (admin && admin.email && admin.asignaciones && Array.isArray(admin.asignaciones)) {
+                            const matches = admin.asignaciones.some(asig => {
+                                const resolved = resolveContractor(asig.rut_contratista || asig.cot_rut);
+                                return cleanRutString(resolved.rut) === targetRutClean;
+                            });
+
+                            if (matches) {
+                                const formattedAsigs = admin.asignaciones.map(asig => {
+                                    const resolved = resolveContractor(asig.rut_contratista || asig.cot_rut);
+                                    return {
+                                        rut_contratista: resolved.rut,
+                                        servicio: normalize(asig.servicio),
+                                        dependencia: normalize(asig.dependencia),
+                                        subgerencia: normalize(asig.subgerencia),
+                                        gerencia: normalize(asig.gerencia),
+                                        contrato: asig.contrato || asig.numero_contrato || null,
+                                        contratista: resolved.nombre
+                                    };
+                                });
+
+                                const exists = associatedAdministradoresContrato.some(a => normalize(a.email) === normalize(admin.email));
+                                if (!exists) {
+                                    associatedAdministradoresContrato.push({
+                                        nombre: admin.nombre,
+                                        email: admin.email,
+                                        asignaciones: formattedAsigs
+                                    });
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // 4. From legacy/backup structure in externalContratistas (which is fullResponse.contratistas)
+                if (Array.isArray(externalContratistas)) {
+                    externalContratistas.forEach(c => {
+                        if (!c) return;
+                        let rawRut = c.rut;
+                        if (!rawRut && c.cot_rut) {
+                            rawRut = `${c.cot_rut}-${c.cot_dv}`;
+                        }
+                        if (!rawRut) return;
+
+                        const resolved = resolveContractor(rawRut, c.nombre || c.cot_razon_social);
+                        if (cleanRutString(resolved.rut) === targetRutClean) {
+                            // Extract nested admins
+                            const admins = c.contratista_admin || (c.data && c.data.contratista_admin);
+                            if (admins && Array.isArray(admins)) {
+                                admins.forEach(admin => {
+                                    if (admin && admin.email) {
+                                        const exists = associatedContratistaAdmins.some(a => normalize(a.email) === normalize(admin.email));
+                                        if (!exists) {
+                                            associatedContratistaAdmins.push({
+                                                nombre: admin.nombre,
+                                                email: admin.email,
+                                                rut_contratista: resolved.rut,
+                                                rut_contratistas: [resolved.rut]
+                                            });
+                                        } else {
+                                            const match = associatedContratistaAdmins.find(a => normalize(a.email) === normalize(admin.email));
+                                            if (match && !match.rut_contratistas.includes(resolved.rut)) {
+                                                match.rut_contratistas.push(resolved.rut);
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+
+                            // Extract nested asignaciones
+                            const asigs = c.asignaciones || (c.data && c.data.asignaciones);
+                            if (asigs && Array.isArray(asigs)) {
+                                asigs.forEach(a => {
+                                    if (a && a.servicio && a.dependencia && a.subgerencia) {
+                                        const gerenciaName = a.gerencia || subgerenciaToGerenciaMap.get(normalize(a.subgerencia)) || 'GERENCIA GENERAL';
+                                        
+                                        // Avoid duplicate vinculaciones in our list
+                                        const alreadyAdded = associatedVinculaciones.some(v =>
+                                            cleanRutString(v.rut_contratista) === targetRutClean &&
+                                            normalize(v.servicio) === normalize(a.servicio) &&
+                                            normalize(v.dependencia) === normalize(a.dependencia) &&
+                                            normalize(v.subgerencia) === normalize(a.subgerencia) &&
+                                            normalize(v.gerencia) === normalize(gerenciaName)
+                                        );
+
+                                        if (!alreadyAdded) {
+                                            associatedVinculaciones.push({
+                                                rut_contratista: resolved.rut,
+                                                servicio: normalize(a.servicio),
+                                                dependencia: normalize(a.dependencia),
+                                                subgerencia: normalize(a.subgerencia),
+                                                gerencia: normalize(gerenciaName),
+                                                numero_contrato: a.contrato || null,
+                                                fecha_inicio_contrato: a.fecha_inicio || null,
+                                                fecha_termino_contrato: a.fecha_termino || null,
+                                                contratista: resolved.nombre
+                                            });
+                                        }
+
+                                        // Extract nested administrators
+                                        const adminList = a.administradores_contrato || a.administrador_contrato;
+                                        if (adminList && Array.isArray(adminList)) {
+                                            adminList.forEach(admin => {
+                                                if (!admin) return;
+                                                const email = admin.email || (typeof admin === 'string' && admin.includes('@') ? admin : null);
+                                                const nombre = admin.nombre || (typeof admin === 'string' ? admin : null);
+                                                
+                                                if (email) {
+                                                    const key = normalize(email);
+                                                    const exists = associatedAdministradoresContrato.some(o => normalize(o.email) === key);
+                                                    if (!exists) {
+                                                        associatedAdministradoresContrato.push({
+                                                            nombre: nombre || email.split('@')[0],
+                                                            email: email,
+                                                            asignaciones: [{
+                                                                rut_contratista: resolved.rut,
+                                                                servicio: normalize(a.servicio),
+                                                                dependencia: normalize(a.dependencia),
+                                                                subgerencia: normalize(a.subgerencia),
+                                                                gerencia: normalize(gerenciaName),
+                                                                contrato: a.contrato || null,
+                                                                contratista: resolved.nombre
+                                                            }]
+                                                        });
+                                                    } else {
+                                                        const match = associatedAdministradoresContrato.find(o => normalize(o.email) === key);
+                                                        if (match) {
+                                                            const alreadyHasAsig = match.asignaciones.some(oldAsig =>
+                                                                cleanRutString(oldAsig.rut_contratista) === targetRutClean &&
+                                                                normalize(oldAsig.servicio) === normalize(a.servicio) &&
+                                                                normalize(oldAsig.dependencia) === normalize(a.dependencia) &&
+                                                                normalize(oldAsig.subgerencia) === normalize(a.subgerencia) &&
+                                                                normalize(oldAsig.gerencia) === normalize(gerenciaName)
+                                                            );
+                                                            if (!alreadyHasAsig) {
+                                                                match.asignaciones.push({
+                                                                    rut_contratista: resolved.rut,
+                                                                    servicio: normalize(a.servicio),
+                                                                    dependencia: normalize(a.dependencia),
+                                                                    subgerencia: normalize(a.subgerencia),
+                                                                    gerencia: normalize(gerenciaName),
+                                                                    contrato: a.contrato || null,
+                                                                    contratista: resolved.nombre
+                                                                });
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    });
+                }
+            }
+
+            // Sync all associated entities:
+            // 1. Vinculaciones (which automatically syncs parent gerencias, subgerencias, servicios, dependencias, and contractor)
+            await syncVinculaciones(associatedVinculaciones);
+            // 2. Contratista Admins
+            await syncContratistaAdmins(associatedContratistaAdmins);
+            // 3. Administradores de Contrato (which automatically links them in Administracion table)
+            await syncAdministradoresContrato(associatedAdministradoresContrato);
+
+        } else if (type === 'contratista_admin') {
+            await syncContratistaAdmins(items);
+        } else if (type === 'vinculaciones') {
+            await syncVinculaciones(items);
+        } else if (type === 'administrador_contrato') {
+            await syncAdministradoresContrato(items);
         }
 
         await transaction.commit();
