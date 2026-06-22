@@ -250,11 +250,6 @@ async function seed() {
         for (const v of vinculacionesSource) {
             const [vinculacion] = await Vinculacion.findOrCreate({
                 where: { 
-                    contratista_id: v.contratista_id, 
-                    servicio_id: v.servicio_id, 
-                    dependencia_id: v.dependencia_id,
-                    subgerencia_id: v.subgerencia_id,
-                    gerencia_id: v.gerencia_id,
                     numero_contrato: v.numero_contrato
                 },
                 defaults: v
