@@ -2,9 +2,30 @@ const axios = require('axios');
 const bcrypt = require('bcryptjs');
 const { sequelize, Contratista, TipoContratista, Dependencia, Vinculacion, User, Administracion, Gerencia, Subgerencia, ContratistaUsuario } = require('../database/models');
 
-const EXTERNAL_API_URL = process.env.PIZZA_API_URL || 'https://prepro.ovalcontrol.com/api/getContratistasAbastible';
-const API_KEY = process.env.PIZZA_API_KEY;
-const ORIGIN = process.env.ORIGIN;
+const isProduction = process.env.NODE_ENV === 'production';
+const defaultPizzaUrl = isProduction
+    ? 'https://ovalcontrol.com/api/getContratistasAbastible'
+    : 'https://prepro.ovalcontrol.com/api/getContratistasAbastible';
+
+let EXTERNAL_API_URL = process.env.PIZZA_API_URL || defaultPizzaUrl;
+
+// Sanitize environment variables to remove potential whitespace/carriage returns
+EXTERNAL_API_URL = EXTERNAL_API_URL.trim().replace(/\r$/, '');
+
+// Guardrail: Production environment must NEVER call the preproduction API
+if (isProduction && EXTERNAL_API_URL.includes('prepro')) {
+    console.warn('⚠️ WARNING: PIZZA_API_URL was set to a preproduction URL in production. Forcing production URL.');
+    EXTERNAL_API_URL = 'https://ovalcontrol.com/api/getContratistasAbastible';
+}
+
+// Guardrail: Preproduction/development must NOT call the production API to avoid data contamination
+if (!isProduction && !EXTERNAL_API_URL.includes('prepro') && EXTERNAL_API_URL.includes('ovalcontrol.com')) {
+    console.warn('⚠️ WARNING: PIZZA_API_URL was set to a production URL in a non-production environment. Forcing preprod URL.');
+    EXTERNAL_API_URL = 'https://prepro.ovalcontrol.com/api/getContratistasAbastible';
+}
+
+const API_KEY = process.env.PIZZA_API_KEY ? process.env.PIZZA_API_KEY.trim().replace(/\r$/, '') : undefined;
+const ORIGIN = process.env.ORIGIN ? process.env.ORIGIN.trim().replace(/\r$/, '') : undefined;
 
 const normalize = (str) => str ? str.trim().toUpperCase() : '';
 
@@ -88,7 +109,7 @@ const compareData = async (req, res) => {
         try {
             response = await axios.get(EXTERNAL_API_URL, {
                 headers: { 'api-key': API_KEY, 'Origin': ORIGIN },
-                timeout: 15000 // 15s timeout
+                timeout: 30000 // 30s timeout
             });
         } catch (axiosError) {
             console.error('❌ Error de Axios al consultar la API externa:', {
