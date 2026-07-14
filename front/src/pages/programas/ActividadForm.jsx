@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import api from '../../api';
 import { Save, ArrowLeft, Paperclip, Pencil, Upload } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-hot-toast';
 
 export default function ActividadForm() {
     const { id } = useParams();
@@ -91,7 +92,8 @@ export default function ActividadForm() {
                     frecuencia: found.frecuencia || '',
                     requiere_evidencia: found.requiere_evidencia === 1 || found.requiere_evidencia === true,
                     orden: found.orden,
-                    activo: found.activo !== undefined ? found.activo : true
+                    activo: found.activo !== undefined ? found.activo : true,
+                    template_url: found.template_url
                 });
 
                 // Set parent selection logic
@@ -146,10 +148,14 @@ export default function ActividadForm() {
                 // but trying standard PUT first as some modern backends handle it.
                 // If it fails, we can switch to POST + _method.
                 await api.put(`/actividades/${id}`, formData, config);
+                toast.success('Guardado con exito');
+                setPlantillaFile(null);
+                fetchActividad();
             } else {
                 await api.post('/actividades', formData, config);
+                toast.success('Guardado con exito');
+                navigate('/actividades');
             }
-            navigate('/actividades');
         } catch (err) {
             setError(err.response?.data?.message || 'Error al guardar');
             console.error(err);
@@ -323,7 +329,33 @@ export default function ActividadForm() {
                             {/* Visual hint icon */}
                             <Upload size={18} className="text-gray-400" />
                         </div>
-                        <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                        {form.template_url && (
+                            <div style={{ marginTop: '8px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span>📎</span>
+                                <a
+                                    href={`${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${form.template_url}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ color: '#003594', fontWeight: '600', textDecoration: 'underline' }}
+                                >
+                                    Ver plantilla previa
+                                </a>
+                            </div>
+                        )}
+                        {plantillaFile && (
+                            <div style={{ marginTop: '8px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span>📎</span>
+                                <a
+                                    href={URL.createObjectURL(plantillaFile)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ color: '#2563eb', fontWeight: '600', textDecoration: 'underline' }}
+                                >
+                                    Ver archivo cargado ({plantillaFile.name})
+                                </a>
+                            </div>
+                        )}
+                        <span style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280', marginTop: '5px' }}>
                             Subir un archivo para que el contratista lo descargue y complete como evidencia.
                         </span>
                     </div>

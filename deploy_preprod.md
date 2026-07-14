@@ -71,10 +71,17 @@ docker compose logs -f db
    ```bash
    docker exec -it oiem_abastible_api npm run seed
    ```
+   
+   > [!CAUTION]
+   > **PROTECCIÓN DE DATOS CRÍTICOS**: No ejecutes este comando en bases de datos con información real ya cargada (como Preproducción o Producción activa). Este comando podría sobrescribir configuraciones, roles, u otros registros clave.
+   
    **[NUEVO] Reset Destructivo (Misión Crítica):** Si la base de datos presenta datos huérfanos, inconsistencias de versión, o necesitas limpiar un ambiente Preprod por completo para regenerarlo desde cero (borrará TODAS las tablas definidas), utiliza el flag forzado:
    ```bash
    docker exec -it oiem_abastible_api node src/seed.js --force
    ```
+   
+   > [!CAUTION]
+   > El uso de `--force` es extremadamente destructivo y eliminará por completo todas las tablas de la base de datos. NUNCA lo utilices en entornos de producción.
 
 ## Mantenimiento
 

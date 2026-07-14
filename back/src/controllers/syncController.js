@@ -2,9 +2,30 @@ const axios = require('axios');
 const bcrypt = require('bcryptjs');
 const { sequelize, Contratista, TipoContratista, Dependencia, Vinculacion, User, Administracion, Gerencia, Subgerencia, ContratistaUsuario } = require('../database/models');
 
-const EXTERNAL_API_URL = process.env.PIZZA_API_URL || 'https://prepro.ovalcontrol.com/api/getContratistasAbastible';
-const API_KEY = process.env.PIZZA_API_KEY;
-const ORIGIN = process.env.ORIGIN;
+const isProduction = process.env.NODE_ENV === 'production';
+const defaultPizzaUrl = isProduction
+    ? 'https://ovalcontrol.com/api/getContratistasAbastible'
+    : 'https://prepro.ovalcontrol.com/api/getContratistasAbastible';
+
+let EXTERNAL_API_URL = process.env.PIZZA_API_URL || defaultPizzaUrl;
+
+// Sanitize environment variables to remove potential whitespace/carriage returns
+EXTERNAL_API_URL = EXTERNAL_API_URL.trim().replace(/\r$/, '');
+
+// Guardrail: Production environment must NEVER call the preproduction API
+if (isProduction && EXTERNAL_API_URL.includes('prepro')) {
+    console.warn('⚠️ WARNING: PIZZA_API_URL was set to a preproduction URL in production. Forcing production URL.');
+    EXTERNAL_API_URL = 'https://ovalcontrol.com/api/getContratistasAbastible';
+}
+
+// Guardrail: Preproduction/development must NOT call the production API to avoid data contamination
+if (!isProduction && !EXTERNAL_API_URL.includes('prepro') && EXTERNAL_API_URL.includes('ovalcontrol.com')) {
+    console.warn('⚠️ WARNING: PIZZA_API_URL was set to a production URL in a non-production environment. Forcing preprod URL.');
+    EXTERNAL_API_URL = 'https://prepro.ovalcontrol.com/api/getContratistasAbastible';
+}
+
+const API_KEY = process.env.PIZZA_API_KEY ? process.env.PIZZA_API_KEY.trim().replace(/\r$/, '') : undefined;
+const ORIGIN = process.env.ORIGIN ? process.env.ORIGIN.trim().replace(/\r$/, '') : undefined;
 
 const normalize = (str) => str ? str.trim().toUpperCase() : '';
 
@@ -88,7 +109,7 @@ const compareData = async (req, res) => {
         try {
             response = await axios.get(EXTERNAL_API_URL, {
                 headers: { 'api-key': API_KEY, 'Origin': ORIGIN },
-                timeout: 15000 // 15s timeout
+                timeout: 30000 // 30s timeout
             });
         } catch (axiosError) {
             console.error('❌ Error de Axios al consultar la API externa:', {
@@ -906,7 +927,19 @@ const syncData = async (req, res) => {
                 if (!created) {
                     const updateData = {};
                     if (item.numero_contrato && normalize(vinculacion.numero_contrato) !== normalize(item.numero_contrato)) {
-                        updateData.numero_contrato = item.numero_contrato;
+                        // Check if the target contract number is already in use by another vinculacion
+                        const existsOther = await Vinculacion.findOne({
+                            where: {
+                                numero_contrato: item.numero_contrato,
+                                id: { [sequelize.Sequelize.Op.ne]: vinculacion.id }
+                            },
+                            transaction
+                        });
+                        if (!existsOther) {
+                            updateData.numero_contrato = item.numero_contrato;
+                        } else {
+                            console.warn(`⚠️ Numero de contrato ${item.numero_contrato} ya está en uso por otra vinculación. Se mantiene el número actual: ${vinculacion.numero_contrato}`);
+                        }
                     }
                     if (item.fecha_inicio_contrato && vinculacion.fecha_inicio_contrato !== item.fecha_inicio_contrato) updateData.fecha_inicio_contrato = item.fecha_inicio_contrato;
                     if (item.fecha_termino_contrato && vinculacion.fecha_termino_contrato !== item.fecha_termino_contrato) updateData.fecha_termino_contrato = item.fecha_termino_contrato;
@@ -1081,7 +1114,19 @@ const syncData = async (req, res) => {
                             const updateData = {};
                             if (vinculacion.activo !== 1) updateData.activo = 1;
                             if (asig.contrato && normalize(vinculacion.numero_contrato) !== normalize(asig.contrato)) {
-                                updateData.numero_contrato = asig.contrato;
+                                // Check if the target contract number is already in use by another vinculacion
+                                const existsOther = await Vinculacion.findOne({
+                                    where: {
+                                        numero_contrato: asig.contrato,
+                                        id: { [sequelize.Sequelize.Op.ne]: vinculacion.id }
+                                    },
+                                    transaction
+                                });
+                                if (!existsOther) {
+                                    updateData.numero_contrato = asig.contrato;
+                                } else {
+                                    console.warn(`⚠️ Numero de contrato ${asig.contrato} ya está en uso por otra vinculación. Se mantiene el número actual: ${vinculacion.numero_contrato}`);
+                                }
                             }
                             if (Object.keys(updateData).length > 0) {
                                 await vinculacion.update(updateData, { transaction });
@@ -1386,8 +1431,40 @@ const syncData = async (req, res) => {
         res.json({ success: true, message: `Synced ${items.length} items.` });
     } catch (error) {
         await transaction.rollback();
-        console.error('Error in syncData:', error);
-        res.status(500).json({ message: 'Sync failed', error: error.message });
+        console.error('❌ Error in syncData:', error);
+        
+        // Extract validation/constraint/DB errors details
+        let details = error.message;
+        if (error.errors && Array.isArray(error.errors)) {
+            details = error.errors.map(e => `${e.path}: ${e.message} (valor: ${e.value})`).join(', ');
+        } else if (error.original) {
+            details = `DB Original: ${error.original.message}`;
+        } else if (error.parent) {
+            details = `DB Parent: ${error.parent.message}`;
+        }
+
+        console.error('❌ Validation/Sync failure details:', {
+            name: error.name,
+            message: error.message,
+            details: details,
+            stack: error.stack
+        });
+
+        // If it's a validation or unique constraint error (by name, or message containing validation)
+        if (
+            error.name === 'SequelizeValidationError' || 
+            error.name === 'SequelizeUniqueConstraintError' || 
+            error.name === 'ValidationError' || 
+            error.message === 'Validation error'
+        ) {
+            return res.status(400).json({ 
+                message: `Sync failed: ${details}`, 
+                error: error.message,
+                details: details
+            });
+        }
+        
+        res.status(500).json({ message: `Sync failed: ${details}`, error: error.message, details: details });
     }
 };
 
