@@ -96,10 +96,6 @@ jobs:
             echo "Verificando consistencia del esquema..."
             docker exec prepro_oiem_abastible_api node scripts/ensure_schema.js
             
-            # Ejecutamos el script de seed directamente
-            echo "Poblando base de datos con script personalizado..."
-            docker exec prepro_oiem_abastible_api node src/seed.js
-            
             # Limpieza de imágenes antiguas para optimizar espacio
             docker image prune -f
             
