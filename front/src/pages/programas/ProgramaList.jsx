@@ -74,7 +74,8 @@ export default function ProgramaList() {
             frecuencia: act.frecuencia,
             criterios: act.criterios,
             actividad: act.actividad,
-            template: null
+            template: null,
+            template_url: act.template_url
         });
         setShowActModal(true);
     };
@@ -240,7 +241,17 @@ export default function ProgramaList() {
                                                 <div key={act.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '2px', padding: '2px 0', borderBottom: '1px dashed #eee' }}>
                                                     <span title={act.descripcion}>{act.codigo} - {act.actividad || act.descripcion?.substring(0, 30)}</span>
                                                     <div style={{ display: 'flex', gap: '5px' }}>
-                                                        {act.template_url && !isADC && <span title="Plantilla disponible">📎</span>}
+                                                        {act.template_url && !isADC && (
+                                                            <a
+                                                                href={`${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${act.template_url}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                title="Descargar plantilla"
+                                                                style={{ textDecoration: 'none', cursor: 'pointer', marginRight: '4px', fontSize: '1rem' }}
+                                                            >
+                                                                📎
+                                                            </a>
+                                                        )}
                                                         {canWrite('Programas') && !isADC && <Edit size={12} className="text-primary cursor-pointer" onClick={() => openEditActModal(act)} />}
                                                         {canExec('Programas') && !isADC && <Trash2 size={12} className="text-danger cursor-pointer" onClick={() => handleDeleteActivity(act.id)} />}
                                                     </div>
@@ -322,18 +333,44 @@ export default function ProgramaList() {
                                 </select>
                             </div>
                             <div className="form-group">
-                                <label>Plantilla de Evidencia (Opcional)</label>
-                                <input
-                                    type="file"
-                                    accept=".pdf,.doc,.docx,.xls,.xlsx"
-                                    onChange={e => setNewItem({ ...newItem, template: e.target.files[0] })}
-                                />
-                                {isEditActivity && !newItem.template && (
-                                    <small className="text-gray-500" style={{ display: 'block', marginTop: '5px' }}>
-                                        Deja vacío para mantener la plantilla actual.
-                                    </small>
-                                )}
-                            </div>
+                                 <label>Plantilla de Evidencia (Opcional)</label>
+                                 <input
+                                     type="file"
+                                     accept=".pdf,.doc,.docx,.xls,.xlsx"
+                                     onChange={e => setNewItem({ ...newItem, template: e.target.files[0] })}
+                                 />
+                                 {newItem.template_url && (
+                                     <div style={{ marginTop: '8px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                         <span>📎</span>
+                                         <a
+                                             href={`${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${newItem.template_url}`}
+                                             target="_blank"
+                                             rel="noopener noreferrer"
+                                             style={{ color: '#003594', fontWeight: '600', textDecoration: 'underline' }}
+                                         >
+                                             Ver plantilla previa
+                                         </a>
+                                     </div>
+                                 )}
+                                 {newItem.template && (
+                                     <div style={{ marginTop: '8px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                         <span>📎</span>
+                                         <a
+                                             href={URL.createObjectURL(newItem.template)}
+                                             target="_blank"
+                                             rel="noopener noreferrer"
+                                             style={{ color: '#2563eb', fontWeight: '600', textDecoration: 'underline' }}
+                                         >
+                                             Ver archivo cargado ({newItem.template.name})
+                                         </a>
+                                     </div>
+                                 )}
+                                 {isEditActivity && !newItem.template && (
+                                     <small className="text-gray-500" style={{ display: 'block', marginTop: '5px' }}>
+                                         Deja vacío para mantener la plantilla actual.
+                                     </small>
+                                 )}
+                             </div>
                             <div className="form-actions">
                                 <button type="button" className="btn-secondary" onClick={() => setShowActModal(false)}>Cancelar</button>
                                 <button type="submit" className="btn-primary">Guardar</button>
