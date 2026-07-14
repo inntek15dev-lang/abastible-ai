@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import api from '../../api';
 import { Save, ArrowLeft, Paperclip, Pencil, Upload } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-hot-toast';
 
 export default function ActividadForm() {
     const { id } = useParams();
@@ -147,10 +148,14 @@ export default function ActividadForm() {
                 // but trying standard PUT first as some modern backends handle it.
                 // If it fails, we can switch to POST + _method.
                 await api.put(`/actividades/${id}`, formData, config);
+                toast.success('Guardado con exito');
+                setPlantillaFile(null);
+                fetchActividad();
             } else {
                 await api.post('/actividades', formData, config);
+                toast.success('Guardado con exito');
+                navigate('/actividades');
             }
-            navigate('/actividades');
         } catch (err) {
             setError(err.response?.data?.message || 'Error al guardar');
             console.error(err);
