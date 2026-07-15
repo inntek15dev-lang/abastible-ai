@@ -2,6 +2,7 @@ const { Compromiso, Hallazgo, Registro, User, ContratistaAsignacion, Vinculacion
 const { Op } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
+const { safeMove } = require('../utils/fileHelper');
 
 const compromisoController = {
     // GET /api/compromisos
@@ -205,7 +206,7 @@ const compromisoController = {
                 const targetPath = path.join(targetDir, req.file.filename);
 
                 // Move file from temporary upload dir to target directory
-                fs.renameSync(req.file.path, targetPath);
+                safeMove(req.file.path, targetPath);
 
                 // Save relative path for DB (normalized with forward slashes)
                 dbPath = path.posix.join('storage', storageRelativePath.split(path.sep).join('/'), req.file.filename);
@@ -262,7 +263,7 @@ const compromisoController = {
                 const targetPath = path.join(targetDir, req.file.filename);
 
                 // Move file from temporary upload dir to target directory
-                fs.renameSync(req.file.path, targetPath);
+                safeMove(req.file.path, targetPath);
 
                 // Save relative path for DB (normalized with forward slashes)
                 dbPath = path.posix.join('storage', storageRelativePath.split(path.sep).join('/'), req.file.filename);

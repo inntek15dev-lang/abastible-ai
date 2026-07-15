@@ -4,6 +4,7 @@ const fs = require('fs');
 const archiver = require('archiver');
 const { Evidencia, RegistroActividad, Registro, Actividad, Elemento, Vinculacion, Contratista } = require('../database/models');
 const { Op } = require('sequelize');
+const { safeMove } = require('../utils/fileHelper');
 
 const evidenciaController = {
     // GET /api/evidencias?registro_actividad_id=X
@@ -227,7 +228,7 @@ const evidenciaController = {
             const targetPath = path.join(targetDir, req.file.filename);
 
             // Move file
-            fs.renameSync(req.file.path, targetPath);
+            safeMove(req.file.path, targetPath);
 
             // Save relative path for DB (normalized to forward slashes for URL compatibility)
             // We want 'storage/...' or just 'registros/...'?
