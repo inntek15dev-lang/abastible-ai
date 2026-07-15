@@ -23,7 +23,7 @@ export default function ActividadForm() {
         actividad: '',
         descripcion: '',
         criterios: '',
-        frecuencia: '',
+        frecuencia: 'mensual',
         requiere_evidencia: false,
         orden: 0,
         activo: true
@@ -89,7 +89,7 @@ export default function ActividadForm() {
                     actividad: found.actividad || '',
                     descripcion: found.descripcion,
                     criterios: found.criterios || '',
-                    frecuencia: found.frecuencia || '',
+                    frecuencia: found.frecuencia || 'mensual',
                     requiere_evidencia: found.requiere_evidencia === 1 || found.requiere_evidencia === true,
                     orden: found.orden,
                     activo: found.activo !== undefined ? found.activo : true,

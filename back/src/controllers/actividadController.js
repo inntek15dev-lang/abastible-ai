@@ -29,7 +29,13 @@ const actividadController = {
     // POST /api/actividades
     async store(req, res) {
         try {
-            const { elemento_id, codigo, actividad, descripcion, criterios, frecuencia, requiere_evidencia = 1, orden = 0 } = req.body;
+            let { elemento_id, codigo, actividad, descripcion, criterios, frecuencia, requiere_evidencia = 1, orden = 0 } = req.body;
+
+            // Validate and default frequency
+            const validFrecuencias = ['mensual', 'trimestral', 'semestral', 'anual', 'cuando_aplique'];
+            if (!frecuencia || !validFrecuencias.includes(frecuencia)) {
+                frecuencia = 'mensual';
+            }
 
             if (!elemento_id || !codigo || !actividad || !descripcion) {
                 // Cleanup upload if valid failed
@@ -98,6 +104,14 @@ const actividadController = {
             }
 
             const updateData = { ...req.body };
+
+            // Validate and default frequency if present
+            if (updateData.frecuencia !== undefined) {
+                const validFrecuencias = ['mensual', 'trimestral', 'semestral', 'anual', 'cuando_aplique'];
+                if (!updateData.frecuencia || !validFrecuencias.includes(updateData.frecuencia)) {
+                    updateData.frecuencia = 'mensual';
+                }
+            }
 
             if (req.file) {
                 // Logic similar to store
