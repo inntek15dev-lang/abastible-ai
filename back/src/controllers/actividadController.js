@@ -2,6 +2,7 @@
 const { Actividad, Elemento } = require('../database/models');
 const fs = require('fs');
 const path = require('path');
+const { safeMove } = require('../utils/fileHelper');
 
 const actividadController = {
     // GET /api/actividades
@@ -74,7 +75,7 @@ const actividadController = {
                 }
 
                 const targetPath = path.join(targetDir, req.file.filename);
-                fs.renameSync(req.file.path, targetPath);
+                safeMove(req.file.path, targetPath);
 
                 // URL for frontend: storage/templates_evidencia/...
                 template_url = path.posix.join('storage', storageRelativePath.split(path.sep).join('/'), req.file.filename);
@@ -149,7 +150,7 @@ const actividadController = {
                 }
 
                 const targetPath = path.join(targetDir, req.file.filename);
-                fs.renameSync(req.file.path, targetPath);
+                safeMove(req.file.path, targetPath);
 
                 // Remove old template if exists? Maybe. For now, just setting new one.
                 updateData.template_url = path.posix.join('storage', storageRelativePath.split(path.sep).join('/'), req.file.filename);
