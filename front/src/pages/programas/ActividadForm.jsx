@@ -150,11 +150,19 @@ export default function ActividadForm() {
                 await api.put(`/actividades/${id}`, formData, config);
                 toast.success('Guardado con exito');
                 setPlantillaFile(null);
-                fetchActividad();
+                if (selectedPrograma) {
+                    navigate(`/elementos?programa_id=${selectedPrograma}`);
+                } else {
+                    navigate('/programas');
+                }
             } else {
                 await api.post('/actividades', formData, config);
                 toast.success('Guardado con exito');
-                navigate('/actividades');
+                if (selectedPrograma) {
+                    navigate(`/elementos?programa_id=${selectedPrograma}`);
+                } else {
+                    navigate('/elementos');
+                }
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Error al guardar');
