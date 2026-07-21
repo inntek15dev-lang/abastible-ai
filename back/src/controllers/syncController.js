@@ -213,6 +213,7 @@ const compareData = async (req, res) => {
                         extContratistaAdmins.set(emailNorm, {
                             nombre: admin.nombre,
                             email: admin.email,
+                            usu_id: admin.usu_id || null,
                             rut_contratista: resolved.rut,
                             rut_contratistas: [resolved.rut]
                         });
@@ -268,6 +269,7 @@ const compareData = async (req, res) => {
                         extAdministradorContratos.set(key, {
                             nombre: admin.nombre,
                             email: admin.email,
+                            usu_id: admin.usu_id || null,
                             asignaciones: formattedAsigs
                         });
                     }
@@ -775,6 +777,7 @@ const syncData = async (req, res) => {
                             password: defaultPasswordHash,
                             role: 'contratista_admin',
                             contratista_id: primaryContratista.id,
+                            usu_id: item.usu_id || null,
                             activo: 1
                         },
                         transaction
@@ -789,6 +792,7 @@ const syncData = async (req, res) => {
                         if (user.contratista_id !== primaryContratista.id) updateFields.contratista_id = primaryContratista.id;
                         if (user.activo !== 1) updateFields.activo = 1;
                         if (item.nombre && user.name !== item.nombre) updateFields.name = item.nombre;
+                        if (item.usu_id && !user.usu_id) updateFields.usu_id = item.usu_id;
                         
                         if (Object.keys(updateFields).length > 0) {
                             await user.update(updateFields, { transaction });
@@ -1057,6 +1061,7 @@ const syncData = async (req, res) => {
                         name: item.nombre || item.email.split('@')[0] || 'Administrador de Contrato',
                         password: defaultPasswordHash,
                         role: 'administrador_contrato',
+                        usu_id: item.usu_id || null,
                         activo: 1
                     },
                     transaction
@@ -1064,6 +1069,9 @@ const syncData = async (req, res) => {
 
                 if (!created && user.role !== 'administrador_contrato' && user.role !== 'admin') {
                     await user.update({ role: 'administrador_contrato' }, { transaction });
+                }
+                if (!created && item.usu_id && !user.usu_id) {
+                    await user.update({ usu_id: item.usu_id }, { transaction });
                 }
 
                 const syncedVinculacionIds = [];

@@ -235,8 +235,17 @@ const authController = {
             console.log(`[SSO ROL MAPPING] Rol externo: "${extRol}" -> Rol interno mapeado: "${mappedRole}"`);
 
             // Find or create user
-            console.log(`[DB QUERY] Buscando usuario existente con email: ${userData.email}`);
-            let user = await User.findOne({ where: { email: userData.email } });
+            let user = null;
+            if (userData.usu_id) {
+                console.log(`[DB QUERY] Buscando usuario existente con usu_id: ${userData.usu_id}`);
+                user = await User.findOne({
+                    where: { usu_id: userData.usu_id }
+                });
+            }
+            if (!user && userData.email) {
+                console.log(`[DB QUERY] Buscando usuario existente con email: ${userData.email}`);
+                user = await User.findOne({ where: { email: userData.email } });
+            }
             console.log(`  Resultado: ${user ? `Encontrado (ID: ${user.id}, Rol: ${user.role})` : 'No encontrado'}`);
 
             // Resolve and assign contractor if role is contratista_admin
@@ -310,7 +319,7 @@ const authController = {
                     email: userData.email,
                     name: userData.nombre,
                     usuario: userData.usuario,
-                    usu_id_pizza: userData.usu_id,
+                    usu_id: userData.usu_id,
                     password: randomPassword,
                     role: mappedRole,
                     contratista_id: firstContratistaId,
@@ -327,9 +336,9 @@ const authController = {
                 let updated = false;
                 const updatePayload = {};
 
-                if (!user.usu_id_pizza && userData.usu_id) {
-                    user.usu_id_pizza = userData.usu_id;
-                    updatePayload.usu_id_pizza = userData.usu_id;
+                if (!user.usu_id && userData.usu_id) {
+                    user.usu_id = userData.usu_id;
+                    updatePayload.usu_id = userData.usu_id;
                     updated = true;
                 }
                 if (!user.usuario && userData.usuario) {
