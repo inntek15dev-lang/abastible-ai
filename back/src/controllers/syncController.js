@@ -426,7 +426,6 @@ const syncData = async (req, res) => {
         } catch (e) {
             console.warn('⚠️ No se pudo obtener la API externa para enriquecer nombres de contratistas:', e.message);
         }
-        const { resolveContractor } = buildContractorLookups(externalContratistas);
 
         const syncedItems = [];
         const failedItems = [];
