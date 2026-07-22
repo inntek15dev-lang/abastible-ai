@@ -16,7 +16,7 @@ const User = sequelize.define('User', {
         type: DataTypes.STRING(255),
         allowNull: true
     },
-    usu_id_pizza: {
+    usu_id: {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: true
     },

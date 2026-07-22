@@ -28,6 +28,7 @@ async function ensureSchema() {
             {
                 name: 'users',
                 columns: [
+                    { name: 'usu_id', type: 'BIGINT UNSIGNED NULL', after: 'usuario' },
                     { name: 'contratista_id', type: 'BIGINT UNSIGNED NULL', after: 'parent_id' },
                     { name: 'tipo_contratista_id', type: 'BIGINT UNSIGNED NULL', after: 'contratista_id' },
                     { name: 'dependencia_id', type: 'BIGINT UNSIGNED NULL', after: 'tipo_contratista_id' },
@@ -80,6 +81,34 @@ async function ensureSchema() {
         }
 
         console.log('\n✨ Schema verification completed successfully.');
+
+        // ─── Limpieza de columnas legacy ────────────────────────────────────────
+        // Solo se ejecuta si la columna aún existe (idempotente, seguro en deploy)
+        const columnsToDrop = [
+            { table: 'users', column: 'usu_id_pizza' }
+        ];
+
+        for (const { table, column } of columnsToDrop) {
+            try {
+                const [tableExists] = await sequelize.query(`SHOW TABLES LIKE '${table}'`);
+                if (tableExists.length === 0) continue;
+
+                const [columns] = await sequelize.query(`SHOW COLUMNS FROM ${table} LIKE '${column}'`);
+                if (columns.length > 0) {
+                    console.log(`  🗑️  Dropping legacy column [${table}.${column}]...`);
+                    await sequelize.query(`ALTER TABLE ${table} DROP COLUMN ${column}`);
+                    console.log(`  ✅ Legacy column [${table}.${column}] removed.`);
+                } else {
+                    console.log(`  ✔ Legacy column [${table}.${column}] already gone.`);
+                }
+            } catch (dropError) {
+                console.error(`  ❌ Error dropping [${table}.${column}]:`, dropError.message);
+            }
+        }
+        // ────────────────────────────────────────────────────────────────────────
+
+        console.log('\n🎉 All schema operations completed.');
+
     } catch (error) {
         console.error('\n❌ Error ensuring schema:', error.message);
     } finally {
