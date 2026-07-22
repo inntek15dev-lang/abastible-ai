@@ -47,69 +47,20 @@ const cleanRutString = (rutStr) => {
     return rutStr.toString().replace(/[^0-9Kk]/g, '').toUpperCase();
 };
 
-const buildContractorLookups = (externalContratistas) => {
-    const contractorsLookup = new Map(); // cleanRut -> { fullRut, nombre }
-    const contractorsByBaseLookup = new Map(); // baseRut -> { fullRut, nombre }
+const extractContractorInfo = (item, fallbackName = '') => {
+    if (!item) return { rut: '99999999-9', nombre: fallbackName || 'Empresa Sincronizada' };
+    if (typeof item === 'string') return { rut: item, nombre: fallbackName || item };
 
-    if (Array.isArray(externalContratistas)) {
-        externalContratistas.forEach(c => {
-            let rawRut = c.rut;
-            if (!rawRut && c.cot_rut) {
-                rawRut = `${c.cot_rut}-${c.cot_dv}`;
-            }
-            if (!rawRut) return;
-
-            const nombre = c.nombre || c.cot_razon_social || '';
-            const clean = cleanRutString(rawRut);
-            if (!clean) return;
-
-            let fullRut = rawRut;
-            if (clean.length >= 2) {
-                const dv = clean.slice(-1);
-                const base = clean.slice(0, -1);
-                fullRut = `${base}-${dv}`;
-                
-                contractorsLookup.set(clean, { fullRut, nombre });
-                contractorsByBaseLookup.set(base, { fullRut, nombre });
-            }
-            
-            contractorsLookup.set(normalize(rawRut), { fullRut, nombre });
-            if (c.cot_rut) {
-                contractorsByBaseLookup.set(normalize(c.cot_rut.toString()), { fullRut, nombre });
-            }
-        });
+    let rawRut = item.rut;
+    if (!rawRut && item.cot_rut) {
+        rawRut = item.cot_dv !== undefined && item.cot_dv !== null && item.cot_dv !== ''
+            ? `${item.cot_rut}-${item.cot_dv}`
+            : item.cot_rut.toString();
     }
+    const rut = sanitizeString(rawRut) || '99999999-9';
+    const nombre = sanitizeString(item.nombre || item.cot_razon_social) || fallbackName || rut;
 
-    const resolveContractor = (rawRut, fallbackName = '') => {
-        if (!rawRut) return { rut: '99999999-9', nombre: fallbackName || 'Empresa Sincronizada' };
-        const clean = cleanRutString(rawRut);
-        if (!clean) return { rut: '99999999-9', nombre: fallbackName || 'Empresa Sincronizada' };
-        
-        let match = contractorsLookup.get(clean);
-        if (match) return { rut: match.fullRut, nombre: match.nombre };
-        
-        if (clean.length >= 8) {
-            const base = clean.slice(0, -1);
-            match = contractorsByBaseLookup.get(base);
-            if (match) return { rut: match.fullRut, nombre: match.nombre };
-        }
-        
-        match = contractorsByBaseLookup.get(clean);
-        if (match) return { rut: match.fullRut, nombre: match.nombre };
-        
-        match = contractorsLookup.get(normalize(rawRut));
-        if (match) return { rut: match.fullRut, nombre: match.nombre };
-
-        let formatted = rawRut;
-        if (clean.length >= 2) {
-            const dv = clean.slice(-1);
-            const base = clean.slice(0, -1);
-            formatted = `${base}-${dv}`;
-        }
-        return { rut: formatted, nombre: fallbackName || rawRut || 'Empresa Sincronizada' };
-    };
-
-    return { contractorsLookup, contractorsByBaseLookup, resolveContractor };
+    return { rut, nombre };
 };
 
 
@@ -153,7 +104,6 @@ const compareData = async (req, res) => {
         }
 
         const externalContratistas = Array.isArray(fullResponse.contratistas) ? fullResponse.contratistas : [];
-        const { resolveContractor } = buildContractorLookups(externalContratistas);
 
         const extGerencias = new Map();
         const extSubgerencias = new Map();
@@ -165,7 +115,7 @@ const compareData = async (req, res) => {
         const extAdministradorContratos = new Map();
 
         const subgerenciaToGerenciaMap = new Map();
-        // Pre-populate map from local database to resolve as many as possible
+        // Pre-populate map from local database
         const localSubgerenciasForMap = await Subgerencia.findAll({ include: [{ model: Gerencia, as: 'gerencia' }] });
         localSubgerenciasForMap.forEach(s => {
             if (s.nombre && s.gerencia && s.gerencia.nombre) {
@@ -173,7 +123,7 @@ const compareData = async (req, res) => {
             }
         });
 
-        // 1. Process Top-Level Arrays (New standard)
+        // 1. Process Top-Level Arrays if explicitly returned
         if (Array.isArray(fullResponse.gerencias)) {
             fullResponse.gerencias.forEach(g => {
                 if (g && g.nombre) extGerencias.set(normalize(g.nombre), g.nombre);
@@ -212,227 +162,128 @@ const compareData = async (req, res) => {
             });
         }
 
-        if (Array.isArray(fullResponse.contratista_admin)) {
-            fullResponse.contratista_admin.forEach(admin => {
-                if (admin && admin.email) {
-                    const resolved = resolveContractor(admin.rut_contratista);
-                    const emailNorm = normalize(admin.email);
-                    if (extContratistaAdmins.has(emailNorm)) {
-                        const existing = extContratistaAdmins.get(emailNorm);
-                        if (!existing.rut_contratistas.includes(resolved.rut)) {
-                            existing.rut_contratistas.push(resolved.rut);
-                        }
-                    } else {
-                        extContratistaAdmins.set(emailNorm, {
-                            nombre: admin.nombre,
-                            email: admin.email,
-                            usu_id: admin.usu_id || null,
-                            rut_contratista: resolved.rut,
-                            rut_contratistas: [resolved.rut]
-                        });
-                    }
-                }
-            });
-        }
-
-        if (Array.isArray(fullResponse.administrador_contrato)) {
-            fullResponse.administrador_contrato.forEach(admin => {
-                if (admin && admin.email) {
-                    let key = normalize(admin.email);
-                    let existing = extAdministradorContratos.get(key);
-                    const formattedAsigs = (admin.asignaciones || []).map(asig => {
-                        if (!asig) return null;
-                        const resolved = resolveContractor(asig.rut_contratista || asig.cot_rut);
-                        return {
-                            rut_contratista: resolved.rut,
-                            servicio: normalize(asig.servicio),
-                            dependencia: normalize(asig.dependencia),
-                            subgerencia: normalize(asig.subgerencia),
-                            gerencia: normalize(asig.gerencia),
-                            contrato: asig.contrato || asig.numero_contrato || null
-                        };
-                    }).filter(Boolean);
-
-                    if (existing) {
-                        const mergedAsignaciones = [...existing.asignaciones];
-                        formattedAsigs.forEach(newAsig => {
-                            const alreadyExists = mergedAsignaciones.some(oldAsig =>
-                                normalize(oldAsig.servicio) === normalize(newAsig.servicio) &&
-                                normalize(oldAsig.dependencia) === normalize(newAsig.dependencia) &&
-                                normalize(oldAsig.subgerencia) === normalize(newAsig.subgerencia) &&
-                                normalize(oldAsig.gerencia) === normalize(newAsig.gerencia)
-                            );
-                            if (!alreadyExists) {
-                                mergedAsignaciones.push(newAsig);
-                            } else if (newAsig.rut_contratista) {
-                                // If already exists but lacks rut_contratista, enrich it!
-                                const target = mergedAsignaciones.find(oldAsig =>
-                                    normalize(oldAsig.servicio) === normalize(newAsig.servicio) &&
-                                    normalize(oldAsig.dependencia) === normalize(newAsig.dependencia) &&
-                                    normalize(oldAsig.subgerencia) === normalize(newAsig.subgerencia) &&
-                                    normalize(oldAsig.gerencia) === normalize(newAsig.gerencia)
-                                );
-                                if (target && !target.rut_contratista) {
-                                    target.rut_contratista = newAsig.rut_contratista;
-                                }
-                            }
-                        });
-                        existing.asignaciones = mergedAsignaciones;
-                    } else {
-                        extAdministradorContratos.set(key, {
-                            nombre: admin.nombre,
-                            email: admin.email,
-                            usu_id: admin.usu_id || null,
-                            asignaciones: formattedAsigs
-                        });
-                    }
-                }
-            });
-        }
-
-        if (Array.isArray(fullResponse.vinculaciones)) {
-            fullResponse.vinculaciones.forEach(v => {
-                if (v) {
-                    const resolved = resolveContractor(v.rut_contratista);
-                    extVinculaciones.push({
-                        rut_contratista: resolved.rut,
-                        servicio: normalize(v.servicio),
-                        dependencia: normalize(v.dependencia),
-                        subgerencia: normalize(v.subgerencia),
-                        gerencia: normalize(v.gerencia),
-                        numero_contrato: v.numero_contrato || null,
-                        fecha_inicio_contrato: v.fecha_inicio_contrato || null,
-                        fecha_termino_contrato: v.fecha_termino_contrato || null
-                    });
-                }
-            });
-        }
-
-        // 2. Process Contratistas and Nested Data (Legacy/Backup)
+        // 2. Process Native Payload (contratistas array as formatted in oiem.json)
         externalContratistas.forEach(c => {
             if (!c) return;
-            let rawRut = c.rut;
-            if (!rawRut && c.cot_rut) {
-                rawRut = `${c.cot_rut}-${c.cot_dv}`;
-            }
+            const contractorInfo = extractContractorInfo(c);
+            const rawRut = contractorInfo.rut;
+            const cNombre = contractorInfo.nombre;
+
             if (!rawRut) return;
 
-            const resolved = resolveContractor(rawRut, c.nombre || c.cot_razon_social);
-            extContratistas.set(resolved.rut, { ...c, rut: resolved.rut, nombre: resolved.nombre });
+            extContratistas.set(normalize(rawRut), {
+                ...c,
+                rut: rawRut,
+                nombre: cNombre,
+                cot_id: c.cot_id,
+                cot_rut: c.cot_rut,
+                cot_dv: c.cot_dv,
+                cot_razon_social: c.cot_razon_social
+            });
 
+            // Parse contratista_admin array natively
             const admins = c.contratista_admin || (c.data && c.data.contratista_admin);
             if (admins && Array.isArray(admins)) {
                 admins.forEach(admin => {
                     if (admin && admin.email) {
-                        const resolvedAdminRut = resolveContractor(rawRut);
                         const emailNorm = normalize(admin.email);
                         if (extContratistaAdmins.has(emailNorm)) {
                             const existing = extContratistaAdmins.get(emailNorm);
-                            if (!existing.rut_contratistas.includes(resolvedAdminRut.rut)) {
-                                existing.rut_contratistas.push(resolvedAdminRut.rut);
+                            if (!existing.rut_contratistas.includes(rawRut)) {
+                                existing.rut_contratistas.push(rawRut);
                             }
                         } else {
                             extContratistaAdmins.set(emailNorm, {
                                 nombre: admin.nombre,
                                 email: admin.email,
-                                rut_contratista: resolvedAdminRut.rut,
-                                rut_contratistas: [resolvedAdminRut.rut]
+                                rut_contratista: rawRut,
+                                contratista: cNombre,
+                                cot_rut: c.cot_rut,
+                                cot_dv: c.cot_dv,
+                                cot_razon_social: c.cot_razon_social,
+                                rut_contratistas: [rawRut]
                             });
                         }
                     }
                 });
             }
 
+            // Parse asignaciones array natively
             const asigs = c.asignaciones || (c.data && c.data.asignaciones);
             if (asigs && Array.isArray(asigs)) {
                 asigs.forEach(a => {
                     if (!a) return;
-                    if (a.gerencia) extGerencias.set(normalize(a.gerencia), a.gerencia);
+                    const gName = sanitizeString(a.gerencia) || 'GERENCIA GENERAL';
+                    const sgName = sanitizeString(a.subgerencia) || 'SUBGERENCIA GENERAL';
+                    const sName = sanitizeString(a.servicio) || 'SERVICIOS GENERALES';
+                    const dName = sanitizeString(a.dependencia) || 'OFICINA CENTRAL';
 
-                    if (a.subgerencia && a.gerencia) {
-                        extSubgerencias.set(normalize(a.gerencia + '|' + a.subgerencia), {
-                            nombre: a.subgerencia,
-                            gerencia: a.gerencia
-                        });
-                        subgerenciaToGerenciaMap.set(normalize(a.subgerencia), a.gerencia);
-                    }
+                    extGerencias.set(normalize(gName), gName);
+                    extSubgerencias.set(normalize(gName + '|' + sgName), { nombre: sgName, gerencia: gName });
+                    extServicios.set(normalize(sgName + '|' + sName), { nombre: sName, subgerencia: sgName, gerencia: gName });
+                    extDependencias.set(normalize(dName), dName);
 
-                    if (a.servicio && a.subgerencia) {
-                        const gerenciaName = a.gerencia || subgerenciaToGerenciaMap.get(normalize(a.subgerencia)) || null;
-                        extServicios.set(normalize(a.subgerencia + '|' + a.servicio), {
-                            nombre: a.servicio,
-                            subgerencia: a.subgerencia,
-                            gerencia: gerenciaName
-                        });
-                    }
+                    const vincItem = {
+                        rut_contratista: rawRut,
+                        contratista: cNombre,
+                        cot_id: c.cot_id,
+                        cot_rut: c.cot_rut,
+                        cot_dv: c.cot_dv,
+                        cot_razon_social: c.cot_razon_social,
+                        servicio: sName,
+                        dependencia: dName,
+                        subgerencia: sgName,
+                        gerencia: gName,
+                        contrato: a.contrato || null,
+                        numero_contrato: a.contrato || null,
+                        fecha_inicio_contrato: a.fecha_inicio || null,
+                        fecha_termino_contrato: a.fecha_termino || null
+                    };
+                    extVinculaciones.push(vincItem);
 
-                    if (a.dependencia) extDependencias.set(normalize(a.dependencia), a.dependencia);
-
-                    if (a.servicio && a.dependencia && a.subgerencia && (a.gerencia || subgerenciaToGerenciaMap.get(normalize(a.subgerencia)))) {
-                        const gerenciaName = a.gerencia || subgerenciaToGerenciaMap.get(normalize(a.subgerencia));
-                        const resolvedAsigContractor = resolveContractor(rawRut, c.nombre || c.cot_razon_social);
-                        extVinculaciones.push({
-                            rut_contratista: resolvedAsigContractor.rut,
-                            servicio: normalize(a.servicio),
-                            dependencia: normalize(a.dependencia),
-                            subgerencia: normalize(a.subgerencia),
-                            gerencia: normalize(gerenciaName),
-                            numero_contrato: a.contrato || null,
-                            fecha_inicio_contrato: a.fecha_inicio || null,
-                            fecha_termino_contrato: a.fecha_termino || null,
-                            contratista: resolvedAsigContractor.nombre
-                        });
-
-                        const adminList = a.administradores_contrato || a.administrador_contrato;
-                        if (adminList && Array.isArray(adminList)) {
-                            adminList.forEach(admin => {
-                                if (!admin) return;
-                                // Handle both object and string format (since response has array of strings sometimes)
-                                const email = admin.email || (typeof admin === 'string' && admin.includes('@') ? admin : null);
-                                const nombre = admin.nombre || (typeof admin === 'string' ? admin : null);
-                                
-                                if (email) {
-                                    let key = normalize(email);
-                                    let adminObj = extAdministradorContratos.get(key);
-                                    if (!adminObj) {
-                                        adminObj = { nombre: nombre || email.split('@')[0], email: email, asignaciones: [] };
-                                        extAdministradorContratos.set(key, adminObj);
-                                    }
-                                    
-                                    const newAsig = {
-                                        rut_contratista: resolvedAsigContractor.rut,
-                                        servicio: normalize(a.servicio),
-                                        dependencia: normalize(a.dependencia),
-                                        subgerencia: normalize(a.subgerencia),
-                                        gerencia: normalize(gerenciaName),
-                                        contrato: a.contrato || null
-                                    };
-
-                                    const alreadyExists = adminObj.asignaciones.some(oldAsig =>
-                                        normalize(oldAsig.servicio) === newAsig.servicio &&
-                                        normalize(oldAsig.dependencia) === newAsig.dependencia &&
-                                        normalize(oldAsig.subgerencia) === newAsig.subgerencia &&
-                                        normalize(oldAsig.gerencia) === newAsig.gerencia
-                                    );
-
-                                    if (!alreadyExists) {
-                                        adminObj.asignaciones.push(newAsig);
-                                    } else {
-                                        // Enrich rut_contratista if missing
-                                        const target = adminObj.asignaciones.find(oldAsig =>
-                                            normalize(oldAsig.servicio) === newAsig.servicio &&
-                                            normalize(oldAsig.dependencia) === newAsig.dependencia &&
-                                            normalize(oldAsig.subgerencia) === newAsig.subgerencia &&
-                                            normalize(oldAsig.gerencia) === newAsig.gerencia
-                                        );
-                                        if (target) {
-                                            if (!target.rut_contratista) target.rut_contratista = resolvedAsigContractor.rut;
-                                            if (!target.contrato && newAsig.contrato) target.contrato = newAsig.contrato;
-                                        }
-                                    }
+                    // Parse administrador_contrato inside asignaciones natively
+                    const adminList = a.administrador_contrato || a.administradores_contrato;
+                    if (adminList && Array.isArray(adminList)) {
+                        adminList.forEach(admin => {
+                            if (!admin) return;
+                            const email = admin.email || (typeof admin === 'string' && admin.includes('@') ? admin : null);
+                            const nombre = admin.nombre || (typeof admin === 'string' ? admin : null);
+                            
+                            if (email) {
+                                let key = normalize(email);
+                                let adminObj = extAdministradorContratos.get(key);
+                                if (!adminObj) {
+                                    adminObj = { nombre: nombre || email.split('@')[0], email: email, asignaciones: [] };
+                                    extAdministradorContratos.set(key, adminObj);
                                 }
-                            });
-                        }
+                                
+                                const newAsig = {
+                                    rut_contratista: rawRut,
+                                    contratista: cNombre,
+                                    cot_rut: c.cot_rut,
+                                    cot_dv: c.cot_dv,
+                                    cot_razon_social: c.cot_razon_social,
+                                    servicio: sName,
+                                    dependencia: dName,
+                                    subgerencia: sgName,
+                                    gerencia: gName,
+                                    contrato: a.contrato || null,
+                                    numero_contrato: a.contrato || null
+                                };
+
+                                const alreadyExists = adminObj.asignaciones.some(oldAsig =>
+                                    normalize(oldAsig.servicio) === normalize(newAsig.servicio) &&
+                                    normalize(oldAsig.dependencia) === normalize(newAsig.dependencia) &&
+                                    normalize(oldAsig.subgerencia) === normalize(newAsig.subgerencia) &&
+                                    normalize(oldAsig.gerencia) === normalize(newAsig.gerencia) &&
+                                    cleanRutString(oldAsig.rut_contratista) === cleanRutString(newAsig.rut_contratista)
+                                );
+
+                                if (!alreadyExists) {
+                                    adminObj.asignaciones.push(newAsig);
+                                }
+                            }
+                        });
                     }
                 });
             }
@@ -497,58 +348,41 @@ const compareData = async (req, res) => {
         });
 
         const diffContratistas = [];
-        extContratistas.forEach((data, rut) => {
-            const resolved = resolveContractor(rut, data.nombre);
-            const isExisting = locContratistasMap.has(cleanRutString(resolved.rut));
-            diffContratistas.push({ ...data, rut: resolved.rut, nombre: resolved.nombre, estado: isExisting ? 'exists' : 'new' });
+        extContratistas.forEach((data, rutNorm) => {
+            const info = extractContractorInfo(data);
+            const isExisting = locContratistasMap.has(cleanRutString(info.rut));
+            diffContratistas.push({ ...data, rut: info.rut, nombre: info.nombre, estado: isExisting ? 'exists' : 'new' });
         });
 
         const diffContratistaAdmin = [];
         extContratistaAdmins.forEach((data, normEmail) => {
-            const primaryRut = data.rut_contratista || (data.rut_contratistas && data.rut_contratistas[0]) || '99999999-9';
-            const resolved = resolveContractor(primaryRut);
-            const resolvedNames = (data.rut_contratistas || []).map(r => resolveContractor(r).nombre);
             diffContratistaAdmin.push({
-                nombre: data.nombre,
-                email: data.email,
-                rut_contratista: primaryRut,
-                contratista: resolvedNames.join(', ') || resolved.nombre,
-                rut_contratistas: data.rut_contratistas || [primaryRut],
+                ...data,
                 estado: locUsersMap.has(normEmail) ? 'exists' : 'new'
             });
         });
 
         const diffVinculaciones = [];
         extVinculaciones.forEach(v => {
-            const resolved = resolveContractor(v.rut_contratista, v.contratista);
-            const cleanRut = cleanRutString(resolved.rut);
+            const info = extractContractorInfo({ rut: v.rut_contratista, nombre: v.contratista, cot_rut: v.cot_rut, cot_dv: v.cot_dv, cot_razon_social: v.cot_razon_social });
+            const cleanRut = cleanRutString(info.rut);
             const key = `${cleanRut}|${normalize(v.servicio)}|${normalize(v.dependencia)}|${normalize(v.subgerencia)}|${normalize(v.gerencia)}`;
             const effectiveStartDate = v.fecha_inicio_contrato || new Date(new Date().getFullYear(), new Date().getMonth(), 1);
             const effectiveEndDate = v.fecha_termino_contrato || null;
 
             if (!locVinculacionesMap.has(key)) {
-                diffVinculaciones.push({ ...v, rut_contratista: resolved.rut, contratista: resolved.nombre, fecha_inicio_contrato: effectiveStartDate, fecha_termino_contrato: effectiveEndDate, estado: 'new' });
+                diffVinculaciones.push({ ...v, rut_contratista: info.rut, contratista: info.nombre, fecha_inicio_contrato: effectiveStartDate, fecha_termino_contrato: effectiveEndDate, estado: 'new' });
             } else {
                 const localNum = locVinculacionesMap.get(key);
-                const needsUpdate = normalize(v.numero_contrato) !== normalize(localNum);
-                diffVinculaciones.push({ ...v, rut_contratista: resolved.rut, contratista: resolved.nombre, fecha_inicio_contrato: effectiveStartDate, fecha_termino_contrato: effectiveEndDate, local_numero_contrato: localNum, estado: needsUpdate ? 'updated' : 'exists' });
+                const needsUpdate = normalize(v.numero_contrato || v.contrato) !== normalize(localNum);
+                diffVinculaciones.push({ ...v, rut_contratista: info.rut, contratista: info.nombre, fecha_inicio_contrato: effectiveStartDate, fecha_termino_contrato: effectiveEndDate, local_numero_contrato: localNum, estado: needsUpdate ? 'updated' : 'exists' });
             }
         });
 
         const diffAdministradorContrato = [];
         extAdministradorContratos.forEach((data, normEmail) => {
-            const resolvedAsignaciones = (data.asignaciones || []).map(asig => {
-                if (!asig) return null;
-                const resolved = resolveContractor(asig.rut_contratista, asig.contratista);
-                return {
-                    ...asig,
-                    rut_contratista: resolved.rut,
-                    contratista: resolved.nombre
-                };
-            }).filter(Boolean);
             diffAdministradorContrato.push({
                 ...data,
-                asignaciones: resolvedAsignaciones,
                 estado: locUsersMap.has(normEmail) ? 'exists' : 'new'
             });
         });
@@ -661,62 +495,56 @@ const syncData = async (req, res) => {
         };
 
         const syncSingleContratista = async (item, transaction) => {
-            const rawRut = sanitizeString(item.rut || (item.cot_rut ? `${item.cot_rut}-${item.cot_dv}` : ''));
-            const rawNombre = sanitizeString(item.nombre || item.cot_razon_social);
-            if (!rawRut) throw new Error('RUT de contratista inválido o no provisto.');
-            
-            const resolved = resolveContractor(rawRut, rawNombre);
-            const cleanResolvedRut = cleanRutString(resolved.rut);
+            const info = extractContractorInfo(item);
+            if (!info.rut) throw new Error('RUT de contratista no especificado.');
 
-            let contractor = await Contratista.findOne({
-                where: { rut: resolved.rut },
-                transaction
+            const cleanFormattedRut = cleanRutString(info.rut);
+            const allLocal = await Contratista.findAll({ transaction });
+
+            let contractor = allLocal.find(c => {
+                const localClean = cleanRutString(c.rut);
+                return localClean === cleanFormattedRut || (localClean.length >= 8 && localClean.slice(0, -1) === cleanFormattedRut.slice(0, -1));
             });
 
             if (!contractor) {
-                const allLocal = await Contratista.findAll({ transaction });
-                contractor = allLocal.find(c => {
-                    const localClean = cleanRutString(c.rut);
-                    return localClean === cleanResolvedRut || (localClean.length >= 8 && localClean.slice(0, -1) === cleanResolvedRut.slice(0, -1));
-                });
-            }
-
-            if (!contractor) {
                 contractor = await Contratista.create({
-                    rut: resolved.rut,
-                    nombre: sanitizeString(resolved.nombre) || resolved.rut,
+                    rut: info.rut,
+                    nombre: info.nombre,
                     activo: 1
                 }, { transaction });
             } else {
-                if (resolved.nombre && contractor.nombre !== resolved.nombre && resolved.nombre !== resolved.rut) {
-                    await contractor.update({ nombre: sanitizeString(resolved.nombre) }, { transaction });
+                if (info.nombre && contractor.nombre !== info.nombre && info.nombre !== contractor.rut) {
+                    await contractor.update({ nombre: info.nombre }, { transaction });
                 }
             }
             return contractor;
         };
 
-        const syncSingleContratistaAdmin = async (item, transaction, extAdminEmailToRuts = null) => {
+        const syncSingleContratistaAdmin = async (item, transaction) => {
             const cleanEmail = sanitizeEmail(item.email);
             if (!cleanEmail) throw new Error('Email de administrador contratista es requerido.');
 
-            const emailNorm = normalize(cleanEmail);
-            const extRutsSet = extAdminEmailToRuts ? extAdminEmailToRuts.get(emailNorm) : null;
-            const ruts = extRutsSet ? Array.from(extRutsSet) : (item.rut_contratistas || [item.rut_contratista || '99999999-9']);
+            let ruts = item.rut_contratistas || [item.rut_contratista || (item.cot_rut ? `${item.cot_rut}-${item.cot_dv || ''}`.replace(/-$/, '') : '99999999-9')];
+            if (!Array.isArray(ruts) || ruts.length === 0) {
+                ruts = ['99999999-9'];
+            }
 
             const allLocal = await Contratista.findAll({ transaction });
             const associatedContratistas = [];
 
-            for (const cRut of ruts) {
-                const resolved = resolveContractor(sanitizeString(cRut), item.contratista);
-                const cleanResolvedRut = cleanRutString(resolved.rut);
-                let contratista = allLocal.find(c => cleanRutString(c.rut) === cleanResolvedRut);
+            for (const rawCRut of ruts) {
+                const info = extractContractorInfo({ rut: rawCRut, cot_rut: item.cot_rut, cot_dv: item.cot_dv, cot_razon_social: item.cot_razon_social || item.contratista });
+                const cleanCRut = cleanRutString(info.rut);
+
+                let contratista = allLocal.find(c => cleanRutString(c.rut) === cleanCRut);
 
                 if (!contratista) {
                     contratista = await Contratista.create({
-                        rut: resolved.rut,
-                        nombre: sanitizeString(resolved.nombre) || resolved.rut,
+                        rut: info.rut,
+                        nombre: info.nombre,
                         activo: 1
                     }, { transaction });
+                    allLocal.push(contratista);
                 }
 
                 if (contratista && !associatedContratistas.some(c => c.id === contratista.id)) {
@@ -763,13 +591,6 @@ const syncData = async (req, res) => {
                     });
                 }
 
-                await ContratistaUsuario.destroy({
-                    where: {
-                        user_id: user.id,
-                        contratista_id: { [sequelize.Sequelize.Op.notIn]: associatedIds }
-                    },
-                    transaction
-                });
                 return user;
             } else {
                 throw new Error(`No se pudo asociar a ninguna empresa contratista para ${cleanEmail}`);
@@ -781,9 +602,8 @@ const syncData = async (req, res) => {
             const sgName = sanitizeString(item.subgerencia) || 'SUBGERENCIA GENERAL';
             const sName = sanitizeString(item.servicio) || 'SERVICIOS GENERALES';
             const dName = sanitizeString(item.dependencia) || 'OFICINA CENTRAL';
-            const cRut = sanitizeString(item.rut_contratista) || '99999999-9';
 
-            const resolved = resolveContractor(cRut, item.contratista);
+            const info = extractContractorInfo(item);
 
             const [gerencia] = await Gerencia.findOrCreate({ where: { nombre: gName }, transaction });
             const [subgerencia] = await Subgerencia.findOrCreate({ where: { nombre: sgName, gerencia_id: gerencia.id }, transaction });
@@ -794,28 +614,20 @@ const syncData = async (req, res) => {
             });
             const [dependencia] = await Dependencia.findOrCreate({ where: { nombre: dName }, defaults: { activo: 1 }, transaction });
 
-            const cleanResolvedRut = cleanRutString(resolved.rut);
+            const cleanCRut = cleanRutString(info.rut);
             const allLocal = await Contratista.findAll({ transaction });
-            let contratista = allLocal.find(c => cleanRutString(c.rut) === cleanResolvedRut);
+            let contratista = allLocal.find(c => cleanRutString(c.rut) === cleanCRut);
 
             if (!contratista) {
                 contratista = await Contratista.create({
-                    rut: resolved.rut,
-                    nombre: sanitizeString(resolved.nombre) || resolved.rut,
+                    rut: info.rut,
+                    nombre: info.nombre,
                     activo: 1
                 }, { transaction });
             }
 
-            const fallbackContrato = sanitizeString(item.numero_contrato) || `CTR-SYN-${contratista.rut.replace(/[^0-9Kk]/g, '')}-${servicio.id}-${dependencia.id}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-            let uniqueContrato = fallbackContrato;
-            let existsContrato = await Vinculacion.findOne({ where: { numero_contrato: uniqueContrato }, transaction });
-            let attempts = 0;
-            while (existsContrato && attempts < 10) {
-                uniqueContrato = `${fallbackContrato}-${dependencia.id}-${Math.floor(100 + Math.random() * 900)}`;
-                existsContrato = await Vinculacion.findOne({ where: { numero_contrato: uniqueContrato }, transaction });
-                attempts++;
-            }
+            const itemContrato = sanitizeString(item.contrato || item.numero_contrato);
+            const fallbackContrato = itemContrato || `CTR-SYN-${contratista.rut.replace(/[^0-9Kk]/g, '')}-${servicio.id}-${dependencia.id}`;
 
             const [vinculacion, created] = await Vinculacion.findOrCreate({
                 where: {
@@ -827,7 +639,7 @@ const syncData = async (req, res) => {
                 },
                 defaults: {
                     activo: 1,
-                    numero_contrato: uniqueContrato,
+                    numero_contrato: fallbackContrato,
                     fecha_inicio_contrato: item.fecha_inicio_contrato || new Date(new Date().getFullYear(), new Date().getMonth(), 1),
                     fecha_termino_contrato: item.fecha_termino_contrato || null
                 },
@@ -836,22 +648,11 @@ const syncData = async (req, res) => {
 
             if (!created) {
                 const updateData = {};
-                const itemContrato = sanitizeString(item.numero_contrato);
                 if (itemContrato && normalize(vinculacion.numero_contrato) !== normalize(itemContrato)) {
-                    const existsOther = await Vinculacion.findOne({
-                        where: {
-                            numero_contrato: itemContrato,
-                            id: { [sequelize.Sequelize.Op.ne]: vinculacion.id }
-                        },
-                        transaction
-                    });
-                    if (!existsOther) {
-                        updateData.numero_contrato = itemContrato;
-                    }
+                    updateData.numero_contrato = itemContrato;
                 }
                 if (item.fecha_inicio_contrato && vinculacion.fecha_inicio_contrato !== item.fecha_inicio_contrato) updateData.fecha_inicio_contrato = item.fecha_inicio_contrato;
                 if (item.fecha_termino_contrato && vinculacion.fecha_termino_contrato !== item.fecha_termino_contrato) updateData.fecha_termino_contrato = item.fecha_termino_contrato;
-                else if (!item.fecha_termino_contrato && vinculacion.fecha_termino_contrato !== null) updateData.fecha_termino_contrato = null;
 
                 if (Object.keys(updateData).length > 0) {
                     await vinculacion.update(updateData, { transaction });
@@ -880,40 +681,77 @@ const syncData = async (req, res) => {
             if (!created && user.role !== 'administrador_contrato' && user.role !== 'admin') {
                 await user.update({ role: 'administrador_contrato' }, { transaction });
             }
-            if (!created && item.usu_id && !user.usu_id) {
-                await user.update({ usu_id: item.usu_id }, { transaction });
-            }
 
             const syncedVinculacionIds = [];
 
             if (item.asignaciones && Array.isArray(item.asignaciones)) {
                 for (const asig of item.asignaciones) {
-                    const gName = sanitizeString(asig.resolvedGerencia || asig.gerencia) || 'GERENCIA GENERAL';
-                    const sgName = sanitizeString(asig.resolvedSubgerencia || asig.subgerencia) || 'SUBGERENCIA GENERAL';
-                    const sName = sanitizeString(asig.resolvedServicio || asig.servicio) || 'SERVICIOS GENERALES';
-                    const dName = sanitizeString(asig.resolvedDependencia || asig.dependencia) || 'OFICINA CENTRAL';
-                    const cRut = sanitizeString(asig.resolvedRutContratista || asig.rut_contratista) || '99999999-9';
+                    if (!asig) continue;
+                    const gName = sanitizeString(asig.gerencia) || 'GERENCIA GENERAL';
+                    const sgName = sanitizeString(asig.subgerencia) || 'SUBGERENCIA GENERAL';
+                    const sName = sanitizeString(asig.servicio) || 'SERVICIOS GENERALES';
+                    const dName = sanitizeString(asig.dependencia) || 'OFICINA CENTRAL';
 
-                    const resolved = resolveContractor(cRut, asig.contratista);
+                    const info = extractContractorInfo(asig);
 
                     const [gerencia] = await Gerencia.findOrCreate({ where: { nombre: gName }, transaction });
                     const [subgerencia] = await Subgerencia.findOrCreate({ where: { nombre: sgName, gerencia_id: gerencia.id }, transaction });
                     const [servicio] = await TipoContratista.findOrCreate({ where: { nombre: sName, subgerencia_id: subgerencia.id }, defaults: { descripcion: 'Sincronizado desde API', activo: 1 }, transaction });
                     const [dependencia] = await Dependencia.findOrCreate({ where: { nombre: dName }, defaults: { activo: 1 }, transaction });
 
-                    const cleanResolvedRut = cleanRutString(resolved.rut);
+                    const cleanCRut = cleanRutString(info.rut);
                     const allLocal = await Contratista.findAll({ transaction });
-                    let contratista = allLocal.find(c => cleanRutString(c.rut) === cleanResolvedRut);
+                    let contratista = allLocal.find(c => cleanRutString(c.rut) === cleanCRut);
 
                     if (!contratista) {
                         contratista = await Contratista.create({
-                            rut: resolved.rut,
-                            nombre: sanitizeString(resolved.nombre) || resolved.rut,
+                            rut: info.rut,
+                            nombre: info.nombre,
                             activo: 1
                         }, { transaction });
                     }
 
-                    const fallbackContrato = sanitizeString(asig.contrato) || `CTR-SYN-${contratista.rut.replace(/[^0-9Kk]/g, '')}-${servicio.id}-${dependencia.id}-${Math.floor(1000 + Math.random() * 9000)}`;
+                    const asigContrato = sanitizeString(asig.contrato || asig.numero_contrato);
+                    const fallbackContrato = asigContrato || `CTR-SYN-${contratista.rut.replace(/[^0-9Kk]/g, '')}-${servicio.id}-${dependencia.id}`;
+
+                    const [vinculacion, vincCreated] = await Vinculacion.findOrCreate({
+                        where: {
+                            contratista_id: contratista.id,
+                            servicio_id: servicio.id,
+                            dependencia_id: dependencia.id,
+                            subgerencia_id: subgerencia.id,
+                            gerencia_id: gerencia.id
+                        },
+                        defaults: {
+                            activo: 1,
+                            numero_contrato: fallbackContrato
+                        },
+                        transaction
+                    });
+
+                    if (!vincCreated && asigContrato && normalize(vinculacion.numero_contrato) !== normalize(asigContrato)) {
+                        await vinculacion.update({ numero_contrato: asigContrato }, { transaction });
+                    }
+
+                    syncedVinculacionIds.push(vinculacion.id);
+
+                    const [adminAssoc, adminAssocCreated] = await Administracion.findOrCreate({
+                        where: {
+                            vinculacion_id: vinculacion.id,
+                            administrador_contrato_id: user.id
+                        },
+                        defaults: { activo: 1 },
+                        transaction
+                    });
+
+                    if (!adminAssocCreated && adminAssoc.activo !== 1) {
+                        await adminAssoc.update({ activo: 1 }, { transaction });
+                    }
+                }
+            }
+
+            return user;
+        };
 
                     let uniqueContrato = fallbackContrato;
                     let existsContrato = await Vinculacion.findOne({ where: { numero_contrato: uniqueContrato }, transaction });
