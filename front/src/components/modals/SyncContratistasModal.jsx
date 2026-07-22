@@ -5,7 +5,7 @@ import { toast } from 'react-hot-toast';
 import { 
     RefreshCw, CheckCircle, AlertCircle, Info, Database, Layers, 
     Check, Loader2, ChevronLeft, ChevronRight, X, Sparkles, Server,
-    Search
+    Search, Eye, Building
 } from 'lucide-react';
 
 const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
@@ -16,6 +16,9 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
     
     // Single-item sync loader tracking map: { [itemKey]: boolean }
     const [syncingItems, setSyncingItems] = useState({});
+
+    // Detail Modal State (Click to view full entity relational data)
+    const [selectedEntityDetail, setSelectedEntityDetail] = useState(null);
 
     // Full Sync flow state
     const [fullSyncing, setFullSyncing] = useState(false);
@@ -335,103 +338,187 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
         }
     };
 
-    // Helper for rendering relationship path tooltip content
-    const getRelationalTree = (item, type) => {
-        switch (type) {
-            case 'gerencias':
-                return (
-                    <div className="tooltip-tree">
-                        <span className="tooltip-node root">Abastible</span>
-                        <span className="tooltip-arrow">➔</span>
-                        <span className="tooltip-node active">Gerencia: {item.nombre}</span>
-                    </div>
-                );
-            case 'subgerencias':
-                return (
-                    <div className="tooltip-tree">
-                        <span className="tooltip-node root">Abastible</span>
-                        <span className="tooltip-arrow">➔</span>
-                        <span className="tooltip-node">{item.gerencia}</span>
-                        <span className="tooltip-arrow">➔</span>
-                        <span className="tooltip-node active">Subgerencia: {item.nombre}</span>
-                    </div>
-                );
-            case 'servicios':
-                return (
-                    <div className="tooltip-tree">
-                        <span className="tooltip-node root">Abastible</span>
-                        <span className="tooltip-arrow">➔</span>
-                        <span className="tooltip-node">{item.subgerencia}</span>
-                        <span className="tooltip-arrow">➔</span>
-                        <span className="tooltip-node active">Servicio: {item.nombre}</span>
-                    </div>
-                );
-            case 'dependencias':
-                return (
-                    <div className="tooltip-tree">
-                        <span className="tooltip-node root">Abastible</span>
-                        <span className="tooltip-arrow">➔</span>
-                        <span className="tooltip-node active">Dependencia: {item.nombre}</span>
-                    </div>
-                );
-            case 'contratistas':
-                return (
-                    <div className="tooltip-tree">
-                        <span className="tooltip-node root">Contratistas</span>
-                        <span className="tooltip-arrow">➔</span>
-                        <span className="tooltip-node active">{item.nombre} (RUT: {item.rut})</span>
-                    </div>
-                );
-            case 'contratista_admin':
-                return (
-                    <div className="tooltip-tree">
-                        <span className="tooltip-node root">Contratistas</span>
-                        <span className="tooltip-arrow">➔</span>
-                        <span className="tooltip-node">RUTs: {item.rut_contratistas ? item.rut_contratistas.join(', ') : item.rut_contratista}</span>
-                        <span className="tooltip-arrow">➔</span>
-                        <span className="tooltip-node active">Admin Contratista: {item.nombre} ({item.email})</span>
-                    </div>
-                );
-            case 'vinculaciones':
-                return (
-                    <div className="tooltip-tree">
-                        <span className="tooltip-node root">Abastible</span>
-                        <span className="tooltip-arrow">➔</span>
-                        <span className="tooltip-node">G: {item.gerencia}</span>
-                        <span className="tooltip-arrow">➔</span>
-                        <span className="tooltip-node">SG: {item.subgerencia}</span>
-                        <span className="tooltip-arrow">➔</span>
-                        <span className="tooltip-node">S: {item.servicio}</span>
-                        <span className="tooltip-arrow">➔</span>
-                        <span className="tooltip-node">D: {item.dependencia}</span>
-                        <span className="tooltip-arrow">➔</span>
-                        <span className="tooltip-node active">Contratista: {item.contratista} ({item.rut_contratista})</span>
-                    </div>
-                );
-            case 'administrador_contrato':
-                return (
-                    <div className="tooltip-tree">
-                        <span className="tooltip-node root">Admin Contrato: {item.nombre} ({item.email})</span>
-                        {item.asignaciones && item.asignaciones.length > 0 ? (
-                            <div className="tooltip-sublist">
-                                <div className="tooltip-sublist-title">Asignaciones ({item.asignaciones.length}):</div>
-                                {item.asignaciones.slice(0, 3).map((a, idx) => (
-                                    <div key={idx} className="tooltip-subitem">
-                                        • {a.gerencia} ➔ {a.subgerencia} ➔ {a.servicio} ➔ {a.dependencia} ➔ RUT: {a.rut_contratista}
-                                    </div>
-                                ))}
-                                {item.asignaciones.length > 3 && (
-                                    <div className="tooltip-subitem italic">...y {item.asignaciones.length - 3} más</div>
-                                )}
+    // Componente Modal de Detalle para Inspección de Relaciones y Data Asociada
+    const EntityDetailModal = ({ detail, onClose }) => {
+        if (!detail) return null;
+        const { item, type } = detail;
+
+        const getTitle = () => {
+            switch (type) {
+                case 'administrador_contrato': return `Detalle & Árbol de Asignaciones: Admin Contrato (${item.nombre || item.email})`;
+                case 'contratista_admin': return `Detalle & Árbol de Relaciones: Admin Contratista (${item.nombre || item.email})`;
+                case 'contratistas': return `Detalle de Contratista: ${item.nombre} (${item.rut})`;
+                case 'vinculaciones': return `Detalle de Vinculación: ${item.contratista || item.rut_contratista}`;
+                case 'servicios': return `Detalle de Servicio: ${item.nombre}`;
+                case 'subgerencias': return `Detalle de Subgerencia: ${item.nombre}`;
+                case 'gerencias': return `Detalle de Gerencia: ${item.nombre}`;
+                case 'dependencias': return `Detalle de Dependencia: ${item.nombre}`;
+                default: return `Detalle de ${type}`;
+            }
+        };
+
+        return (
+            <Modal
+                isOpen={!!detail}
+                onClose={onClose}
+                title={getTitle()}
+                maxWidth="max-w-4xl"
+            >
+                <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-2">
+                    {/* Tarjeta Resumen Principal */}
+                    <div className="bg-slate-900 text-white p-4 rounded-xl shadow-md border border-slate-700 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                        {item.nombre && (
+                            <div>
+                                <span className="text-slate-400 font-semibold block text-[11px]">Nombre:</span>
+                                <span className="font-bold text-slate-100 text-sm">{item.nombre}</span>
                             </div>
-                        ) : (
-                            <div className="tooltip-sublist-title italic text-gray-400">Sin asignaciones vinculadas</div>
+                        )}
+                        {item.email && (
+                            <div>
+                                <span className="text-slate-400 font-semibold block text-[11px]">Correo Electrónico:</span>
+                                <span className="font-mono text-blue-400 text-sm font-bold">{item.email}</span>
+                            </div>
+                        )}
+                        {item.rut && (
+                            <div>
+                                <span className="text-slate-400 font-semibold block text-[11px]">RUT Empresa:</span>
+                                <span className="font-mono font-bold text-orange-400 text-sm">{item.rut}</span>
+                            </div>
+                        )}
+                        {item.rut_contratista && (
+                            <div>
+                                <span className="text-slate-400 font-semibold block text-[11px]">RUT Contratista Vinculado:</span>
+                                <span className="font-mono font-bold text-orange-400 text-sm">{item.rut_contratista}</span>
+                            </div>
+                        )}
+                        {item.estado && (
+                            <div>
+                                <span className="text-slate-400 font-semibold block text-[11px]">Estado Sincronización:</span>
+                                <span className={`inline-block px-2.5 py-0.5 rounded text-[11px] font-bold ${
+                                    item.estado === 'new' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                                    item.estado === 'updated' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                                    'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                }`}>
+                                    {item.estado === 'new' ? 'Nuevo (Pendiente)' : item.estado === 'updated' ? 'Modificado (Pendiente)' : 'Sincronizado'}
+                                </span>
+                            </div>
+                        )}
+                        {item.numero_contrato && (
+                            <div>
+                                <span className="text-slate-400 font-semibold block text-[11px]">N° Contrato:</span>
+                                <span className="font-mono font-bold text-slate-200">{item.numero_contrato}</span>
+                            </div>
                         )}
                     </div>
-                );
-            default:
-                return <div>{JSON.stringify(item)}</div>;
-        }
+
+                    {/* Listado Completo Escroleable de Asignaciones para Admin Contratos */}
+                    {type === 'administrador_contrato' && (
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center bg-slate-100 p-3 rounded-lg border border-slate-200">
+                                <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                    <Layers size={16} className="text-orange-600" />
+                                    Listado Completo de Asignaciones y Contratos ({item.asignaciones?.length || 0})
+                                </h4>
+                                <span className="text-xs text-slate-500 font-medium">Usa la barra de desplazamiento para revisar toda la lista</span>
+                            </div>
+                            
+                            {item.asignaciones && item.asignaciones.length > 0 ? (
+                                <div className="border border-slate-200 rounded-lg overflow-x-auto shadow-sm max-h-[350px] overflow-y-auto">
+                                    <table className="w-full text-xs text-left">
+                                        <thead className="bg-slate-800 text-slate-200 font-bold uppercase sticky top-0 z-10 text-[10px] tracking-wider">
+                                            <tr>
+                                                <th className="p-3">#</th>
+                                                <th className="p-3">Gerencia</th>
+                                                <th className="p-3">Subgerencia</th>
+                                                <th className="p-3">Servicio</th>
+                                                <th className="p-3">Dependencia</th>
+                                                <th className="p-3">RUT Contratista</th>
+                                                <th className="p-3">N° Contrato</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-200 bg-white">
+                                            {item.asignaciones.map((asig, idx) => (
+                                                <tr key={idx} className="hover:bg-orange-50/50 transition-colors">
+                                                    <td className="p-3 font-bold text-slate-400">{idx + 1}</td>
+                                                    <td className="p-3 font-semibold text-slate-900">{asig.gerencia || '-'}</td>
+                                                    <td className="p-3 text-slate-700">{asig.subgerencia || '-'}</td>
+                                                    <td className="p-3 text-slate-700 font-medium">{asig.servicio || '-'}</td>
+                                                    <td className="p-3 text-slate-700">{asig.dependencia || '-'}</td>
+                                                    <td className="p-3 font-mono font-bold text-slate-900">{asig.rut_contratista || '-'}</td>
+                                                    <td className="p-3 font-mono text-blue-700 font-bold">{asig.contrato || '-'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <p className="text-xs text-slate-500 italic bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
+                                    Sin asignaciones de contratos vinculadas actualmente.
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+                    {type === 'contratista_admin' && (
+                        <div className="space-y-3">
+                            <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                <Building size={16} className="text-orange-600" />
+                                Empresas Contratistas Asociadas:
+                            </h4>
+                            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+                                {item.rut_contratistas && item.rut_contratistas.length > 0 ? (
+                                    item.rut_contratistas.map((rut, idx) => (
+                                        <div key={idx} className="flex justify-between items-center text-xs bg-white p-3 rounded-md border border-slate-200 shadow-xs">
+                                            <span className="font-mono font-bold text-slate-900">RUT Empresa: {rut}</span>
+                                            <span className="text-slate-700 font-semibold">{item.contratista || 'Empresa Vinculada'}</span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="font-mono font-bold text-slate-900">RUT: {item.rut_contratista}</div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {type === 'vinculaciones' && (
+                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3 text-xs">
+                            <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                                <Layers size={16} className="text-orange-600" />
+                                Jerarquía Completa de la Vinculación:
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="bg-white p-3 rounded-md border border-slate-200 shadow-xs">
+                                    <span className="text-slate-400 font-bold block text-[10px] uppercase">Gerencia</span>
+                                    <span className="font-bold text-slate-900 text-xs">{item.gerencia}</span>
+                                </div>
+                                <div className="bg-white p-3 rounded-md border border-slate-200 shadow-xs">
+                                    <span className="text-slate-400 font-bold block text-[10px] uppercase">Subgerencia</span>
+                                    <span className="font-bold text-slate-900 text-xs">{item.subgerencia}</span>
+                                </div>
+                                <div className="bg-white p-3 rounded-md border border-slate-200 shadow-xs">
+                                    <span className="text-slate-400 font-bold block text-[10px] uppercase">Servicio</span>
+                                    <span className="font-bold text-slate-900 text-xs">{item.servicio}</span>
+                                </div>
+                                <div className="bg-white p-3 rounded-md border border-slate-200 shadow-xs">
+                                    <span className="text-slate-400 font-bold block text-[10px] uppercase">Dependencia</span>
+                                    <span className="font-bold text-slate-900 text-xs">{item.dependencia}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Inspección JSON Completo */}
+                    <details className="mt-4 border-t border-slate-200 pt-3 text-xs text-slate-500">
+                        <summary className="cursor-pointer font-bold hover:text-slate-800 flex items-center gap-1">
+                            <Info size={14} /> Inspeccionar estructura JSON cruda de esta entidad
+                        </summary>
+                        <pre className="mt-2 bg-slate-950 text-emerald-400 p-3 rounded-lg text-[11px] overflow-x-auto font-mono max-h-48">
+                            {JSON.stringify(item, null, 2)}
+                        </pre>
+                    </details>
+                </div>
+            </Modal>
+        );
     };
 
     const renderTable = () => {
@@ -789,17 +876,23 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                                 
                                 return (
                                     <tr key={idx} className="bg-white border-b hover:bg-gray-50">
-                                        <td className="px-6 py-4 font-medium text-gray-900 relational-cell">
-                                            <div className="flex items-center gap-2">
-                                                <Info size={14} className="text-gray-400 shrink-0" />
-                                                <span>
+                                        <td 
+                                            className="px-6 py-4 font-medium text-gray-900 cursor-pointer hover:text-orange-600 transition-colors"
+                                            onClick={() => setSelectedEntityDetail({ item, type: currentKey })}
+                                            title="Haz clic para abrir el modal con toda la data y el árbol relacional"
+                                        >
+                                            <div className="flex items-center gap-2 group">
+                                                <Eye size={16} className="text-orange-500 group-hover:scale-125 transition-transform shrink-0" />
+                                                <span className="group-hover:underline font-semibold">
                                                     {currentKey === 'contratistas' ? `${item.nombre} (${item.rut})` :
                                                      currentKey === 'contratista_admin' || currentKey === 'administrador_contrato' ? `${item.nombre} (${item.email})` :
                                                      currentKey === 'vinculaciones' ? `${item.contratista} (${item.rut_contratista})` : item.nombre}
                                                 </span>
-                                            </div>
-                                            <div className="relational-tooltip">
-                                                {getRelationalTree(item, currentKey)}
+                                                {currentKey === 'administrador_contrato' && item.asignaciones && (
+                                                    <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-200 ml-1">
+                                                        {item.asignaciones.length} asig.
+                                                    </span>
+                                                )}
                                             </div>
                                         </td>
                                         {currentKey === 'subgerencias' && <td className="px-6 py-4">{item.gerencia}</td>}
@@ -1077,6 +1170,12 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                     )}
                 </div>
             )}
+            
+            {/* Modal de Detalle Completo de Entidad en Click */}
+            <EntityDetailModal
+                detail={selectedEntityDetail}
+                onClose={() => setSelectedEntityDetail(null)}
+            />
         </Modal>
     );
 };
