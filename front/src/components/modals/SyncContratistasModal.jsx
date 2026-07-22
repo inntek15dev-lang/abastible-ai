@@ -292,6 +292,49 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
         }
     };
 
+    // Forced Sequential Full Sync Flow (Overwrites all data)
+    const handleForceFullSync = async () => {
+        if (!window.confirm('⚠️ ¿Estás seguro de ejecutar la RE-SINCRONIZACIÓN FULL? Se volverán a procesar y actualizar todos los registros pisando datos existentes.')) {
+            return;
+        }
+
+        setFullSyncing(true);
+        
+        const initialProgress = steps.map(s => {
+            const list = diffData ? diffData[s.key] : [];
+            return {
+                label: s.label,
+                key: s.key,
+                status: list.length > 0 ? 'pending' : 'completed',
+                total: list.length,
+                synced: 0
+            };
+        });
+        setFullSyncProgress(initialProgress);
+
+        try {
+            for (let i = 0; i < steps.length; i++) {
+                const currentStep = steps[i];
+                const list = diffData ? diffData[currentStep.key] : [];
+
+                if (list.length > 0) {
+                    setFullSyncProgress(prev => prev.map((p, idx) => idx === i ? { ...p, status: 'syncing' } : p));
+                    await api.post('/sync/execute', { type: currentStep.key, items: list, force: true });
+                    setFullSyncProgress(prev => prev.map((p, idx) => idx === i ? { ...p, status: 'completed', synced: list.length } : p));
+                } else {
+                    setFullSyncProgress(prev => prev.map((p, idx) => idx === i ? { ...p, status: 'completed', synced: 0 } : p));
+                }
+            }
+            toast.success('Re-sincronización FULL forzada completada con éxito.');
+            await fetchComparison();
+        } catch (error) {
+            console.error('Error in Forced Full Sync:', error);
+            const errMsg = error.response?.data?.message || error.response?.data?.error || 'La re-sincronización full falló.';
+            toast.error(errMsg);
+            setFullSyncProgress(prev => prev.map(p => p.status === 'syncing' ? { ...p, status: 'error' } : p));
+        }
+    };
+
     // Helper for rendering relationship path tooltip content
     const getRelationalTree = (item, type) => {
         switch (type) {
@@ -647,7 +690,15 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                             disabled={syncing || fullSyncing}
                             className="bg-orange-600 text-white text-xs font-semibold px-4 py-2 rounded hover:bg-orange-700 disabled:opacity-50 flex items-center gap-2"
                         >
-                            <Sparkles className="w-4 h-4" /> Sincronización Full
+                            <Sparkles className="w-4 h-4" /> Sincronización Nuevos
+                        </button>
+                        <button
+                            onClick={handleForceFullSync}
+                            disabled={syncing || fullSyncing}
+                            className="bg-red-600 text-white text-xs font-bold px-4 py-2 rounded hover:bg-red-700 disabled:opacity-50 flex items-center gap-2 shadow-sm"
+                            title="Re-procesar y actualizar forzadamente todos los registros (pisando datos)"
+                        >
+                            <RefreshCw className="w-4 h-4" /> RE-SINCRONIZACIÓN FULL
                         </button>
                     </div>
                 </div>
