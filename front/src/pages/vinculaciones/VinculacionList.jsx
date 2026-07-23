@@ -22,10 +22,20 @@ export default function VinculacionList() {
 
     const fetchVinculaciones = async () => {
         try {
+            console.log('[Browser Console - VinculacionList] Iniciando fetch de vinculaciones...');
+            console.log('[Browser Console - VinculacionList] Usuario actual:', {
+                id: user?.id,
+                name: user?.name,
+                email: user?.email,
+                role: user?.role,
+                contratista_id: user?.contratista_id,
+                contratista_ids: user?.contratista_ids
+            });
             const response = await api.get('/vinculaciones');
+            console.log('[Browser Console - VinculacionList] Vinculaciones obtenidas:', response.data.data);
             setVinculaciones(response.data.data);
         } catch (error) {
-            console.error('Error fetching vinculaciones:', error);
+            console.error('[Browser Console - VinculacionList] Error fetching vinculaciones:', error);
             toast.error('Error al cargar vinculaciones');
         } finally {
             setLoading(false);

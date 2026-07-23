@@ -24,8 +24,16 @@ const vinculacionController = {
             };
 
             if (role === 'administrador_contrato') {
+                console.log(`[Vinculacion Controller - GET /api/vinculaciones] User is administrador_contrato (ID: ${userId}). Filtering vinculaciones where administrador_contrato_id = ${userId}`);
                 includeAdmin.required = true;
                 includeAdmin.where.administrador_contrato_id = userId;
+            } else if (role === 'contratista_admin') {
+                const { Op } = require('sequelize');
+                const cIds = req.user.contratista_ids || [];
+                console.log(`[Vinculacion Controller - GET /api/vinculaciones] User is contratista_admin (ID: ${userId}). Allowed contratista_ids: [${cIds.join(', ')}]. Filtering vinculaciones where contratista_id IN (${cIds.join(', ')})`);
+                where.contratista_id = { [Op.in]: cIds };
+            } else {
+                console.log(`[Vinculacion Controller - GET /api/vinculaciones] User role: ${role} (ID: ${userId}). No specific role filter applied to Vinculacion query.`);
             }
 
             const vinculaciones = await Vinculacion.findAll({

@@ -44,26 +44,29 @@ const contratistaController = {
             };
 
             if (role === 'administrador_contrato') {
-                // Only contractors managed by this admin
+                console.log(`[Contratista Controller - GET /api/contratistas] User is administrador_contrato (ID: ${id}). Filtering contractors managed by admin.`);
                 includeVinculacion.required = true;
                 includeVinculacion.include[2].where = { administrador_contrato_id: id, activo: 1 };
                 includeVinculacion.include[2].required = true;
             } else if (role === 'contratista_admin') {
-                // Only their own companies
                 const { Op } = require('sequelize');
                 const cIds = req.user.contratista_ids || (contratista_id ? [contratista_id] : (req.user.contratista_id ? [req.user.contratista_id] : []));
+                console.log(`[Contratista Controller - GET /api/contratistas] User is contratista_admin (ID: ${id}). Allowed contratista_ids: [${cIds.join(', ')}]. Filtering whereContratista.id IN (${cIds.join(', ')})`);
                 whereContratista.id = { [Op.in]: cIds };
             } else if (role === 'contratista_user') {
                 // Only their own company, and strictly filtered vinculations if needed
                 const cId = contratista_id || req.user.contratista_id;
+                console.log(`[Contratista Controller - GET /api/contratistas] User is contratista_user (ID: ${id}). Allowed contratista_id: ${cId}.`);
                 whereContratista.id = cId;
                 includeVinculacion.where = {
-                    contratista_id: cId,
-                    servicio_id: req.user.tipo_contratista_id,
-                    dependencia_id: req.user.dependencia_id,
-                    activo: 1
+                     contratista_id: cId,
+                     servicio_id: req.user.tipo_contratista_id,
+                     dependencia_id: req.user.dependencia_id,
+                     activo: 1
                 };
                 includeVinculacion.required = true;
+            } else {
+                console.log(`[Contratista Controller - GET /api/contratistas] User role: ${role} (ID: ${id}). No specific role filter applied to Contratista query.`);
             }
 
             const contratistas = await Contratista.findAll({
