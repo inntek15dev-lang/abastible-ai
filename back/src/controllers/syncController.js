@@ -585,7 +585,7 @@ const syncData = async (req, res) => {
                 const associatedIds = associatedContratistas.map(c => c.id);
                 for (const cId of associatedIds) {
                     await ContratistaUsuario.findOrCreate({
-                        where: { user_id: user.id, contratista_id: cId },
+                        where: { user_id: user.usu_id, contratista_id: cId },
                         transaction
                     });
                 }
@@ -677,8 +677,17 @@ const syncData = async (req, res) => {
                 transaction
             });
 
-            if (!created && user.role !== 'administrador_contrato' && user.role !== 'admin') {
-                await user.update({ role: 'administrador_contrato' }, { transaction });
+            if (!created) {
+                const updateFields = {};
+                if (user.role !== 'administrador_contrato' && user.role !== 'admin') {
+                    updateFields.role = 'administrador_contrato';
+                }
+                if (item.usu_id && user.usu_id !== item.usu_id) {
+                    updateFields.usu_id = item.usu_id;
+                }
+                if (Object.keys(updateFields).length > 0) {
+                    await user.update(updateFields, { transaction });
+                }
             }
 
             const syncedVinculacionIds = [];
@@ -737,7 +746,7 @@ const syncData = async (req, res) => {
                     const [adminAssoc, adminAssocCreated] = await Administracion.findOrCreate({
                         where: {
                             vinculacion_id: vinculacion.id,
-                            administrador_contrato_id: user.id
+                            administrador_contrato_id: user.usu_id
                         },
                         defaults: { activo: 1 },
                         transaction

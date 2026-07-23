@@ -48,7 +48,7 @@ const authMiddleware = async (req, res, next) => {
 
         // Retrieve multiple assigned contractors (for contratista_admin many-to-many relationship)
         const assigned = await ContratistaUsuario.findAll({
-            where: { user_id: user.id },
+            where: { user_id: user.usu_id },
             attributes: ['contratista_id']
         });
         const contratistaIds = [...new Set(assigned.map(c => Number(c.contratista_id)))];
@@ -61,7 +61,7 @@ const authMiddleware = async (req, res, next) => {
         let vinculacion_id = null;
         if (user.role === 'contratista_user') {
             const vu = await VinculacionUsuario.findOne({
-                where: { user_id: user.id, activo: 1 },
+                where: { user_id: user.usu_id, activo: 1 },
                 attributes: ['vinculacion_id']
             });
             vinculacion_id = vu ? Number(vu.vinculacion_id) : null;
@@ -69,6 +69,7 @@ const authMiddleware = async (req, res, next) => {
 
         req.user = {
             ...user.toJSON(),
+            id: user.usu_id, // Map id to usu_id for backend/frontend backward compatibility
             contratista_ids: contratistaIds,
             vinculacion_id,
             privileges

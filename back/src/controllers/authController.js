@@ -81,14 +81,14 @@ const authController = {
             }
 
             const token = jwt.sign(
-                { id: user.id, email: user.email, role: user.role },
+                { id: user.usu_id, email: user.email, role: user.role },
                 process.env.JWT_SECRET,
                 { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
             );
 
             // Retrieve multiple assigned contractors (for contratista_admin many-to-many relationship)
             const assigned = await ContratistaUsuario.findAll({
-                where: { user_id: user.id },
+                where: { user_id: user.usu_id },
                 attributes: ['contratista_id']
             });
             const contratistaIds = [...new Set(assigned.map(c => Number(c.contratista_id)))];
@@ -100,7 +100,7 @@ const authController = {
             let vinculacion_id = null;
             if (user.role === 'contratista_user') {
                 const vu = await VinculacionUsuario.findOne({
-                    where: { user_id: user.id, activo: 1 },
+                    where: { user_id: user.usu_id, activo: 1 },
                     attributes: ['vinculacion_id']
                 });
                 vinculacion_id = vu ? Number(vu.vinculacion_id) : null;
@@ -108,6 +108,7 @@ const authController = {
 
             const userData = user.toJSON();
             delete userData.password;
+            userData.id = user.usu_id; // Map id to usu_id for frontend backward compatibility
 
             res.json({
                 success: true,
@@ -245,19 +246,29 @@ const authController = {
             }
             console.log(`[SSO ROL MAPPING] Rol externo: "${extRol}" -> Rol interno mapeado: "${mappedRole}"`);
 
-            // Find or create user
+            // Find user strictly by usu_id
             let user = null;
             if (userData.usu_id) {
                 console.log(`[DB QUERY] Buscando usuario existente con usu_id: ${userData.usu_id}`);
                 user = await User.findOne({
                     where: { usu_id: userData.usu_id }
                 });
+            } else {
+                console.warn("[SSO] Validación inválida: No se encontró usu_id en la respuesta del SSO");
+                return res.status(400).json({
+                    success: false,
+                    message: 'La respuesta de validación del SSO no contiene un usu_id válido'
+                });
             }
-            if (!user && userData.email) {
-                console.log(`[DB QUERY] Buscando usuario existente con email: ${userData.email}`);
-                user = await User.findOne({ where: { email: userData.email } });
+            console.log(`  Resultado: ${user ? `Encontrado (usu_id: ${user.usu_id}, Rol: ${user.role})` : 'No encontrado'}`);
+
+            if (!user) {
+                console.warn(`[SSO ACCESS DENIED] Usuario con usu_id ${userData.usu_id} no está registrado en el sistema local.`);
+                return res.status(401).json({
+                    success: false,
+                    message: 'Usuario no registrado en el sistema. Contacte al administrador.'
+                });
             }
-            console.log(`  Resultado: ${user ? `Encontrado (ID: ${user.id}, Rol: ${user.role})` : 'No encontrado'}`);
 
             // Resolve and assign contractor if role is contratista_admin
             let firstContratistaId = null;
@@ -323,64 +334,43 @@ const authController = {
                 }
             }
 
-            if (!user) {
-                // Register user locally
-                const randomPassword = bcrypt.hashSync(require('crypto').randomBytes(16).toString('hex'), 10);
-                const userPayload = {
-                    email: userData.email,
-                    name: userData.nombre,
-                    usuario: userData.usuario,
-                    usu_id: userData.usu_id,
-                    password: randomPassword,
-                    role: mappedRole,
-                    contratista_id: firstContratistaId,
-                    eecc_nombre: firstEeccNombre,
-                    activo: 1
-                };
-                console.log(`[DB WRITE] -> Creando nuevo usuario local`);
-                console.log(`  Payload:`, JSON.stringify({ ...userPayload, password: '***' }, null, 2));
+            // Update specific data if missing or needed
+            let updated = false;
+            const updatePayload = {};
 
-                user = await User.create(userPayload);
-                console.log(`  Response (Creado):`, JSON.stringify(user.toJSON(), null, 2));
+            if (!user.usu_id && userData.usu_id) {
+                user.usu_id = userData.usu_id;
+                updatePayload.usu_id = userData.usu_id;
+                updated = true;
+            }
+            if (!user.usuario && userData.usuario) {
+                user.usuario = userData.usuario;
+                updatePayload.usuario = userData.usuario;
+                updated = true;
+            }
+            if (user.role !== mappedRole) {
+                user.role = mappedRole;
+                updatePayload.role = mappedRole;
+                updated = true;
+            }
+            if (firstContratistaId && user.contratista_id !== firstContratistaId) {
+                user.contratista_id = firstContratistaId;
+                updatePayload.contratista_id = firstContratistaId;
+                updated = true;
+            }
+            if (firstEeccNombre && user.eecc_nombre !== firstEeccNombre) {
+                user.eecc_nombre = firstEeccNombre;
+                updatePayload.eecc_nombre = firstEeccNombre;
+                updated = true;
+            }
+
+            if (updated) {
+                console.log(`[DB WRITE] -> Actualizando usuario existente (usu_id: ${user.usu_id})`);
+                console.log(`  Payload de cambios:`, JSON.stringify(updatePayload, null, 2));
+                await user.save();
+                console.log(`  Response (Actualizado):`, JSON.stringify(user.toJSON(), null, 2));
             } else {
-                // Update specific data if missing or needed
-                let updated = false;
-                const updatePayload = {};
-
-                if (!user.usu_id && userData.usu_id) {
-                    user.usu_id = userData.usu_id;
-                    updatePayload.usu_id = userData.usu_id;
-                    updated = true;
-                }
-                if (!user.usuario && userData.usuario) {
-                    user.usuario = userData.usuario;
-                    updatePayload.usuario = userData.usuario;
-                    updated = true;
-                }
-                if (user.role !== mappedRole) {
-                    user.role = mappedRole;
-                    updatePayload.role = mappedRole;
-                    updated = true;
-                }
-                if (firstContratistaId && user.contratista_id !== firstContratistaId) {
-                    user.contratista_id = firstContratistaId;
-                    updatePayload.contratista_id = firstContratistaId;
-                    updated = true;
-                }
-                if (firstEeccNombre && user.eecc_nombre !== firstEeccNombre) {
-                    user.eecc_nombre = firstEeccNombre;
-                    updatePayload.eecc_nombre = firstEeccNombre;
-                    updated = true;
-                }
-
-                if (updated) {
-                    console.log(`[DB WRITE] -> Actualizando usuario existente (ID: ${user.id})`);
-                    console.log(`  Payload de cambios:`, JSON.stringify(updatePayload, null, 2));
-                    await user.save();
-                    console.log(`  Response (Actualizado):`, JSON.stringify(user.toJSON(), null, 2));
-                } else {
-                    console.log(`[DB INFO] Usuario existente al día (ID: ${user.id}), no requiere actualización.`);
-                }
+                console.log(`[DB INFO] Usuario existente al día (usu_id: ${user.usu_id}), no requiere actualización.`);
             }
 
             // Sincronizar tabla de muchos a muchos contratista_usuarios
@@ -431,15 +421,15 @@ const authController = {
             }
 
             const jwtToken = jwt.sign(
-                { id: user.id, email: user.email, role: user.role },
+                { id: user.usu_id, email: user.email, role: user.role },
                 process.env.JWT_SECRET,
                 { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
             );
 
             // Retrieve multiple assigned contractors (for contratista_admin many-to-many relationship)
-            console.log(`[DB QUERY] Obteniendo todos los IDs de contratistas vinculados al usuario ID: ${user.id}`);
+            console.log(`[DB QUERY] Obteniendo todos los IDs de contratistas vinculados al usuario usu_id: ${user.usu_id}`);
             const assigned = await ContratistaUsuario.findAll({
-                where: { user_id: user.id },
+                where: { user_id: user.usu_id },
                 attributes: ['contratista_id']
             });
             const contratistaIds = [...new Set(assigned.map(c => Number(c.contratista_id)))];
@@ -452,7 +442,7 @@ const authController = {
             let ssoVinculacionId = null;
             if (user.role === 'contratista_user') {
                 const vu = await VinculacionUsuario.findOne({
-                    where: { user_id: user.id, activo: 1 },
+                    where: { user_id: user.usu_id, activo: 1 },
                     attributes: ['vinculacion_id']
                 });
                 ssoVinculacionId = vu ? Number(vu.vinculacion_id) : null;
@@ -461,6 +451,7 @@ const authController = {
 
             const userJson = user.toJSON();
             delete userJson.password;
+            userJson.id = user.usu_id; // Map id to usu_id for frontend backward compatibility
 
             const finalResponse = {
                 success: true,

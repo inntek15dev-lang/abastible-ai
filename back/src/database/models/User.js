@@ -5,8 +5,7 @@ const sequelize = require('../index');
 const User = sequelize.define('User', {
     id: {
         type: DataTypes.BIGINT.UNSIGNED,
-        primaryKey: true,
-        autoIncrement: true
+        allowNull: true
     },
     name: {
         type: DataTypes.STRING(255),
@@ -18,7 +17,8 @@ const User = sequelize.define('User', {
     },
     usu_id: {
         type: DataTypes.BIGINT.UNSIGNED,
-        allowNull: true
+        primaryKey: true,
+        allowNull: false
     },
     email: {
         type: DataTypes.STRING(255),

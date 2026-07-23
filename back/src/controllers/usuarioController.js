@@ -314,7 +314,7 @@ const usuarioController = {
             if (finalRole === 'contratista_user') {
                 const { vinculacion_id } = req.body;
                 await VinculacionUsuario.create({
-                    user_id: usuario.id,
+                    user_id: usuario.usu_id,
                     vinculacion_id: Number(vinculacion_id),
                     activo: 1
                 });
@@ -328,7 +328,7 @@ const usuarioController = {
                 }
                 if (multipleContractorIds && Array.isArray(multipleContractorIds) && multipleContractorIds.length > 0) {
                     const assocData = multipleContractorIds.map(cId => ({
-                        user_id: usuario.id,
+                        user_id: usuario.usu_id,
                         contratista_id: cId
                     }));
                     await ContratistaUsuario.bulkCreate(assocData);
@@ -341,7 +341,7 @@ const usuarioController = {
 
                 if (depId && servId) {
                     await ContratistaAsignacion.create({
-                        user_id: usuario.id,
+                        user_id: usuario.usu_id,
                         dependencia_id: depId,
                         tipo_contratista_id: servId,
                         administrador_contrato_id: adcId || null,
@@ -376,7 +376,7 @@ const usuarioController = {
                 return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
             }
 
-            const isSelf = String(usuario.id) === String(req.user.id);
+            const isSelf = String(usuario.usu_id) === String(req.user.id);
 
             // SECURITY SCOPE CHECK
             // Prevent unauthorized edits by roles with limited scope
@@ -403,7 +403,7 @@ const usuarioController = {
                 });
                 const assignedIds = asignaciones.map(a => String(a.user_id));
 
-                const isDirectlyAssigned = assignedIds.includes(String(usuario.id));
+                const isDirectlyAssigned = assignedIds.includes(String(usuario.usu_id));
                 const isChildOfAssigned = usuario.parent_id && assignedIds.includes(String(usuario.parent_id));
 
                 if (!isSelf && !isDirectlyAssigned && !isChildOfAssigned) {
@@ -440,9 +440,9 @@ const usuarioController = {
             if (usuario.role === 'contratista_user') {
                 const { vinculacion_id } = req.body;
                 if (vinculacion_id) {
-                    await VinculacionUsuario.destroy({ where: { user_id: usuario.id } });
+                    await VinculacionUsuario.destroy({ where: { user_id: usuario.usu_id } });
                     await VinculacionUsuario.create({
-                        user_id: usuario.id,
+                        user_id: usuario.usu_id,
                         vinculacion_id: Number(vinculacion_id),
                         activo: 1
                     });
@@ -459,10 +459,10 @@ const usuarioController = {
                 let multipleContractorIds = req.body.contratista_ids;
                 
                 if (multipleContractorIds && Array.isArray(multipleContractorIds)) {
-                    await ContratistaUsuario.destroy({ where: { user_id: usuario.id } });
+                    await ContratistaUsuario.destroy({ where: { user_id: usuario.usu_id } });
                     if (multipleContractorIds.length > 0) {
                         const assocData = multipleContractorIds.map(cId => ({
-                            user_id: usuario.id,
+                            user_id: usuario.usu_id,
                             contratista_id: cId
                         }));
                         await ContratistaUsuario.bulkCreate(assocData);
@@ -477,7 +477,7 @@ const usuarioController = {
                     const cId = req.body.contratista_id;
                     if (cId) {
                         await ContratistaUsuario.findOrCreate({
-                            where: { user_id: usuario.id, contratista_id: cId }
+                            where: { user_id: usuario.usu_id, contratista_id: cId }
                         });
                     }
                 }
@@ -486,13 +486,13 @@ const usuarioController = {
                 if (req.body.remove_contratista_id) {
                     const removeId = Number(req.body.remove_contratista_id);
                     await ContratistaUsuario.destroy({
-                        where: { user_id: usuario.id, contratista_id: removeId }
+                        where: { user_id: usuario.usu_id, contratista_id: removeId }
                     });
 
                     // If the primary contratista_id was the one removed, find another one
                     if (Number(usuario.contratista_id) === removeId) {
                         const nextAssoc = await ContratistaUsuario.findOne({
-                            where: { user_id: usuario.id },
+                            where: { user_id: usuario.usu_id },
                             attributes: ['contratista_id']
                         });
                         const nextId = nextAssoc ? nextAssoc.contratista_id : null;
@@ -535,7 +535,7 @@ const usuarioController = {
         try {
             const usuario = await User.findByPk(req.params.id);
 
-            if (String(usuario.id) === String(req.user.id)) {
+            if (String(usuario.usu_id) === String(req.user.id)) {
                 return res.status(403).json({ success: false, message: 'No puede desactivar su propia cuenta' });
             }
             
