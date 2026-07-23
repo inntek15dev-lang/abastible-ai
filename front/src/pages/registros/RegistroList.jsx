@@ -158,13 +158,25 @@ export default function RegistroList() {
     const fetchRegistros = async (currentFilters = filters) => {
         try {
             setLoading(true);
+            console.log('[Browser Console - RegistroList] Iniciando fetch de registros...');
+            console.log('[Browser Console - RegistroList] Usuario actual:', {
+                id: user?.id,
+                name: user?.name,
+                email: user?.email,
+                role: user?.role,
+                contratista_id: user?.contratista_id,
+                contratista_ids: user?.contratista_ids
+            });
             const params = new URLSearchParams();
             if (currentFilters.gerencia && currentFilters.gerencia !== 'Todas') params.append('gerencia_id', currentFilters.gerencia);
             if (currentFilters.subgerencia && currentFilters.subgerencia !== 'Todas') params.append('subgerencia_id', currentFilters.subgerencia);
             
+            console.log('[Browser Console - RegistroList] Ejecutando query de registros con parámetros:', Object.fromEntries(params.entries()));
             const response = await api.get(`/registros?${params.toString()}`);
+            console.log('[Browser Console - RegistroList] Registros obtenidos:', response.data.data);
             setRegistros(response.data.data);
         } catch (err) {
+            console.error('[Browser Console - RegistroList] Error al cargar registros:', err);
             setError('Error al cargar registros');
         } finally {
             setLoading(false);

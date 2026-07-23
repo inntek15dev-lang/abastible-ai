@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagrama Entidad-Relación - Base de Datos OIEM Abastible</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-bg: #0f172a;
+            --color-surface: #1e293b;
+            --color-border: #334155;
+            --color-primary: #ff6600;
+            --color-primary-hover: #e05a00;
+            --color-secondary: #0ea5e9;
+            --color-text: #f8fafc;
+            --color-text-muted: #94a3b8;
+            --color-pk: #fbbf24;
+            --color-fk: #a855f7;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Dashboard Shell */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .header {
+            background-color: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--color-border);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .header-title h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            color: var(--color-text);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-title h1 span {
+            color: var(--color-primary);
+        }
+
+        .header-title p {
+            font-size: 0.8rem;
+            color: var(--color-text-muted);
+            margin-top: 2px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-border);
+            color: var(--color-text);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            border-color: var(--color-primary);
+            background-color: rgba(255, 102, 0, 0.1);
+        }
+
+        .btn-primary {
+            background-color: var(--color-primary);
+            border-color: var(--color-primary);
+            font-weight: 600;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--color-primary-hover);
+            border-color: var(--color-primary-hover);
+            box-shadow: 0 0 15px rgba(255, 102, 0, 0.4);
+        }
+
+        /* Interactive Canvas */
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            cursor: grab;
+            outline: none;
+        }
+
+        .canvas-container:active {
+            cursor: grabbing;
+        }
+
+        svg#canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Map Legend */
+        .legend {
+            position: absolute;
+            bottom: 24px;
+            left: 24px;
+            background-color: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10;
+            font-size: 0.8rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        .legend-title {
+            font-weight: 700;
+            color: var(--color-text);
+            margin-bottom: 4px;
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 6px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+
+        /* SVG Class Styling */
+        .table-node {
+            cursor: move;
+            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.5));
+            transition: filter 0.2s ease;
+        }
+        
+        .table-node:hover {
+            filter: drop-shadow(0 15px 25px rgba(255, 102, 0, 0.2)) brightness(1.05);
+        }
+
+        .table-node rect.bg {
+            fill: #1e293b;
+            stroke: #334155;
+            stroke-width: 1.5;
+            rx: 8;
+        }
+
+        .table-node:hover rect.bg {
+            stroke: var(--color-primary);
+        }
+
+        .table-node rect.header-bg {
+            fill: #0f172a;
+            rx: 8;
+        }
+
+        .table-title {
+            font-weight: 700;
+            font-size: 13px;
+            fill: var(--color-text);
+        }
+
+        .field-text {
+            font-size: 11px;
+            fill: var(--color-text-muted);
+        }
+
+        .field-type {
+            font-family: monospace;
+            font-size: 10px;
+            fill: #64748b;
+            text-anchor: end;
+        }
+
+        .relation-line {
+            fill: none;
+            stroke: #475569;
+            stroke-width: 1.5;
+            transition: stroke 0.2s, stroke-width 0.2s;
+            pointer-events: stroke;
+            cursor: pointer;
+        }
+
+        .relation-line:hover {
+            stroke: var(--color-primary);
+            stroke-width: 3.5;
+        }
+
+        .relation-marker {
+            fill: #475569;
+        }
+
+        /* Floating Sidebar Controls */
+        .controls {
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            background-color: rgba(30, 41, 59, 0.9);
+            border: 1px solid var(--color-border);
+            padding: 8px;
+            border-radius: 8px;
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .ctrl-btn {
+            background-color: var(--color-bg);
+            border: 1px solid var(--color-border);
+            color: var(--color-text);
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            transition: all 0.15s ease;
+        }
+
+        .ctrl-btn:hover {
+            background-color: var(--color-primary);
+            border-color: var(--color-primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <div class="header-title">
+                <h1>Base de Datos <span>OIEM Abastible</span> - Diagrama ER</h1>
+                <p>Nodos arrastrables de forma interactiva con relaciones jerárquicas completas</p>
+            </div>
+            <div class="actions">
+                <button class="btn" id="btnReset">Restablecer Vista</button>
+                <button class="btn btn-primary" id="btnFullscreen">Ver en Pantalla Completa</button>
+            </div>
+        </header>
+
+        <div class="canvas-container" id="canvasContainer">
+            <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
+                <!-- Defs for markers/arrows -->
+                <defs>
+                    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#ff6600"/>
+                    </marker>
+                    <marker id="dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                        <circle cx="5" cy="5" r="3" fill="#0ea5e9"/>
+                    </marker>
+                </defs>
+
+                <!-- Grid Background -->
+                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="1"/>
+                </pattern>
+                <rect width="100%" height="100%" fill="url(#grid)" />
+
+                <!-- Group for zoom/pan transform -->
+                <g id="viewport">
+                    <g id="relations-group"></g>
+                    <g id="nodes-group"></g>
+                </g>
+            </svg>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-title">Leyenda de Atributos</div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: var(--color-pk);"></div>
+                <span>Clave Primaria (PK)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: var(--color-fk);"></div>
+                <span>Clave Foránea (FK)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: var(--color-primary);"></div>
+                <span>Relación de Pertenencia</span>
+            </div>
+        </div>
+
+        <!-- Control buttons -->
+        <div class="controls">
+            <button class="ctrl-btn" id="btnZoomIn" title="Acercar">+</button>
+            <button class="ctrl-btn" id="btnZoomOut" title="Alejar">- </button>
+            <button class="ctrl-btn" id="btnZoomFit" title="Ajustar">⛶</button>
+        </div>
+    </div>
+
+    <script>
+        // Database Models Definition
+        const models = [
+            {
+                name: "User",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "name", type: "VARCHAR" },
+                    { name: "email", type: "VARCHAR" },
+                    { name: "role", type: "VARCHAR" },
+                    { name: "contratista_id", type: "INT", key: "FK" },
+                    { name: "usu_id", type: "INT" },
+                    { name: "activo", type: "BOOLEAN" }
+                ],
+                x: 100, y: 100
+            },
+            {
+                name: "Role",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "name", type: "VARCHAR" },
+                    { name: "label", type: "VARCHAR" },
+                    { name: "active", type: "BOOLEAN" }
+                ],
+                x: 450, y: 50
+            },
+            {
+                name: "Privilegio",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "role_id", type: "INT", key: "FK" },
+                    { name: "ref_modulo", type: "VARCHAR" },
+                    { name: "read", type: "BOOLEAN" },
+                    { name: "write", type: "BOOLEAN" },
+                    { name: "excec", type: "BOOLEAN" }
+                ],
+                x: 750, y: 50
+            },
+            {
+                name: "Contratista",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "rut", type: "VARCHAR" },
+                    { name: "nombre", type: "VARCHAR" },
+                    { name: "direccion", type: "VARCHAR" },
+                    { name: "telefono", type: "VARCHAR" },
+                    { name: "email_contacto", type: "VARCHAR" },
+                    { name: "activo", type: "BOOLEAN" }
+                ],
+                x: 100, y: 400
+            },
+            {
+                name: "ContratistaUsuario",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "user_id", type: "INT", key: "FK" },
+                    { name: "contratista_id", type: "INT", key: "FK" }
+                ],
+                x: 450, y: 250
+            },
+            {
+                name: "Gerencia",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "nombre", type: "VARCHAR" }
+                ],
+                x: 1100, y: 400
+            },
+            {
+                name: "Subgerencia",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "nombre", type: "VARCHAR" },
+                    { name: "gerencia_id", type: "INT", key: "FK" }
+                ],
+                x: 1100, y: 600
+            },
+            {
+                name: "TipoContratista (Servicio)",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "nombre", type: "VARCHAR" },
+                    { name: "descripcion", type: "VARCHAR" },
+                    { name: "subgerencia_id", type: "INT", key: "FK" },
+                    { name: "activo", type: "BOOLEAN" }
+                ],
+                x: 1100, y: 800
+            },
+            {
+                name: "Dependencia",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "nombre", type: "VARCHAR" },
+                    { name: "subgerencia_id", type: "INT", key: "FK" },
+                    { name: "activo", type: "BOOLEAN" }
+                ],
+                x: 1450, y: 800
+            },
+            {
+                name: "Vinculacion",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "contratista_id", type: "INT", key: "FK" },
+                    { name: "servicio_id", type: "INT", key: "FK" },
+                    { name: "dependencia_id", type: "INT", key: "FK" },
+                    { name: "subgerencia_id", type: "INT", key: "FK" },
+                    { name: "gerencia_id", type: "INT", key: "FK" },
+                    { name: "numero_contrato", type: "VARCHAR" },
+                    { name: "fecha_inicio_contrato", type: "DATE" },
+                    { name: "fecha_termino_contrato", type: "DATE" }
+                ],
+                x: 600, y: 550
+            },
+            {
+                name: "Administracion",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "vinculacion_id", type: "INT", key: "FK" },
+                    { name: "administrador_contrato_id", type: "INT", key: "FK" },
+                    { name: "activo", type: "BOOLEAN" }
+                ],
+                x: 200, y: 800
+            },
+            {
+                name: "VinculacionUsuario",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "vinculacion_id", type: "INT", key: "FK" },
+                    { name: "user_id", type: "INT", key: "FK" },
+                    { name: "activo", type: "BOOLEAN" }
+                ],
+                x: 450, y: 900
+            },
+            {
+                name: "Programa",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "nombre", type: "VARCHAR" },
+                    { name: "codigo", type: "VARCHAR" },
+                    { name: "version", type: "VARCHAR" },
+                    { name: "anio", type: "INT" },
+                    { name: "activo", type: "BOOLEAN" }
+                ],
+                x: 1750, y: 50
+            },
+            {
+                name: "Elemento",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "programa_id", type: "INT", key: "FK" },
+                    { name: "nombre", type: "VARCHAR" },
+                    { name: "orden", type: "INT" }
+                ],
+                x: 1750, y: 300
+            },
+            {
+                name: "Actividad",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "elemento_id", type: "INT", key: "FK" },
+                    { name: "nombre", type: "VARCHAR" },
+                    { name: "tipo_evidencia", type: "VARCHAR" },
+                    { name: "periodicidad", type: "VARCHAR" },
+                    { name: "orden", type: "INT" }
+                ],
+                x: 1750, y: 550
+            },
+            {
+                name: "Registro",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "vinculacion_id", type: "INT", key: "FK" },
+                    { name: "mes", type: "INT" },
+                    { name: "anio", type: "INT" },
+                    { name: "cumplimiento", type: "DECIMAL" },
+                    { name: "comentario", type: "TEXT" }
+                ],
+                x: 1450, y: 200
+            },
+            {
+                name: "RegistroActividad",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "registro_id", type: "INT", key: "FK" },
+                    { name: "actividad_id", type: "INT", key: "FK" },
+                    { name: "estado", type: "VARCHAR" }
+                ],
+                x: 1450, y: 500
+            },
+            {
+                name: "Evidencia",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "registro_actividad_id", type: "INT", key: "FK" },
+                    { name: "path_archivo", type: "VARCHAR" },
+                    { name: "nombre_original", type: "VARCHAR" }
+                ],
+                x: 1150, y: 200
+            },
+            {
+                name: "Hallazgo",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "registro_actividad_id", type: "INT", key: "FK" },
+                    { name: "descripcion", type: "TEXT" },
+                    { name: "severidad", type: "VARCHAR" },
+                    { name: "estado", type: "VARCHAR" }
+                ],
+                x: 2150, y: 300
+            },
+            {
+                name: "Compromiso",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "hallazgo_id", type: "INT", key: "FK" },
+                    { name: "descripcion", type: "TEXT" },
+                    { name: "fecha_compromiso", type: "DATE" },
+                    { name: "responsable", type: "VARCHAR" }
+                ],
+                x: 2150, y: 600
+            },
+            {
+                name: "SolicitudReapertura",
+                fields: [
+                    { name: "id", type: "INT", key: "PK" },
+                    { name: "registro_id", type: "INT", key: "FK" },
+                    { name: "motivo", type: "TEXT" },
+                    { name: "estado", type: "VARCHAR" }
+                ],
+                x: 2150, y: 50
+            }
+        ];
+
+        const relations = [
+            { from: "Role", fromField: "id", to: "Privilegio", toField: "role_id" },
+            { from: "Contratista", fromField: "id", to: "User", toField: "contratista_id" },
+            { from: "User", fromField: "id", to: "ContratistaUsuario", toField: "user_id" },
+            { from: "Contratista", fromField: "id", to: "ContratistaUsuario", toField: "contratista_id" },
+            { from: "Gerencia", fromField: "id", to: "Subgerencia", toField: "gerencia_id" },
+            { from: "Subgerencia", fromField: "id", to: "TipoContratista (Servicio)", toField: "subgerencia_id" },
+            { from: "Subgerencia", fromField: "id", to: "Dependencia", toField: "subgerencia_id" },
+            
+            // Vinculacion Relationships
+            { from: "Contratista", fromField: "id", to: "Vinculacion", toField: "contratista_id" },
+            { from: "TipoContratista (Servicio)", fromField: "id", to: "Vinculacion", toField: "servicio_id" },
+            { from: "Dependencia", fromField: "id", to: "Vinculacion", toField: "dependencia_id" },
+            { from: "Subgerencia", fromField: "id", to: "Vinculacion", toField: "subgerencia_id" },
+            { from: "Gerencia", fromField: "id", to: "Vinculacion", toField: "gerencia_id" },
+
+            // Administracion
+            { from: "Vinculacion", fromField: "id", to: "Administracion", toField: "vinculacion_id" },
+            { from: "User", fromField: "id", to: "Administracion", toField: "administrador_contrato_id" },
+
+            // VinculacionUsuario
+            { from: "Vinculacion", fromField: "id", to: "VinculacionUsuario", toField: "vinculacion_id" },
+            { from: "User", fromField: "id", to: "VinculacionUsuario", toField: "user_id" },
+
+            // Programa, Elemento, Actividad
+            { from: "Programa", fromField: "id", to: "Elemento", toField: "programa_id" },
+            { from: "Elemento", fromField: "id", to: "Actividad", toField: "elemento_id" },
+
+            // Registro
+            { from: "Vinculacion", fromField: "id", to: "Registro", toField: "vinculacion_id" },
+            { from: "Registro", fromField: "id", to: "RegistroActividad", toField: "registro_id" },
+            { from: "Actividad", fromField: "id", to: "RegistroActividad", toField: "actividad_id" },
+
+            // Evidencia / Hallazgo / Solicitudes
+            { from: "RegistroActividad", fromField: "id", to: "Evidencia", toField: "registro_activity_id" },
+            { from: "RegistroActividad", fromField: "id", to: "Hallazgo", toField: "registro_actividad_id" },
+            { from: "Hallazgo", fromField: "id", to: "Compromiso", toField: "hallazgo_id" },
+            { from: "Registro", fromField: "id", to: "SolicitudReapertura", toField: "registro_id" }
+        ];
+
+        // Constants for layouts
+        const fieldHeight = 22;
+        const width = 260;
+
+        // State variables
+        let panX = 0;
+        let panY = 0;
+        let scale = 0.7;
+        let activeDragNode = null;
+        let isPanning = false;
+        let startX, startY;
+
+        // Viewport elements
+        const viewport = document.getElementById('viewport');
+        const nodesGroup = document.getElementById('nodes-group');
+        const relationsGroup = document.getElementById('relations-group');
+        const canvasContainer = document.getElementById('canvasContainer');
+        const canvas = document.getElementById('canvas');
+
+        // Apply pan & zoom transforms
+        function updateTransform() {
+            viewport.setAttribute('transform', `translate(${panX}, ${panY}) scale(${scale})`);
+        }
+
+        // Render nodes representing tables
+        function drawNodes() {
+            nodesGroup.innerHTML = '';
+            models.forEach((m, idx) => {
+                const nodeHeight = 40 + m.fields.length * fieldHeight;
+                
+                // Group element
+                const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                g.setAttribute('class', 'table-node');
+                g.setAttribute('transform', `translate(${m.x}, ${m.y})`);
+                g.setAttribute('id', `node-${m.name}`);
+                
+                // Node background card
+                const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                bg.setAttribute('class', 'bg');
+                bg.setAttribute('width', width);
+                bg.setAttribute('height', nodeHeight);
+                g.appendChild(bg);
+
+                // Header background
+                const headerBg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                headerBg.setAttribute('class', 'header-bg');
+                headerBg.setAttribute('width', width);
+                headerBg.setAttribute('height', 34);
+                g.appendChild(headerBg);
+
+                // Title
+                const titleText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                titleText.setAttribute('class', 'table-title');
+                titleText.setAttribute('x', 14);
+                titleText.setAttribute('y', 21);
+                titleText.textContent = m.name;
+                g.appendChild(titleText);
+
+                // Draw fields
+                m.fields.forEach((f, fIdx) => {
+                    const yPos = 52 + fIdx * fieldHeight;
+                    
+                    // Field text
+                    const fText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    fText.setAttribute('class', 'field-text');
+                    fText.setAttribute('x', 16);
+                    fText.setAttribute('y', yPos);
+                    
+                    // Prefix if key (PK/FK)
+                    if (f.key === 'PK') {
+                        fText.setAttribute('fill', 'var(--color-pk)');
+                        fText.style.fontWeight = 'bold';
+                        fText.textContent = `🔑 ${f.name}`;
+                    } else if (f.key === 'FK') {
+                        fText.setAttribute('fill', 'var(--color-fk)');
+                        fText.style.fontWeight = '500';
+                        fText.textContent = `🔗 ${f.name}`;
+                    } else {
+                        fText.textContent = f.name;
+                    }
+                    g.appendChild(fText);
+
+                    // Field type
+                    const fType = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    fType.setAttribute('class', 'field-type');
+                    fType.setAttribute('x', width - 16);
+                    fType.setAttribute('y', yPos);
+                    fType.textContent = f.type;
+                    g.appendChild(fType);
+                });
+
+                // Attach drag handlers
+                g.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    activeDragNode = {
+                        node: m,
+                        offsetY: e.clientY / scale - m.y,
+                        offsetX: e.clientX / scale - m.x
+                    };
+                });
+
+                nodesGroup.appendChild(g);
+            });
+        }
+
+        // Draw connections linking the tables
+        function drawRelations() {
+            relationsGroup.innerHTML = '';
+            relations.forEach(r => {
+                const fromNode = models.find(m => m.name === r.from);
+                const toNode = models.find(m => m.name === r.to);
+                if (!fromNode || !toNode) return;
+
+                // Find field vertical index position
+                const fromFieldIndex = fromNode.fields.findIndex(f => f.name === r.fromField);
+                const toFieldIndex = toNode.fields.findIndex(f => f.name === r.toField);
+
+                const yFrom = fromNode.y + 44 + (fromFieldIndex !== -1 ? fromFieldIndex * fieldHeight : 0);
+                const yTo = toNode.y + 44 + (toFieldIndex !== -1 ? toFieldIndex * fieldHeight : 0);
+
+                // Deduced anchors
+                const xFrom = fromNode.x + (fromNode.x < toNode.x ? width : 0);
+                const xTo = toNode.x + (toNode.x < fromNode.x ? width : 0);
+
+                const controlX1 = xFrom + (fromNode.x < toNode.x ? 60 : -60);
+                const controlX2 = xTo + (toNode.x < fromNode.x ? 60 : -60);
+
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute('class', 'relation-line');
+                
+                // Beautiful Cubic Bezier connection curve
+                path.setAttribute('d', `M ${xFrom} ${yFrom} C ${controlX1} ${yFrom}, ${controlX2} ${yTo}, ${xTo} ${yTo}`);
+                path.setAttribute('marker-start', 'url(#dot)');
+                path.setAttribute('marker-end', 'url(#arrow)');
+
+                // Interactivity details
+                path.addEventListener('mouseenter', () => {
+                    path.setAttribute('stroke', 'var(--color-primary)');
+                    path.setAttribute('stroke-width', '4');
+                });
+                path.addEventListener('mouseleave', () => {
+                    path.removeAttribute('stroke');
+                    path.removeAttribute('stroke-width');
+                });
+
+                relationsGroup.appendChild(path);
+            });
+        }
+
+        // Global mouse handlers for Panning and Dragging Nodes
+        window.addEventListener('mousemove', (e) => {
+            if (activeDragNode) {
+                activeDragNode.node.x = e.clientX / scale - activeDragNode.offsetX;
+                activeDragNode.node.y = e.clientY / scale - activeDragNode.offsetY;
+                
+                // Update specific node representation
+                const element = document.getElementById(`node-${activeDragNode.node.name}`);
+                if (element) {
+                    element.setAttribute('transform', `translate(${activeDragNode.node.x}, ${activeDragNode.node.y})`);
+                }
+                drawRelations();
+            } else if (isPanning) {
+                panX = e.clientX - startX;
+                panY = e.clientY - startY;
+                updateTransform();
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            activeDragNode = null;
+            isPanning = false;
+        });
+
+        canvasContainer.addEventListener('mousedown', (e) => {
+            isPanning = true;
+            startX = e.clientX - panX;
+            startY = e.clientY - panY;
+        });
+
+        // Zoom handlers
+        canvasContainer.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomIntensity = 0.05;
+            const mouseX = e.clientX - canvasContainer.offsetLeft;
+            const mouseY = e.clientY - canvasContainer.offsetTop;
+
+            const wheel = e.deltaY < 0 ? 1 : -1;
+            const zoomFactor = Math.exp(wheel * zoomIntensity);
+
+            // Zoom centered on mouse pointer position
+            panX = mouseX - (mouseX - panX) * zoomFactor;
+            panY = mouseY - (mouseY - panY) * zoomFactor;
+            scale *= zoomFactor;
+
+            scale = Math.min(Math.max(scale, 0.15), 4); // boundaries
+            updateTransform();
+        });
+
+        // Reset and center screen
+        function resetView() {
+            panX = 50;
+            panY = 50;
+            scale = 0.55;
+            updateTransform();
+        }
+
+        // Full Screen controls
+        const btnFullscreen = document.getElementById('btnFullscreen');
+        btnFullscreen.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().then(() => {
+                    btnFullscreen.textContent = "Salir Pantalla Completa";
+                }).catch(err => {
+                    console.error("Error attempting to enable full-screen:", err);
+                });
+            } else {
+                document.exitFullscreen().then(() => {
+                    btnFullscreen.textContent = "Ver en Pantalla Completa";
+                });
+            }
+        });
+
+        // Controls binding
+        document.getElementById('btnReset').addEventListener('click', resetView);
+        document.getElementById('btnZoomIn').addEventListener('click', () => { scale *= 1.25; updateTransform(); });
+        document.getElementById('btnZoomOut').addEventListener('click', () => { scale *= 0.8; updateTransform(); });
+        document.getElementById('btnZoomFit').addEventListener('click', resetView);
+
+        // Initial setup and boot
+        drawNodes();
+        drawRelations();
+        resetView();
+    </script>
+</body>
+</html>

@@ -65,6 +65,15 @@ export default function Dashboard() {
     useEffect(() => {
         const loadInitialData = async () => {
             try {
+                console.log('[Browser Console - Dashboard] Iniciando carga de datos de inicialización...');
+                console.log('[Browser Console - Dashboard] Usuario actual:', {
+                    id: user?.id,
+                    name: user?.name,
+                    email: user?.email,
+                    role: user?.role,
+                    contratista_id: user?.contratista_id,
+                    contratista_ids: user?.contratista_ids
+                });
                 const [progRes, servRes, depRes, vincRes, histRes, gerRes, subgRes, adcRes] = await Promise.all([
                     api.get('/programas'),
                     api.get('/resources/tipos-contratista'),
@@ -75,6 +84,7 @@ export default function Dashboard() {
                     api.get('/resources/subgerencias'),
                     api.get('/resources/adc')
                 ]);
+                console.log('[Browser Console - Dashboard] Carga inicial de vinculaciones obtenidas:', vincRes.data.data);
                 setPrograms(progRes.data.data || []);
                 setServices(servRes.data.data || []);
                 setDependencies(depRes.data.data || []);
@@ -84,7 +94,7 @@ export default function Dashboard() {
                 setSubgerenciasRaw(subgRes.data.data || []);
                 setAdcs(adcRes.data.data || []);
             } catch (err) {
-                console.error("Error loading filter options:", err);
+                console.error("[Browser Console - Dashboard] Error loading filter options:", err);
             }
         };
         loadInitialData();
@@ -112,11 +122,13 @@ export default function Dashboard() {
             if (filters.subgerencia_id !== 'todas') params.append('subgerencia_id', filters.subgerencia_id);
             if (filters.adc_id !== 'todos') params.append('adc_id', filters.adc_id);
 
+            console.log('[Browser Console - Dashboard] Ejecutando fetchKpis con parámetros:', Object.fromEntries(params.entries()));
             const response = await api.get(`/dashboard/kpis?${params.toString()}`);
+            console.log('[Browser Console - Dashboard] KPIs obtenidos:', response.data.data);
             setKpis(response.data.data);
             setLoading(false);
         } catch (err) {
-            console.error(err);
+            console.error('[Browser Console - Dashboard] Error al cargar KPIs:', err);
             setError('Error al cargar métricas');
             setLoading(false);
         }
@@ -136,13 +148,15 @@ export default function Dashboard() {
             params.append('limit', 5);
             params.append('page', page);
 
+            console.log('[Browser Console - Dashboard] Ejecutando fetchMatrixData con parámetros:', Object.fromEntries(params.entries()));
             const matrixRes = await api.get(`/dashboard/matrix?${params.toString()}`);
             if (matrixRes.data.success) {
+                console.log('[Browser Console - Dashboard] Datos de matriz de cumplimiento (dashboard) obtenidos:', matrixRes.data.data);
                 setMatrixData(matrixRes.data.data);
                 setPagination(matrixRes.data.data.pagination);
             }
         } catch (error) {
-            console.error("Error loading matrix:", error);
+            console.error("[Browser Console - Dashboard] Error loading matrix:", error);
         } finally {
             setLoadingMatrix(false);
         }
