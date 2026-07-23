@@ -336,12 +336,12 @@
             {
                 name: "User",
                 fields: [
-                    { name: "id", type: "INT", key: "PK" },
+                    { name: "id", type: "INT" },
                     { name: "name", type: "VARCHAR" },
                     { name: "email", type: "VARCHAR" },
                     { name: "role", type: "VARCHAR" },
                     { name: "contratista_id", type: "INT", key: "FK" },
-                    { name: "usu_id", type: "INT" },
+                    { name: "usu_id", type: "INT", key: "PK" },
                     { name: "activo", type: "BOOLEAN" }
                 ],
                 x: 100, y: 100
@@ -566,7 +566,7 @@
         const relations = [
             { from: "Role", fromField: "id", to: "Privilegio", toField: "role_id" },
             { from: "Contratista", fromField: "id", to: "User", toField: "contratista_id" },
-            { from: "User", fromField: "id", to: "ContratistaUsuario", toField: "user_id" },
+            { from: "User", fromField: "usu_id", to: "ContratistaUsuario", toField: "user_id" },
             { from: "Contratista", fromField: "id", to: "ContratistaUsuario", toField: "contratista_id" },
             { from: "Gerencia", fromField: "id", to: "Subgerencia", toField: "gerencia_id" },
             { from: "Subgerencia", fromField: "id", to: "TipoContratista (Servicio)", toField: "subgerencia_id" },
@@ -581,11 +581,11 @@
 
             // Administracion
             { from: "Vinculacion", fromField: "id", to: "Administracion", toField: "vinculacion_id" },
-            { from: "User", fromField: "id", to: "Administracion", toField: "administrador_contrato_id" },
+            { from: "User", fromField: "usu_id", to: "Administracion", toField: "administrador_contrato_id" },
 
             // VinculacionUsuario
             { from: "Vinculacion", fromField: "id", to: "VinculacionUsuario", toField: "vinculacion_id" },
-            { from: "User", fromField: "id", to: "VinculacionUsuario", toField: "user_id" },
+            { from: "User", fromField: "usu_id", to: "VinculacionUsuario", toField: "user_id" },
 
             // Programa, Elemento, Actividad
             { from: "Programa", fromField: "id", to: "Elemento", toField: "programa_id" },
