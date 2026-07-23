@@ -322,10 +322,22 @@ const registroController = {
                 eeccNombre = empresa.nombre;
             }
 
+            // If contratista_user, strictly force their assigned vinculacion_id
+            let finalVincId = contratista_asignacion_id;
+            if (req.user.role === 'contratista_user') {
+                if (!req.user.vinculacion_id) {
+                    return res.status(403).json({ success: false, message: 'El usuario no tiene una vinculación asignada.' });
+                }
+                if (contratista_asignacion_id && Number(contratista_asignacion_id) !== Number(req.user.vinculacion_id)) {
+                    return res.status(403).json({ success: false, message: 'No tiene permiso para crear registros fuera de su vinculación.' });
+                }
+                finalVincId = req.user.vinculacion_id;
+            }
+
             // Validate vinculacion (stored as contratista_asignacion_id)
-            if (contratista_asignacion_id) {
+            if (finalVincId) {
                 const vinculacion = await Vinculacion.findOne({
-                    where: { id: contratista_asignacion_id, ...(contratistaId ? { contratista_id: contratistaId } : {}) },
+                    where: { id: finalVincId, ...(contratistaId ? { contratista_id: contratistaId } : {}) },
                     include: [
                         { model: Dependencia, as: 'dependencia' },
                         { model: TipoContratista, as: 'servicio' }
@@ -345,9 +357,9 @@ const registroController = {
             }
 
             // Prevent duplicate: same vinculacion + periodo
-            if (contratista_asignacion_id && periodo) {
+            if (finalVincId && periodo) {
                 const existing = await Registro.findOne({
-                    where: { contratista_asignacion_id, periodo }
+                    where: { contratista_asignacion_id: finalVincId, periodo }
                 });
                 if (existing) {
                     return res.status(409).json({
@@ -359,7 +371,7 @@ const registroController = {
 
             const registro = await Registro.create({
                 user_id: targetUserId,
-                contratista_asignacion_id,
+                contratista_asignacion_id: finalVincId,
                 numero_contrato: numContrato,
 
                 programa_id: req.body.programa_id || null,

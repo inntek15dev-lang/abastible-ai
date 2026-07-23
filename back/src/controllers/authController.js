@@ -1,7 +1,7 @@
 // IEEE Trace: REQ-007 | US-006 | authController.js
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { User, Role, Privilegio, Contratista, ContratistaUsuario } = require('../database/models');
+const { User, Role, Privilegio, Contratista, ContratistaUsuario, VinculacionUsuario } = require('../database/models');
 const { decryptDataString } = require('../utils/cryptoHelper');
 
 const authController = {
@@ -96,6 +96,16 @@ const authController = {
                 contratistaIds.push(Number(user.contratista_id));
             }
 
+            // Load vinculacion_id for contratista_user
+            let vinculacion_id = null;
+            if (user.role === 'contratista_user') {
+                const vu = await VinculacionUsuario.findOne({
+                    where: { user_id: user.id, activo: 1 },
+                    attributes: ['vinculacion_id']
+                });
+                vinculacion_id = vu ? Number(vu.vinculacion_id) : null;
+            }
+
             const userData = user.toJSON();
             delete userData.password;
 
@@ -105,6 +115,7 @@ const authController = {
                 user: {
                     ...userData,
                     contratista_ids: contratistaIds,
+                    vinculacion_id,
                     privileges
                 }
             });
@@ -437,6 +448,17 @@ const authController = {
             }
             console.log(`  IDs de contratistas vinculados final:`, contratistaIds);
 
+            // Load vinculacion_id for contratista_user (SSO login)
+            let ssoVinculacionId = null;
+            if (user.role === 'contratista_user') {
+                const vu = await VinculacionUsuario.findOne({
+                    where: { user_id: user.id, activo: 1 },
+                    attributes: ['vinculacion_id']
+                });
+                ssoVinculacionId = vu ? Number(vu.vinculacion_id) : null;
+                console.log(`  vinculacion_id para contratista_user:`, ssoVinculacionId);
+            }
+
             const userJson = user.toJSON();
             delete userJson.password;
 
@@ -446,6 +468,7 @@ const authController = {
                 user: {
                     ...userJson,
                     contratista_ids: contratistaIds,
+                    vinculacion_id: ssoVinculacionId,
                     privileges
                 }
             };

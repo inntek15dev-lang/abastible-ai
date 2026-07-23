@@ -24,6 +24,7 @@ export default function UsuarioForm() {
         rut: '',
         telefono: '',
         contratista_id: '', // New field to link to contractor
+        vinculacion_id: '', // Add this
         activo: true
     });
 
@@ -38,6 +39,7 @@ export default function UsuarioForm() {
     // Scoped resources for the selected contractor
     const [scopedServices, setScopedServices] = useState([]);
     const [scopedDependencies, setScopedDependencies] = useState([]);
+    const [availableVinculaciones, setAvailableVinculaciones] = useState([]);
 
     useEffect(() => {
         const loadData = async () => {
@@ -64,6 +66,7 @@ export default function UsuarioForm() {
                 if (isEdit) {
                     const userRes = await api.get(`/usuarios/${id}`);
                     const u = userRes.data.data;
+                    const currentVincId = u.vinculacionesAsignadas?.[0]?.vinculacion_id || '';
                     setForm({
                         name: u.name,
                         email: u.email,
@@ -75,6 +78,7 @@ export default function UsuarioForm() {
                         rut: u.rut || '',
                         telefono: u.telefono || '',
                         contratista_id: u.contratista_id || u.parent_id || '', // parent_id is often used as contratista_id link
+                        vinculacion_id: currentVincId,
                         activo: u.activo ?? true
                     });
                 } else {
@@ -85,6 +89,7 @@ export default function UsuarioForm() {
                             contratista_id: currentUser.contratista_id || currentUser.id,
                             tipo_contratista_id: currentUser.tipo_contratista_id || '',
                             dependencia_id: currentUser.dependencia_id || '',
+                            vinculacion_id: '',
                             role: 'contratista_user'
                         }));
                     }
@@ -107,6 +112,7 @@ export default function UsuarioForm() {
             if (!cId) {
                 setScopedServices([]);
                 setScopedDependencies([]);
+                setAvailableVinculaciones([]);
                 return;
             }
 
@@ -117,16 +123,22 @@ export default function UsuarioForm() {
                 if (selectedContratista && selectedContratista.vinculaciones) {
                     const services = new Map();
                     const deps = new Map();
+                    const activeVincs = [];
 
                     selectedContratista.vinculaciones.forEach(v => {
                         if (v.activo) {
                             if (v.servicio) services.set(v.servicio.id, v.servicio);
                             if (v.dependencia) deps.set(v.dependencia.id, v.dependencia);
+                            activeVincs.push({
+                                id: v.id,
+                                nombre: `${v.numero_contrato || 'Sin Contrato'} — ${v.dependencia?.nombre || 'Sin Dependencia'} (${v.servicio?.nombre || 'Sin Servicio'})`
+                            });
                         }
                     });
 
                     setScopedServices(Array.from(services.values()));
                     setScopedDependencies(Array.from(deps.values()));
+                    setAvailableVinculaciones(activeVincs);
                 }
             } catch (err) {
                 console.error("Error fetching contractor details for scope", err);
@@ -271,7 +283,7 @@ export default function UsuarioForm() {
                                             return r.name === 'contratista_user';
                                         }
                                         if (currentUser.role === 'administrador_contrato') {
-                                            return ['contratista_user', 'contratista_admin'].includes(r.name);
+                                            return ['contratista_admin'].includes(r.name);
                                         }
                                         return true;
                                     }).map(r => (
@@ -325,55 +337,74 @@ export default function UsuarioForm() {
                                     <span>Alcance de Acceso (Scope)</span>
                                 </div>
                                 <span className="scope-description">
-                                    Defina el servicio y dependencia para este usuario. Las opciones están limitadas a los contratos vigentes.
+                                    {form.role === 'contratista_user' 
+                                        ? "Seleccione la vinculación única autorizada para este usuario contratista."
+                                        : "Defina el servicio y dependencia para este usuario. Las opciones están limitadas a los contratos vigentes."
+                                    }
                                 </span>
 
-                                {/* Admin selects Contractor Company */}
-                                {['admin', 'administrador_contrato'].includes(currentUser.role) && (
+                                {form.role === 'contratista_user' ? (
                                     <div className="input-group-usuario">
-                                        <label className="label-usuario">Empresa Contratista <span className="required">*</span></label>
+                                        <label className="label-usuario">Vinculación Autorizada <span className="required">*</span></label>
                                         <SearchableSelect
-                                            options={contratistas}
-                                            value={form.contratista_id}
-                                            onChange={val => setForm({
-                                                ...form,
-                                                contratista_id: val,
-                                                tipo_contratista_id: '',
-                                                dependencia_id: ''
-                                            })}
-                                            placeholder="Seleccione Empresa..."
+                                            options={availableVinculaciones}
+                                            value={form.vinculacion_id}
+                                            onChange={val => setForm({ ...form, vinculacion_id: val })}
+                                            placeholder="Seleccione Vinculación..."
                                             dropdownTop="calc(34% + 4px)"
                                             containerFlex="1 1 auto"
                                         />
                                     </div>
-                                )}
+                                ) : (
+                                    <>
+                                        {/* Admin selects Contractor Company */}
+                                        {['admin', 'administrador_contrato'].includes(currentUser.role) && (
+                                            <div className="input-group-usuario">
+                                                <label className="label-usuario">Empresa Contratista <span className="required">*</span></label>
+                                                <SearchableSelect
+                                                    options={contratistas}
+                                                    value={form.contratista_id}
+                                                    onChange={val => setForm({
+                                                        ...form,
+                                                        contratista_id: val,
+                                                        tipo_contratista_id: '',
+                                                        dependencia_id: ''
+                                                    })}
+                                                    placeholder="Seleccione Empresa..."
+                                                    dropdownTop="calc(34% + 4px)"
+                                                    containerFlex="1 1 auto"
+                                                />
+                                            </div>
+                                        )}
 
-                                <div className="input-row-usuario">
-                                    <div className="input-group-usuario">
-                                        <label className="label-usuario">Servicio Asociado <span className="required">*</span></label>
-                                        <SearchableSelect
-                                            options={scopedServices}
-                                            value={form.tipo_contratista_id}
-                                            onChange={val => setForm({ ...form, tipo_contratista_id: val })}
-                                            placeholder="Seleccione Servicio..."
-                                            disabled={currentUser.role === 'contratista_user' || (!form.contratista_id && currentUser.role !== 'contratista_admin')}
-                                            dropdownTop="calc(34% + 4px)"
-                                            containerFlex="1 1 auto"
-                                        />
-                                    </div>
-                                    <div className="input-group-usuario">
-                                        <label className="label-usuario">Dependencia Permitida <span className="required">*</span></label>
-                                        <SearchableSelect
-                                            options={scopedDependencies}
-                                            value={form.dependencia_id}
-                                            onChange={val => setForm({ ...form, dependencia_id: val })}
-                                            placeholder="Seleccione Dependencia..."
-                                            disabled={currentUser.role === 'contratista_user' || (!form.contratista_id && currentUser.role !== 'contratista_admin')}
-                                            dropdownTop="calc(34% + 4px)"
-                                            containerFlex="1 1 auto"
-                                        />
-                                    </div>
-                                </div>
+                                        <div className="input-row-usuario">
+                                            <div className="input-group-usuario">
+                                                <label className="label-usuario">Servicio Asociado <span className="required">*</span></label>
+                                                <SearchableSelect
+                                                    options={scopedServices}
+                                                    value={form.tipo_contratista_id}
+                                                    onChange={val => setForm({ ...form, tipo_contratista_id: val })}
+                                                    placeholder="Seleccione Servicio..."
+                                                    disabled={currentUser.role === 'contratista_user' || (!form.contratista_id && currentUser.role !== 'contratista_admin')}
+                                                    dropdownTop="calc(34% + 4px)"
+                                                    containerFlex="1 1 auto"
+                                                />
+                                            </div>
+                                            <div className="input-group-usuario">
+                                                <label className="label-usuario">Dependencia Permitida <span className="required">*</span></label>
+                                                <SearchableSelect
+                                                    options={scopedDependencies}
+                                                    value={form.dependencia_id}
+                                                    onChange={val => setForm({ ...form, dependencia_id: val })}
+                                                    placeholder="Seleccione Dependencia..."
+                                                    disabled={currentUser.role === 'contratista_user' || (!form.contratista_id && currentUser.role !== 'contratista_admin')}
+                                                    dropdownTop="calc(34% + 4px)"
+                                                    containerFlex="1 1 auto"
+                                                />
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </>
                         )}
                     </div>

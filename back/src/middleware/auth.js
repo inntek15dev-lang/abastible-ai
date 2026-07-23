@@ -1,6 +1,6 @@
 // IEEE Trace: REQ-007 | middleware/auth.js
 const jwt = require('jsonwebtoken');
-const { User, Role, Privilegio, ContratistaUsuario } = require('../database/models');
+const { User, Role, Privilegio, ContratistaUsuario, VinculacionUsuario } = require('../database/models');
 
 const authMiddleware = async (req, res, next) => {
     try {
@@ -57,9 +57,20 @@ const authMiddleware = async (req, res, next) => {
             contratistaIds.push(Number(user.contratista_id));
         }
 
+        // Load vinculacion_id for contratista_user (single vinculacion via VinculacionUsuario)
+        let vinculacion_id = null;
+        if (user.role === 'contratista_user') {
+            const vu = await VinculacionUsuario.findOne({
+                where: { user_id: user.id, activo: 1 },
+                attributes: ['vinculacion_id']
+            });
+            vinculacion_id = vu ? Number(vu.vinculacion_id) : null;
+        }
+
         req.user = {
             ...user.toJSON(),
             contratista_ids: contratistaIds,
+            vinculacion_id,
             privileges
         };
 

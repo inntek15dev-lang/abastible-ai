@@ -64,7 +64,10 @@ const dashboardController = {
                     whereRegistro.id = -1;
                 }
             } else if (user.role === 'contratista_user') {
-                if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
+                if (user.vinculacion_id) {
+                    scopeVinculacionIds = [Number(user.vinculacion_id)];
+                    whereRegistro.contratista_asignacion_id = Number(user.vinculacion_id);
+                } else if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
                     const vincs = await Vinculacion.findAll({
                         where: {
                             contratista_id: user.contratista_id,
@@ -603,7 +606,10 @@ const dashboardController = {
                     whereRegistro.id = -1;
                 }
             } else if (user.role === 'contratista_user') {
-                if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
+                if (user.vinculacion_id) {
+                    const vincIds = [Number(user.vinculacion_id)];
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
+                } else if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
                     const vincs = await Vinculacion.findAll({
                         where: {
                             contratista_id: user.contratista_id,
@@ -760,7 +766,9 @@ const dashboardController = {
                     whereVinculacion.id = -1;
                 }
             } else if (user.role === 'contratista_user') {
-                if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
+                if (user.vinculacion_id) {
+                    whereVinculacion.id = Number(user.vinculacion_id);
+                } else if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
                     whereVinculacion.contratista_id = user.contratista_id;
                     whereVinculacion.servicio_id = user.tipo_contratista_id;
                     whereVinculacion.dependencia_id = user.dependencia_id;

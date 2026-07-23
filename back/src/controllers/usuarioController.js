@@ -1,6 +1,6 @@
 // IEEE Trace: REQ-007 | US-006, US-007 | usuarioController.js
 const bcrypt = require('bcryptjs');
-const { User, TipoContratista, Dependencia, ContratistaAsignacion, Contratista, Vinculacion, Administracion, Programa, ContratistaUsuario } = require('../database/models');
+const { User, TipoContratista, Dependencia, ContratistaAsignacion, Contratista, Vinculacion, Administracion, Programa, ContratistaUsuario, VinculacionUsuario } = require('../database/models');
 
 const usuarioController = {
     // GET /api/usuarios
@@ -111,6 +111,19 @@ const usuarioController = {
                         as: 'contratistasAsignados',
                         attributes: ['id', 'rut', 'nombre'],
                         through: { attributes: [] }
+                    },
+                    {
+                        model: VinculacionUsuario,
+                        as: 'vinculacionesAsignadas',
+                        include: [{
+                            model: Vinculacion,
+                            as: 'vinculacion',
+                            include: [
+                                { model: Contratista, as: 'contratista', attributes: ['id', 'nombre', 'rut'] },
+                                { model: TipoContratista, as: 'servicio', attributes: ['id', 'nombre'] },
+                                { model: Dependencia, as: 'dependencia', attributes: ['id', 'nombre'] }
+                            ]
+                        }]
                     }
                 ]
             });
@@ -154,6 +167,19 @@ const usuarioController = {
                         as: 'contratistasAsignados',
                         attributes: ['id', 'rut', 'nombre'],
                         through: { attributes: [] }
+                    },
+                    {
+                        model: VinculacionUsuario,
+                        as: 'vinculacionesAsignadas',
+                        include: [{
+                            model: Vinculacion,
+                            as: 'vinculacion',
+                            include: [
+                                { model: Contratista, as: 'contratista', attributes: ['id', 'nombre', 'rut'] },
+                                { model: TipoContratista, as: 'servicio', attributes: ['id', 'nombre'] },
+                                { model: Dependencia, as: 'dependencia', attributes: ['id', 'nombre'] }
+                            ]
+                        }]
                     }
                 ]
             });
@@ -212,6 +238,52 @@ const usuarioController = {
                 finalRole = 'admin'; // Downgrade or reject? Requirement says "invisible to admin", so admin shouldn't even know it exists.
             }
 
+            // Enforce restriction: Only Contratista Admin (or Admin) can create contratista_user
+            if (finalRole === 'contratista_user') {
+                if (req.user.role !== 'contratista_admin' && req.user.role !== 'admin') {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Solo los Administradores de Contratista pueden crear usuarios contratistas.'
+                    });
+                }
+
+                // Check that vinculacion_id is provided
+                const { vinculacion_id } = req.body;
+                if (!vinculacion_id) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'La vinculación es requerida para un usuario contratista.'
+                    });
+                }
+
+                // Verify vinculacion exists and is active
+                const v = await Vinculacion.findByPk(vinculacion_id);
+                if (!v || !v.activo) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'La vinculación seleccionada no existe o no está activa.'
+                    });
+                }
+
+                // If created by a contratista_admin, ensure they manage this contractor
+                if (req.user.role === 'contratista_admin') {
+                    const cIds = [];
+                    if (Array.isArray(req.user.contratista_ids) && req.user.contratista_ids.length > 0) {
+                        cIds.push(...req.user.contratista_ids.map(Number));
+                    }
+                    if (req.user.contratista_id && !cIds.includes(Number(req.user.contratista_id))) {
+                        cIds.push(Number(req.user.contratista_id));
+                    }
+
+                    if (!cIds.includes(Number(v.contratista_id))) {
+                        return res.status(403).json({
+                            success: false,
+                            message: 'No tiene permisos para asignar este usuario a la vinculación seleccionada.'
+                        });
+                    }
+                }
+            }
+
             const hashedPassword = await bcrypt.hash(password, 10);
 
             // Inherit scope for contractor roles
@@ -228,14 +300,25 @@ const usuarioController = {
                 password: hashedPassword,
                 role: finalRole,
                 parent_id: finalParentId,
-                contratista_id: finalContratistaId,
-                tipo_contratista_id: finalTipoContratistaId,
-                dependencia_id: finalDependenciaId,
+                // If it is a contratista_user, these direct scoping fields are saved as null
+                contratista_id: finalRole === 'contratista_user' ? null : finalContratistaId,
+                tipo_contratista_id: finalRole === 'contratista_user' ? null : finalTipoContratistaId,
+                dependencia_id: finalRole === 'contratista_user' ? null : finalDependenciaId,
                 eecc_nombre: finalEeccNombre,
                 rut,
                 telefono,
                 activo: 1
             });
+
+            // If role is contratista_user, create VinculacionUsuario record
+            if (finalRole === 'contratista_user') {
+                const { vinculacion_id } = req.body;
+                await VinculacionUsuario.create({
+                    user_id: usuario.id,
+                    vinculacion_id: Number(vinculacion_id),
+                    activo: 1
+                });
+            }
 
             // Assign multiple contractors if role is contratista_admin and contratista_ids is provided
             if (finalRole === 'contratista_admin') {
@@ -252,20 +335,18 @@ const usuarioController = {
                 }
             }
 
-            // Create Initial Assignment if Contractor role and data provided
-            if (['contratista_admin', 'contratista_user'].includes(finalRole) && asignacion_inicial) {
+            // Create Initial Assignment if Contractor role and data provided (for non-contratista_user only)
+            if (finalRole === 'contratista_admin' && asignacion_inicial) {
                 const { dependencia_id: depId, servicio_id: servId, administrador_contrato_id: adcId } = asignacion_inicial;
 
                 if (depId && servId) {
-                    if (finalRole === 'contratista_admin') {
-                        await ContratistaAsignacion.create({
-                            user_id: usuario.id,
-                            dependencia_id: depId,
-                            tipo_contratista_id: servId,
-                            administrador_contrato_id: adcId || null, // Optional ADC
-                            periodo_inicio: new Date()
-                        });
-                    }
+                    await ContratistaAsignacion.create({
+                        user_id: usuario.id,
+                        dependencia_id: depId,
+                        tipo_contratista_id: servId,
+                        administrador_contrato_id: adcId || null,
+                        periodo_inicio: new Date()
+                    });
 
                     // Always update the User's direct fields for scoping
                     await usuario.update({
@@ -354,6 +435,22 @@ const usuarioController = {
 
             // Remove id from updateData to prevent primary key issues
             delete updateData.id;
+
+            // If role is contratista_user, handle VinculacionUsuario update
+            if (usuario.role === 'contratista_user') {
+                const { vinculacion_id } = req.body;
+                if (vinculacion_id) {
+                    await VinculacionUsuario.destroy({ where: { user_id: usuario.id } });
+                    await VinculacionUsuario.create({
+                        user_id: usuario.id,
+                        vinculacion_id: Number(vinculacion_id),
+                        activo: 1
+                    });
+                }
+                updateData.contratista_id = null;
+                updateData.tipo_contratista_id = null;
+                updateData.dependencia_id = null;
+            }
 
             await usuario.update(updateData);
 
