@@ -81,14 +81,14 @@ const authController = {
             }
 
             const token = jwt.sign(
-                { id: user.usu_id, email: user.email, role: user.role },
+                { id: user.usu_id || user.id, email: user.email, role: user.role },
                 process.env.JWT_SECRET,
                 { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
             );
 
             // Retrieve multiple assigned contractors (for contratista_admin many-to-many relationship)
             const assigned = await ContratistaUsuario.findAll({
-                where: { user_id: user.usu_id },
+                where: { user_id: user.usu_id || user.id },
                 attributes: ['contratista_id']
             });
             const contratistaIds = [...new Set(assigned.map(c => Number(c.contratista_id)))];
@@ -100,7 +100,7 @@ const authController = {
             let vinculacion_id = null;
             if (user.role === 'contratista_user') {
                 const vu = await VinculacionUsuario.findOne({
-                    where: { user_id: user.usu_id, activo: 1 },
+                    where: { user_id: user.usu_id || user.id, activo: 1 },
                     attributes: ['vinculacion_id']
                 });
                 vinculacion_id = vu ? Number(vu.vinculacion_id) : null;
@@ -108,7 +108,7 @@ const authController = {
 
             const userData = user.toJSON();
             delete userData.password;
-            userData.id = user.usu_id; // Map id to usu_id for frontend backward compatibility
+            userData.id = user.usu_id || user.id; // Map id to usu_id with fallback to legacy id
 
             res.json({
                 success: true,
@@ -421,15 +421,15 @@ const authController = {
             }
 
             const jwtToken = jwt.sign(
-                { id: user.usu_id, email: user.email, role: user.role },
+                { id: user.usu_id || user.id, email: user.email, role: user.role },
                 process.env.JWT_SECRET,
                 { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
             );
 
             // Retrieve multiple assigned contractors (for contratista_admin many-to-many relationship)
-            console.log(`[DB QUERY] Obteniendo todos los IDs de contratistas vinculados al usuario usu_id: ${user.usu_id}`);
+            console.log(`[DB QUERY] Obteniendo todos los IDs de contratistas vinculados al usuario usu_id: ${user.usu_id || user.id}`);
             const assigned = await ContratistaUsuario.findAll({
-                where: { user_id: user.usu_id },
+                where: { user_id: user.usu_id || user.id },
                 attributes: ['contratista_id']
             });
             const contratistaIds = [...new Set(assigned.map(c => Number(c.contratista_id)))];
@@ -442,7 +442,7 @@ const authController = {
             let ssoVinculacionId = null;
             if (user.role === 'contratista_user') {
                 const vu = await VinculacionUsuario.findOne({
-                    where: { user_id: user.usu_id, activo: 1 },
+                    where: { user_id: user.usu_id || user.id, activo: 1 },
                     attributes: ['vinculacion_id']
                 });
                 ssoVinculacionId = vu ? Number(vu.vinculacion_id) : null;
@@ -451,7 +451,7 @@ const authController = {
 
             const userJson = user.toJSON();
             delete userJson.password;
-            userJson.id = user.usu_id; // Map id to usu_id for frontend backward compatibility
+            userJson.id = user.usu_id || user.id; // Map id to usu_id with fallback to legacy id
 
             const finalResponse = {
                 success: true,

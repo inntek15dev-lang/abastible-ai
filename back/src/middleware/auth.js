@@ -21,7 +21,14 @@ const authMiddleware = async (req, res, next) => {
         }
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        const user = await User.findByPk(decoded.id, {
+        const { Op } = require('sequelize');
+        const user = await User.findOne({
+            where: {
+                [Op.or]: [
+                    { usu_id: decoded.id },
+                    { id: decoded.id }
+                ]
+            },
             attributes: { exclude: ['password'] }
         });
 
@@ -48,7 +55,7 @@ const authMiddleware = async (req, res, next) => {
 
         // Retrieve multiple assigned contractors (for contratista_admin many-to-many relationship)
         const assigned = await ContratistaUsuario.findAll({
-            where: { user_id: user.usu_id },
+            where: { user_id: user.usu_id || user.id },
             attributes: ['contratista_id']
         });
         const contratistaIds = [...new Set(assigned.map(c => Number(c.contratista_id)))];
@@ -61,7 +68,7 @@ const authMiddleware = async (req, res, next) => {
         let vinculacion_id = null;
         if (user.role === 'contratista_user') {
             const vu = await VinculacionUsuario.findOne({
-                where: { user_id: user.usu_id, activo: 1 },
+                where: { user_id: user.usu_id || user.id, activo: 1 },
                 attributes: ['vinculacion_id']
             });
             vinculacion_id = vu ? Number(vu.vinculacion_id) : null;
@@ -69,7 +76,7 @@ const authMiddleware = async (req, res, next) => {
 
         req.user = {
             ...user.toJSON(),
-            id: user.usu_id, // Map id to usu_id for backend/frontend backward compatibility
+            id: user.usu_id || user.id, // Map id to usu_id with fallback to legacy id
             contratista_ids: contratistaIds,
             vinculacion_id,
             privileges
