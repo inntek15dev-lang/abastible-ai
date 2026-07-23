@@ -50,9 +50,18 @@ const contratistaController = {
                 includeVinculacion.include[2].required = true;
             } else if (role === 'contratista_admin') {
                 const { Op } = require('sequelize');
-                const cIds = req.user.contratista_ids || (contratista_id ? [contratista_id] : (req.user.contratista_id ? [req.user.contratista_id] : []));
+                const cIds = [];
+                if (Array.isArray(req.user.contratista_ids) && req.user.contratista_ids.length > 0) {
+                    cIds.push(...req.user.contratista_ids.map(Number));
+                }
+                if (req.user.contratista_id && !cIds.includes(Number(req.user.contratista_id))) {
+                    cIds.push(Number(req.user.contratista_id));
+                }
+                if (contratista_id && !cIds.includes(Number(contratista_id))) {
+                    cIds.push(Number(contratista_id));
+                }
                 console.log(`[Contratista Controller - GET /api/contratistas] User is contratista_admin (ID: ${id}). Allowed contratista_ids: [${cIds.join(', ')}]. Filtering whereContratista.id IN (${cIds.join(', ')})`);
-                whereContratista.id = { [Op.in]: cIds };
+                whereContratista.id = { [Op.in]: cIds.length > 0 ? cIds : [-1] };
             } else if (role === 'contratista_user') {
                 // Only their own company, and strictly filtered vinculations if needed
                 const cId = contratista_id || req.user.contratista_id;

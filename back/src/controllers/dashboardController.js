@@ -44,7 +44,14 @@ const dashboardController = {
                 if (scopeVinculacionIds.length === 0) whereRegistro.id = -1;
                 else whereRegistro.contratista_asignacion_id = { [Op.in]: scopeVinculacionIds };
             } else if (user.role === 'contratista_admin') {
-                const cIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
+                const cIds = [];
+                if (Array.isArray(user.contratista_ids) && user.contratista_ids.length > 0) {
+                    cIds.push(...user.contratista_ids.map(Number));
+                }
+                if (user.contratista_id && !cIds.includes(Number(user.contratista_id))) {
+                    cIds.push(Number(user.contratista_id));
+                }
+
                 if (cIds.length > 0) {
                     const vincs = await Vinculacion.findAll({
                         where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
@@ -576,7 +583,14 @@ const dashboardController = {
                 if (vincIds.length === 0) whereRegistro.id = -1;
                 else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
             } else if (user.role === 'contratista_admin') {
-                const cIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
+                const cIds = [];
+                if (Array.isArray(user.contratista_ids) && user.contratista_ids.length > 0) {
+                    cIds.push(...user.contratista_ids.map(Number));
+                }
+                if (user.contratista_id && !cIds.includes(Number(user.contratista_id))) {
+                    cIds.push(Number(user.contratista_id));
+                }
+
                 if (cIds.length > 0) {
                     const vincs = await Vinculacion.findAll({
                         where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
@@ -732,7 +746,14 @@ const dashboardController = {
                 const vincIds = adminRecords.map(a => a.vinculacion_id);
                 whereVinculacion.id = vincIds.length > 0 ? { [Op.in]: vincIds } : -1;
             } else if (user.role === 'contratista_admin') {
-                const cIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
+                const cIds = [];
+                if (Array.isArray(user.contratista_ids) && user.contratista_ids.length > 0) {
+                    cIds.push(...user.contratista_ids.map(Number));
+                }
+                if (user.contratista_id && !cIds.includes(Number(user.contratista_id))) {
+                    cIds.push(Number(user.contratista_id));
+                }
+
                 if (cIds.length > 0) {
                     whereVinculacion.contratista_id = { [Op.in]: cIds };
                 } else {
