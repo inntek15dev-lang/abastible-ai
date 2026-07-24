@@ -554,7 +554,7 @@ const syncData = async (req, res) => {
             if (associatedContratistas.length > 0) {
                 const primaryContratista = associatedContratistas[0];
                 const cleanName = sanitizeString(item.nombre) || cleanEmail.split('@')[0] || 'Administrador Contratista';
-                const [user, created] = await User.findOrCreate({
+                let [user, created] = await User.findOrCreate({
                     where: { email: cleanEmail },
                     defaults: {
                         name: cleanName,
@@ -575,10 +575,11 @@ const syncData = async (req, res) => {
                     if (user.contratista_id !== primaryContratista.id) updateFields.contratista_id = primaryContratista.id;
                     if (user.activo !== 1) updateFields.activo = 1;
                     if (cleanName && user.name !== cleanName) updateFields.name = cleanName;
-                    if (item.usu_id && !user.usu_id) updateFields.usu_id = item.usu_id;
+                    if (item.usu_id && user.usu_id !== item.usu_id) updateFields.usu_id = item.usu_id;
 
                     if (Object.keys(updateFields).length > 0) {
-                        await user.update(updateFields, { transaction });
+                        await User.update(updateFields, { where: { email: cleanEmail }, transaction });
+                        user = await User.findOne({ where: { email: cleanEmail }, transaction });
                     }
                 }
 
@@ -665,7 +666,7 @@ const syncData = async (req, res) => {
             if (!cleanEmail) throw new Error('Email de administrador de contrato es requerido.');
 
             const cleanName = sanitizeString(item.nombre) || cleanEmail.split('@')[0] || 'Administrador de Contrato';
-            const [user, created] = await User.findOrCreate({
+            let [user, created] = await User.findOrCreate({
                 where: { email: cleanEmail },
                 defaults: {
                     name: cleanName,
@@ -686,7 +687,8 @@ const syncData = async (req, res) => {
                     updateFields.usu_id = item.usu_id;
                 }
                 if (Object.keys(updateFields).length > 0) {
-                    await user.update(updateFields, { transaction });
+                    await User.update(updateFields, { where: { email: cleanEmail }, transaction });
+                    user = await User.findOne({ where: { email: cleanEmail }, transaction });
                 }
             }
 
