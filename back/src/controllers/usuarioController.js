@@ -62,7 +62,10 @@ const usuarioController = {
 
                 if (req.query.role === 'administrador_contrato') {
                     if (adminIds.length === 0) return res.json({ success: true, data: [] });
-                    where.id = adminIds;
+                    where[Op.or] = [
+                        { usu_id: adminIds },
+                        { id: adminIds }
+                    ];
                 } else {
                     // Standard contractor limits: only sees their own operatives
                     // Unless it's a contratista_user who needs to see all peers in same vinculation (PARKO)
@@ -73,6 +76,7 @@ const usuarioController = {
             } else if (req.user.role === 'administrador_contrato') {
                 // Admin contrato usually only sees themselves in this filter, 
                 // but let's allow them to see others who share the same vinculations
+                const { Op } = require('sequelize');
 
                 const myVincs = await Administracion.findAll({
                     where: { administrador_contrato_id: req.user.id, activo: 1 },
@@ -87,14 +91,21 @@ const usuarioController = {
                 const adminIds = [...new Set(peerAdmins.map(a => a.administrador_contrato_id))];
 
                 if (req.query.role === 'administrador_contrato') {
-                    where.id = adminIds;
+                    where[Op.or] = [
+                        { usu_id: adminIds },
+                        { id: adminIds }
+                    ];
                 } else {
                     // For general user listing, they see users assigned to them
                     const asignaciones = await ContratistaAsignacion.findAll({
                         where: { administrador_contrato_id: req.user.id },
                         attributes: ['user_id']
                     });
-                    where.id = asignaciones.map(a => a.user_id);
+                    const assignedUserIds = asignaciones.map(a => a.user_id);
+                    where[Op.or] = [
+                        { usu_id: assignedUserIds },
+                        { id: assignedUserIds }
+                    ];
                 }
             }
             // Admin sees all
@@ -138,7 +149,14 @@ const usuarioController = {
     // GET /api/usuarios/:id
     async show(req, res) {
         try {
-            const usuario = await User.findByPk(req.params.id, {
+            const { Op } = require('sequelize');
+            const usuario = await User.findOne({
+                where: {
+                    [Op.or]: [
+                        { usu_id: req.params.id },
+                        { id: req.params.id }
+                    ]
+                },
                 attributes: { exclude: ['password'] },
                 include: [
                     { model: TipoContratista, as: 'tipoContratista' },
@@ -370,7 +388,15 @@ const usuarioController = {
     async update(req, res) {
         try {
             const updateData = req.body;
-            const usuario = await User.findByPk(req.params.id);
+            const { Op } = require('sequelize');
+            const usuario = await User.findOne({
+                where: {
+                    [Op.or]: [
+                        { usu_id: req.params.id },
+                        { id: req.params.id }
+                    ]
+                }
+            });
 
             if (!usuario) {
                 return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
@@ -533,7 +559,15 @@ const usuarioController = {
     // DELETE /api/usuarios/:id (soft delete via activo=0)
     async destroy(req, res) {
         try {
-            const usuario = await User.findByPk(req.params.id);
+            const { Op } = require('sequelize');
+            const usuario = await User.findOne({
+                where: {
+                    [Op.or]: [
+                        { usu_id: req.params.id },
+                        { id: req.params.id }
+                    ]
+                }
+            });
 
             if (String(usuario.usu_id) === String(req.user.id)) {
                 return res.status(403).json({ success: false, message: 'No puede desactivar su propia cuenta' });

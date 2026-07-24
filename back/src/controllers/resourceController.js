@@ -333,7 +333,16 @@ const resourceController = {
 
             // administrador_contrato: solo sí mismo
             if (role === 'administrador_contrato') {
-                const self = await User.findByPk(id, { attributes: ['id', 'name', 'email'] });
+                const { Op } = require('sequelize');
+                const self = await User.findOne({
+                    where: {
+                        [Op.or]: [
+                            { usu_id: id },
+                            { id: id }
+                        ]
+                    },
+                    attributes: ['id', 'name', 'email']
+                });
                 return res.json({ success: true, data: self ? [self] : [] });
             }
 
@@ -359,7 +368,13 @@ const resourceController = {
 
                 const data = await User.findAll({
                     attributes: ['id', 'name', 'email'],
-                    where: { id: { [Op.in]: adcIds }, activo: true },
+                    where: {
+                        [Op.or]: [
+                            { usu_id: { [Op.in]: adcIds } },
+                            { id: { [Op.in]: adcIds } }
+                        ],
+                        activo: true
+                    },
                     order: [['name', 'ASC']]
                 });
                 return res.json({ success: true, data });
