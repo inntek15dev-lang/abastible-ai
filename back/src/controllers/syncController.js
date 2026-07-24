@@ -586,7 +586,7 @@ const syncData = async (req, res) => {
                 const associatedIds = associatedContratistas.map(c => c.id);
                 for (const cId of associatedIds) {
                     await ContratistaUsuario.findOrCreate({
-                        where: { user_id: user.usu_id || user.id, contratista_id: cId },
+                        where: { user_id: user.usu_id, contratista_id: cId },
                         transaction
                     });
                 }
@@ -748,7 +748,7 @@ const syncData = async (req, res) => {
                     const [adminAssoc, adminAssocCreated] = await Administracion.findOrCreate({
                         where: {
                             vinculacion_id: vinculacion.id,
-                            administrador_contrato_id: user.usu_id || user.id
+                            administrador_contrato_id: user.usu_id
                         },
                         defaults: { activo: 1 },
                         transaction
@@ -815,7 +815,7 @@ const syncData = async (req, res) => {
                                         const adminItem = {
                                             nombre: admin.nombre || adminEmail.split('@')[0],
                                             email: adminEmail,
-                                            usu_id: admin.usu_id || admin.id || null,
+                                            usu_id: admin.usu_id || null,
                                             asignaciones: [{
                                                 rut_contratista: contractor.rut,
                                                 servicio: asig.servicio,
@@ -845,7 +845,7 @@ const syncData = async (req, res) => {
                                 const cAdminItem = {
                                     nombre: cAdmin.nombre,
                                     email: cleanEmail,
-                                    usu_id: cAdmin.usu_id || cAdmin.id || null,
+                                    usu_id: cAdmin.usu_id || null,
                                     rut_contratista: contractor.rut,
                                     rut_contratistas: [contractor.rut]
                                 };
