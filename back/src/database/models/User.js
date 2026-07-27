@@ -18,6 +18,7 @@ const User = sequelize.define('User', {
     usu_id: {
         type: DataTypes.BIGINT.UNSIGNED,
         primaryKey: true,
+        autoIncrement: true,
         allowNull: false
     },
     email: {

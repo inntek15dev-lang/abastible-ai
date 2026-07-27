@@ -1,8 +1,9 @@
 // IEEE Trace: REQ-007 | US-006 | authController.js
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { User, Role, Privilegio, Contratista, ContratistaUsuario, VinculacionUsuario } = require('../database/models');
+const { sequelize, User, Role, Privilegio, Contratista, ContratistaUsuario, VinculacionUsuario } = require('../database/models');
 const { decryptDataString } = require('../utils/cryptoHelper');
+const { adoptOvalUsuId } = require('../utils/usuIdHomologation');
 
 const authController = {
     // POST /api/auth/login
@@ -261,6 +262,31 @@ const authController = {
                 });
             }
             console.log(`  Resultado: ${user ? `Encontrado (usu_id: ${user.usu_id}, Rol: ${user.role})` : 'No encontrado'}`);
+
+            // Fallback de homologación: si no existe por usu_id pero sí por email,
+            // se adopta el usu_id de Oval (autoritativo) re-apuntando las referencias.
+            if (!user && userData.email) {
+                const fallbackEmail = userData.email.toString().trim().toLowerCase();
+                const byEmail = await User.findOne({ where: { email: fallbackEmail } });
+                if (byEmail) {
+                    console.log(`[SSO HOMOLOGACIÓN] Usuario encontrado por email (${fallbackEmail}); adoptando usu_id ${userData.usu_id} de Oval (local actual: ${byEmail.usu_id}).`);
+                    const t = await sequelize.transaction();
+                    try {
+                        user = await adoptOvalUsuId({
+                            sequelize,
+                            User,
+                            email: byEmail.email,
+                            targetUsuId: userData.usu_id,
+                            transaction: t
+                        });
+                        await t.commit();
+                    } catch (homologErr) {
+                        await t.rollback();
+                        console.error(`[SSO HOMOLOGACIÓN] No se pudo adoptar usu_id ${userData.usu_id} para ${fallbackEmail}:`, homologErr.message);
+                        user = null;
+                    }
+                }
+            }
 
             if (!user) {
                 console.warn(`[SSO ACCESS DENIED] Usuario con usu_id ${userData.usu_id} no está registrado en el sistema local.`);
