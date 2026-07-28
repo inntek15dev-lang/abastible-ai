@@ -3,6 +3,7 @@ const { Op } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
 const { safeMove } = require('../utils/fileHelper');
+const { isRegistroInScope } = require('../utils/scopeHelper');
 
 const compromisoController = {
     // GET /api/compromisos
@@ -41,21 +42,30 @@ const compromisoController = {
             // Role-based filtering (Security)
             const user = req.user;
             if (user.role === 'contratista_user' || user.role === 'contratista_admin') {
-                if (user.contratista_id) {
-                    let vincInclude = includeRegistro.include.find(inc => inc.as === 'vinculacionEntidad');
-                    if (!vincInclude) {
-                        vincInclude = {
-                            model: Vinculacion,
-                            as: 'vinculacionEntidad',
-                            required: true,
-                            where: {}
-                        };
-                        includeRegistro.include.push(vincInclude);
-                    }
-                    vincInclude.where.contratista_id = user.contratista_id;
-                    includeRegistro.required = true;
+                let vincInclude = includeRegistro.include.find(inc => inc.as === 'vinculacionEntidad');
+                if (!vincInclude) {
+                    vincInclude = {
+                        model: Vinculacion,
+                        as: 'vinculacionEntidad',
+                        required: true,
+                        where: {}
+                    };
+                    includeRegistro.include.push(vincInclude);
+                }
+                includeRegistro.required = true;
+
+                if (user.role === 'contratista_user') {
+                    // Ancla por vinculacion_id (el contrato exacto): NUNCA por contratista_id
+                    // (dejaría ver compromisos de otros contratos/servicios de la misma
+                    // empresa) ni por lo que el query param haya puesto en servicio_id/
+                    // dependencia_id arriba — se pisa explícitamente para evitar que el
+                    // cliente amplíe su propio scope.
+                    vincInclude.where = { id: user.vinculacion_id || -1 };
                 } else {
-                    where.responsable_id = user.id;
+                    // contratista_admin: todas las empresas que administra (portafolio
+                    // completo, no solo la principal).
+                    const cIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
+                    vincInclude.where.contratista_id = { [Op.in]: cIds.length > 0 ? cIds : [-1] };
                 }
             }
 
@@ -131,6 +141,11 @@ const compromisoController = {
                 return res.status(404).json({ success: false, message: 'Compromiso no encontrado' });
             }
 
+            // SECURITY: IDOR — mismo hueco que cargarEvidencia, en el mismo recurso.
+            if (!(await isRegistroInScope(req.user, compromiso.registro_id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para ver este compromiso' });
+            }
+
             res.json({ success: true, data: compromiso });
         } catch (error) {
             console.error('Compromiso show error:', error);
@@ -145,6 +160,10 @@ const compromisoController = {
 
             if (!compromiso) {
                 return res.status(404).json({ success: false, message: 'Compromiso no encontrado' });
+            }
+
+            if (!(await isRegistroInScope(req.user, compromiso.registro_id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para modificar este compromiso' });
             }
 
             const { estado, observacion_cumplimiento } = req.body;
@@ -245,6 +264,15 @@ const compromisoController = {
                 return res.status(404).json({ success: false, message: 'Compromiso no encontrado' });
             }
 
+            // SECURITY: sin esto, cualquier usuario autenticado podía adjuntar/reemplazar
+            // la evidencia de un compromiso de cualquier otra empresa con solo conocer su :id.
+            if (!(await isRegistroInScope(req.user, compromiso.registro_id))) {
+                if (req.file && fs.existsSync(req.file.path)) {
+                    fs.unlinkSync(req.file.path);
+                }
+                return res.status(403).json({ success: false, message: 'No tiene permiso para cargar evidencia en este compromiso' });
+            }
+
             let dbPath = null;
             if (req.file) {
                 const storageRelativePath = path.join(
@@ -298,6 +326,11 @@ const compromisoController = {
         try {
             const compromiso = await Compromiso.findByPk(req.params.id);
             if (!compromiso) return res.status(404).json({ success: false, message: 'Not found' });
+
+            if (!(await isRegistroInScope(req.user, compromiso.registro_id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para eliminar este compromiso' });
+            }
+
             await compromiso.destroy();
             res.json({ success: true, message: 'Eliminado' });
         } catch (error) {

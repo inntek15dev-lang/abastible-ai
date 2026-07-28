@@ -1,9 +1,18 @@
 // Ejecuta la migración física de PK a usu_id (ID homologado de OvalControl).
-// Uso: node src/run_usu_id_pk_migration.js   (desde back/, con .env configurado)
+// Uso: node scripts/run_usu_id_pk_migration.js   (desde back/, con .env configurado)
+// Integrado al deploy: se invoca desde .github/workflows/deploy-prepro.yml y
+// deploy-prod.yml, igual que scripts/ensure_schema.js.
 //
-// Equivale a la migración 20260727120000-make-usu-id-primary-key.js (el proyecto no
-// tiene sequelize-cli instalado, por eso este script standalone, mismo patrón que
-// run_migration.js).
+// GUARD DE UNA SOLA EJECUCIÓN: al terminar con éxito, escribe la fila
+// configuraciones.clave = 'migracion_usu_id_pk_completada'. En cada deploy posterior,
+// el script detecta esa fila y sale de inmediato sin tocar la base de datos. Esto es
+// deliberado y necesario, no solo una optimización: los pasos de esta migración
+// (mover la PK, reservar el rango local, renumerar usuarios core) son de una sola vez
+// por diseño — repetirlos en cada deploy re-renumeraría usuarios core que ya fueron
+// desplazados a un ID distinto por una sincronización posterior, deshaciendo ese
+// desplazamiento. Además de la bandera, se conserva como respaldo la verificación por
+// esquema (paso 4) para el caso de que la fila de configuración se pierda pero la
+// migración ya se haya aplicado.
 //
 // Resultado:
 //  - users.usu_id: PRIMARY KEY NOT NULL AUTO_INCREMENT (contador desde 1.000.000,
@@ -13,11 +22,19 @@
 //    positivos más bajos posibles, sin colisionar con ningún usu_id migrado de Oval.
 //    Es la única excepción a la homologación: nunca caen en el rango local alto.
 
-const { sequelize, User } = require('./database/models');
-const { renumberCoreUsersToMinimum } = require('./utils/usuIdHomologation');
+const { sequelize, User, Configuracion } = require('../src/database/models');
+const { renumberCoreUsersToMinimum } = require('../src/utils/usuIdHomologation');
+
+const FLAG_CLAVE = 'migracion_usu_id_pk_completada';
 
 async function run() {
     try {
+        const flag = await Configuracion.findOne({ where: { clave: FLAG_CLAVE } });
+        if (flag && flag.valor === '1') {
+            console.log(`ℹ️ ${FLAG_CLAVE}=1: migración ya aplicada anteriormente. Nada que hacer.`);
+            process.exit(0);
+        }
+
         console.log('🔄 Iniciando migración física de PK a usu_id...');
 
         // 0. Usuarios core (admin) a los IDs más bajos posibles, antes del backfill
@@ -70,29 +87,37 @@ async function run() {
             console.log('ℹ️ No hay FOREIGN KEYs físicas hacia users.');
         }
 
-        // 4. Verificar estado actual (idempotencia básica).
+        // 4. Verificar estado actual (respaldo de idempotencia si la bandera se perdió).
         const [cols] = await sequelize.query("SHOW COLUMNS FROM users WHERE Field IN ('id','usu_id')");
         const usuCol = cols.find(c => c.Field === 'usu_id');
-        if (usuCol && usuCol.Key === 'PRI' && /auto_increment/i.test(usuCol.Extra || '')) {
-            console.log('ℹ️ users.usu_id ya es PRIMARY KEY AUTO_INCREMENT. Nada que hacer.');
-            process.exit(0);
+        const alreadyMigrated = usuCol && usuCol.Key === 'PRI' && /auto_increment/i.test(usuCol.Extra || '');
+        if (!alreadyMigrated) {
+            // 5. Mover la PK: id pierde AUTO_INCREMENT, usu_id la recibe.
+            await sequelize.query('ALTER TABLE users MODIFY id BIGINT UNSIGNED NOT NULL');
+            console.log('✅ id: AUTO_INCREMENT removido.');
+
+            await sequelize.query('ALTER TABLE users DROP PRIMARY KEY');
+            await sequelize.query('ALTER TABLE users MODIFY usu_id BIGINT UNSIGNED NOT NULL, ADD PRIMARY KEY (usu_id)');
+            console.log('✅ PRIMARY KEY movida a usu_id.');
+
+            await sequelize.query('ALTER TABLE users MODIFY id BIGINT UNSIGNED NULL');
+            await sequelize.query('ALTER TABLE users ADD UNIQUE INDEX users_legacy_id_unique (id)');
+            console.log('✅ id: ahora nullable con índice único (legacy).');
+
+            await sequelize.query('ALTER TABLE users MODIFY usu_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT');
+            await sequelize.query('ALTER TABLE users AUTO_INCREMENT = 1000000');
+            console.log('✅ usu_id: AUTO_INCREMENT activado (contador desde 1.000.000).');
+        } else {
+            console.log('ℹ️ users.usu_id ya era PRIMARY KEY AUTO_INCREMENT (bandera ausente pero esquema ya migrado).');
         }
 
-        // 5. Mover la PK: id pierde AUTO_INCREMENT, usu_id la recibe.
-        await sequelize.query('ALTER TABLE users MODIFY id BIGINT UNSIGNED NOT NULL');
-        console.log('✅ id: AUTO_INCREMENT removido.');
-
-        await sequelize.query('ALTER TABLE users DROP PRIMARY KEY');
-        await sequelize.query('ALTER TABLE users MODIFY usu_id BIGINT UNSIGNED NOT NULL, ADD PRIMARY KEY (usu_id)');
-        console.log('✅ PRIMARY KEY movida a usu_id.');
-
-        await sequelize.query('ALTER TABLE users MODIFY id BIGINT UNSIGNED NULL');
-        await sequelize.query('ALTER TABLE users ADD UNIQUE INDEX users_legacy_id_unique (id)');
-        console.log('✅ id: ahora nullable con índice único (legacy).');
-
-        await sequelize.query('ALTER TABLE users MODIFY usu_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT');
-        await sequelize.query('ALTER TABLE users AUTO_INCREMENT = 1000000');
-        console.log('✅ usu_id: AUTO_INCREMENT activado (contador desde 1.000.000).');
+        await Configuracion.upsert({
+            clave: FLAG_CLAVE,
+            valor: '1',
+            descripcion: 'Marca que la migración de PK a usu_id (homologación OvalControl) ya se ejecutó. No borrar salvo que se revierta la migración intencionalmente.',
+            tipo: 'boolean'
+        });
+        console.log(`✅ Bandera ${FLAG_CLAVE}=1 registrada en configuraciones.`);
 
         console.log('🎉 Migración de PK a usu_id completada exitosamente.');
         process.exit(0);

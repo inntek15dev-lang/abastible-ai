@@ -38,6 +38,15 @@ const vinculacionController = {
                 }
                 console.log(`[Vinculacion Controller - GET /api/vinculaciones] User is contratista_admin (ID: ${userId}). Allowed contratista_ids: [${cIds.join(', ')}]. Filtering vinculaciones where contratista_id IN (${cIds.join(', ')})`);
                 where.contratista_id = { [Op.in]: cIds.length > 0 ? cIds : [-1] };
+            } else if (role === 'contratista_user') {
+                // Único contrato al que fue asignado (vía VinculacionUsuario). SIN esta rama,
+                // caía en el "else" y veía TODAS las vinculaciones del sistema (todas las
+                // empresas, todos los admins de contrato, todos los usuarios asignados).
+                delete where.contratista_id;
+                delete where.servicio_id;
+                delete where.dependencia_id;
+                where.id = req.user.vinculacion_id || -1;
+                console.log(`[Vinculacion Controller - GET /api/vinculaciones] User is contratista_user (ID: ${userId}). Filtering vinculaciones where id = ${where.id}`);
             } else {
                 console.log(`[Vinculacion Controller - GET /api/vinculaciones] User role: ${role} (ID: ${userId}). No specific role filter applied to Vinculacion query.`);
             }
@@ -111,56 +120,15 @@ const vinculacionController = {
         }
     },
 
+    // POST /api/vinculaciones
+    // BLOQUEADO: las vinculaciones (contratista + servicio + dependencia + contrato) son
+    // data que reporta OVAL exclusivamente. Crear una manualmente la dejaría fuera del
+    // espejo de OVAL y la próxima re-sincronización la eliminaría como residual.
     async store(req, res) {
-        try {
-            const { contratista_id, servicio_id, dependencia_id, fecha_inicio_contrato, fecha_termino_contrato, administrador_contrato_id, numero_contrato } = req.body;
-
-            // Fetch Dependency to deduce Subgerencia and Gerencia
-            const depInfo = await Dependencia.findByPk(dependencia_id, {
-                include: [{ model: Subgerencia, as: 'subgerencia' }]
-            });
-
-            if (!depInfo || !depInfo.subgerencia) {
-                return res.status(400).json({ success: false, message: 'La Dependencia seleccionada no tiene una Subgerencia/Gerencia válida.' });
-            }
-
-            const subgerencia_id = depInfo.subgerencia_id;
-            const gerencia_id = depInfo.subgerencia.gerencia_id;
-
-            // Validation: Check duplicate
-            const existing = await Vinculacion.findOne({
-                where: { contratista_id, servicio_id, dependencia_id, activo: 1 }
-            });
-
-            if (existing) {
-                return res.status(400).json({ success: false, message: 'Ya existe una vinculación activa para este contratista, servicio y dependencia.' });
-            }
-
-            const vinculacion = await Vinculacion.create({
-                contratista_id,
-                servicio_id,
-                dependencia_id,
-                subgerencia_id,
-                gerencia_id,
-                fecha_inicio_contrato: fecha_inicio_contrato || null,
-                fecha_termino_contrato: fecha_termino_contrato || null,
-                numero_contrato
-            });
-
-            // Create Administracion if admin is provided
-            if (administrador_contrato_id) {
-                await Administracion.create({
-                    vinculacion_id: vinculacion.id,
-                    administrador_contrato_id,
-                    activo: 1
-                });
-            }
-
-            res.status(201).json({ success: true, data: vinculacion });
-        } catch (error) {
-            console.error('Vinculaciones store error:', error);
-            res.status(500).json({ success: false, message: 'Error al crear vinculacion' });
-        }
+        return res.status(403).json({
+            success: false,
+            message: 'Las vinculaciones se gestionan exclusivamente a través de la sincronización con OVAL. No pueden crearse manualmente.'
+        });
     },
 
     // PUT /api/vinculaciones/:id
@@ -197,41 +165,23 @@ const vinculacionController = {
     },
 
     // POST /api/vinculaciones/:id/admin
+    // BLOQUEADO: el administrador de contrato de una vinculación es data que reporta OVAL
+    // (administrador_contrato dentro de cada asignación) y se gestiona exclusivamente vía
+    // sincronización.
     async assignAdmin(req, res) {
-        try {
-            const { id } = req.params;
-            const { administrador_contrato_id } = req.body;
-
-            const vinculacion = await Vinculacion.findByPk(id);
-            if (!vinculacion) {
-                return res.status(404).json({ success: false, message: 'Vinculacion no encontrada' });
-            }
-
-            const [admin, created] = await Administracion.findOrCreate({
-                where: { vinculacion_id: id, administrador_contrato_id, activo: 1 },
-                defaults: { activo: 1 }
-            });
-
-            res.json({ success: true, message: 'Administrador asignado correctamente' });
-        } catch (error) {
-            console.error('Vinculacion assignAdmin error:', error);
-            res.status(500).json({ success: false, message: 'Error al asignar administrador' });
-        }
+        return res.status(403).json({
+            success: false,
+            message: 'La asignación de administradores de contrato se gestiona exclusivamente a través de la sincronización con OVAL. No puede realizarse manualmente.'
+        });
     },
 
     // DELETE /api/vinculaciones/:id/admin/:adminId
+    // BLOQUEADO: mismo motivo que assignAdmin.
     async removeAdmin(req, res) {
-        try {
-            const { id, adminId } = req.params;
-            await Administracion.update(
-                { activo: 0 },
-                { where: { vinculacion_id: id, administrador_contrato_id: adminId, activo: 1 } }
-            );
-            res.json({ success: true, message: 'Administrador removido correctamente' });
-        } catch (error) {
-            console.error('Vinculacion removeAdmin error:', error);
-            res.status(500).json({ success: false, message: 'Error al remover administrador' });
-        }
+        return res.status(403).json({
+            success: false,
+            message: 'La asignación de administradores de contrato se gestiona exclusivamente a través de la sincronización con OVAL. No puede modificarse manualmente.'
+        });
     },
 
     // POST /api/vinculaciones/:id/usuarios

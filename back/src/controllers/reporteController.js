@@ -618,6 +618,7 @@ module.exports = {
         const { contratista_id, servicio_id, dependencia_id, programa_id, periodo, periodo_desde, periodo_hasta } = req.query;
 
         const whereVinculacion = { activo: 1 };
+        let allowedContratistaIds = null; // null = sin restricción (admin/oval)
 
         // 1. Role Scope
         if (user.role === 'administrador_contrato') {
@@ -627,21 +628,31 @@ module.exports = {
             });
             const vincIds = adminRecords.map(a => a.vinculacion_id);
             whereVinculacion.id = vincIds.length > 0 ? { [Op.in]: vincIds } : -1;
-        } else if (['contratista_admin', 'contratista_user'].includes(user.role)) {
-            if (user.role === 'contratista_admin') {
-                const cIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
-                whereVinculacion.contratista_id = { [Op.in]: cIds };
-            } else {
-                whereVinculacion.contratista_id = user.contratista_id;
-                whereVinculacion.servicio_id = user.tipo_contratista_id;
-                whereVinculacion.dependencia_id = user.dependencia_id;
-            }
+        } else if (user.role === 'contratista_admin') {
+            allowedContratistaIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
+            whereVinculacion.contratista_id = { [Op.in]: allowedContratistaIds };
+        } else if (user.role === 'contratista_user') {
+            // Ancla por vinculacion_id (el contrato exacto asignado). A diferencia de anclar
+            // por contratista_id/servicio_id/dependencia_id, estos NUNCA se tocan en el paso
+            // 2 (los filtros de query solo escriben esas tres claves), así que ninguna query
+            // param puede pisar el scope. Antes, los tres campos SÍ quedaban sobrescritos por
+            // los filtros de abajo, permitiendo ver la matriz de cumplimiento de cualquier
+            // otra empresa/contrato pasando ?contratista_id=&servicio_id=&dependencia_id=.
+            whereVinculacion.id = user.vinculacion_id || -1;
         }
 
-        // 2. Filters (Case-insensitive check for "todos" or "todas")
-        if (contratista_id && String(contratista_id).toLowerCase() !== 'todos') whereVinculacion.contratista_id = contratista_id;
-        if (servicio_id && String(servicio_id).toLowerCase() !== 'todos') whereVinculacion.servicio_id = servicio_id;
-        if (dependencia_id && String(dependencia_id).toLowerCase() !== 'todas') whereVinculacion.dependencia_id = dependencia_id;
+        // 2. Filters (Case-insensitive check for "todos" o "todas"). Para contratista_admin,
+        // solo se aceptan si caen dentro de su propio portafolio (allowedContratistaIds);
+        // si no, se ignoran (fail-safe, nunca se amplía el scope por un query param).
+        if (contratista_id && String(contratista_id).toLowerCase() !== 'todos') {
+            if (allowedContratistaIds === null || allowedContratistaIds.map(Number).includes(Number(contratista_id))) {
+                whereVinculacion.contratista_id = contratista_id;
+            }
+        }
+        if (user.role !== 'contratista_user') {
+            if (servicio_id && String(servicio_id).toLowerCase() !== 'todos') whereVinculacion.servicio_id = servicio_id;
+            if (dependencia_id && String(dependencia_id).toLowerCase() !== 'todas') whereVinculacion.dependencia_id = dependencia_id;
+        }
 
         // 3. Date Range
         let startMonth, endMonth;

@@ -1,5 +1,7 @@
 // IEEE Trace: REQ-003 | US-003 | controllers/hallazgoController.js
 const { Hallazgo, RegistroActividad, Registro, User } = require('../database/models');
+const { getAllowedVinculacionIds, isRegistroInScope } = require('../utils/scopeHelper');
+const { Op } = require('sequelize');
 
 const hallazgoController = {
     // GET /api/hallazgos
@@ -10,11 +12,26 @@ const hallazgoController = {
             if (registro_id) where.registro_id = registro_id;
             if (registro_actividad_id) where.registro_actividad_id = registro_actividad_id;
 
+            // SECURITY: sin esto, cualquier usuario autenticado enumeraba hallazgos de
+            // registros de cualquier empresa/contrato con solo variar registro_id.
+            const allowedVincIds = await getAllowedVinculacionIds(req.user);
+            const includeRegistro = {
+                model: Registro,
+                as: 'registro',
+                attributes: [],
+                required: allowedVincIds !== null
+            };
+            if (allowedVincIds !== null) {
+                if (allowedVincIds.length === 0) return res.json({ success: true, data: [] });
+                includeRegistro.where = { contratista_asignacion_id: { [Op.in]: allowedVincIds } };
+            }
+
             const hallazgos = await Hallazgo.findAll({
                 where,
                 include: [
                     { model: User, as: 'auditor', attributes: ['id', 'name'] },
-                    { model: RegistroActividad, as: 'registroActividad' }
+                    { model: RegistroActividad, as: 'registroActividad' },
+                    includeRegistro
                 ],
                 order: [['created_at', 'DESC']]
             });
@@ -67,6 +84,12 @@ const hallazgoController = {
                 return res.status(404).json({ success: false, message: 'Hallazgo no encontrado' });
             }
 
+            // SECURITY: IDOR — sin esto, cualquiera podía leer un hallazgo de otra empresa
+            // con solo conocer/adivinar el :id.
+            if (!(await isRegistroInScope(req.user, hallazgo.registro_id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para ver este hallazgo' });
+            }
+
             res.json({ success: true, data: hallazgo });
         } catch (error) {
             console.error('Hallazgo show error:', error);
@@ -80,6 +103,10 @@ const hallazgoController = {
             const hallazgo = await Hallazgo.findByPk(req.params.id);
             if (!hallazgo) {
                 return res.status(404).json({ success: false, message: 'Hallazgo no encontrado' });
+            }
+
+            if (!(await isRegistroInScope(req.user, hallazgo.registro_id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para modificar este hallazgo' });
             }
 
             await hallazgo.update(req.body);
@@ -96,6 +123,10 @@ const hallazgoController = {
             const hallazgo = await Hallazgo.findByPk(req.params.id);
             if (!hallazgo) {
                 return res.status(404).json({ success: false, message: 'Hallazgo no encontrado' });
+            }
+
+            if (!(await isRegistroInScope(req.user, hallazgo.registro_id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para eliminar este hallazgo' });
             }
 
             await hallazgo.destroy();

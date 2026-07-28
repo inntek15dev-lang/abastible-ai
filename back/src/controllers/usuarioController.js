@@ -29,47 +29,59 @@ const usuarioController = {
 
             if (req.user.role === 'contratista_admin' || req.user.role === 'contratista_user') {
                 // Contratistas only see admins assigned to THEIR vinculations
-                // const { Vinculacion, Administracion } = require('../database/models'); // Imported at top
                 const { Op } = require('sequelize');
                 const isUser = req.user.role === 'contratista_user';
-                const cIds = isUser ? [req.user.contratista_id] : (req.user.contratista_ids || (req.user.contratista_id ? [req.user.contratista_id] : []));
-
-                const adminsSearchWhere = { activo: 1 };
-                const vincSearchWhere = { contratista_id: { [Op.in]: cIds }, activo: 1 };
 
                 if (isUser) {
-                    // Contratista User: only see users within their SAME vinculation (service/dependencia)
-                    vincSearchWhere.servicio_id = req.user.tipo_contratista_id;
-                    vincSearchWhere.dependencia_id = req.user.dependencia_id;
-                    
-                    // Also filter the User query to only show those with same service/dep
-                    where.tipo_contratista_id = req.user.tipo_contratista_id;
-                    where.dependencia_id = req.user.dependencia_id;
-                    where.contratista_id = req.user.contratista_id;
-                }
+                    // Contratista User: su ÚNICO scope es el contrato (Vinculación) al que fue
+                    // asignado — nunca las columnas contratista_id/tipo_contratista_id/
+                    // dependencia_id del propio User, que están SIEMPRE en NULL para este rol.
+                    // Comparar por esas columnas hace match contra CUALQUIER otro usuario cuyas
+                    // columnas también sean NULL (todo contratista_user del sistema, e incluso
+                    // admin/administrador_contrato) — fuga de datos entre empresas distintas.
+                    const myVincId = req.user.vinculacion_id || -1;
 
-                const admins = await Administracion.findAll({
-                    include: [{
-                        model: Vinculacion,
-                        as: 'vinculacion',
-                        where: vincSearchWhere,
-                        required: true
-                    }],
-                    where: adminsSearchWhere,
-                    attributes: ['administrador_contrato_id']
-                });
-                const adminIds = [...new Set(admins.map(a => a.administrador_contrato_id))];
-
-                if (req.query.role === 'administrador_contrato') {
-                    if (adminIds.length === 0) return res.json({ success: true, data: [] });
-                    where[Op.or] = [
-                        { usu_id: adminIds },
-                        { id: adminIds }
-                    ];
+                    if (req.query.role === 'administrador_contrato') {
+                        const admins = await Administracion.findAll({
+                            where: { activo: 1, vinculacion_id: myVincId },
+                            attributes: ['administrador_contrato_id']
+                        });
+                        const adminIds = [...new Set(admins.map(a => a.administrador_contrato_id))];
+                        if (adminIds.length === 0) return res.json({ success: true, data: [] });
+                        where[Op.or] = [{ usu_id: adminIds }, { id: adminIds }];
+                    } else {
+                        // Peers: otros contratista_user asignados a la MISMA vinculación (mismo
+                        // número de contrato), vía VinculacionUsuario — nunca por columnas null.
+                        const peers = await VinculacionUsuario.findAll({
+                            where: { vinculacion_id: myVincId, activo: 1 },
+                            attributes: ['user_id']
+                        });
+                        const peerIds = [...new Set(peers.map(p => p.user_id))];
+                        if (peerIds.length === 0) return res.json({ success: true, data: [] });
+                        where[Op.or] = [{ usu_id: peerIds }, { id: peerIds }];
+                    }
                 } else {
-                    // Standard contractor limits: only sees their own operatives
-                    // Unless it's a contratista_user who needs to see all peers in same vinculation (PARKO)
-                    if (!isUser) {
+                    const cIds = req.user.contratista_ids || (req.user.contratista_id ? [req.user.contratista_id] : []);
+                    const admins = await Administracion.findAll({
+                        include: [{
+                            model: Vinculacion,
+                            as: 'vinculacion',
+                            where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
+                            required: true
+                        }],
+                        where: { activo: 1 },
+                        attributes: ['administrador_contrato_id']
+                    });
+                    const adminIds = [...new Set(admins.map(a => a.administrador_contrato_id))];
+
+                    if (req.query.role === 'administrador_contrato') {
+                        if (adminIds.length === 0) return res.json({ success: true, data: [] });
+                        where[Op.or] = [
+                            { usu_id: adminIds },
+                            { id: adminIds }
+                        ];
+                    } else {
+                        // Standard contractor limits: only sees their own operatives
                         where.parent_id = req.user.id;
                     }
                 }
@@ -206,6 +218,43 @@ const usuarioController = {
                 return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
             }
 
+            // SECURITY SCOPE CHECK: sin esto, cualquier usuario autenticado podía leer el
+            // perfil completo (incluyendo empresa, vinculaciones y contratos) de cualquier
+            // otro usuario del sistema con solo cambiar el :id de la URL (IDOR).
+            const isSelf = String(usuario.usu_id) === String(req.user.id);
+            if (!isSelf && !['admin', 'oval'].includes(req.user.role)) {
+                if (req.user.role === 'contratista_user') {
+                    let sameVinc = false;
+                    if (usuario.role === 'contratista_user' && req.user.vinculacion_id) {
+                        const targetVinc = await VinculacionUsuario.findOne({
+                            where: { user_id: usuario.usu_id, activo: 1 },
+                            attributes: ['vinculacion_id']
+                        });
+                        sameVinc = !!targetVinc && Number(targetVinc.vinculacion_id) === Number(req.user.vinculacion_id);
+                    }
+                    if (!sameVinc) {
+                        return res.status(403).json({ success: false, message: 'No tiene permiso para ver este usuario' });
+                    }
+                } else if (req.user.role === 'contratista_admin' || req.user.role === 'contratista_admin_eecc') {
+                    if (String(usuario.parent_id) !== String(req.user.id)) {
+                        return res.status(403).json({ success: false, message: 'No tiene permiso para ver este usuario' });
+                    }
+                } else if (req.user.role === 'administrador_contrato') {
+                    const asignaciones = await ContratistaAsignacion.findAll({
+                        where: { administrador_contrato_id: req.user.id },
+                        attributes: ['user_id']
+                    });
+                    const assignedIds = asignaciones.map(a => String(a.user_id));
+                    const isDirectlyAssigned = assignedIds.includes(String(usuario.usu_id));
+                    const isChildOfAssigned = usuario.parent_id && assignedIds.includes(String(usuario.parent_id));
+                    if (!isDirectlyAssigned && !isChildOfAssigned) {
+                        return res.status(403).json({ success: false, message: 'No tiene permiso para ver este usuario' });
+                    }
+                } else {
+                    return res.status(403).json({ success: false, message: 'No tiene permiso para ver este usuario' });
+                }
+            }
+
             res.json({ success: true, data: usuario });
         } catch (error) {
             console.error('Usuario show error:', error);
@@ -245,15 +294,23 @@ const usuarioController = {
                 // Contractor roles can only create users under their same company/link
                 finalRole = 'contratista_user';
                 finalParentId = req.user.parent_id || req.user.id; // Usually link to their admin or themselves
-            } else if (req.user.role === 'administrador_contrato') {
-                // Admin contrato can create contratista_admin, contratista_admin_eecc or contratista_user
-                if (!['contratista_admin', 'contratista_admin_eecc', 'contratista_user'].includes(finalRole)) {
-                    finalRole = 'contratista_admin';
-                }
             }
             // Admin can create any role (except OVAL if not OVAL themselves)
             if (finalRole === 'oval' && req.user.role !== 'oval') {
                 finalRole = 'admin'; // Downgrade or reject? Requirement says "invisible to admin", so admin shouldn't even know it exists.
+            }
+
+            // REGLA DE HOMOLOGACIÓN OVAL: contratista_admin y administrador_contrato son
+            // identidades gestionadas EXCLUSIVAMENTE por la sincronización con OVAL. Crearlos
+            // manualmente aquí produciría usuarios sin usu_id homologado que la próxima
+            // re-sincronización trataría como residuales y eliminaría. La única excepción
+            // manual es contratista_user (creado por un contratista_admin, ligado a una
+            // vinculación/contrato específico — ver validación más abajo).
+            if (['contratista_admin', 'contratista_admin_eecc', 'administrador_contrato'].includes(finalRole)) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Los usuarios Administrador de Contratista y Administrador de Contrato se gestionan exclusivamente a través de la sincronización con OVAL. No pueden crearse manualmente.'
+                });
             }
 
             // Enforce restriction: Only Contratista Admin (or Admin) can create contratista_user
@@ -412,11 +469,21 @@ const usuarioController = {
                     return res.status(403).json({ success: false, message: 'No tiene permiso para editar este usuario' });
                 }
             } else if (req.user.role === 'contratista_user') {
-                // Can edit themselves OR users in their same company+service+dependencia
-                const isSameScope = String(usuario.contratista_id) === String(req.user.contratista_id) && 
-                                   String(usuario.tipo_contratista_id) === String(req.user.tipo_contratista_id) &&
-                                   String(usuario.dependencia_id) === String(req.user.dependencia_id);
-                                   
+                // Can edit themselves OR peers assigned to the SAME vinculación (contrato).
+                // NUNCA comparar por contratista_id/tipo_contratista_id/dependencia_id: esas
+                // columnas están siempre en NULL para contratista_user, así que
+                // String(null) === String(null) matcheaba cualquier otro usuario con esas
+                // columnas null (todo contratista_user del sistema, e incluso admin /
+                // administrador_contrato) — fuga cross-tenant y escalamiento de privilegios.
+                let isSameScope = false;
+                if (usuario.role === 'contratista_user' && req.user.vinculacion_id) {
+                    const targetVinc = await VinculacionUsuario.findOne({
+                        where: { user_id: usuario.usu_id, activo: 1 },
+                        attributes: ['vinculacion_id']
+                    });
+                    isSameScope = !!targetVinc && Number(targetVinc.vinculacion_id) === Number(req.user.vinculacion_id);
+                }
+
                 if (!isSelf && !isSameScope) {
                     return res.status(403).json({ success: false, message: 'No tiene permiso para editar este usuario' });
                 }
@@ -442,6 +509,18 @@ const usuarioController = {
                 if (isSelf) {
                     return res.status(403).json({ success: false, message: 'No puede desactivar su propia cuenta' });
                 }
+            }
+
+            // REGLA DE HOMOLOGACIÓN OVAL: no permitir escalar un usuario a contratista_admin
+            // o administrador_contrato vía este endpoint (esos roles solo los asigna la
+            // sincronización con OVAL). Evita el bypass de crear como contratista_user y
+            // luego editar el rol.
+            if (updateData.role && updateData.role !== usuario.role &&
+                ['contratista_admin', 'contratista_admin_eecc', 'administrador_contrato'].includes(updateData.role)) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Los roles Administrador de Contratista y Administrador de Contrato se asignan exclusivamente a través de la sincronización con OVAL.'
+                });
             }
 
             // Hash password if provided
@@ -574,10 +653,18 @@ const usuarioController = {
             }
             
             // SECURITY SCOPE CHECK for Contratista User
+            // NUNCA comparar por contratista_id/tipo_contratista_id/dependencia_id: esas
+            // columnas están siempre en NULL para contratista_user (String(null)===String(null)
+            // matcheaba cualquier otro usuario, cross-tenant). El scope real es la vinculación.
             if (req.user.role === 'contratista_user') {
-                 const isSameScope = String(usuario.contratista_id) === String(req.user.contratista_id) && 
-                                   String(usuario.tipo_contratista_id) === String(req.user.tipo_contratista_id) &&
-                                   String(usuario.dependencia_id) === String(req.user.dependencia_id);
+                let isSameScope = false;
+                if (usuario.role === 'contratista_user' && req.user.vinculacion_id) {
+                    const targetVinc = await VinculacionUsuario.findOne({
+                        where: { user_id: usuario.usu_id, activo: 1 },
+                        attributes: ['vinculacion_id']
+                    });
+                    isSameScope = !!targetVinc && Number(targetVinc.vinculacion_id) === Number(req.user.vinculacion_id);
+                }
                 if (!isSameScope) {
                     return res.status(403).json({ success: false, message: 'No tiene permiso para desactivar este usuario' });
                 }

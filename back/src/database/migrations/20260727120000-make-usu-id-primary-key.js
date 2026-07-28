@@ -10,11 +10,14 @@
 // contratista_usuarios_ibfk_2 — porque validan contra la columna legacy y rechazan
 // los user_id homologados. Aborta solo si existen usu_id duplicados (resolución manual).
 //
-// NOTA: este proyecto no tiene sequelize-cli instalado (sin script de migraciones), por
-// lo que el entrypoint real es `back/src/run_usu_id_pk_migration.js` — ese script además
-// renumera los usuarios core (rol admin) a sus IDs mínimos posibles antes del backfill
-// (ver `renumberCoreUsersToMinimum` en utils/usuIdHomologation.js). Este archivo se
-// mantiene como documentación/referencia equivalente para un entorno con sequelize-cli.
+// NOTA: el entrypoint real integrado al deploy es `back/scripts/run_usu_id_pk_migration.js`
+// (invocado desde .github/workflows/deploy-prepro.yml y deploy-prod.yml vía `docker exec`,
+// igual que scripts/ensure_schema.js). Ese script además renumera los usuarios core (rol
+// admin) a sus IDs mínimos posibles antes del backfill (ver `renumberCoreUsersToMinimum`
+// en utils/usuIdHomologation.js) y se guarda a sí mismo como ejecutado en
+// configuraciones.clave='migracion_usu_id_pk_completada' para no volver a aplicar los
+// ALTER TABLE en despliegues posteriores. Este archivo se mantiene como documentación/
+// referencia equivalente para un entorno con sequelize-cli.
 
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {

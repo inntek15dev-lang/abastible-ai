@@ -1,5 +1,5 @@
 // IEEE Trace: REQ-009 | US-051 | contratistaController.js
-const { Contratista, Vinculacion, Administracion, VinculacionUsuario, User, TipoContratista, Dependencia, Programa, Gerencia, Subgerencia, sequelize } = require('../database/models');
+const { Contratista, Vinculacion, Administracion, VinculacionUsuario, User, TipoContratista, Dependencia, Programa, Gerencia, Subgerencia } = require('../database/models');
 
 const contratistaController = {
     // GET /api/contratistas
@@ -167,57 +167,15 @@ const contratistaController = {
     },
 
     // POST /api/contratistas
+    // BLOQUEADO: las empresas contratistas se gestionan exclusivamente a través de la
+    // sincronización con OVAL (fuente de verdad única). Crear una manualmente la dejaría
+    // sin homologación con OVAL, y la próxima re-sincronización la trataría como residual
+    // y la eliminaría.
     async store(req, res) {
-        const t = await sequelize.transaction();
-        try {
-            const { nombre, rut, direccion, telefono, email_contacto, vinculacion_inicial } = req.body;
-
-            // Check RUT uniqueness
-            const existing = await Contratista.findOne({ where: { rut } });
-            if (existing) {
-                await t.rollback();
-                return res.status(400).json({ success: false, message: 'El RUT ya está registrado' });
-            }
-
-            // Create Contratista
-            const contratista = await Contratista.create({
-                nombre, rut, direccion, telefono, email_contacto
-            }, { transaction: t });
-
-            // Create Initial Vinculacion if provided
-            if (vinculacion_inicial) {
-                const { servicio_id, dependencia_id, administrador_contrato_id } = vinculacion_inicial;
-
-                if (servicio_id && dependencia_id) {
-                    const vinculacion = await Vinculacion.create({
-                        contratista_id: contratista.id,
-                        servicio_id,
-                        dependencia_id
-                    }, { transaction: t });
-
-                    // Add Admin if provided
-                    if (administrador_contrato_id) {
-                        await Administracion.create({
-                            vinculacion_id: vinculacion.id,
-                            administrador_contrato_id
-                        }, { transaction: t });
-                    }
-                }
-            }
-
-            await t.commit();
-
-            // Re-fetch to normalize response
-            const newContratista = await Contratista.findByPk(contratista.id, {
-                include: [{ model: Vinculacion, as: 'vinculaciones' }]
-            });
-
-            res.status(201).json({ success: true, data: newContratista });
-        } catch (error) {
-            await t.rollback();
-            console.error('Contratista store error:', error);
-            res.status(500).json({ success: false, message: 'Error al crear contratista' });
-        }
+        return res.status(403).json({
+            success: false,
+            message: 'Las empresas contratistas se gestionan exclusivamente a través de la sincronización con OVAL. No pueden crearse manualmente.'
+        });
     },
 
     // PUT /api/contratistas/:id
@@ -237,103 +195,25 @@ const contratistaController = {
     },
 
     // POST /api/contratistas/:id/admin
+    // BLOQUEADO: la asignación de administrador de contrato a una vinculación es data
+    // que reporta OVAL (administrador_contrato dentro de cada asignación) y se gestiona
+    // exclusivamente vía sincronización. Esta ruta además creaba vinculaciones "default"
+    // inventadas cuando la empresa no tenía ninguna, lo cual viola que las vinculaciones
+    // solo pueden originarse en OVAL.
     async assignAdmin(req, res) {
-        const transaction = await sequelize.transaction();
-        try {
-            const { id } = req.params;
-            const { administrador_contrato_id } = req.body;
-
-            if (!administrador_contrato_id) {
-                return res.status(400).json({ success: false, message: 'ID de administrador es requerido' });
-            }
-
-            const contratista = await Contratista.findByPk(id, {
-                include: [{ model: Vinculacion, as: 'vinculaciones', where: { activo: 1 }, required: false }]
-            });
-
-            if (!contratista) {
-                await transaction.rollback();
-                return res.status(404).json({ success: false, message: 'Contratista no encontrado' });
-            }
-
-            if (!contratista.vinculaciones || contratista.vinculaciones.length === 0) {
-                // If no vinculaciones, create a default one
-                const defaultServicio = await TipoContratista.findOne({ where: { nombre: 'MANTENIMIENTO' }, transaction });
-                const defaultDependencia = await Dependencia.findOne({ where: { nombre: 'TRANSVERSAL NACIONAL' }, transaction });
-
-                if (!defaultServicio || !defaultDependencia) {
-                    await transaction.rollback();
-                    return res.status(400).json({ success: false, message: 'No se encontraron servicios o dependencias por defecto. Cree una vinculación manualmente.' });
-                }
-
-                const newVinc = await Vinculacion.create({
-                    contratista_id: id,
-                    servicio_id: defaultServicio.id,
-                    dependencia_id: defaultDependencia.id,
-                    activo: 1
-                }, { transaction });
-
-                contratista.vinculaciones = [newVinc];
-            }
-
-            // For each active vinculacion, update or create the administration
-            for (const vinc of contratista.vinculaciones) {
-                // Check if this admin is already assigned to this vinculacion
-                const existing = await Administracion.findOne({
-                    where: { vinculacion_id: vinc.id, administrador_contrato_id, activo: 1 },
-                    transaction
-                });
-
-                if (!existing) {
-                    // Append new administration
-                    await Administracion.create({
-                        vinculacion_id: vinc.id,
-                        administrador_contrato_id,
-                        activo: 1
-                    }, { transaction });
-                }
-            }
-
-            await transaction.commit();
-            res.json({ success: true, message: 'Administrador asignado correctamente' });
-        } catch (error) {
-            await transaction.rollback();
-            console.error('Contratista assignAdmin error:', error);
-            res.status(500).json({ success: false, message: 'Error al asignar administrador' });
-        }
+        return res.status(403).json({
+            success: false,
+            message: 'La asignación de administradores de contrato se gestiona exclusivamente a través de la sincronización con OVAL. No puede realizarse manualmente.'
+        });
     },
 
     // DELETE /api/contratistas/:id/admin/:adminId
+    // BLOQUEADO: mismo motivo que assignAdmin.
     async removeAdmin(req, res) {
-        const transaction = await sequelize.transaction();
-        try {
-            const { id, adminId } = req.params;
-
-            const contratista = await Contratista.findByPk(id, {
-                include: [{ model: Vinculacion, as: 'vinculaciones', where: { activo: 1 }, required: false }]
-            });
-
-            if (!contratista) {
-                await transaction.rollback();
-                return res.status(404).json({ success: false, message: 'Contratista no encontrado' });
-            }
-
-            if (contratista.vinculaciones && contratista.vinculaciones.length > 0) {
-                for (const vinc of contratista.vinculaciones) {
-                    await Administracion.update(
-                        { activo: 0 },
-                        { where: { vinculacion_id: vinc.id, administrador_contrato_id: adminId, activo: 1 }, transaction }
-                    );
-                }
-            }
-
-            await transaction.commit();
-            res.json({ success: true, message: 'Administrador eliminado correctamente' });
-        } catch (error) {
-            await transaction.rollback();
-            console.error('Contratista removeAdmin error:', error);
-            res.status(500).json({ success: false, message: 'Error al eliminar administrador' });
-        }
+        return res.status(403).json({
+            success: false,
+            message: 'La asignación de administradores de contrato se gestiona exclusivamente a través de la sincronización con OVAL. No puede modificarse manualmente.'
+        });
     },
     // DELETE /api/contratistas/:id
     async destroy(req, res) {

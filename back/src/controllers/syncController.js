@@ -616,22 +616,27 @@ const syncData = async (req, res) => {
             }
         };
 
-        // Entidades taxonómicas (Gerencia/Subgerencia/Servicio/Dependencia): sin data
-        // operativa colgando de su propio ID (las Vinculaciones que las referencian se
-        // re-resuelven siempre por nombre en el mismo paso de sincronización), por lo
-        // que "eliminar y crear" se implementa literal: DELETE + INSERT, sin diffing.
+        // Entidades taxonómicas (Gerencia/Subgerencia/Servicio/Dependencia): aunque no
+        // tienen data operativa colgando de su ID de forma directa en la mayoría de los
+        // casos, Registro.dependencia_id SÍ referencia directamente Dependencia.id (fuera
+        // del flujo de sync, Registro nunca se vuelve a tocar). Un DELETE+INSERT real
+        // dejaría ese FK apuntando a un id inexistente para siempre. Por eso "eliminar y
+        // crear" se implementa como sobrescritura total preservando el ID/fila, igual que
+        // Contratista/Vinculación/Usuario: mismo resultado observable, sin ese riesgo.
         const syncSingleGerencia = async (item, transaction) => {
             const gName = sanitizeString(item.nombre) || 'GERENCIA GENERAL';
-            await Gerencia.destroy({ where: { nombre: gName }, transaction });
-            return await Gerencia.create({ nombre: gName, activo: 1 }, { transaction });
+            const [gerencia] = await Gerencia.findOrCreate({ where: { nombre: gName }, defaults: { activo: 1 }, transaction });
+            await gerencia.update({ activo: 1 }, { transaction });
+            return gerencia;
         };
 
         const syncSingleSubgerencia = async (item, transaction) => {
             const sName = sanitizeString(item.nombre) || 'SUBGERENCIA GENERAL';
             const gName = sanitizeString(item.gerencia) || 'GERENCIA GENERAL';
             const [gerencia] = await Gerencia.findOrCreate({ where: { nombre: gName }, transaction });
-            await Subgerencia.destroy({ where: { nombre: sName, gerencia_id: gerencia.id }, transaction });
-            return await Subgerencia.create({ nombre: sName, gerencia_id: gerencia.id, activo: 1 }, { transaction });
+            const [subgerencia] = await Subgerencia.findOrCreate({ where: { nombre: sName, gerencia_id: gerencia.id }, defaults: { activo: 1 }, transaction });
+            await subgerencia.update({ activo: 1 }, { transaction });
+            return subgerencia;
         };
 
         const syncSingleServicio = async (item, transaction) => {
@@ -640,27 +645,25 @@ const syncData = async (req, res) => {
             const gName = sanitizeString(item.gerencia) || 'GERENCIA GENERAL';
             const [gerencia] = await Gerencia.findOrCreate({ where: { nombre: gName }, transaction });
             const [subgerencia] = await Subgerencia.findOrCreate({ where: { nombre: sName, gerencia_id: gerencia.id }, transaction });
-            const existing = await TipoContratista.findOne({ where: { nombre: servName, subgerencia_id: subgerencia.id }, transaction });
-            // Preserva programa_id: es una asociación funcional local (qué programa de
-            // cumplimiento aplica a este servicio) que OVAL no gestiona ni envía.
-            const preservedProgramaId = existing ? existing.programa_id : null;
-            if (existing) await existing.destroy({ transaction });
-            return await TipoContratista.create({
-                nombre: servName,
-                subgerencia_id: subgerencia.id,
-                programa_id: preservedProgramaId,
-                descripcion: 'Sincronizado desde API',
-                activo: 1
-            }, { transaction });
+            const [servicio] = await TipoContratista.findOrCreate({
+                where: { nombre: servName, subgerencia_id: subgerencia.id },
+                defaults: { descripcion: 'Sincronizado desde API', activo: 1 },
+                transaction
+            });
+            // programa_id se preserva siempre: es una asociación funcional local (qué
+            // programa de cumplimiento aplica a este servicio) que OVAL no envía.
+            await servicio.update({ descripcion: servicio.descripcion || 'Sincronizado desde API', activo: 1 }, { transaction });
+            return servicio;
         };
 
         const syncSingleDependencia = async (item, transaction) => {
             const dName = sanitizeString(item.nombre) || 'OFICINA CENTRAL';
-            const existing = await Dependencia.findOne({ where: { nombre: dName }, transaction });
-            // Preserva subgerencia_id: relación local que OVAL no envía en su payload plano.
-            const preservedSubgerenciaId = existing ? existing.subgerencia_id : null;
-            if (existing) await existing.destroy({ transaction });
-            return await Dependencia.create({ nombre: dName, subgerencia_id: preservedSubgerenciaId, activo: 1 }, { transaction });
+            const [dependencia] = await Dependencia.findOrCreate({ where: { nombre: dName }, defaults: { activo: 1 }, transaction });
+            // subgerencia_id se preserva siempre: relación local que OVAL no envía en su
+            // payload plano. Registro.dependencia_id referencia este id directamente, por
+            // lo que jamás se puede recrear con un id nuevo mientras siga en OVAL.
+            await dependencia.update({ activo: 1 }, { transaction });
+            return dependencia;
         };
 
         // Contratista tiene data operativa colgando de su ID (Vinculacion.contratista_id,
