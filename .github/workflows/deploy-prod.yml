@@ -96,6 +96,11 @@ jobs:
             echo "Verificando consistencia del esquema..."
             docker exec prod_oiem_abastible_api node scripts/ensure_schema.js
 
+            # Eliminar FKs físicas no gestionadas por el código (bloquean la sincronización
+            # con OVAL al podar entidades residuales). Se re-verifica en cada deploy.
+            echo "Eliminando FKs físicas del esquema..."
+            docker exec prod_oiem_abastible_api node scripts/drop_physical_foreign_keys.js
+
             # Migración de PK a usu_id (homologación OvalControl). Se ejecuta en cada
             # deploy pero solo aplica cambios la primera vez (guardado en configuraciones).
             echo "Verificando migración de PK a usu_id..."

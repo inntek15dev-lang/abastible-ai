@@ -538,6 +538,23 @@ const syncData = async (req, res) => {
         // nunca podan: no tienen visión completa para decidir qué sobra.
         const mirror = force === true;
         const prunedItems = [];
+        const warnings = [];
+
+        // Poda resiliente: elimina residuales UNO POR UNO. Si una FK física no rastreada
+        // en el código bloquea un registro puntual (ya ocurrió con
+        // contratista_asignaciones_ibfk_2 al podar servicios), se reporta como advertencia
+        // y se sigue con el resto, en vez de abortar todo el request con un 500.
+        const pruneOneByOne = async (tipo, targets, destroyFn, describeFn) => {
+            for (const target of targets) {
+                try {
+                    await destroyFn(target);
+                    prunedItems.push({ tipo, ...describeFn(target) });
+                } catch (err) {
+                    console.warn(`⚠️ No se pudo podar residual de ${tipo}:`, err.message);
+                    warnings.push({ tipo: `poda_${tipo}`, ...describeFn(target), error: err.message });
+                }
+            }
+        };
 
         const defaultPasswordHash = await bcrypt.hash('User123*', 10);
 
@@ -557,7 +574,6 @@ const syncData = async (req, res) => {
 
         const syncedItems = [];
         const failedItems = [];
-        const warnings = [];
 
         // Resuelve (o crea) el usuario local homologado. El usu_id de Oval es autoritativo:
         // si el usuario existe con otro usu_id se re-homologa con cascada de referencias;
@@ -964,11 +980,8 @@ const syncData = async (req, res) => {
             if (mirror) {
                 const target = new Set(items.map(i => normalize(i.nombre)));
                 const local = await Gerencia.findAll();
-                const staleIds = local.filter(g => !target.has(normalize(g.nombre))).map(g => g.id);
-                if (staleIds.length > 0) {
-                    await Gerencia.destroy({ where: { id: { [Op.in]: staleIds } } });
-                    prunedItems.push(...staleIds.map(id => ({ tipo: 'gerencias', id })));
-                }
+                const stale = local.filter(g => !target.has(normalize(g.nombre)));
+                await pruneOneByOne('gerencias', stale, (g) => g.destroy(), (g) => ({ id: g.id, nombre: g.nombre }));
             }
         } else if (type === 'subgerencias') {
             for (const item of items) {
@@ -977,11 +990,8 @@ const syncData = async (req, res) => {
             if (mirror) {
                 const target = new Set(items.map(i => normalize(`${i.gerencia}|${i.nombre}`)));
                 const local = await Subgerencia.findAll({ include: [{ model: Gerencia, as: 'gerencia' }] });
-                const staleIds = local.filter(s => !target.has(normalize(`${s.gerencia ? s.gerencia.nombre : ''}|${s.nombre}`))).map(s => s.id);
-                if (staleIds.length > 0) {
-                    await Subgerencia.destroy({ where: { id: { [Op.in]: staleIds } } });
-                    prunedItems.push(...staleIds.map(id => ({ tipo: 'subgerencias', id })));
-                }
+                const stale = local.filter(s => !target.has(normalize(`${s.gerencia ? s.gerencia.nombre : ''}|${s.nombre}`)));
+                await pruneOneByOne('subgerencias', stale, (s) => s.destroy(), (s) => ({ id: s.id, nombre: s.nombre }));
             }
         } else if (type === 'servicios') {
             for (const item of items) {
@@ -990,11 +1000,8 @@ const syncData = async (req, res) => {
             if (mirror) {
                 const target = new Set(items.map(i => normalize(`${i.subgerencia}|${i.nombre}`)));
                 const local = await TipoContratista.findAll({ include: [{ model: Subgerencia, as: 'subgerencia' }] });
-                const staleIds = local.filter(s => !target.has(normalize(`${s.subgerencia ? s.subgerencia.nombre : ''}|${s.nombre}`))).map(s => s.id);
-                if (staleIds.length > 0) {
-                    await TipoContratista.destroy({ where: { id: { [Op.in]: staleIds } } });
-                    prunedItems.push(...staleIds.map(id => ({ tipo: 'servicios', id })));
-                }
+                const stale = local.filter(s => !target.has(normalize(`${s.subgerencia ? s.subgerencia.nombre : ''}|${s.nombre}`)));
+                await pruneOneByOne('servicios', stale, (s) => s.destroy(), (s) => ({ id: s.id, nombre: s.nombre }));
             }
         } else if (type === 'dependencias') {
             for (const item of items) {
@@ -1003,11 +1010,8 @@ const syncData = async (req, res) => {
             if (mirror) {
                 const target = new Set(items.map(i => normalize(i.nombre)));
                 const local = await Dependencia.findAll();
-                const staleIds = local.filter(d => !target.has(normalize(d.nombre))).map(d => d.id);
-                if (staleIds.length > 0) {
-                    await Dependencia.destroy({ where: { id: { [Op.in]: staleIds } } });
-                    prunedItems.push(...staleIds.map(id => ({ tipo: 'dependencias', id })));
-                }
+                const stale = local.filter(d => !target.has(normalize(d.nombre)));
+                await pruneOneByOne('dependencias', stale, (d) => d.destroy(), (d) => ({ id: d.id, nombre: d.nombre }));
             }
         } else if (type === 'contratistas') {
             // First sync the contractor master entity
@@ -1110,13 +1114,15 @@ const syncData = async (req, res) => {
                 const target = new Set(items.map(i => cleanRutString(extractContractorInfo(i).rut)));
                 const local = await Contratista.findAll();
                 const stale = local.filter(c => !target.has(cleanRutString(c.rut)));
-                for (const c of stale) {
-                    // ContratistaUsuario cae por FK CASCADE; limpiar referencias huérfanas
-                    // de tablas migrables que no tienen esa cascada física.
+                await pruneOneByOne('contratistas', stale, async (c) => {
+                    // Limpieza explícita en código, sin depender de FK física: la FK
+                    // contratista_usuarios.contratista_id -> contratistas.id (ON DELETE
+                    // CASCADE) se elimina en el deploy (scripts/drop_physical_foreign_keys.js),
+                    // así que si no se borra aquí, ContratistaUsuario quedaría huérfano.
+                    await ContratistaUsuario.destroy({ where: { contratista_id: c.id } });
                     await Vinculacion.destroy({ where: { contratista_id: c.id } });
                     await c.destroy();
-                    prunedItems.push({ tipo: 'contratistas', rut: c.rut });
-                }
+                }, (c) => ({ id: c.id, rut: c.rut }));
             }
         } else if (type === 'contratista_admin') {
             // Ítems agregados por email = estado completo del usuario en OVAL => se poda
@@ -1127,11 +1133,10 @@ const syncData = async (req, res) => {
                 const target = new Set(items.filter(i => i.usu_id != null).map(i => Number(i.usu_id)));
                 const local = await User.findAll({ where: { role: 'contratista_admin' } });
                 const stale = local.filter(u => u.usu_id != null && !target.has(Number(u.usu_id)));
-                for (const u of stale) {
+                await pruneOneByOne('contratista_admin', stale, async (u) => {
                     await ContratistaUsuario.destroy({ where: { user_id: u.usu_id } });
                     await u.destroy();
-                    prunedItems.push({ tipo: 'contratista_admin', email: u.email });
-                }
+                }, (u) => ({ usu_id: u.usu_id, email: u.email }));
             }
         } else if (type === 'vinculaciones') {
             for (const item of items) {
@@ -1156,10 +1161,7 @@ const syncData = async (req, res) => {
                     const key = `${cleanRutString(v.contratista.rut)}|${normalize(v.servicio.nombre)}|${normalize(v.dependencia.nombre)}|${normalize(v.subgerencia.nombre)}|${normalize(v.gerencia.nombre)}`;
                     return !target.has(key);
                 });
-                if (stale.length > 0) {
-                    await Vinculacion.destroy({ where: { id: { [Op.in]: stale.map(v => v.id) } } });
-                    prunedItems.push(...stale.map(v => ({ tipo: 'vinculaciones', id: v.id })));
-                }
+                await pruneOneByOne('vinculaciones', stale, (v) => v.destroy(), (v) => ({ id: v.id, numero_contrato: v.numero_contrato }));
             }
         } else if (type === 'administrador_contrato') {
             // Ítems agregados por email = portafolio completo del ADC en OVAL => se poda
@@ -1170,11 +1172,10 @@ const syncData = async (req, res) => {
                 const target = new Set(items.filter(i => i.usu_id != null).map(i => Number(i.usu_id)));
                 const local = await User.findAll({ where: { role: 'administrador_contrato' } });
                 const stale = local.filter(u => u.usu_id != null && !target.has(Number(u.usu_id)));
-                for (const u of stale) {
+                await pruneOneByOne('administrador_contrato', stale, async (u) => {
                     await Administracion.destroy({ where: { administrador_contrato_id: u.usu_id } });
                     await u.destroy();
-                    prunedItems.push({ tipo: 'administrador_contrato', email: u.email });
-                }
+                }, (u) => ({ usu_id: u.usu_id, email: u.email }));
             }
         }
 
