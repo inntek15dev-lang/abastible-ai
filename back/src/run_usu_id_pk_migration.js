@@ -9,12 +9,32 @@
 //  - users.usu_id: PRIMARY KEY NOT NULL AUTO_INCREMENT (contador desde 1.000.000,
 //    rango reservado para usuarios locales; los usu_id de Oval se insertan explícitos)
 //  - users.id: columna legacy nullable con índice único (fallbacks "usu_id || id")
+//  - Usuarios core (rol admin, el superadmin del sistema): renumerados a los enteros
+//    positivos más bajos posibles, sin colisionar con ningún usu_id migrado de Oval.
+//    Es la única excepción a la homologación: nunca caen en el rango local alto.
 
-const { sequelize } = require('./database/models');
+const { sequelize, User } = require('./database/models');
+const { renumberCoreUsersToMinimum } = require('./utils/usuIdHomologation');
 
 async function run() {
     try {
         console.log('🔄 Iniciando migración física de PK a usu_id...');
+
+        // 0. Usuarios core (admin) a los IDs más bajos posibles, antes del backfill
+        //    general (para que nunca hereden un id legacy alto ni colisionen con Oval).
+        const coreTx = await sequelize.transaction();
+        try {
+            const changes = await renumberCoreUsersToMinimum({ sequelize, User, transaction: coreTx });
+            await coreTx.commit();
+            if (changes.length > 0) {
+                console.log(`✅ ${changes.length} usuario(s) core renumerado(s) a IDs mínimos.`);
+            } else {
+                console.log('ℹ️ Usuarios core ya están en su ID mínimo posible; sin cambios.');
+            }
+        } catch (coreErr) {
+            await coreTx.rollback();
+            throw coreErr;
+        }
 
         // 1. Backfill: usuarios sin usu_id reciben su id legacy.
         const [, meta] = await sequelize.query('UPDATE users SET usu_id = id WHERE usu_id IS NULL');
@@ -30,17 +50,24 @@ async function run() {
             process.exit(1);
         }
 
-        // 3. Guard: FKs físicas hacia users bloquean el cambio de PK.
+        // 3. Eliminar FKs físicas hacia users: validan contra la columna legacy `id` y
+        //    rechazan los user_id homologados (usu_id de Oval). Ej: contratista_usuarios_ibfk_2.
+        //    La integridad de estas columnas la gestiona la aplicación (igual que en
+        //    registros, administraciones, etc., que nunca tuvieron FK física).
         const [fks] = await sequelize.query(`
             SELECT TABLE_NAME, COLUMN_NAME, CONSTRAINT_NAME, REFERENCED_COLUMN_NAME
             FROM information_schema.KEY_COLUMN_USAGE
             WHERE REFERENCED_TABLE_SCHEMA = DATABASE()
               AND REFERENCED_TABLE_NAME = 'users'
         `);
+        for (const f of fks) {
+            console.log(`🔧 Eliminando FK ${f.CONSTRAINT_NAME}: ${f.TABLE_NAME}.${f.COLUMN_NAME} -> users.${f.REFERENCED_COLUMN_NAME}`);
+            await sequelize.query(`ALTER TABLE \`${f.TABLE_NAME}\` DROP FOREIGN KEY \`${f.CONSTRAINT_NAME}\``);
+        }
         if (fks.length > 0) {
-            console.error('❌ Existen FOREIGN KEYs físicas hacia users; elimínelas antes de cambiar la PK:');
-            fks.forEach(f => console.error(`   - ${f.TABLE_NAME}.${f.COLUMN_NAME} (${f.CONSTRAINT_NAME} -> users.${f.REFERENCED_COLUMN_NAME})`));
-            process.exit(1);
+            console.log(`✅ ${fks.length} FOREIGN KEY(s) hacia users eliminadas.`);
+        } else {
+            console.log('ℹ️ No hay FOREIGN KEYs físicas hacia users.');
         }
 
         // 4. Verificar estado actual (idempotencia básica).

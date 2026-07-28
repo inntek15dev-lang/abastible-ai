@@ -328,20 +328,21 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
 
     // Forced Sequential Full Sync Flow (Overwrites all data)
     const handleForceFullSync = async () => {
-        if (!window.confirm('⚠️ ¿Estás seguro de ejecutar la RE-SINCRONIZACIÓN FULL? Se volverán a procesar y actualizar todos los registros pisando datos existentes.')) {
+        if (!window.confirm('⚠️ ¿Estás seguro de ejecutar la RE-SINCRONIZACIÓN FULL? Todos los datos sincronizados (gerencias, contratistas, vinculaciones, usuarios de OVAL, etc.) quedarán EXACTAMENTE iguales al origen OVAL: se sobrescribirán los existentes y se ELIMINARÁN los que ya no estén en OVAL. Los registros de cumplimiento, compromisos y evidencias nunca se eliminan.')) {
             return;
         }
 
         setFullSyncing(true);
         setSyncIssues([]);
         let totalFailed = 0;
+        let totalPruned = 0;
 
         const initialProgress = steps.map(s => {
             const list = diffData ? diffData[s.key] : [];
             return {
                 label: s.label,
                 key: s.key,
-                status: list.length > 0 ? 'pending' : 'completed',
+                status: 'pending',
                 total: list.length,
                 synced: 0
             };
@@ -351,24 +352,26 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
         try {
             for (let i = 0; i < steps.length; i++) {
                 const currentStep = steps[i];
+                // Se envía SIEMPRE (incluso lista vacía) para que la poda de residuales
+                // corra en todos los pasos: OVAL es la fuente de verdad completa.
                 const list = diffData ? diffData[currentStep.key] : [];
 
-                if (list.length > 0) {
-                    setFullSyncProgress(prev => prev.map((p, idx) => idx === i ? { ...p, status: 'syncing' } : p));
-                    const res = await api.post('/sync/execute', { type: currentStep.key, items: list, force: true });
-                    const failedCount = res.data?.failedCount || 0;
-                    const stepWarnings = res.data?.warnings || [];
-                    totalFailed += failedCount;
-                    if (failedCount > 0 || stepWarnings.length > 0) {
-                        setSyncIssues(prev => [...prev, { step: currentStep.label, failedItems: res.data?.failedItems || [], warnings: stepWarnings }]);
-                    }
-                    setFullSyncProgress(prev => prev.map((p, idx) => idx === i ? { ...p, status: 'completed', synced: res.data?.syncedCount ?? list.length, failed: failedCount } : p));
-                } else {
-                    setFullSyncProgress(prev => prev.map((p, idx) => idx === i ? { ...p, status: 'completed', synced: 0 } : p));
+                setFullSyncProgress(prev => prev.map((p, idx) => idx === i ? { ...p, status: 'syncing' } : p));
+                const res = await api.post('/sync/execute', { type: currentStep.key, items: list, force: true });
+                const failedCount = res.data?.failedCount || 0;
+                const stepWarnings = res.data?.warnings || [];
+                const prunedCount = res.data?.prunedCount || 0;
+                totalFailed += failedCount;
+                totalPruned += prunedCount;
+                if (failedCount > 0 || stepWarnings.length > 0 || prunedCount > 0) {
+                    setSyncIssues(prev => [...prev, { step: currentStep.label, failedItems: res.data?.failedItems || [], warnings: stepWarnings, prunedItems: res.data?.prunedItems || [] }]);
                 }
+                setFullSyncProgress(prev => prev.map((p, idx) => idx === i ? { ...p, status: 'completed', synced: res.data?.syncedCount ?? list.length, failed: failedCount, pruned: prunedCount } : p));
             }
             if (totalFailed > 0) {
                 toast.error(`Re-sincronización FULL completada con ${totalFailed} elementos con error. Revise el detalle en el panel de progreso.`, { duration: 8000 });
+            } else if (totalPruned > 0) {
+                toast.success(`Re-sincronización FULL completada. ${totalPruned} elemento(s) residual(es) eliminado(s) para homologar con OVAL.`, { duration: 8000 });
             } else {
                 toast.success('Re-sincronización FULL forzada completada con éxito.');
             }
@@ -1190,6 +1193,12 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                                                         {p.failed} con error
                                                     </span>
                                                 )}
+                                                {p.status === 'completed' && p.pruned > 0 && (
+                                                    <span className="text-rose-600 font-bold text-xs flex items-center gap-1">
+                                                        <X className="w-3.5 h-3.5" />
+                                                        {p.pruned} eliminado(s)
+                                                    </span>
+                                                )}
                                                 {p.status === 'error' && (
                                                     <span className="text-rose-600 font-bold text-xs flex items-center gap-1">
                                                         <AlertCircle className="w-3.5 h-3.5" />
@@ -1219,6 +1228,11 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                                                     {(issue.warnings || []).map((w, j) => (
                                                         <div key={`w-${j}`} className="pl-2 text-amber-600">
                                                             • {(w.email || w.contratista || w.tipo)}: {w.error}
+                                                        </div>
+                                                    ))}
+                                                    {(issue.prunedItems || []).map((p, j) => (
+                                                        <div key={`p-${j}`} className="pl-2 text-rose-600">
+                                                            • Eliminado (residual, no está en OVAL): {p.email || p.rut || p.id}
                                                         </div>
                                                     ))}
                                                 </div>

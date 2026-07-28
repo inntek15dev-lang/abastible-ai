@@ -1,10 +1,16 @@
 // Homologación de usu_id (ID de usuario de OvalControl como clave única del sistema).
 // Regla de negocio: tras cada sincronización, users.usu_id debe quedar idéntico al usu_id
 // de Oval, y TODAS las referencias en tablas hijas deben apuntar al valor homologado.
+const { Op } = require('sequelize');
 
 // Rango reservado para usuarios creados localmente (sin cuenta Oval), para que jamás
 // colisionen con el espacio de IDs de OvalControl.
 const LOCAL_USU_ID_START = 1000000;
+
+// Usuarios "core" (superadmin del sistema): la ÚNICA excepción a la homologación con
+// Oval. Nunca se sincronizan desde la API externa y deben conservar los IDs de menor
+// valor posible (no el rango local alto), sin colisionar jamás con un usu_id migrado.
+const CORE_ROLE = 'admin';
 
 // Todas las columnas del sistema que referencian users.usu_id.
 // NOTA: solicitudes_reapertura es el nombre real de la tabla (run_migration.js usaba
@@ -88,6 +94,13 @@ const adoptOvalUsuId = async ({ sequelize, User, email, targetUsuId, transaction
     }
 
     if (holder && user && !sameRow) {
+        if (holder.role === CORE_ROLE) {
+            // Los usuarios core (superadmin) jamás se desplazan automáticamente: son la
+            // única excepción a la homologación con Oval. Requiere resolución manual.
+            throw new Error(
+                `Conflicto de identidad usu_id ${target}: lo posee el usuario core ${holder.email} (rol ${CORE_ROLE}); Oval lo asigna a ${email}. Resolución manual requerida.`
+            );
+        }
         const holderLooksLegacy = holder.id !== null && Number(holder.usu_id) === Number(holder.id);
         if (!holderLooksLegacy) {
             throw new Error(
@@ -116,10 +129,56 @@ const adoptOvalUsuId = async ({ sequelize, User, email, targetUsuId, transaction
     return user;
 };
 
+/**
+ * Renumera los usuarios core (rol admin) a los enteros positivos más bajos posibles
+ * que no colisionen con ningún usu_id ya usado por otro usuario (Oval u otro). Se
+ * ejecuta una sola vez como parte de la migración de PK, antes del backfill general,
+ * para que el superadmin del sistema nunca termine en el rango local alto (≥1.000.000)
+ * ni comparta ID con una cuenta migrada de Oval.
+ */
+const renumberCoreUsersToMinimum = async ({ sequelize, User, transaction }) => {
+    const coreUsers = await User.findAll({ where: { role: CORE_ROLE }, order: [['usu_id', 'ASC']], transaction });
+    if (coreUsers.length === 0) return [];
+
+    const takenByOthers = new Set(
+        (await User.findAll({ where: { role: { [Op.ne]: CORE_ROLE } }, transaction }))
+            .filter(u => u.usu_id != null)
+            .map(u => Number(u.usu_id))
+    );
+
+    const assignedNow = new Set();
+    let candidate = 1;
+    const nextFree = () => {
+        while (takenByOthers.has(candidate) || assignedNow.has(candidate)) candidate++;
+        return candidate;
+    };
+
+    const changes = [];
+    for (const core of coreUsers) {
+        const current = core.usu_id != null ? Number(core.usu_id) : null;
+        // Ya está en el mínimo posible (nadie más lo reclama) y no colisiona: no tocar.
+        if (current !== null && !takenByOthers.has(current) && !assignedNow.has(current)) {
+            assignedNow.add(current);
+            continue;
+        }
+        const freeId = nextFree();
+        assignedNow.add(freeId);
+        if (current !== null) {
+            await rekeyUserReferences(sequelize, current, freeId, transaction);
+        }
+        await User.update({ usu_id: freeId }, { where: { email: core.email }, transaction });
+        changes.push({ email: core.email, from: current, to: freeId });
+        console.log(`✅ Usuario core ${core.email} renumerado: usu_id ${current} -> ${freeId}`);
+    }
+    return changes;
+};
+
 module.exports = {
     LOCAL_USU_ID_START,
+    CORE_ROLE,
     USER_REFERENCE_COLUMNS,
     rekeyUserReferences,
     nextLocalUsuId,
-    adoptOvalUsuId
+    adoptOvalUsuId,
+    renumberCoreUsersToMinimum
 };

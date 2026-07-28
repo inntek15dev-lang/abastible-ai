@@ -6,9 +6,15 @@
 //    Oval; los usu_id de Oval observados están muy por debajo, se insertan explícitos)
 //  - users.id queda como columna legacy nullable (los inserts nuevos ya no la llenan)
 //
-// Prerrequisitos verificados por la propia migración; aborta con mensaje claro si:
-//  - existen usu_id duplicados (deben resolverse manualmente antes)
-//  - existen FOREIGN KEYs físicas apuntando a users (habría que droparlas primero)
+// Además elimina las FOREIGN KEYs físicas que referencian users(id) — p.ej.
+// contratista_usuarios_ibfk_2 — porque validan contra la columna legacy y rechazan
+// los user_id homologados. Aborta solo si existen usu_id duplicados (resolución manual).
+//
+// NOTA: este proyecto no tiene sequelize-cli instalado (sin script de migraciones), por
+// lo que el entrypoint real es `back/src/run_usu_id_pk_migration.js` — ese script además
+// renumera los usuarios core (rol admin) a sus IDs mínimos posibles antes del backfill
+// (ver `renumberCoreUsersToMinimum` en utils/usuIdHomologation.js). Este archivo se
+// mantiene como documentación/referencia equivalente para un entorno con sequelize-cli.
 
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
@@ -31,19 +37,17 @@ module.exports = {
       );
     }
 
-    // 3. Guard: FKs físicas hacia users (id o usu_id) bloquean el cambio de PK.
+    // 3. Eliminar FKs físicas hacia users: validan contra la columna legacy `id` y
+    //    rechazan los user_id homologados (usu_id de Oval). La integridad de estas
+    //    columnas la gestiona la aplicación.
     const [fks] = await sequelize.query(`
       SELECT TABLE_NAME, COLUMN_NAME, CONSTRAINT_NAME, REFERENCED_COLUMN_NAME
       FROM information_schema.KEY_COLUMN_USAGE
       WHERE REFERENCED_TABLE_SCHEMA = DATABASE()
         AND REFERENCED_TABLE_NAME = 'users'
     `);
-    if (fks.length > 0) {
-      throw new Error(
-        `Existen FOREIGN KEYs físicas hacia users; elimínelas antes de cambiar la PK: ${fks
-          .map((f) => `${f.TABLE_NAME}.${f.COLUMN_NAME} (${f.CONSTRAINT_NAME} -> users.${f.REFERENCED_COLUMN_NAME})`)
-          .join(', ')}`
-      );
+    for (const f of fks) {
+      await sequelize.query(`ALTER TABLE \`${f.TABLE_NAME}\` DROP FOREIGN KEY \`${f.CONSTRAINT_NAME}\``);
     }
 
     // 4. Quitar AUTO_INCREMENT de id (aún es PK, sigue NOT NULL por ahora).

@@ -526,10 +526,18 @@ const compareData = async (req, res) => {
 
 const syncData = async (req, res) => {
     try {
-        const { type, items } = req.body;
+        const { type, items, force } = req.body;
         console.log(`📥 Syncing ${items ? items.length : 0} items of type ${type}...`);
 
         if (!Array.isArray(items)) throw new Error('Invalid items format');
+
+        // Modo espejo: SOLO cuando `force === true` el llamador garantiza que `items` es
+        // el set COMPLETO y autoritativo de OVAL para este tipo (así lo envía el botón
+        // "RE-SINCRONIZACIÓN FULL"). Únicamente entonces se podan los residuales locales
+        // que ya no están en OVAL. Las llamadas parciales (un solo ítem, o solo pendientes)
+        // nunca podan: no tienen visión completa para decidir qué sobra.
+        const mirror = force === true;
+        const prunedItems = [];
 
         const defaultPasswordHash = await bcrypt.hash('User123*', 10);
 
@@ -608,25 +616,22 @@ const syncData = async (req, res) => {
             }
         };
 
-        // Granular helper sync implementations per entity
+        // Entidades taxonómicas (Gerencia/Subgerencia/Servicio/Dependencia): sin data
+        // operativa colgando de su propio ID (las Vinculaciones que las referencian se
+        // re-resuelven siempre por nombre en el mismo paso de sincronización), por lo
+        // que "eliminar y crear" se implementa literal: DELETE + INSERT, sin diffing.
         const syncSingleGerencia = async (item, transaction) => {
             const gName = sanitizeString(item.nombre) || 'GERENCIA GENERAL';
-            const [gerencia] = await Gerencia.findOrCreate({
-                where: { nombre: gName },
-                transaction
-            });
-            return gerencia;
+            await Gerencia.destroy({ where: { nombre: gName }, transaction });
+            return await Gerencia.create({ nombre: gName, activo: 1 }, { transaction });
         };
 
         const syncSingleSubgerencia = async (item, transaction) => {
             const sName = sanitizeString(item.nombre) || 'SUBGERENCIA GENERAL';
             const gName = sanitizeString(item.gerencia) || 'GERENCIA GENERAL';
             const [gerencia] = await Gerencia.findOrCreate({ where: { nombre: gName }, transaction });
-            const [subgerencia] = await Subgerencia.findOrCreate({
-                where: { nombre: sName, gerencia_id: gerencia.id },
-                transaction
-            });
-            return subgerencia;
+            await Subgerencia.destroy({ where: { nombre: sName, gerencia_id: gerencia.id }, transaction });
+            return await Subgerencia.create({ nombre: sName, gerencia_id: gerencia.id, activo: 1 }, { transaction });
         };
 
         const syncSingleServicio = async (item, transaction) => {
@@ -635,24 +640,34 @@ const syncData = async (req, res) => {
             const gName = sanitizeString(item.gerencia) || 'GERENCIA GENERAL';
             const [gerencia] = await Gerencia.findOrCreate({ where: { nombre: gName }, transaction });
             const [subgerencia] = await Subgerencia.findOrCreate({ where: { nombre: sName, gerencia_id: gerencia.id }, transaction });
-            const [servicio] = await TipoContratista.findOrCreate({
-                where: { nombre: servName, subgerencia_id: subgerencia.id },
-                defaults: { descripcion: 'Sincronizado desde API', activo: 1 },
-                transaction
-            });
-            return servicio;
+            const existing = await TipoContratista.findOne({ where: { nombre: servName, subgerencia_id: subgerencia.id }, transaction });
+            // Preserva programa_id: es una asociación funcional local (qué programa de
+            // cumplimiento aplica a este servicio) que OVAL no gestiona ni envía.
+            const preservedProgramaId = existing ? existing.programa_id : null;
+            if (existing) await existing.destroy({ transaction });
+            return await TipoContratista.create({
+                nombre: servName,
+                subgerencia_id: subgerencia.id,
+                programa_id: preservedProgramaId,
+                descripcion: 'Sincronizado desde API',
+                activo: 1
+            }, { transaction });
         };
 
         const syncSingleDependencia = async (item, transaction) => {
             const dName = sanitizeString(item.nombre) || 'OFICINA CENTRAL';
-            const [dependencia] = await Dependencia.findOrCreate({
-                where: { nombre: dName },
-                defaults: { activo: 1 },
-                transaction
-            });
-            return dependencia;
+            const existing = await Dependencia.findOne({ where: { nombre: dName }, transaction });
+            // Preserva subgerencia_id: relación local que OVAL no envía en su payload plano.
+            const preservedSubgerenciaId = existing ? existing.subgerencia_id : null;
+            if (existing) await existing.destroy({ transaction });
+            return await Dependencia.create({ nombre: dName, subgerencia_id: preservedSubgerenciaId, activo: 1 }, { transaction });
         };
 
+        // Contratista tiene data operativa colgando de su ID (Vinculacion.contratista_id,
+        // User.contratista_id, ContratistaUsuario.contratista_id) que se resuelve por RUT
+        // en pasos posteriores del mismo full-sync, así que un DELETE+INSERT (nuevo ID)
+        // los rompería o generaría duplicados. "Eliminar y crear" = sobrescritura total
+        // incondicional de todos los campos que gestiona OVAL, preservando el ID/RUT.
         const syncSingleContratista = async (item, transaction) => {
             const info = extractContractorInfo(item);
             if (!info.rut) throw new Error('RUT de contratista no especificado.');
@@ -672,15 +687,7 @@ const syncData = async (req, res) => {
                     activo: 1
                 }, { transaction });
             } else {
-                // OVAL manda: nombre y estado activo se pisan con lo que llega de la API
-                const updates = {};
-                if (info.nombre && contractor.nombre !== info.nombre && info.nombre !== contractor.rut) {
-                    updates.nombre = info.nombre;
-                }
-                if (contractor.activo !== 1) updates.activo = 1;
-                if (Object.keys(updates).length > 0) {
-                    await contractor.update(updates, { transaction });
-                }
+                await contractor.update({ nombre: info.nombre || contractor.nombre, activo: 1 }, { transaction });
             }
             return contractor;
         };
@@ -733,20 +740,16 @@ const syncData = async (req, res) => {
                 });
 
                 if (!created) {
-                    // OVAL manda: rol, nombre, email y estado se pisan (solo 'admin' interno se preserva)
-                    const updateFields = {};
-                    if (user.role !== 'contratista_admin' && user.role !== 'admin') {
-                        updateFields.role = 'contratista_admin';
-                    }
-                    // usu_id es la identidad estable: si Oval cambió el email, se actualiza aquí
-                    if (sanitizeEmail(user.email) !== cleanEmail) updateFields.email = cleanEmail;
-                    if (user.contratista_id !== primaryContratista.id) updateFields.contratista_id = primaryContratista.id;
-                    if (user.activo !== 1) updateFields.activo = 1;
-                    if (cleanName && user.name !== cleanName) updateFields.name = cleanName;
-
-                    if (Object.keys(updateFields).length > 0) {
-                        await user.update(updateFields, { transaction });
-                    }
+                    // OVAL manda: sobrescritura total incondicional. usu_id es la identidad
+                    // estable (ya homologada arriba); email/nombre/empresa se pisan siempre.
+                    // Único resguardo: nunca degradar a un usuario core (rol admin).
+                    await user.update({
+                        role: user.role === 'admin' ? 'admin' : 'contratista_admin',
+                        email: cleanEmail,
+                        name: cleanName,
+                        contratista_id: primaryContratista.id,
+                        activo: 1
+                    }, { transaction });
                 }
 
                 if (user.usu_id == null) {
@@ -828,18 +831,14 @@ const syncData = async (req, res) => {
             });
 
             if (!created) {
-                const updateData = {};
-                if (itemContrato && normalize(vinculacion.numero_contrato) !== normalize(itemContrato)) {
-                    updateData.numero_contrato = itemContrato;
-                }
-                if (item.fecha_inicio_contrato && vinculacion.fecha_inicio_contrato !== item.fecha_inicio_contrato) updateData.fecha_inicio_contrato = item.fecha_inicio_contrato;
-                if (item.fecha_termino_contrato && vinculacion.fecha_termino_contrato !== item.fecha_termino_contrato) updateData.fecha_termino_contrato = item.fecha_termino_contrato;
-                // Si OVAL la sigue enviando, la vinculación está vigente
-                if (vinculacion.activo !== 1) updateData.activo = 1;
-
-                if (Object.keys(updateData).length > 0) {
-                    await vinculacion.update(updateData, { transaction });
-                }
+                // OVAL manda: sobrescritura total incondicional (preserva el ID para no
+                // romper el historial de Registros que apuntan a esta vinculación).
+                await vinculacion.update({
+                    numero_contrato: itemContrato || vinculacion.numero_contrato,
+                    fecha_inicio_contrato: item.fecha_inicio_contrato || vinculacion.fecha_inicio_contrato,
+                    fecha_termino_contrato: item.fecha_termino_contrato !== undefined ? item.fecha_termino_contrato : vinculacion.fecha_termino_contrato,
+                    activo: 1
+                }, { transaction });
             }
             return vinculacion;
         };
@@ -858,18 +857,15 @@ const syncData = async (req, res) => {
             });
 
             if (!created) {
-                // OVAL manda: rol, nombre, email y estado se pisan (solo 'admin' interno se preserva)
-                const updateFields = {};
-                if (user.role !== 'administrador_contrato' && user.role !== 'admin') {
-                    updateFields.role = 'administrador_contrato';
-                }
-                // usu_id es la identidad estable: si Oval cambió el email, se actualiza aquí
-                if (sanitizeEmail(user.email) !== cleanEmail) updateFields.email = cleanEmail;
-                if (user.activo !== 1) updateFields.activo = 1;
-                if (cleanName && user.name !== cleanName) updateFields.name = cleanName;
-                if (Object.keys(updateFields).length > 0) {
-                    await user.update(updateFields, { transaction });
-                }
+                // OVAL manda: sobrescritura total incondicional. usu_id es la identidad
+                // estable (ya homologada arriba); email/nombre se pisan siempre.
+                // Único resguardo: nunca degradar a un usuario core (rol admin).
+                await user.update({
+                    role: user.role === 'admin' ? 'admin' : 'administrador_contrato',
+                    email: cleanEmail,
+                    name: cleanName,
+                    activo: 1
+                }, { transaction });
             }
 
             if (user.usu_id == null) {
@@ -944,14 +940,14 @@ const syncData = async (req, res) => {
                 }
             }
 
-            // Homologación total: desactivar administraciones sobre vinculaciones que OVAL
+            // Homologación total: eliminar administraciones sobre vinculaciones que OVAL
             // ya no asigna a este administrador (el ítem trae su portafolio completo).
             if (opts.prune && Array.isArray(item.asignaciones)) {
-                const pruneWhere = { administrador_contrato_id: user.usu_id, activo: 1 };
+                const pruneWhere = { administrador_contrato_id: user.usu_id };
                 if (syncedVinculacionIds.length > 0) {
                     pruneWhere.vinculacion_id = { [Op.notIn]: syncedVinculacionIds };
                 }
-                await Administracion.update({ activo: 0 }, { where: pruneWhere, transaction });
+                await Administracion.destroy({ where: pruneWhere, transaction });
             }
 
             return user;
@@ -962,26 +958,59 @@ const syncData = async (req, res) => {
             for (const item of items) {
                 await processGranularItem(item, syncSingleGerencia);
             }
+            if (mirror) {
+                const target = new Set(items.map(i => normalize(i.nombre)));
+                const local = await Gerencia.findAll();
+                const staleIds = local.filter(g => !target.has(normalize(g.nombre))).map(g => g.id);
+                if (staleIds.length > 0) {
+                    await Gerencia.destroy({ where: { id: { [Op.in]: staleIds } } });
+                    prunedItems.push(...staleIds.map(id => ({ tipo: 'gerencias', id })));
+                }
+            }
         } else if (type === 'subgerencias') {
             for (const item of items) {
                 await processGranularItem(item, syncSingleSubgerencia);
+            }
+            if (mirror) {
+                const target = new Set(items.map(i => normalize(`${i.gerencia}|${i.nombre}`)));
+                const local = await Subgerencia.findAll({ include: [{ model: Gerencia, as: 'gerencia' }] });
+                const staleIds = local.filter(s => !target.has(normalize(`${s.gerencia ? s.gerencia.nombre : ''}|${s.nombre}`))).map(s => s.id);
+                if (staleIds.length > 0) {
+                    await Subgerencia.destroy({ where: { id: { [Op.in]: staleIds } } });
+                    prunedItems.push(...staleIds.map(id => ({ tipo: 'subgerencias', id })));
+                }
             }
         } else if (type === 'servicios') {
             for (const item of items) {
                 await processGranularItem(item, syncSingleServicio);
             }
+            if (mirror) {
+                const target = new Set(items.map(i => normalize(`${i.subgerencia}|${i.nombre}`)));
+                const local = await TipoContratista.findAll({ include: [{ model: Subgerencia, as: 'subgerencia' }] });
+                const staleIds = local.filter(s => !target.has(normalize(`${s.subgerencia ? s.subgerencia.nombre : ''}|${s.nombre}`))).map(s => s.id);
+                if (staleIds.length > 0) {
+                    await TipoContratista.destroy({ where: { id: { [Op.in]: staleIds } } });
+                    prunedItems.push(...staleIds.map(id => ({ tipo: 'servicios', id })));
+                }
+            }
         } else if (type === 'dependencias') {
             for (const item of items) {
                 await processGranularItem(item, syncSingleDependencia);
+            }
+            if (mirror) {
+                const target = new Set(items.map(i => normalize(i.nombre)));
+                const local = await Dependencia.findAll();
+                const staleIds = local.filter(d => !target.has(normalize(d.nombre))).map(d => d.id);
+                if (staleIds.length > 0) {
+                    await Dependencia.destroy({ where: { id: { [Op.in]: staleIds } } });
+                    prunedItems.push(...staleIds.map(id => ({ tipo: 'dependencias', id })));
+                }
             }
         } else if (type === 'contratistas') {
             // First sync the contractor master entity
             for (const item of items) {
                 await processGranularItem(item, async (contractorItem, transaction) => {
                     const contractor = await syncSingleContratista(contractorItem, transaction);
-
-                    // Extract and sync nested or associated items (vinculaciones, admins)
-                    const targetRutClean = cleanRutString(contractorItem.rut || contractor.rut);
 
                     // 1. Process nested asignaciones directly from payload if present
                     const processedVincIds = [];
@@ -1037,15 +1066,16 @@ const syncData = async (req, res) => {
                         }
                     }
 
-                    // Homologación total: desactivar vinculaciones locales de esta empresa que
-                    // OVAL ya no envía. Solo si todas las asignaciones anidadas se procesaron
-                    // sin error (evita desactivar de más ante un fallo parcial).
+                    // Homologación total: eliminar vinculaciones locales de esta empresa que
+                    // OVAL ya no envía (los Registro que las referencian quedan huérfanos,
+                    // nunca se tocan). Solo si todas las asignaciones anidadas se procesaron
+                    // sin error (evita borrar de más ante un fallo parcial).
                     if (Array.isArray(contractorItem.asignaciones) && !nestedVincFailed) {
-                        const pruneWhere = { contratista_id: contractor.id, activo: 1 };
+                        const pruneWhere = { contratista_id: contractor.id };
                         if (processedVincIds.length > 0) {
                             pruneWhere.id = { [Op.notIn]: processedVincIds };
                         }
-                        await Vinculacion.update({ activo: 0 }, { where: pruneWhere, transaction });
+                        await Vinculacion.destroy({ where: pruneWhere, transaction });
                     }
 
                     // 2. Process nested contratista_admin directly from payload if present
@@ -1073,29 +1103,87 @@ const syncData = async (req, res) => {
                     return contractor;
                 });
             }
+            if (mirror) {
+                const target = new Set(items.map(i => cleanRutString(extractContractorInfo(i).rut)));
+                const local = await Contratista.findAll();
+                const stale = local.filter(c => !target.has(cleanRutString(c.rut)));
+                for (const c of stale) {
+                    // ContratistaUsuario cae por FK CASCADE; limpiar referencias huérfanas
+                    // de tablas migrables que no tienen esa cascada física.
+                    await Vinculacion.destroy({ where: { contratista_id: c.id } });
+                    await c.destroy();
+                    prunedItems.push({ tipo: 'contratistas', rut: c.rut });
+                }
+            }
         } else if (type === 'contratista_admin') {
             // Ítems agregados por email = estado completo del usuario en OVAL => se poda
             for (const item of items) {
                 await processGranularItem(item, (it, tx) => syncSingleContratistaAdmin(it, tx, { prune: true }));
             }
+            if (mirror) {
+                const target = new Set(items.filter(i => i.usu_id != null).map(i => Number(i.usu_id)));
+                const local = await User.findAll({ where: { role: 'contratista_admin' } });
+                const stale = local.filter(u => u.usu_id != null && !target.has(Number(u.usu_id)));
+                for (const u of stale) {
+                    await ContratistaUsuario.destroy({ where: { user_id: u.usu_id } });
+                    await u.destroy();
+                    prunedItems.push({ tipo: 'contratista_admin', email: u.email });
+                }
+            }
         } else if (type === 'vinculaciones') {
             for (const item of items) {
                 await processGranularItem(item, syncSingleVinculacion);
+            }
+            if (mirror) {
+                const target = new Set(items.map(i => {
+                    const info = extractContractorInfo({ rut: i.rut_contratista, nombre: i.contratista, cot_rut: i.cot_rut, cot_dv: i.cot_dv, cot_razon_social: i.cot_razon_social });
+                    return `${cleanRutString(info.rut)}|${normalize(i.servicio)}|${normalize(i.dependencia)}|${normalize(i.subgerencia)}|${normalize(i.gerencia)}`;
+                }));
+                const local = await Vinculacion.findAll({
+                    include: [
+                        { model: Contratista, as: 'contratista' },
+                        { model: TipoContratista, as: 'servicio' },
+                        { model: Dependencia, as: 'dependencia' },
+                        { model: Subgerencia, as: 'subgerencia' },
+                        { model: Gerencia, as: 'gerencia' }
+                    ]
+                });
+                const stale = local.filter(v => {
+                    if (!v.contratista || !v.servicio || !v.dependencia || !v.subgerencia || !v.gerencia) return false;
+                    const key = `${cleanRutString(v.contratista.rut)}|${normalize(v.servicio.nombre)}|${normalize(v.dependencia.nombre)}|${normalize(v.subgerencia.nombre)}|${normalize(v.gerencia.nombre)}`;
+                    return !target.has(key);
+                });
+                if (stale.length > 0) {
+                    await Vinculacion.destroy({ where: { id: { [Op.in]: stale.map(v => v.id) } } });
+                    prunedItems.push(...stale.map(v => ({ tipo: 'vinculaciones', id: v.id })));
+                }
             }
         } else if (type === 'administrador_contrato') {
             // Ítems agregados por email = portafolio completo del ADC en OVAL => se poda
             for (const item of items) {
                 await processGranularItem(item, (it, tx) => syncSingleAdministradorContrato(it, tx, { prune: true }));
             }
+            if (mirror) {
+                const target = new Set(items.filter(i => i.usu_id != null).map(i => Number(i.usu_id)));
+                const local = await User.findAll({ where: { role: 'administrador_contrato' } });
+                const stale = local.filter(u => u.usu_id != null && !target.has(Number(u.usu_id)));
+                for (const u of stale) {
+                    await Administracion.destroy({ where: { administrador_contrato_id: u.usu_id } });
+                    await u.destroy();
+                    prunedItems.push({ tipo: 'administrador_contrato', email: u.email });
+                }
+            }
         }
 
         res.json({
             success: true,
-            message: `Sincronización granular finalizada. Procesados: ${syncedItems.length}, Con error: ${failedItems.length}${warnings.length > 0 ? `, Advertencias: ${warnings.length}` : ''}`,
+            message: `Sincronización granular finalizada. Procesados: ${syncedItems.length}, Con error: ${failedItems.length}${warnings.length > 0 ? `, Advertencias: ${warnings.length}` : ''}${prunedItems.length > 0 ? `, Eliminados (residuales): ${prunedItems.length}` : ''}`,
             syncedCount: syncedItems.length,
             failedCount: failedItems.length,
             failedItems: failedItems,
-            warnings: warnings
+            warnings: warnings,
+            prunedCount: prunedItems.length,
+            prunedItems: prunedItems
         });
     } catch (error) {
         console.error('❌ Error no controlado en syncData:', error);
