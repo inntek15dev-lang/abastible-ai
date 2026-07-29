@@ -2,7 +2,10 @@ const axios = require('axios');
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
 const { sequelize, Contratista, TipoContratista, Dependencia, Vinculacion, User, Administracion, Gerencia, Subgerencia, ContratistaUsuario } = require('../database/models');
-const { adoptOvalUsuId, nextLocalUsuId } = require('../utils/usuIdHomologation');
+const { adoptOvalUsuId, nextLocalUsuId, isProtectedEmail } = require('../utils/usuIdHomologation');
+const {
+    DEMO_CONTRATISTA_RUT, DEMO_GERENCIA, DEMO_SUBGERENCIA, DEMO_SERVICIO, DEMO_DEPENDENCIA
+} = require('../utils/demoScaffold');
 
 const isProduction = process.env.NODE_ENV === 'production';
 const defaultPizzaUrl = isProduction
@@ -579,6 +582,14 @@ const syncData = async (req, res) => {
         // si el usuario existe con otro usu_id se re-homologa con cascada de referencias;
         // si Oval no envía usu_id se usa el usuario por email o se crea uno del rango local.
         const resolveHomologatedUser = async ({ cleanEmail, cleanName, role, extraDefaults = {}, ovalUsuId, transaction }) => {
+            // Guard incondicional, ANTES de mirar si Oval mandó usu_id o no: si Oval no
+            // envía usu_id para este ítem, el código caía a un lookup directo por email
+            // que saltaba por completo la protección de adoptOvalUsuId, permitiendo
+            // sobrescribir una cuenta fija del sistema con solo coincidir el email.
+            if (isProtectedEmail(cleanEmail)) {
+                throw new Error(`${cleanEmail} es una cuenta fija del sistema; OVAL nunca puede modificarla.`);
+            }
+
             let user = null;
             let created = false;
             if (ovalUsuId != null && ovalUsuId !== '') {
@@ -980,7 +991,8 @@ const syncData = async (req, res) => {
             if (mirror) {
                 const target = new Set(items.map(i => normalize(i.nombre)));
                 const local = await Gerencia.findAll();
-                const stale = local.filter(g => !target.has(normalize(g.nombre)));
+                // El scaffold demo (nunca reportado por OVAL) jamás es residual.
+                const stale = local.filter(g => !target.has(normalize(g.nombre)) && normalize(g.nombre) !== normalize(DEMO_GERENCIA));
                 await pruneOneByOne('gerencias', stale, (g) => g.destroy(), (g) => ({ id: g.id, nombre: g.nombre }));
             }
         } else if (type === 'subgerencias') {
@@ -990,7 +1002,7 @@ const syncData = async (req, res) => {
             if (mirror) {
                 const target = new Set(items.map(i => normalize(`${i.gerencia}|${i.nombre}`)));
                 const local = await Subgerencia.findAll({ include: [{ model: Gerencia, as: 'gerencia' }] });
-                const stale = local.filter(s => !target.has(normalize(`${s.gerencia ? s.gerencia.nombre : ''}|${s.nombre}`)));
+                const stale = local.filter(s => !target.has(normalize(`${s.gerencia ? s.gerencia.nombre : ''}|${s.nombre}`)) && normalize(s.nombre) !== normalize(DEMO_SUBGERENCIA));
                 await pruneOneByOne('subgerencias', stale, (s) => s.destroy(), (s) => ({ id: s.id, nombre: s.nombre }));
             }
         } else if (type === 'servicios') {
@@ -1000,7 +1012,7 @@ const syncData = async (req, res) => {
             if (mirror) {
                 const target = new Set(items.map(i => normalize(`${i.subgerencia}|${i.nombre}`)));
                 const local = await TipoContratista.findAll({ include: [{ model: Subgerencia, as: 'subgerencia' }] });
-                const stale = local.filter(s => !target.has(normalize(`${s.subgerencia ? s.subgerencia.nombre : ''}|${s.nombre}`)));
+                const stale = local.filter(s => !target.has(normalize(`${s.subgerencia ? s.subgerencia.nombre : ''}|${s.nombre}`)) && normalize(s.nombre) !== normalize(DEMO_SERVICIO));
                 await pruneOneByOne('servicios', stale, (s) => s.destroy(), (s) => ({ id: s.id, nombre: s.nombre }));
             }
         } else if (type === 'dependencias') {
@@ -1010,7 +1022,7 @@ const syncData = async (req, res) => {
             if (mirror) {
                 const target = new Set(items.map(i => normalize(i.nombre)));
                 const local = await Dependencia.findAll();
-                const stale = local.filter(d => !target.has(normalize(d.nombre)));
+                const stale = local.filter(d => !target.has(normalize(d.nombre)) && normalize(d.nombre) !== normalize(DEMO_DEPENDENCIA));
                 await pruneOneByOne('dependencias', stale, (d) => d.destroy(), (d) => ({ id: d.id, nombre: d.nombre }));
             }
         } else if (type === 'contratistas') {
@@ -1113,7 +1125,8 @@ const syncData = async (req, res) => {
             if (mirror) {
                 const target = new Set(items.map(i => cleanRutString(extractContractorInfo(i).rut)));
                 const local = await Contratista.findAll();
-                const stale = local.filter(c => !target.has(cleanRutString(c.rut)));
+                // La empresa demo (RUT sintético, nunca reportado por OVAL) jamás es residual.
+                const stale = local.filter(c => !target.has(cleanRutString(c.rut)) && cleanRutString(c.rut) !== cleanRutString(DEMO_CONTRATISTA_RUT));
                 await pruneOneByOne('contratistas', stale, async (c) => {
                     // Limpieza explícita en código, sin depender de FK física: la FK
                     // contratista_usuarios.contratista_id -> contratistas.id (ON DELETE
@@ -1132,7 +1145,10 @@ const syncData = async (req, res) => {
             if (mirror) {
                 const target = new Set(items.filter(i => i.usu_id != null).map(i => Number(i.usu_id)));
                 const local = await User.findAll({ where: { role: 'contratista_admin' } });
-                const stale = local.filter(u => u.usu_id != null && !target.has(Number(u.usu_id)));
+                // Las cuentas fijas del sistema (seed.js) nunca son residuales, aunque su
+                // usu_id nunca vaya a coincidir con el rango real de OVAL — mismo guard que
+                // adoptOvalUsuId, pero aplicado aquí porque la poda es una consulta aparte.
+                const stale = local.filter(u => u.usu_id != null && !target.has(Number(u.usu_id)) && !isProtectedEmail(u.email));
                 await pruneOneByOne('contratista_admin', stale, async (u) => {
                     await ContratistaUsuario.destroy({ where: { user_id: u.usu_id } });
                     await u.destroy();
@@ -1158,6 +1174,8 @@ const syncData = async (req, res) => {
                 });
                 const stale = local.filter(v => {
                     if (!v.contratista || !v.servicio || !v.dependencia || !v.subgerencia || !v.gerencia) return false;
+                    // La vinculación demo (empresa de RUT sintético) jamás es residual.
+                    if (cleanRutString(v.contratista.rut) === cleanRutString(DEMO_CONTRATISTA_RUT)) return false;
                     const key = `${cleanRutString(v.contratista.rut)}|${normalize(v.servicio.nombre)}|${normalize(v.dependencia.nombre)}|${normalize(v.subgerencia.nombre)}|${normalize(v.gerencia.nombre)}`;
                     return !target.has(key);
                 });
@@ -1171,7 +1189,8 @@ const syncData = async (req, res) => {
             if (mirror) {
                 const target = new Set(items.filter(i => i.usu_id != null).map(i => Number(i.usu_id)));
                 const local = await User.findAll({ where: { role: 'administrador_contrato' } });
-                const stale = local.filter(u => u.usu_id != null && !target.has(Number(u.usu_id)));
+                // Ver comentario equivalente en la poda de contratista_admin más arriba.
+                const stale = local.filter(u => u.usu_id != null && !target.has(Number(u.usu_id)) && !isProtectedEmail(u.email));
                 await pruneOneByOne('administrador_contrato', stale, async (u) => {
                     await Administracion.destroy({ where: { administrador_contrato_id: u.usu_id } });
                     await u.destroy();

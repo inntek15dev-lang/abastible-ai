@@ -12,6 +12,28 @@ const LOCAL_USU_ID_START = 1000000;
 // valor posible (no el rango local alto), sin colisionar jamás con un usu_id migrado.
 const CORE_ROLE = 'admin';
 
+// Únicos roles que OVAL gestiona/sincroniza. Cualquier otro rol (admin, contratista_user,
+// oval) NUNCA debería adoptarse como "la misma persona que cambió de email en Oval" solo
+// porque su usu_id local coincide numéricamente con el que envía Oval — esos usu_id locales
+// son asignaciones internas (seed fijo o rango local), no identidades de Oval.
+const OVAL_MANAGED_ROLES = ['contratista_admin', 'administrador_contrato'];
+
+// Cuentas fijas del sistema (src/seed.js): usu_id === id, valores 1-6 a propósito, para
+// nunca colisionar con el espacio real de OVAL (mínimo observado: 267). Dos de ellas
+// (administrador.contrato@abastible.cl, contratista.admin@demo.cl) SÍ tienen un rol que
+// OVAL gestiona (OVAL_MANAGED_ROLES), así que el guard por rol de más abajo NO las protege
+// — son cuentas de prueba, jamás identidades reales de OVAL, así que deben quedar excluidas
+// de la homologación de forma explícita e incondicional, sin importar rol ni heurística.
+const PROTECTED_SYSTEM_EMAILS = new Set([
+    'oval@ovalcontrol.com',
+    'admin@abastible.cl',
+    'administrador.contrato@abastible.cl',
+    'contratista.admin@demo.cl',
+    'contratista.usuario@demo.cl',
+    'contratista.usuario2@demo.cl'
+]);
+const isProtectedEmail = (email) => !!email && PROTECTED_SYSTEM_EMAILS.has(String(email).trim().toLowerCase());
+
 // Todas las columnas del sistema que referencian users.usu_id.
 // NOTA: solicitudes_reapertura es el nombre real de la tabla (run_migration.js usaba
 // "solicitudes_reaperturas" y esa actualización fallaba en silencio).
@@ -82,23 +104,50 @@ const adoptOvalUsuId = async ({ sequelize, User, email, targetUsuId, transaction
         throw new Error(`usu_id de Oval inválido: ${targetUsuId}`);
     }
 
+    // Guard incondicional, previo a cualquier otra lógica: las cuentas fijas del sistema
+    // (seed.js) jamás se tocan, sin importar rol ni heurística de "parece legacy".
+    if (isProtectedEmail(email)) {
+        throw new Error(
+            `${email} es una cuenta fija del sistema; OVAL nunca puede asignarle/modificarle el usu_id. Resolución manual requerida.`
+        );
+    }
+
     let user = email ? await User.findOne({ where: { email }, transaction }) : null;
     const holder = await User.findOne({ where: { usu_id: target }, transaction });
+
+    if (holder && isProtectedEmail(holder.email)) {
+        throw new Error(
+            `usu_id ${target} pertenece a la cuenta fija del sistema ${holder.email}; OVAL lo asigna a ${email}. Resolución manual requerida.`
+        );
+    }
 
     const sameRow = user && holder &&
         String(holder.email).toLowerCase() === String(user.email).toLowerCase();
 
     if (holder && !user) {
+        // Antes de asumir "misma persona, email cambiado en Oval" hay que verificar que
+        // el titular local sea siquiera un usuario gestionado por OVAL. Sin este guard,
+        // un usu_id local de un usuario core/demo/contratista_user (asignado por seed fijo
+        // o por el rango local, nunca por Oval) que numéricamente coincida con un usu_id
+        // real de Oval hacía que ESE usuario (admin, cuenta demo, etc.) fuera adoptado como
+        // si fuera la persona de Oval, sobrescribiéndole nombre/email/rol.
+        if (!OVAL_MANAGED_ROLES.includes(holder.role)) {
+            throw new Error(
+                `Conflicto de identidad usu_id ${target}: lo posee localmente ${holder.email} (rol "${holder.role}", no gestionado por OVAL), pero OVAL lo asigna a ${email}. Resolución manual requerida.`
+            );
+        }
         // El usu_id es la identidad estable: mismo usuario, email cambiado en Oval.
         return holder;
     }
 
     if (holder && user && !sameRow) {
-        if (holder.role === CORE_ROLE) {
-            // Los usuarios core (superadmin) jamás se desplazan automáticamente: son la
-            // única excepción a la homologación con Oval. Requiere resolución manual.
+        if (!OVAL_MANAGED_ROLES.includes(holder.role)) {
+            // Un titular con rol no gestionado por OVAL (admin, contratista_user, oval)
+            // jamás se desplaza automáticamente, aunque "parezca legacy" (usu_id === id):
+            // así se crean a propósito las cuentas core/demo en seed.js, y confundirlas con
+            // un backfill legacy real las expondría a perder su identidad/nombre en cada sync.
             throw new Error(
-                `Conflicto de identidad usu_id ${target}: lo posee el usuario core ${holder.email} (rol ${CORE_ROLE}); Oval lo asigna a ${email}. Resolución manual requerida.`
+                `Conflicto de identidad usu_id ${target}: lo posee localmente ${holder.email} (rol "${holder.role}", no gestionado por OVAL); Oval lo asigna a ${email}. Resolución manual requerida.`
             );
         }
         const holderLooksLegacy = holder.id !== null && Number(holder.usu_id) === Number(holder.id);
@@ -176,6 +225,9 @@ const renumberCoreUsersToMinimum = async ({ sequelize, User, transaction }) => {
 module.exports = {
     LOCAL_USU_ID_START,
     CORE_ROLE,
+    OVAL_MANAGED_ROLES,
+    PROTECTED_SYSTEM_EMAILS,
+    isProtectedEmail,
     USER_REFERENCE_COLUMNS,
     rekeyUserReferences,
     nextLocalUsuId,
