@@ -13,7 +13,11 @@ const DEMO_GERENCIA = 'GERENCIA DEMO';
 const DEMO_SUBGERENCIA = 'SUBGERENCIA DEMO';
 const DEMO_SERVICIO = 'SERVICIO DEMO';
 const DEMO_DEPENDENCIA = 'DEPENDENCIA DEMO';
-const DEMO_NUMERO_CONTRATO = '1';
+// NO usar un número puramente numérico: OVAL numera sus contratos como strings
+// numéricos simples (se confirmó una colisión real con "1" — "ISS SERVICIOS GENERALES
+// LTDA" tiene un contrato real numerado literalmente "1"). numero_contrato es único a
+// nivel de tabla completa, así que un prefijo no numérico garantiza cero colisión.
+const DEMO_NUMERO_CONTRATO = 'DEMO-1';
 
 module.exports = {
     DEMO_CONTRATISTA_RUT,

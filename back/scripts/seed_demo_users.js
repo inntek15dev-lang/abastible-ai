@@ -72,6 +72,15 @@ async function run() {
         const ensureUser = async ({ email, name, role, usu_id, extra = {} }) => {
             let user = await User.findOne({ where: { email } });
             if (!user) {
+                // Si esta cuenta fue borrada como residual por un bug ya corregido (la
+                // poda de contratista_admin/administrador_contrato no respetaba
+                // PROTECTED_SYSTEM_EMAILS), su usu_id fijo podría haber sido adoptado
+                // mientras tanto por un usuario real de OVAL. Verificar ANTES de crear,
+                // para un error claro en vez de un choque de PK genérico.
+                const holder = await User.findOne({ where: { usu_id } });
+                if (holder) {
+                    throw new Error(`No se puede crear ${email} con usu_id=${usu_id}: ya lo tiene ${holder.email} (rol "${holder.role}"). Resuelva manualmente antes de re-ejecutar este seeder (probablemente esa cuenta demo fue eliminada como residual por la sincronización antes del fix, y OVAL adoptó ese usu_id para un usuario real).`);
+                }
                 await User.create({ name, email, password: hashedPassword, role, usu_id, activo: 1, ...extra });
                 // Re-fetch obligatorio: Sequelize pisa el usu_id de la instancia con el
                 // insertId de MySQL al crear con usu_id explícito (columna AUTO_INCREMENT).
@@ -126,7 +135,16 @@ async function run() {
         console.log('🎉 Scaffold demo listo.');
         process.exit(0);
     } catch (error) {
+        // Sequelize reduce error.message a "Validation error" genérico para
+        // SequelizeValidationError/SequelizeUniqueConstraintError — el detalle real
+        // vive en error.errors (validación) o error.original (SQL).
         console.error('❌ Error creando el scaffold demo:', error.message);
+        if (Array.isArray(error.errors)) {
+            error.errors.forEach(e => console.error(`   - campo "${e.path}": ${e.message} (valor recibido: ${JSON.stringify(e.value)})`));
+        }
+        if (error.original) {
+            console.error('   Detalle SQL:', error.original.message);
+        }
         process.exit(1);
     }
 }
