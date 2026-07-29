@@ -52,6 +52,18 @@ const cleanRutString = (rutStr) => {
     return rutStr.toString().replace(/[^0-9Kk]/g, '').toUpperCase();
 };
 
+// Sequelize reduce err.message a "Validation error"/"Validation error" genérico para
+// SequelizeValidationError y SequelizeUniqueConstraintError — el detalle real (qué campo,
+// qué constraint) vive en err.errors (validación de atributos) o err.original (motor SQL).
+// Sin esto, cualquier warning/failedItem queda ilegible ("email: Validation error").
+const extractErrorDetail = (err) => {
+    if (err?.original?.message) return err.original.message;
+    if (Array.isArray(err?.errors) && err.errors.length > 0) {
+        return err.errors.map(e => `${e.path}: ${e.message} (valor: ${JSON.stringify(e.value)})`).join('; ');
+    }
+    return err?.message || String(err);
+};
+
 const extractContractorInfo = (item, fallbackName = '') => {
     if (!item) return { rut: '99999999-9', nombre: fallbackName || 'Empresa Sincronizada' };
     if (typeof item === 'string') return { rut: item, nombre: fallbackName || item };
@@ -554,7 +566,7 @@ const syncData = async (req, res) => {
                     prunedItems.push({ tipo, ...describeFn(target) });
                 } catch (err) {
                     console.warn(`⚠️ No se pudo podar residual de ${tipo}:`, err.message);
-                    warnings.push({ tipo: `poda_${tipo}`, ...describeFn(target), error: err.message });
+                    warnings.push({ tipo: `poda_${tipo}`, ...describeFn(target), error: extractErrorDetail(err) });
                 }
             }
         };
@@ -634,11 +646,11 @@ const syncData = async (req, res) => {
                 syncedItems.push(result || item);
             } catch (err) {
                 await transaction.rollback();
-                console.warn(`⚠️ Granular sync warning on item (${JSON.stringify(item.rut || item.nombre || item.email || item).slice(0, 100)}):`, err.message);
+                console.warn(`⚠️ Granular sync warning on item (${JSON.stringify(item.rut || item.nombre || item.email || item).slice(0, 100)}):`, extractErrorDetail(err));
                 failedItems.push({
                     item: item,
                     error: err.message,
-                    details: err.original?.message || err.errors?.map(e => e.message).join(', ') || err.message
+                    details: extractErrorDetail(err)
                 });
             }
         };
@@ -1052,7 +1064,7 @@ const syncData = async (req, res) => {
                             } catch (vErr) {
                                 nestedVincFailed = true;
                                 console.warn(`⚠️ Granular warning on nested vinculación for ${contractor.rut}:`, vErr.message);
-                                warnings.push({ tipo: 'vinculacion', contratista: contractor.rut, error: vErr.message });
+                                warnings.push({ tipo: 'vinculacion', contratista: contractor.rut, error: extractErrorDetail(vErr) });
                             }
 
                             if (asig.administrador_contrato && Array.isArray(asig.administrador_contrato)) {
@@ -1077,7 +1089,7 @@ const syncData = async (req, res) => {
                                             await syncSingleAdministradorContrato(adminItem, transaction);
                                         } catch (aErr) {
                                             console.warn(`⚠️ Granular warning on nested admin contrato for ${adminEmail}:`, aErr.message);
-                                            warnings.push({ tipo: 'administrador_contrato', contratista: contractor.rut, email: adminEmail, error: aErr.message });
+                                            warnings.push({ tipo: 'administrador_contrato', contratista: contractor.rut, email: adminEmail, error: extractErrorDetail(aErr) });
                                         }
                                     }
                                 }
@@ -1113,7 +1125,7 @@ const syncData = async (req, res) => {
                                     await syncSingleContratistaAdmin(cAdminItem, transaction);
                                 } catch (caErr) {
                                     console.warn(`⚠️ Granular warning on nested contratista admin for ${cleanEmail}:`, caErr.message);
-                                    warnings.push({ tipo: 'contratista_admin', contratista: contractor.rut, email: cleanEmail, error: caErr.message });
+                                    warnings.push({ tipo: 'contratista_admin', contratista: contractor.rut, email: cleanEmail, error: extractErrorDetail(caErr) });
                                 }
                             }
                         }
