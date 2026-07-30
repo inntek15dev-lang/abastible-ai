@@ -65,7 +65,12 @@ const extractErrorDetail = (err) => {
 };
 
 const extractContractorInfo = (item, fallbackName = '') => {
-    if (!item) return { rut: '99999999-9', nombre: fallbackName || 'Empresa Sincronizada' };
+    if (!item) {
+        // DIAGNÓSTICO (temporal): rastreando el origen del contratista fantasma 99999999-9
+        // que reaparece en cada full-sync (ver memoria del proyecto / conversación).
+        console.warn('🔎 [DIAGNOSTICO RUT-FALLBACK] extractContractorInfo recibió item null/undefined. fallbackName:', fallbackName);
+        return { rut: '99999999-9', nombre: fallbackName || 'Empresa Sincronizada' };
+    }
     if (typeof item === 'string') return { rut: item, nombre: fallbackName || item };
 
     let rawRut = item.rut;
@@ -75,6 +80,11 @@ const extractContractorInfo = (item, fallbackName = '') => {
             : item.cot_rut.toString();
     }
     const rut = sanitizeString(rawRut) || '99999999-9';
+    if (rut === '99999999-9') {
+        // DIAGNÓSTICO (temporal): ídem arriba. Imprime el item completo (truncado) para
+        // identificar exactamente qué registro de OVAL no trae un RUT resoluble.
+        console.warn('🔎 [DIAGNOSTICO RUT-FALLBACK] No se pudo determinar un RUT válido. fallbackName:', fallbackName, '| item recibido:', JSON.stringify(item).slice(0, 800));
+    }
     const nombre = sanitizeString(item.nombre || item.cot_razon_social) || fallbackName || rut;
 
     return { rut, nombre };
@@ -743,6 +753,9 @@ const syncData = async (req, res) => {
 
             let ruts = item.rut_contratistas || [item.rut_contratista || (item.cot_rut ? `${item.cot_rut}-${item.cot_dv || ''}`.replace(/-$/, '') : '99999999-9')];
             if (!Array.isArray(ruts) || ruts.length === 0) {
+                // DIAGNÓSTICO (temporal): rastreando el origen del contratista fantasma
+                // 99999999-9 que reaparece en cada full-sync.
+                console.warn('🔎 [DIAGNOSTICO RUT-FALLBACK] syncSingleContratistaAdmin: rut_contratistas vacío/inválido para', cleanEmail, '| item completo:', JSON.stringify(item).slice(0, 800));
                 ruts = ['99999999-9'];
             }
 
@@ -1043,6 +1056,13 @@ const syncData = async (req, res) => {
                 await processGranularItem(item, async (contractorItem, transaction) => {
                     const contractor = await syncSingleContratista(contractorItem, transaction);
 
+                    if (cleanRutString(contractor.rut) === cleanRutString('99999999-9')) {
+                        // DIAGNÓSTICO (temporal): capturar el ítem completo (incluidas sus
+                        // asignaciones) que resolvió al RUT fantasma, para identificar la
+                        // empresa/dato de origen real en OVAL.
+                        console.warn('🔎 [DIAGNOSTICO RUT-FALLBACK] Ítem de "contratistas" resolvió al RUT fantasma 99999999-9. contractorItem completo:', JSON.stringify(contractorItem).slice(0, 1500));
+                    }
+
                     // 1. Process nested asignaciones directly from payload if present
                     const processedVincIds = [];
                     let nestedVincFailed = false;
@@ -1139,6 +1159,14 @@ const syncData = async (req, res) => {
                 const local = await Contratista.findAll();
                 // La empresa demo (RUT sintético, nunca reportado por OVAL) jamás es residual.
                 const stale = local.filter(c => !target.has(cleanRutString(c.rut)) && cleanRutString(c.rut) !== cleanRutString(DEMO_CONTRATISTA_RUT));
+                if (stale.length > 0) {
+                    // DIAGNÓSTICO (temporal): rastreando el origen del contratista fantasma
+                    // 99999999-9 que reaparece en cada full-sync.
+                    for (const c of stale) {
+                        const vincCount = await Vinculacion.count({ where: { contratista_id: c.id } });
+                        console.warn(`🔎 [DIAGNOSTICO RUT-FALLBACK] Contratista residual a eliminar: id=${c.id} rut="${c.rut}" nombre="${c.nombre}" activo=${c.activo} vinculaciones_asociadas=${vincCount}`);
+                    }
+                }
                 await pruneOneByOne('contratistas', stale, async (c) => {
                     // Limpieza explícita en código, sin depender de FK física: la FK
                     // contratista_usuarios.contratista_id -> contratistas.id (ON DELETE
@@ -1191,6 +1219,14 @@ const syncData = async (req, res) => {
                     const key = `${cleanRutString(v.contratista.rut)}|${normalize(v.servicio.nombre)}|${normalize(v.dependencia.nombre)}|${normalize(v.subgerencia.nombre)}|${normalize(v.gerencia.nombre)}`;
                     return !target.has(key);
                 });
+                if (stale.length > 0) {
+                    // DIAGNÓSTICO (temporal): a qué empresa/contrato pertenecían realmente
+                    // las vinculaciones marcadas como residuales, antes de eliminarlas.
+                    console.warn(`🔎 [DIAGNOSTICO RUT-FALLBACK] ${stale.length} vinculación(es) residual(es) a eliminar (de ${local.length} locales, contra ${target.size} claves objetivo de OVAL):`);
+                    for (const v of stale) {
+                        console.warn(`   - id=${v.id} rut="${v.contratista.rut}" contratista="${v.contratista.nombre}" servicio="${v.servicio.nombre}" dependencia="${v.dependencia.nombre}" subgerencia="${v.subgerencia.nombre}" gerencia="${v.gerencia.nombre}" numero_contrato="${v.numero_contrato}"`);
+                    }
+                }
                 await pruneOneByOne('vinculaciones', stale, (v) => v.destroy(), (v) => ({ id: v.id, numero_contrato: v.numero_contrato }));
             }
         } else if (type === 'administrador_contrato') {
