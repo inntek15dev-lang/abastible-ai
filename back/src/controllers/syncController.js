@@ -73,7 +73,7 @@ const extractContractorInfo = (item, fallbackName = '') => {
     }
     if (typeof item === 'string') return { rut: item, nombre: fallbackName || item };
 
-    let rawRut = item.rut;
+    let rawRut = item.rut || item.rut_contratista;
     if (!rawRut && item.cot_rut) {
         rawRut = item.cot_dv !== undefined && item.cot_dv !== null && item.cot_dv !== ''
             ? `${item.cot_rut}-${item.cot_dv}`
@@ -1126,6 +1126,10 @@ const syncData = async (req, res) => {
                         if (processedVincIds.length > 0) {
                             pruneWhere.id = { [Op.notIn]: processedVincIds };
                         }
+                        const staleVincIds = (await Vinculacion.findAll({ where: pruneWhere, attributes: ['id'], transaction })).map(v => v.id);
+                        if (staleVincIds.length > 0) {
+                            await Administracion.destroy({ where: { vinculacion_id: staleVincIds }, transaction });
+                        }
                         await Vinculacion.destroy({ where: pruneWhere, transaction });
                     }
 
@@ -1173,6 +1177,10 @@ const syncData = async (req, res) => {
                     // CASCADE) se elimina en el deploy (scripts/drop_physical_foreign_keys.js),
                     // así que si no se borra aquí, ContratistaUsuario quedaría huérfano.
                     await ContratistaUsuario.destroy({ where: { contratista_id: c.id } });
+                    const vincIds = (await Vinculacion.findAll({ where: { contratista_id: c.id }, attributes: ['id'] })).map(v => v.id);
+                    if (vincIds.length > 0) {
+                        await Administracion.destroy({ where: { vinculacion_id: vincIds } });
+                    }
                     await Vinculacion.destroy({ where: { contratista_id: c.id } });
                     await c.destroy();
                 }, (c) => ({ id: c.id, rut: c.rut }));
@@ -1227,7 +1235,10 @@ const syncData = async (req, res) => {
                         console.warn(`   - id=${v.id} rut="${v.contratista.rut}" contratista="${v.contratista.nombre}" servicio="${v.servicio.nombre}" dependencia="${v.dependencia.nombre}" subgerencia="${v.subgerencia.nombre}" gerencia="${v.gerencia.nombre}" numero_contrato="${v.numero_contrato}"`);
                     }
                 }
-                await pruneOneByOne('vinculaciones', stale, (v) => v.destroy(), (v) => ({ id: v.id, numero_contrato: v.numero_contrato }));
+                await pruneOneByOne('vinculaciones', stale, async (v) => {
+                    await Administracion.destroy({ where: { vinculacion_id: v.id } });
+                    await v.destroy();
+                }, (v) => ({ id: v.id, numero_contrato: v.numero_contrato }));
             }
         } else if (type === 'administrador_contrato') {
             // Ítems agregados por email = portafolio completo del ADC en OVAL => se poda
