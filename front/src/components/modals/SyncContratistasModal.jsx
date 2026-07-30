@@ -764,6 +764,8 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                         background-color: white;
                         border-radius: var(--border-radius-lg);
                         width: 480px;
+                        max-height: 88vh;
+                        overflow-y: auto;
                         padding: 24px;
                         box-shadow: var(--shadow-depth);
                         border: 1px solid var(--border-color);
@@ -1212,11 +1214,16 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
 
                                 {syncIssues.length > 0 && (
                                     <div className="mt-4 border-t pt-3">
-                                        <div className="flex items-center gap-1.5 text-amber-700 font-bold text-xs mb-2">
-                                            <AlertCircle className="w-3.5 h-3.5" />
-                                            Detalle de errores y advertencias
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-1.5 text-amber-700 font-bold text-xs">
+                                                <AlertCircle className="w-3.5 h-3.5" />
+                                                Detalle de errores y advertencias
+                                            </div>
+                                            <span className="text-[10px] text-gray-400">
+                                                {syncIssues.reduce((n, issue) => n + (issue.failedItems?.length || 0) + (issue.warnings?.length || 0) + (issue.prunedItems?.length || 0), 0)} ítems — scroll para ver más
+                                            </span>
                                         </div>
-                                        <div className="max-h-40 overflow-y-auto space-y-1.5 text-[11px] text-gray-600">
+                                        <div className="max-h-72 overflow-y-auto space-y-1.5 text-[11px] text-gray-600 border border-slate-100 rounded-md bg-slate-50/50 p-2">
                                             {syncIssues.map((issue, i) => (
                                                 <div key={i}>
                                                     <div className="font-semibold text-gray-700">{issue.step}</div>
