@@ -1028,7 +1028,7 @@ const syncData = async (req, res) => {
                 const target = new Set(items.map(i => normalize(`${i.gerencia}|${i.nombre}`)));
                 const local = await Subgerencia.findAll({ include: [{ model: Gerencia, as: 'gerencia' }] });
                 const stale = local.filter(s => !target.has(normalize(`${s.gerencia ? s.gerencia.nombre : ''}|${s.nombre}`)) && normalize(s.nombre) !== normalize(DEMO_SUBGERENCIA));
-                await pruneOneByOne('subgerencias', stale, (s) => s.destroy(), (s) => ({ id: s.id, nombre: s.nombre }));
+                await pruneOneByOne('subgerencias', stale, (s) => s.destroy(), (s) => ({ id: s.id, nombre: s.nombre, gerencia: s.gerencia ? s.gerencia.nombre : null }));
             }
         } else if (type === 'servicios') {
             for (const item of items) {
@@ -1038,7 +1038,7 @@ const syncData = async (req, res) => {
                 const target = new Set(items.map(i => normalize(`${i.subgerencia}|${i.nombre}`)));
                 const local = await TipoContratista.findAll({ include: [{ model: Subgerencia, as: 'subgerencia' }] });
                 const stale = local.filter(s => !target.has(normalize(`${s.subgerencia ? s.subgerencia.nombre : ''}|${s.nombre}`)) && normalize(s.nombre) !== normalize(DEMO_SERVICIO));
-                await pruneOneByOne('servicios', stale, (s) => s.destroy(), (s) => ({ id: s.id, nombre: s.nombre }));
+                await pruneOneByOne('servicios', stale, (s) => s.destroy(), (s) => ({ id: s.id, nombre: s.nombre, subgerencia: s.subgerencia ? s.subgerencia.nombre : null }));
             }
         } else if (type === 'dependencias') {
             for (const item of items) {
@@ -1084,7 +1084,17 @@ const syncData = async (req, res) => {
                             } catch (vErr) {
                                 nestedVincFailed = true;
                                 console.warn(`⚠️ Granular warning on nested vinculación for ${contractor.rut}:`, vErr.message);
-                                warnings.push({ tipo: 'vinculacion', contratista: contractor.rut, error: extractErrorDetail(vErr) });
+                                warnings.push({
+                                    tipo: 'vinculacion',
+                                    rut: contractor.rut,
+                                    contratista: contractor.nombre,
+                                    servicio: asig.servicio,
+                                    dependencia: asig.dependencia,
+                                    subgerencia: asig.subgerencia,
+                                    gerencia: asig.gerencia,
+                                    numero_contrato: asig.contrato || asig.numero_contrato || null,
+                                    error: extractErrorDetail(vErr)
+                                });
                             }
 
                             if (asig.administrador_contrato && Array.isArray(asig.administrador_contrato)) {
@@ -1109,7 +1119,19 @@ const syncData = async (req, res) => {
                                             await syncSingleAdministradorContrato(adminItem, transaction);
                                         } catch (aErr) {
                                             console.warn(`⚠️ Granular warning on nested admin contrato for ${adminEmail}:`, aErr.message);
-                                            warnings.push({ tipo: 'administrador_contrato', contratista: contractor.rut, email: adminEmail, error: extractErrorDetail(aErr) });
+                                            warnings.push({
+                                                tipo: 'administrador_contrato',
+                                                rut: contractor.rut,
+                                                contratista: contractor.nombre,
+                                                nombre: adminItem.nombre,
+                                                email: adminEmail,
+                                                servicio: asig.servicio,
+                                                dependencia: asig.dependencia,
+                                                subgerencia: asig.subgerencia,
+                                                gerencia: asig.gerencia,
+                                                numero_contrato: asig.contrato || null,
+                                                error: extractErrorDetail(aErr)
+                                            });
                                         }
                                     }
                                 }
@@ -1149,7 +1171,14 @@ const syncData = async (req, res) => {
                                     await syncSingleContratistaAdmin(cAdminItem, transaction);
                                 } catch (caErr) {
                                     console.warn(`⚠️ Granular warning on nested contratista admin for ${cleanEmail}:`, caErr.message);
-                                    warnings.push({ tipo: 'contratista_admin', contratista: contractor.rut, email: cleanEmail, error: extractErrorDetail(caErr) });
+                                    warnings.push({
+                                        tipo: 'contratista_admin',
+                                        rut: contractor.rut,
+                                        contratista: contractor.nombre,
+                                        nombre: cAdminItem.nombre,
+                                        email: cleanEmail,
+                                        error: extractErrorDetail(caErr)
+                                    });
                                 }
                             }
                         }
@@ -1183,7 +1212,7 @@ const syncData = async (req, res) => {
                     }
                     await Vinculacion.destroy({ where: { contratista_id: c.id } });
                     await c.destroy();
-                }, (c) => ({ id: c.id, rut: c.rut }));
+                }, (c) => ({ id: c.id, rut: c.rut, nombre: c.nombre }));
             }
         } else if (type === 'contratista_admin') {
             // Ítems agregados por email = estado completo del usuario en OVAL => se poda
@@ -1200,7 +1229,7 @@ const syncData = async (req, res) => {
                 await pruneOneByOne('contratista_admin', stale, async (u) => {
                     await ContratistaUsuario.destroy({ where: { user_id: u.usu_id } });
                     await u.destroy();
-                }, (u) => ({ usu_id: u.usu_id, email: u.email }));
+                }, (u) => ({ usu_id: u.usu_id, email: u.email, nombre: u.name }));
             }
         } else if (type === 'vinculaciones') {
             for (const item of items) {
@@ -1231,14 +1260,40 @@ const syncData = async (req, res) => {
                     // DIAGNÓSTICO (temporal): a qué empresa/contrato pertenecían realmente
                     // las vinculaciones marcadas como residuales, antes de eliminarlas.
                     console.warn(`🔎 [DIAGNOSTICO RUT-FALLBACK] ${stale.length} vinculación(es) residual(es) a eliminar (de ${local.length} locales, contra ${target.size} claves objetivo de OVAL):`);
+                    // DIAGNÓSTICO (temporal): mapa auxiliar por RUT con TODAS las combinaciones
+                    // crudas (sin normalizar) que OVAL envió, para comparar campo a campo contra
+                    // la fila local y detectar diferencias invisibles (acentos, espacios, etc).
+                    const itemsByRutDiag = new Map();
+                    items.forEach(i => {
+                        const infoDiag = extractContractorInfo({ rut: i.rut_contratista, nombre: i.contratista, cot_rut: i.cot_rut, cot_dv: i.cot_dv, cot_razon_social: i.cot_razon_social });
+                        const crDiag = cleanRutString(infoDiag.rut);
+                        if (!itemsByRutDiag.has(crDiag)) itemsByRutDiag.set(crDiag, []);
+                        itemsByRutDiag.get(crDiag).push(i);
+                    });
+                    const codePoints = (s) => (s || '').toString().split('').map(c => c.codePointAt(0)).join(',');
                     for (const v of stale) {
                         console.warn(`   - id=${v.id} rut="${v.contratista.rut}" contratista="${v.contratista.nombre}" servicio="${v.servicio.nombre}" dependencia="${v.dependencia.nombre}" subgerencia="${v.subgerencia.nombre}" gerencia="${v.gerencia.nombre}" numero_contrato="${v.numero_contrato}"`);
+                        console.warn(`     >> [codepoints] servicio=[${codePoints(v.servicio.nombre)}] dependencia=[${codePoints(v.dependencia.nombre)}] subgerencia=[${codePoints(v.subgerencia.nombre)}] gerencia=[${codePoints(v.gerencia.nombre)}]`);
+                        const candidatos = itemsByRutDiag.get(cleanRutString(v.contratista.rut)) || [];
+                        console.warn(`     >> combos esperados por OVAL para este RUT (${candidatos.length}):`);
+                        candidatos.forEach((c, idx) => {
+                            console.warn(`        [${idx}] servicio="${c.servicio}" [${codePoints(c.servicio)}] dependencia="${c.dependencia}" [${codePoints(c.dependencia)}] subgerencia="${c.subgerencia}" [${codePoints(c.subgerencia)}] gerencia="${c.gerencia}" [${codePoints(c.gerencia)}] contrato="${c.contrato || c.numero_contrato}"`);
+                        });
                     }
                 }
                 await pruneOneByOne('vinculaciones', stale, async (v) => {
                     await Administracion.destroy({ where: { vinculacion_id: v.id } });
                     await v.destroy();
-                }, (v) => ({ id: v.id, numero_contrato: v.numero_contrato }));
+                }, (v) => ({
+                    id: v.id,
+                    rut: v.contratista ? v.contratista.rut : null,
+                    contratista: v.contratista ? v.contratista.nombre : null,
+                    servicio: v.servicio ? v.servicio.nombre : null,
+                    dependencia: v.dependencia ? v.dependencia.nombre : null,
+                    subgerencia: v.subgerencia ? v.subgerencia.nombre : null,
+                    gerencia: v.gerencia ? v.gerencia.nombre : null,
+                    numero_contrato: v.numero_contrato
+                }));
             }
         } else if (type === 'administrador_contrato') {
             // Ítems agregados por email = portafolio completo del ADC en OVAL => se poda
@@ -1253,7 +1308,7 @@ const syncData = async (req, res) => {
                 await pruneOneByOne('administrador_contrato', stale, async (u) => {
                     await Administracion.destroy({ where: { administrador_contrato_id: u.usu_id } });
                     await u.destroy();
-                }, (u) => ({ usu_id: u.usu_id, email: u.email }));
+                }, (u) => ({ usu_id: u.usu_id, email: u.email, nombre: u.name }));
             }
         }
 

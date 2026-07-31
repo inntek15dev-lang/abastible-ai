@@ -189,6 +189,28 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
         return new Date(dateString).toLocaleDateString('es-CL', { timeZone: 'UTC' });
     };
 
+    // Arma una descripción legible con TODOS los campos disponibles de un ítem de
+    // error/advertencia/poda, sin importar el tipo de entidad (contratista, vinculación,
+    // usuario, etc.) — para no depender de leer los logs del backend.
+    const describeIssueEntity = (obj) => {
+        if (!obj) return 'Elemento';
+        const parts = [];
+        if (obj.nombre) parts.push(obj.nombre);
+        if (obj.contratista) parts.push(obj.contratista);
+        if (obj.email) parts.push(obj.email);
+        const rut = obj.rut || obj.rut_contratista;
+        if (rut) parts.push(`RUT ${rut}`);
+        if (obj.servicio) parts.push(`Servicio: ${obj.servicio}`);
+        if (obj.dependencia) parts.push(`Dependencia: ${obj.dependencia}`);
+        if (obj.subgerencia) parts.push(`Subgerencia: ${obj.subgerencia}`);
+        if (obj.gerencia) parts.push(`Gerencia: ${obj.gerencia}`);
+        const contrato = obj.numero_contrato || obj.contrato;
+        if (contrato) parts.push(`Contrato: ${contrato}`);
+        if (obj.usu_id != null) parts.push(`usu_id ${obj.usu_id}`);
+        if (parts.length === 0) parts.push(obj.tipo || (obj.id != null ? `ID ${obj.id}` : 'Elemento'));
+        return parts.join(' · ');
+    };
+
     const getItemKey = (item, type) => {
         switch (type) {
             case 'gerencias': return item.nombre;
@@ -1229,17 +1251,17 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                                                     <div className="font-semibold text-gray-700">{issue.step}</div>
                                                     {(issue.failedItems || []).map((f, j) => (
                                                         <div key={`f-${j}`} className="pl-2 text-rose-600">
-                                                            • {(f.item?.email || f.item?.nombre || f.item?.rut || 'Elemento')}: {f.details || f.error}
+                                                            • {describeIssueEntity(f.item)}: {f.details || f.error}
                                                         </div>
                                                     ))}
                                                     {(issue.warnings || []).map((w, j) => (
                                                         <div key={`w-${j}`} className="pl-2 text-amber-600">
-                                                            • {(w.email || w.contratista || w.tipo)}: {w.error}
+                                                            • {describeIssueEntity(w)}: {w.error}
                                                         </div>
                                                     ))}
                                                     {(issue.prunedItems || []).map((p, j) => (
                                                         <div key={`p-${j}`} className="pl-2 text-rose-600">
-                                                            • Eliminado (residual, no está en OVAL): {p.email || p.rut || p.id}
+                                                            • Eliminado (residual, no está en OVAL): {describeIssueEntity(p)}
                                                         </div>
                                                     ))}
                                                 </div>
