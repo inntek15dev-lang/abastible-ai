@@ -34,7 +34,13 @@ const ORIGIN = process.env.ORIGIN ? process.env.ORIGIN.trim().replace(/\r$/, '')
 
 const sanitizeString = (str) => {
     if (str === null || str === undefined) return '';
-    return str.toString().replace(/[\u00A0\u200B\r\n\t]/g, ' ').trim();
+    // normalize('NFC'): OVAL env\u00EDa el mismo car\u00E1cter acentuado (ej. "\u00D1") con distinta
+    // composici\u00F3n Unicode seg\u00FAn el registro/origen (precompuesto vs. compuesto por
+    // combinaci\u00F3n) \u2014 visualmente id\u00E9nticos pero con bytes distintos. Sin esto, dos
+    // strings que se ven iguales no son === iguales, causando que una vinculaci\u00F3n se
+    // cree con una codificaci\u00F3n y la comparaci\u00F3n de residuales use otra, generando un
+    // ciclo de crear+podar en cada full-sync.
+    return str.toString().normalize('NFC').replace(/[\u00A0\u200B\r\n\t]/g, ' ').trim();
 };
 
 const sanitizeEmail = (email) => {
