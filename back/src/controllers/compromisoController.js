@@ -1,9 +1,9 @@
-const { Compromiso, Hallazgo, Registro, User, ContratistaAsignacion, Vinculacion } = require('../database/models');
+const { Compromiso, Hallazgo, Registro, User, Vinculacion } = require('../database/models');
 const { Op } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
 const { safeMove } = require('../utils/fileHelper');
-const { isRegistroInScope } = require('../utils/scopeHelper');
+const { getAllowedVinculacionIds, isRegistroInScope } = require('../utils/scopeHelper');
 
 const compromisoController = {
     // GET /api/compromisos
@@ -39,9 +39,12 @@ const compromisoController = {
                 includeRegistro.include.push(includeVinculacion);
             }
 
-            // Role-based filtering (Security)
+            // Role-based filtering (Security). getAllowedVinculacionIds cubre los 3 roles
+            // restringidos de forma uniforme (antes faltaba la rama administrador_contrato
+            // por completo: veía TODOS los compromisos del sistema sin filtrar).
             const user = req.user;
-            if (user.role === 'contratista_user' || user.role === 'contratista_admin') {
+            const allowedVincIds = await getAllowedVinculacionIds(user);
+            if (allowedVincIds !== null) {
                 let vincInclude = includeRegistro.include.find(inc => inc.as === 'vinculacionEntidad');
                 if (!vincInclude) {
                     vincInclude = {
@@ -53,20 +56,10 @@ const compromisoController = {
                     includeRegistro.include.push(vincInclude);
                 }
                 includeRegistro.required = true;
-
-                if (user.role === 'contratista_user') {
-                    // Ancla por vinculacion_id (el contrato exacto): NUNCA por contratista_id
-                    // (dejaría ver compromisos de otros contratos/servicios de la misma
-                    // empresa) ni por lo que el query param haya puesto en servicio_id/
-                    // dependencia_id arriba — se pisa explícitamente para evitar que el
-                    // cliente amplíe su propio scope.
-                    vincInclude.where = { id: user.vinculacion_id || -1 };
-                } else {
-                    // contratista_admin: todas las empresas que administra (portafolio
-                    // completo, no solo la principal).
-                    const cIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
-                    vincInclude.where.contratista_id = { [Op.in]: cIds.length > 0 ? cIds : [-1] };
-                }
+                // AND con cualquier filtro de query ya presente (contratista_id/servicio_id/
+                // dependencia_id): solo puede acotar más, nunca ampliar el scope, porque
+                // "id" ya fija el conjunto exacto de vinculaciones permitidas.
+                vincInclude.where = { ...vincInclude.where, id: { [Op.in]: allowedVincIds.length > 0 ? allowedVincIds : [-1] } };
             }
 
             const compromisos = await Compromiso.findAll({
@@ -103,6 +96,12 @@ const compromisoController = {
                     success: false,
                     message: 'Faltan campos obligatorios'
                 });
+            }
+
+            // SECURITY: IDOR — sin esto, cualquier usuario autenticado podía crear un
+            // compromiso sobre el registro de otra empresa/contrato con solo enviar su id.
+            if (!(await isRegistroInScope(req.user, registro_id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para crear un compromiso sobre este registro' });
             }
 
             // Determine responsable (usually the logged in user or the assigned contractor)

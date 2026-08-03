@@ -198,6 +198,14 @@ const evidenciaController = {
                 });
             }
 
+            // SECURITY: IDOR — sin esto, cualquier usuario autenticado podía adjuntar un
+            // archivo a la actividad de un registro de otra empresa/contrato con solo
+            // enviar su registro_actividad_id.
+            if (!(await isRegistroInScope(req.user, registroActividad.registro_id))) {
+                fs.unlinkSync(req.file.path);
+                return res.status(403).json({ success: false, message: 'No tiene permiso para adjuntar evidencia a este registro' });
+            }
+
             // Check max evidencias
             const existingCount = await Evidencia.count({
                 where: { registro_actividad_id }

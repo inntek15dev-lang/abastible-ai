@@ -13,6 +13,16 @@ const contratistaController = {
                 whereContratista.activo = activo === 'true' || activo === '1' ? 1 : 0;
             }
 
+            const includeAdministraciones = {
+                model: Administracion,
+                as: 'administraciones',
+                where: { activo: 1 },
+                required: false,
+                include: [
+                    { model: User, as: 'administradorContrato', attributes: ['id', 'name', 'email'] }
+                ]
+            };
+
             let includeVinculacion = {
                 model: Vinculacion,
                 as: 'vinculaciones',
@@ -22,15 +32,7 @@ const contratistaController = {
                     { model: Dependencia, as: 'dependencia' },
                     { model: Gerencia, as: 'gerencia' },
                     { model: Subgerencia, as: 'subgerencia' },
-                    {
-                        model: Administracion,
-                        as: 'administraciones',
-                        where: { activo: 1 },
-                        required: false,
-                        include: [
-                            { model: User, as: 'administradorContrato', attributes: ['id', 'name', 'email'] }
-                        ]
-                    },
+                    includeAdministraciones,
                     {
                         model: VinculacionUsuario,
                         as: 'usuariosVinculados',
@@ -46,8 +48,8 @@ const contratistaController = {
             if (role === 'administrador_contrato') {
                 console.log(`[Contratista Controller - GET /api/contratistas] User is administrador_contrato (ID: ${id}). Filtering contractors managed by admin.`);
                 includeVinculacion.required = true;
-                includeVinculacion.include[2].where = { administrador_contrato_id: id, activo: 1 };
-                includeVinculacion.include[2].required = true;
+                includeAdministraciones.where = { administrador_contrato_id: id, activo: 1 };
+                includeAdministraciones.required = true;
             } else if (role === 'contratista_admin') {
                 const { Op } = require('sequelize');
                 const cIds = [];

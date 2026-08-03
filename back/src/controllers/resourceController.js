@@ -324,7 +324,7 @@ const resourceController = {
             // admin / oval: devuelve todos
             if (!role || ['admin', 'oval'].includes(role)) {
                 const data = await User.findAll({
-                    attributes: ['id', 'name', 'email'],
+                    attributes: [['usu_id', 'id'], 'name', 'email'],
                     where: { role: 'administrador_contrato', activo: true },
                     order: [['name', 'ASC']]
                 });
@@ -341,7 +341,7 @@ const resourceController = {
                             { id: id }
                         ]
                     },
-                    attributes: ['id', 'name', 'email']
+                    attributes: [['usu_id', 'id'], 'name', 'email']
                 });
                 return res.json({ success: true, data: self ? [self] : [] });
             }
@@ -367,7 +367,7 @@ const resourceController = {
                 if (adcIds.length === 0) return res.json({ success: true, data: [] });
 
                 const data = await User.findAll({
-                    attributes: ['id', 'name', 'email'],
+                    attributes: [['usu_id', 'id'], 'name', 'email'],
                     where: {
                         [Op.or]: [
                             { usu_id: { [Op.in]: adcIds } },

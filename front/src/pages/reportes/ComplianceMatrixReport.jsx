@@ -39,10 +39,10 @@ export default function ComplianceMatrixReport() {
             try {
                 const [cRes, sRes, dRes, pRes, aRes] = await Promise.all([
                     api.get('/contratistas'),
-                    api.get('/servicios'),
-                    api.get('/dependencias'),
+                    api.get('/resources/tipos-contratista'),
+                    api.get('/resources/dependencias'),
                     api.get('/programas'),
-                    api.get('/usuarios?role=administrador_contrato&active=true')
+                    api.get('/resources/adc')
                 ]);
 
                 setOptions({

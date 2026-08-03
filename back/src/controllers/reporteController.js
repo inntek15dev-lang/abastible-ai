@@ -150,7 +150,13 @@ module.exports = {
                 if (vincIds.length === 0) whereRegistro.id = -1;
                 else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
             } else if (user.role === 'contratista_admin') {
-                const cIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
+                const cIds = [];
+                if (Array.isArray(user.contratista_ids) && user.contratista_ids.length > 0) {
+                    cIds.push(...user.contratista_ids.map(Number));
+                }
+                if (user.contratista_id && !cIds.includes(Number(user.contratista_id))) {
+                    cIds.push(Number(user.contratista_id));
+                }
                 if (cIds.length > 0) {
                     const vincs = await Vinculacion.findAll({
                         where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
@@ -163,7 +169,9 @@ module.exports = {
                     whereRegistro.id = -1;
                 }
             } else if (user.role === 'contratista_user') {
-                if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
+                if (user.vinculacion_id) {
+                    whereRegistro.contratista_asignacion_id = Number(user.vinculacion_id);
+                } else if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
                     const vincs = await Vinculacion.findAll({
                         where: {
                             contratista_id: user.contratista_id,

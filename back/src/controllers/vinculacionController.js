@@ -1,5 +1,14 @@
 // IEEE Trace: REQ-009 | Vinculacion Controller
 const { Vinculacion, Contratista, TipoContratista, Dependencia, Subgerencia, Gerencia, Administracion, VinculacionUsuario, User, sequelize } = require('../database/models');
+const { getAllowedVinculacionIds } = require('../utils/scopeHelper');
+
+// Verifica que la vinculación pertenezca al scope del usuario (su empresa, su contrato
+// administrado, o su vinculación asignada). null = sin restricción (admin/oval).
+const assertVinculacionInScope = async (user, vinculacionId) => {
+    const allowed = await getAllowedVinculacionIds(user);
+    if (allowed === null) return true;
+    return allowed.map(Number).includes(Number(vinculacionId));
+};
 
 const vinculacionController = {
     // GET /api/vinculaciones
@@ -81,6 +90,10 @@ const vinculacionController = {
     // GET /api/vinculaciones/:id
     async show(req, res) {
         try {
+            if (!(await assertVinculacionInScope(req.user, req.params.id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para ver esta vinculación' });
+            }
+
             const vinculacion = await Vinculacion.findByPk(req.params.id, {
                 include: [
                     { model: Contratista, as: 'contratista' },
@@ -134,6 +147,10 @@ const vinculacionController = {
     // PUT /api/vinculaciones/:id
     async update(req, res) {
         try {
+            if (!(await assertVinculacionInScope(req.user, req.params.id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para modificar esta vinculación' });
+            }
+
             const vinculacion = await Vinculacion.findByPk(req.params.id);
             if (!vinculacion) {
                 return res.status(404).json({ success: false, message: 'Vinculacion no encontrada' });
@@ -150,6 +167,10 @@ const vinculacionController = {
     // DELETE /api/vinculaciones/:id
     async destroy(req, res) {
         try {
+            if (!(await assertVinculacionInScope(req.user, req.params.id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para eliminar esta vinculación' });
+            }
+
             const vinculacion = await Vinculacion.findByPk(req.params.id);
             if (!vinculacion) {
                 return res.status(404).json({ success: false, message: 'Vinculacion no encontrada' });
@@ -190,6 +211,10 @@ const vinculacionController = {
             const { id } = req.params;
             const { user_id } = req.body;
 
+            if (!(await assertVinculacionInScope(req.user, id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para asignar usuarios a esta vinculación' });
+            }
+
             const vinculacion = await Vinculacion.findByPk(id);
             if (!vinculacion) {
                 return res.status(404).json({ success: false, message: 'Vinculacion no encontrada' });
@@ -211,6 +236,11 @@ const vinculacionController = {
     async removeUser(req, res) {
         try {
             const { id, userId } = req.params;
+
+            if (!(await assertVinculacionInScope(req.user, id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para modificar usuarios de esta vinculación' });
+            }
+
             await VinculacionUsuario.update(
                 { activo: 0 },
                 { where: { vinculacion_id: id, user_id: userId, activo: 1 } }

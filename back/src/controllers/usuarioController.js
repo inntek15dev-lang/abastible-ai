@@ -108,12 +108,16 @@ const usuarioController = {
                         { id: adminIds }
                     ];
                 } else {
-                    // For general user listing, they see users assigned to them
-                    const asignaciones = await ContratistaAsignacion.findAll({
-                        where: { administrador_contrato_id: req.user.id },
+                    // For general user listing, they see contratista_user asignados a las
+                    // vinculaciones que administran, vía VinculacionUsuario (la tabla real
+                    // que puebla el sync/las asignaciones manuales; ContratistaAsignacion
+                    // nunca se escribe en producción y siempre está vacía).
+                    const asignaciones = await VinculacionUsuario.findAll({
+                        where: { vinculacion_id: { [Op.in]: vincIds.length > 0 ? vincIds : [-1] }, activo: 1 },
                         attributes: ['user_id']
                     });
-                    const assignedUserIds = asignaciones.map(a => a.user_id);
+                    const assignedUserIds = [...new Set(asignaciones.map(a => a.user_id))];
+                    if (assignedUserIds.length === 0) return res.json({ success: true, data: [] });
                     where[Op.or] = [
                         { usu_id: assignedUserIds },
                         { id: assignedUserIds }
@@ -240,11 +244,20 @@ const usuarioController = {
                         return res.status(403).json({ success: false, message: 'No tiene permiso para ver este usuario' });
                     }
                 } else if (req.user.role === 'administrador_contrato') {
-                    const asignaciones = await ContratistaAsignacion.findAll({
-                        where: { administrador_contrato_id: req.user.id },
+                    // Fuente real: Administracion (vinculacion_id que administra) ->
+                    // VinculacionUsuario (contratista_user asignados a esa vinculación).
+                    // ContratistaAsignacion nunca se escribe en producción y está siempre
+                    // vacía, dejando a este rol sin poder ver a sus propios usuarios.
+                    const myVincs = await Administracion.findAll({
+                        where: { administrador_contrato_id: req.user.id, activo: 1 },
+                        attributes: ['vinculacion_id']
+                    });
+                    const vincIds = myVincs.map(v => v.vinculacion_id);
+                    const asignaciones = await VinculacionUsuario.findAll({
+                        where: { vinculacion_id: { [Op.in]: vincIds.length > 0 ? vincIds : [-1] }, activo: 1 },
                         attributes: ['user_id']
                     });
-                    const assignedIds = asignaciones.map(a => String(a.user_id));
+                    const assignedIds = [...new Set(asignaciones.map(a => String(a.user_id)))];
                     const isDirectlyAssigned = assignedIds.includes(String(usuario.usu_id));
                     const isChildOfAssigned = usuario.parent_id && assignedIds.includes(String(usuario.parent_id));
                     if (!isDirectlyAssigned && !isChildOfAssigned) {
@@ -488,13 +501,20 @@ const usuarioController = {
                     return res.status(403).json({ success: false, message: 'No tiene permiso para editar este usuario' });
                 }
             } else if (req.user.role === 'administrador_contrato') {
-                // Ensure the user belongs to their assigned scope
-                // Can edit: Themselves OR Users they are assigned to (Contractor Admin) OR children of those users.
-                const asignaciones = await ContratistaAsignacion.findAll({
-                    where: { administrador_contrato_id: req.user.id },
+                // Ensure the user belongs to their assigned scope.
+                // Fuente real: Administracion (vinculacion_id que administra) ->
+                // VinculacionUsuario (contratista_user asignados) — ContratistaAsignacion
+                // nunca se escribe en producción y está siempre vacía.
+                const myVincs = await Administracion.findAll({
+                    where: { administrador_contrato_id: req.user.id, activo: 1 },
+                    attributes: ['vinculacion_id']
+                });
+                const vincIds = myVincs.map(v => v.vinculacion_id);
+                const asignaciones = await VinculacionUsuario.findAll({
+                    where: { vinculacion_id: { [Op.in]: vincIds.length > 0 ? vincIds : [-1] }, activo: 1 },
                     attributes: ['user_id']
                 });
-                const assignedIds = asignaciones.map(a => String(a.user_id));
+                const assignedIds = [...new Set(asignaciones.map(a => String(a.user_id)))];
 
                 const isDirectlyAssigned = assignedIds.includes(String(usuario.usu_id));
                 const isChildOfAssigned = usuario.parent_id && assignedIds.includes(String(usuario.parent_id));
@@ -648,10 +668,14 @@ const usuarioController = {
                 }
             });
 
+            if (!usuario) {
+                return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+            }
+
             if (String(usuario.usu_id) === String(req.user.id)) {
                 return res.status(403).json({ success: false, message: 'No puede desactivar su propia cuenta' });
             }
-            
+
             // SECURITY SCOPE CHECK for Contratista User
             // NUNCA comparar por contratista_id/tipo_contratista_id/dependencia_id: esas
             // columnas están siempre en NULL para contratista_user (String(null)===String(null)
@@ -667,6 +691,30 @@ const usuarioController = {
                 }
                 if (!isSameScope) {
                     return res.status(403).json({ success: false, message: 'No tiene permiso para desactivar este usuario' });
+                }
+            } else if (req.user.role === 'contratista_admin' || req.user.role === 'contratista_admin_eecc') {
+                // SECURITY SCOPE CHECK: sin esto, cualquier contratista_admin podía
+                // desactivar usuarios de OTRA empresa con solo cambiar el :id de la URL.
+                if (String(usuario.parent_id) !== String(req.user.id)) {
+                    return res.status(403).json({ success: false, message: 'No tiene permiso para desactivar este usuario' });
+                }
+            } else if (req.user.role === 'administrador_contrato') {
+                // SECURITY SCOPE CHECK, mismo patrón que show/update: Administracion
+                // (vinculacion_id que administra) -> VinculacionUsuario (usuarios asignados).
+                const myVincs = await Administracion.findAll({
+                    where: { administrador_contrato_id: req.user.id, activo: 1 },
+                    attributes: ['vinculacion_id']
+                });
+                const vincIds = myVincs.map(v => v.vinculacion_id);
+                const asignaciones = await VinculacionUsuario.findAll({
+                    where: { vinculacion_id: { [Op.in]: vincIds.length > 0 ? vincIds : [-1] }, activo: 1 },
+                    attributes: ['user_id']
+                });
+                const assignedIds = [...new Set(asignaciones.map(a => String(a.user_id)))];
+                const isDirectlyAssigned = assignedIds.includes(String(usuario.usu_id));
+                const isChildOfAssigned = usuario.parent_id && assignedIds.includes(String(usuario.parent_id));
+                if (!isDirectlyAssigned && !isChildOfAssigned) {
+                    return res.status(403).json({ success: false, message: 'Este usuario no está bajo su administración' });
                 }
             }
 

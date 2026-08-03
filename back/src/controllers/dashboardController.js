@@ -374,14 +374,31 @@ const dashboardController = {
                     where: { administrador_contrato_id: user.id, activo: 1 },
                     attributes: ['vinculacion_id']
                 });
-                vincWhere.id = { [Op.in]: adminVincs.map(a => a.vinculacion_id) };
+                const scopeIds = adminVincs.map(a => a.vinculacion_id);
+                vincWhere.id = { [Op.in]: scopeIds.length > 0 ? scopeIds : [-1] };
             } else if (user.role === 'contratista_admin') {
-                const cIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
-                vincWhere.contratista_id = { [Op.in]: cIds };
+                const cIds = [];
+                if (Array.isArray(user.contratista_ids) && user.contratista_ids.length > 0) {
+                    cIds.push(...user.contratista_ids.map(Number));
+                }
+                if (user.contratista_id && !cIds.includes(Number(user.contratista_id))) {
+                    cIds.push(Number(user.contratista_id));
+                }
+                vincWhere.contratista_id = { [Op.in]: cIds.length > 0 ? cIds : [-1] };
             } else if (user.role === 'contratista_user') {
-                vincWhere.contratista_id = user.contratista_id;
-                vincWhere.servicio_id = user.tipo_contratista_id;
-                vincWhere.dependencia_id = user.dependencia_id;
+                // Ancla por vinculacion_id (el contrato exacto asignado); las columnas
+                // contratista_id/tipo_contratista_id/dependencia_id vienen siempre NULL
+                // para este rol (ver middleware/auth.js), así que usarlas directo aquí
+                // dejaba a contratista_user sin resultados siempre.
+                if (user.vinculacion_id) {
+                    vincWhere.id = Number(user.vinculacion_id);
+                } else if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
+                    vincWhere.contratista_id = user.contratista_id;
+                    vincWhere.servicio_id = user.tipo_contratista_id;
+                    vincWhere.dependencia_id = user.dependencia_id;
+                } else {
+                    vincWhere.id = -1;
+                }
             }
 
             // 2. Filtros Avanzados
@@ -401,7 +418,6 @@ const dashboardController = {
             }
 
             if ((gerencia_id && gerencia_id !== 'todas') || (subgerencia_id && subgerencia_id !== 'todas')) {
-            if ((gerencia_id && gerencia_id !== 'todas') || (subgerencia_id && subgerencia_id !== 'todas')) {
                 if (subgerencia_id && subgerencia_id !== 'todas') {
                     vincWhere.subgerencia_id = subgerencia_id;
                 } else if (gerencia_id && gerencia_id !== 'todas') {
@@ -412,7 +428,6 @@ const dashboardController = {
                     const subgIds = subgs.map(s => s.id);
                     vincWhere.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
                 }
-            }
             }
 
             const data = await Registro.findAll({
@@ -458,7 +473,13 @@ const dashboardController = {
                 if (vincIds.length === 0) whereRegistro.id = -1;
                 else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
             } else if (user.role === 'contratista_admin') {
-                const cIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
+                const cIds = [];
+                if (Array.isArray(user.contratista_ids) && user.contratista_ids.length > 0) {
+                    cIds.push(...user.contratista_ids.map(Number));
+                }
+                if (user.contratista_id && !cIds.includes(Number(user.contratista_id))) {
+                    cIds.push(Number(user.contratista_id));
+                }
                 if (cIds.length > 0) {
                     const vincs = await Vinculacion.findAll({
                         where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
@@ -471,7 +492,9 @@ const dashboardController = {
                     whereRegistro.id = -1;
                 }
             } else if (user.role === 'contratista_user') {
-                if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
+                if (user.vinculacion_id) {
+                    whereRegistro.contratista_asignacion_id = Number(user.vinculacion_id);
+                } else if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
                     const vincs = await Vinculacion.findAll({
                         where: {
                             contratista_id: user.contratista_id,
@@ -736,7 +759,7 @@ const dashboardController = {
     async matrix(req, res) {
         try {
             const user = req.user;
-            const { contratista_id, servicio_id, dependencia_id, programa_id, tiene_registros, gerencia_id, subgerencia_id, adc_id, page = 1, limit = 5 } = req.query;
+            const { contratista_id, servicio_id, dependencia_id, programa_id, tiene_registros, gerencia_id, subgerencia_id, adc_id, periodo_desde, periodo_hasta, page = 1, limit = 5 } = req.query;
 
             const offset = (page - 1) * limit;
 
@@ -817,11 +840,17 @@ const dashboardController = {
                 }
             }
 
-            // --- Date range for registros: 6 months ending in 'periodo' or 'current' ---
-            const today = req.query.periodo ? new Date(req.query.periodo + '-01') : new Date();
-            // Move 'today' to the last day of THAT month to ensure between works
-            const endMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-            const startMonth = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+            // --- Date range for registros: rango explícito (periodo_desde/hasta) si se
+            // envía, si no 6 meses terminando en 'periodo' o en el mes actual ---
+            let startMonth, endMonth;
+            if (periodo_desde && periodo_hasta) {
+                startMonth = new Date(periodo_desde + '-01');
+                endMonth = new Date(new Date(periodo_hasta + '-01').setMonth(new Date(periodo_hasta + '-01').getMonth() + 1, 0));
+            } else {
+                const today = req.query.periodo ? new Date(req.query.periodo + '-01') : new Date();
+                endMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                startMonth = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+            }
 
             // --- Tiene Registros filter via Subquery (for accurate pagination) ---
             if (tiene_registros === 'si' || tiene_registros === 'no') {
@@ -843,7 +872,6 @@ const dashboardController = {
             }
 
             // 2. Build servicio (TipoContratista) include
-            const whereServicio = { programa_id: { [Op.ne]: null } };
             const wherePrograma = {};
             if (programa_id && programa_id !== 'todos') {
                 wherePrograma.id = programa_id;
@@ -861,12 +889,13 @@ const dashboardController = {
                     {
                         model: TipoContratista,
                         as: 'servicio',
-                        where: whereServicio,
+                        required: false,
                         attributes: ['id', 'nombre', 'programa_id'],
                         include: [{
                             model: Programa,
                             as: 'programa',
                             where: Object.keys(wherePrograma).length > 0 ? wherePrograma : undefined,
+                            required: Object.keys(wherePrograma).length > 0,
                             attributes: ['id', 'nombre']
                         }]
                     },

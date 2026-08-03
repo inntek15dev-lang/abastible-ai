@@ -52,6 +52,12 @@ const hallazgoController = {
                 return res.status(400).json({ success: false, message: 'Datos incompletos para crear hallazgo' });
             }
 
+            // SECURITY: IDOR — sin esto, un administrador_contrato podía crear un hallazgo
+            // sobre el registro de un contrato que no administra con solo enviar su id.
+            if (!(await isRegistroInScope(req.user, registro_id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para crear un hallazgo sobre este registro' });
+            }
+
             const hallazgo = await Hallazgo.create({
                 registro_id,
                 registro_actividad_id,
@@ -63,7 +69,7 @@ const hallazgoController = {
                 estado: 'abierto'
             });
 
-            res.status(210).json({ success: true, data: hallazgo });
+            res.status(201).json({ success: true, data: hallazgo });
         } catch (error) {
             console.error('Hallazgo store error:', error);
             res.status(500).json({ success: false, message: 'Error al crear hallazgo' });
