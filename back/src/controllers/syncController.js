@@ -50,7 +50,17 @@ const sanitizeEmail = (email) => {
 
 const normalize = (str) => {
     if (str === null || str === undefined) return '';
-    return sanitizeString(str).toUpperCase();
+    // Quitar tildes/diacríticos SOLO para efectos de comparación (no altera lo que se
+    // guarda en BD, eso sigue viniendo de sanitizeString). Necesario porque MySQL usa
+    // una collation case-insensitive que además es accent-insensitive: "PENON" y
+    // "PEÑON" son la MISMA fila para findOrCreate, pero OVAL envía ambas grafías para
+    // el mismo lugar según la empresa. Sin este folding, nuestra comparación en JS (que
+    // sí distingue "N" de "Ñ") marca como residual una vinculación recién creada que en
+    // realidad apunta a la fila que MySQL ya reutilizó, generando un ciclo de crear+podar
+    // en cada full-sync.
+    return sanitizeString(str)
+        .normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]', 'g'), '')
+        .toUpperCase();
 };
 
 const cleanRutString = (rutStr) => {
