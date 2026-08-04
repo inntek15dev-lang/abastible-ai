@@ -1,4 +1,5 @@
-const { TipoContratista, Programa, Gerencia, Subgerencia, sequelize } = require('../database/models');
+const { TipoContratista, Programa, Gerencia, Subgerencia, Vinculacion, Administracion, sequelize } = require('../database/models');
+const { Op } = require('sequelize');
 
 const servicioController = {
     // GET /api/servicios/hierarchy (Tree structure)
@@ -40,6 +41,40 @@ const servicioController = {
             if (activo !== undefined) where.activo = activo;
             if (programa_id) where.programa_id = programa_id;
             if (subgerencia_id) where.subgerencia_id = subgerencia_id;
+
+            // Scoping por rol: sin esto, cualquier usuario autenticado (incluido
+            // contratista_user) veía el catálogo completo de servicios de toda la
+            // organización, no solo los de sus propias vinculaciones. admin/oval ven todo
+            // (uso legítimo: gestión de configuración global).
+            const { role, id: userId } = req.user;
+            if (!['admin', 'oval'].includes(role)) {
+                const vincWhere = { activo: 1 };
+                if (role === 'administrador_contrato') {
+                    const adminVincs = await Administracion.findAll({
+                        where: { administrador_contrato_id: userId, activo: 1 },
+                        attributes: ['vinculacion_id']
+                    });
+                    vincWhere.id = { [Op.in]: adminVincs.map(a => a.vinculacion_id) };
+                } else if (role === 'contratista_admin') {
+                    const cIds = [];
+                    if (Array.isArray(req.user.contratista_ids) && req.user.contratista_ids.length > 0) {
+                        cIds.push(...req.user.contratista_ids.map(Number));
+                    }
+                    if (req.user.contratista_id && !cIds.includes(Number(req.user.contratista_id))) {
+                        cIds.push(Number(req.user.contratista_id));
+                    }
+                    vincWhere.contratista_id = { [Op.in]: cIds.length > 0 ? cIds : [-1] };
+                } else if (role === 'contratista_user') {
+                    vincWhere.id = req.user.vinculacion_id || -1;
+                } else {
+                    vincWhere.id = -1;
+                }
+
+                const scopedVincs = await Vinculacion.findAll({ where: vincWhere, attributes: ['servicio_id'] });
+                const scopedServicioIds = [...new Set(scopedVincs.map(v => v.servicio_id))];
+                if (scopedServicioIds.length === 0) return res.json({ success: true, data: [] });
+                where.id = { [Op.in]: scopedServicioIds };
+            }
 
             const servicios = await TipoContratista.findAll({
                 where,

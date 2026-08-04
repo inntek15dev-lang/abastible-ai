@@ -1,8 +1,9 @@
-const { Compromiso, Hallazgo, Registro, User, ContratistaAsignacion, Vinculacion } = require('../database/models');
+const { Compromiso, Hallazgo, Registro, User, Vinculacion } = require('../database/models');
 const { Op } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
 const { safeMove } = require('../utils/fileHelper');
+const { getAllowedVinculacionIds, isRegistroInScope } = require('../utils/scopeHelper');
 
 const compromisoController = {
     // GET /api/compromisos
@@ -38,25 +39,27 @@ const compromisoController = {
                 includeRegistro.include.push(includeVinculacion);
             }
 
-            // Role-based filtering (Security)
+            // Role-based filtering (Security). getAllowedVinculacionIds cubre los 3 roles
+            // restringidos de forma uniforme (antes faltaba la rama administrador_contrato
+            // por completo: veía TODOS los compromisos del sistema sin filtrar).
             const user = req.user;
-            if (user.role === 'contratista_user' || user.role === 'contratista_admin') {
-                if (user.contratista_id) {
-                    let vincInclude = includeRegistro.include.find(inc => inc.as === 'vinculacionEntidad');
-                    if (!vincInclude) {
-                        vincInclude = {
-                            model: Vinculacion,
-                            as: 'vinculacionEntidad',
-                            required: true,
-                            where: {}
-                        };
-                        includeRegistro.include.push(vincInclude);
-                    }
-                    vincInclude.where.contratista_id = user.contratista_id;
-                    includeRegistro.required = true;
-                } else {
-                    where.responsable_id = user.id;
+            const allowedVincIds = await getAllowedVinculacionIds(user);
+            if (allowedVincIds !== null) {
+                let vincInclude = includeRegistro.include.find(inc => inc.as === 'vinculacionEntidad');
+                if (!vincInclude) {
+                    vincInclude = {
+                        model: Vinculacion,
+                        as: 'vinculacionEntidad',
+                        required: true,
+                        where: {}
+                    };
+                    includeRegistro.include.push(vincInclude);
                 }
+                includeRegistro.required = true;
+                // AND con cualquier filtro de query ya presente (contratista_id/servicio_id/
+                // dependencia_id): solo puede acotar más, nunca ampliar el scope, porque
+                // "id" ya fija el conjunto exacto de vinculaciones permitidas.
+                vincInclude.where = { ...vincInclude.where, id: { [Op.in]: allowedVincIds.length > 0 ? allowedVincIds : [-1] } };
             }
 
             const compromisos = await Compromiso.findAll({
@@ -95,6 +98,12 @@ const compromisoController = {
                 });
             }
 
+            // SECURITY: IDOR — sin esto, cualquier usuario autenticado podía crear un
+            // compromiso sobre el registro de otra empresa/contrato con solo enviar su id.
+            if (!(await isRegistroInScope(req.user, registro_id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para crear un compromiso sobre este registro' });
+            }
+
             // Determine responsable (usually the logged in user or the assigned contractor)
             const responsable_id = req.user.id;
             const creado_por_id = req.user.id;
@@ -131,6 +140,11 @@ const compromisoController = {
                 return res.status(404).json({ success: false, message: 'Compromiso no encontrado' });
             }
 
+            // SECURITY: IDOR — mismo hueco que cargarEvidencia, en el mismo recurso.
+            if (!(await isRegistroInScope(req.user, compromiso.registro_id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para ver este compromiso' });
+            }
+
             res.json({ success: true, data: compromiso });
         } catch (error) {
             console.error('Compromiso show error:', error);
@@ -145,6 +159,10 @@ const compromisoController = {
 
             if (!compromiso) {
                 return res.status(404).json({ success: false, message: 'Compromiso no encontrado' });
+            }
+
+            if (!(await isRegistroInScope(req.user, compromiso.registro_id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para modificar este compromiso' });
             }
 
             const { estado, observacion_cumplimiento } = req.body;
@@ -245,6 +263,15 @@ const compromisoController = {
                 return res.status(404).json({ success: false, message: 'Compromiso no encontrado' });
             }
 
+            // SECURITY: sin esto, cualquier usuario autenticado podía adjuntar/reemplazar
+            // la evidencia de un compromiso de cualquier otra empresa con solo conocer su :id.
+            if (!(await isRegistroInScope(req.user, compromiso.registro_id))) {
+                if (req.file && fs.existsSync(req.file.path)) {
+                    fs.unlinkSync(req.file.path);
+                }
+                return res.status(403).json({ success: false, message: 'No tiene permiso para cargar evidencia en este compromiso' });
+            }
+
             let dbPath = null;
             if (req.file) {
                 const storageRelativePath = path.join(
@@ -298,6 +325,11 @@ const compromisoController = {
         try {
             const compromiso = await Compromiso.findByPk(req.params.id);
             if (!compromiso) return res.status(404).json({ success: false, message: 'Not found' });
+
+            if (!(await isRegistroInScope(req.user, compromiso.registro_id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para eliminar este compromiso' });
+            }
+
             await compromiso.destroy();
             res.json({ success: true, message: 'Eliminado' });
         } catch (error) {

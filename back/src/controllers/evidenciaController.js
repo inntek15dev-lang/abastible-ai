@@ -5,6 +5,7 @@ const archiver = require('archiver');
 const { Evidencia, RegistroActividad, Registro, Actividad, Elemento, Vinculacion, Contratista } = require('../database/models');
 const { Op } = require('sequelize');
 const { safeMove } = require('../utils/fileHelper');
+const { getAllowedVinculacionIds, isRegistroInScope } = require('../utils/scopeHelper');
 
 const evidenciaController = {
     // GET /api/evidencias?registro_actividad_id=X
@@ -27,6 +28,18 @@ const evidenciaController = {
             if (periodo) whereRegistro.periodo = periodo;
             if (programa_id) whereRegistro.programa_id = programa_id;
 
+            // SECURITY: sin esto, cualquier usuario autenticado enumeraba evidencias de
+            // registros de cualquier empresa/contrato (solo filtraba por contratista_id
+            // si el CLIENTE lo pedía, nunca lo forzaba según el rol).
+            const allowedVincIds = await getAllowedVinculacionIds(req.user);
+            let requireRegistro = !!(registro_id || periodo || programa_id || contratista_id || elemento_id || actividad_id);
+            let vinculacionInclude = contratista_id ? [{ model: Vinculacion, as: 'vinculacionEntidad', where: { contratista_id }, required: true }] : [];
+            if (allowedVincIds !== null) {
+                if (allowedVincIds.length === 0) return res.json({ success: true, data: [] });
+                whereRegistro.contratista_asignacion_id = { [Op.in]: allowedVincIds };
+                requireRegistro = true;
+            }
+
             const evidencias = await Evidencia.findAll({
                 where,
                 include: [
@@ -34,7 +47,7 @@ const evidenciaController = {
                         model: RegistroActividad,
                         as: 'registroActividad',
                         where: Object.keys(whereRegistroActividad).length > 0 ? whereRegistroActividad : undefined,
-                        required: (registro_id || periodo || programa_id || contratista_id || elemento_id || actividad_id) ? true : false,
+                        required: requireRegistro,
                         include: [
                             {
                                 model: Actividad,
@@ -47,15 +60,8 @@ const evidenciaController = {
                                 model: Registro,
                                 as: 'registro',
                                 where: Object.keys(whereRegistro).length > 0 ? whereRegistro : undefined,
-                                required: (contratista_id) ? true : false,
-                                include: contratista_id ? [
-                                    {
-                                        model: Vinculacion,
-                                        as: 'vinculacionEntidad',
-                                        where: { contratista_id },
-                                        required: true
-                                    }
-                                ] : []
+                                required: requireRegistro,
+                                include: vinculacionInclude
                             }
                         ]
                     }
@@ -81,6 +87,17 @@ const evidenciaController = {
             if (programa_id) whereRegistro.programa_id = programa_id;
             if (actividad_id) whereRegistroActividad.actividad_id = actividad_id;
 
+            // SECURITY: descarga masiva sin filtro por rol/tenant — cualquier usuario podía
+            // bajar el ZIP de evidencias de cualquier empresa/contrato.
+            const allowedVincIds = await getAllowedVinculacionIds(req.user);
+            let vinculacionInclude = contratista_id ? [{ model: Vinculacion, as: 'vinculacionEntidad', where: { contratista_id }, required: true }] : [];
+            if (allowedVincIds !== null) {
+                if (allowedVincIds.length === 0) {
+                    return res.status(404).json({ success: false, message: 'No se encontraron evidencias con los criterios seleccionados' });
+                }
+                whereRegistro.contratista_asignacion_id = { [Op.in]: allowedVincIds };
+            }
+
             const evidencias = await Evidencia.findAll({
                 include: [
                     {
@@ -100,14 +117,7 @@ const evidenciaController = {
                                 as: 'registro',
                                 where: Object.keys(whereRegistro).length > 0 ? whereRegistro : undefined,
                                 required: true,
-                                include: contratista_id ? [
-                                    {
-                                        model: Vinculacion,
-                                        as: 'vinculacionEntidad',
-                                        where: { contratista_id },
-                                        required: true
-                                    }
-                                ] : []
+                                include: vinculacionInclude
                             }
                         ]
                     }
@@ -188,6 +198,14 @@ const evidenciaController = {
                 });
             }
 
+            // SECURITY: IDOR — sin esto, cualquier usuario autenticado podía adjuntar un
+            // archivo a la actividad de un registro de otra empresa/contrato con solo
+            // enviar su registro_actividad_id.
+            if (!(await isRegistroInScope(req.user, registroActividad.registro_id))) {
+                fs.unlinkSync(req.file.path);
+                return res.status(403).json({ success: false, message: 'No tiene permiso para adjuntar evidencia a este registro' });
+            }
+
             // Check max evidencias
             const existingCount = await Evidencia.count({
                 where: { registro_actividad_id }
@@ -263,10 +281,19 @@ const evidenciaController = {
     // GET /api/evidencias/:id/download
     async download(req, res) {
         try {
-            const evidencia = await Evidencia.findByPk(req.params.id);
+            const evidencia = await Evidencia.findByPk(req.params.id, {
+                include: [{ model: RegistroActividad, as: 'registroActividad', attributes: ['registro_id'] }]
+            });
 
             if (!evidencia) {
                 return res.status(404).json({ success: false, message: 'Evidencia no encontrada' });
+            }
+
+            // SECURITY: IDOR — sin esto, cualquiera podía descargar evidencia de otra
+            // empresa con solo conocer/adivinar el :id.
+            const registroId = evidencia.registroActividad?.registro_id;
+            if (!(await isRegistroInScope(req.user, registroId))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para descargar esta evidencia' });
             }
 
             if (!fs.existsSync(evidencia.ruta)) {

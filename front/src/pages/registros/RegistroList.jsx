@@ -158,13 +158,25 @@ export default function RegistroList() {
     const fetchRegistros = async (currentFilters = filters) => {
         try {
             setLoading(true);
+            console.log('[Browser Console - RegistroList] Iniciando fetch de registros...');
+            console.log('[Browser Console - RegistroList] Usuario actual:', {
+                id: user?.id,
+                name: user?.name,
+                email: user?.email,
+                role: user?.role,
+                contratista_id: user?.contratista_id,
+                contratista_ids: user?.contratista_ids
+            });
             const params = new URLSearchParams();
             if (currentFilters.gerencia && currentFilters.gerencia !== 'Todas') params.append('gerencia_id', currentFilters.gerencia);
             if (currentFilters.subgerencia && currentFilters.subgerencia !== 'Todas') params.append('subgerencia_id', currentFilters.subgerencia);
             
+            console.log('[Browser Console - RegistroList] Ejecutando query de registros con parámetros:', Object.fromEntries(params.entries()));
             const response = await api.get(`/registros?${params.toString()}`);
+            console.log('[Browser Console - RegistroList] Registros obtenidos:', response.data.data);
             setRegistros(response.data.data);
         } catch (err) {
+            console.error('[Browser Console - RegistroList] Error al cargar registros:', err);
             setError('Error al cargar registros');
         } finally {
             setLoading(false);
@@ -176,16 +188,15 @@ export default function RegistroList() {
 
     useEffect(() => {
         const fetchMyVinculacion = async () => {
-            // Only for contratista_user who has specific scope
-            if (user?.role === 'contratista_user' && user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
+            // Only for contratista_user who has specific scope. Ancla por vinculacion_id:
+            // contratista_id/tipo_contratista_id/dependencia_id están siempre en NULL para
+            // este rol (ver middleware/auth.js), así que esta condición nunca se cumplía y
+            // el widget de pendientes jamás se cargaba. El backend (vinculacionController.
+            // index) ya fuerza where.id = vinculacion_id para este rol sin importar los
+            // query params, así que no hace falta enviar ningún filtro.
+            if (user?.role === 'contratista_user' && user.vinculacion_id) {
                 try {
-                    const res = await api.get('/vinculaciones', {
-                        params: {
-                            contratista_id: user.contratista_id,
-                            servicio_id: user.tipo_contratista_id,
-                            dependencia_id: user.dependencia_id
-                        }
-                    });
+                    const res = await api.get('/vinculaciones');
                     if (res.data.data && res.data.data.length > 0) {
                         setMyVinculacion(res.data.data[0]);
                     }

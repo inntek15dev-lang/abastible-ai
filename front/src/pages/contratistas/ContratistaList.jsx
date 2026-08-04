@@ -57,9 +57,20 @@ export default function ContratistaList() {
 
     const fetchContratistas = async () => {
         try {
+            console.log('[Browser Console - ContratistaList] Iniciando fetch de contratistas...');
+            console.log('[Browser Console - ContratistaList] Usuario actual:', {
+                id: user?.id,
+                name: user?.name,
+                email: user?.email,
+                role: user?.role,
+                contratista_id: user?.contratista_id,
+                contratista_ids: user?.contratista_ids
+            });
             const response = await api.get('/contratistas');
+            console.log('[Browser Console - ContratistaList] Contratistas obtenidos:', response.data.data);
             setContratistas(response.data.data);
         } catch (err) {
+            console.error('[Browser Console - ContratistaList] Error fetching contratistas:', err);
             setError('Error al cargar contratistas');
         } finally {
             setLoading(false);

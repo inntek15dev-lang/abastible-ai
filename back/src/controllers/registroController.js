@@ -5,7 +5,6 @@ const {
     RegistroActividad,
     RegistroLog,
     User,
-    ContratistaAsignacion,
     Actividad,
     Elemento,
     Programa,
@@ -22,6 +21,7 @@ const {
     AuditoriaComentario
 } = require('../database/models');
 const emailService = require('../services/emailService'); // Import emailService
+const { getAllowedVinculacionIds, isRegistroInScope } = require('../utils/scopeHelper');
 
 const registroController = {
     // GET /api/registros
@@ -34,7 +34,14 @@ const registroController = {
             // Apply role-based filtering (RN-002)
             if (req.user.role === 'contratista_admin') {
                 // Contractor Admin sees ALL records for their Companies (via Vinculacion)
-                const cIds = req.user.contratista_ids || (req.user.contratista_id ? [req.user.contratista_id] : []);
+                const cIds = [];
+                if (Array.isArray(req.user.contratista_ids) && req.user.contratista_ids.length > 0) {
+                    cIds.push(...req.user.contratista_ids.map(Number));
+                }
+                if (req.user.contratista_id && !cIds.includes(Number(req.user.contratista_id))) {
+                    cIds.push(Number(req.user.contratista_id));
+                }
+
                 if (cIds.length > 0) {
                     const vinculaciones = await Vinculacion.findAll({
                         where: { contratista_id: { [Op.in]: cIds } },
@@ -53,27 +60,15 @@ const registroController = {
                     where.user_id = req.user.id;
                 }
             } else if (req.user.role === 'contratista_user') {
-                // Contractors User only sees their own records (or created by parent?)
-                where.user_id = req.user.id;
-
-                // If contratista_user, also check parent (Legacy logic, keeping it)
-                if (req.user.parent_id) {
-                    where.user_id = { [Op.in]: [req.user.id, req.user.parent_id] };
-                }
+                // Ancla por vinculacion_id (el contrato exacto asignado), no por user_id:
+                // varios contratista_user pueden compartir el mismo contrato (equipo de
+                // trabajadores), y todos deben ver los registros de ESE contrato, no solo
+                // los que ellos mismos crearon.
+                where.contratista_asignacion_id = req.user.vinculacion_id || -1;
             } else if (req.user.role === 'administrador_contrato') {
-                // Admin contrato sees records for contractors they are assigned to
-                // OPTION A: Direct Assignment (ContratistaAsignacion)
-                // OPTION B: Linked via Vinculacion (Administracion)
-
-                // 1. Get assignments via ContratistaAsignacion
-                const asignaciones = await ContratistaAsignacion.findAll({
-                    where: { administrador_contrato_id: req.user.id },
-                    attributes: ['user_id']
-                });
-                let userIds = asignaciones.map(a => a.user_id);
-
-                // 2. Get assignments via Vinculacion -> Administracion
-                // Find Vinculaciones where I am the ADC
+                // Admin de contrato: registros de las vinculaciones que administra, vía
+                // Administracion (administrador_contrato_id -> vinculacion_id), la fuente
+                // real que puebla la sincronización con OVAL.
                 const misAdmins = await Administracion.findAll({
                     where: { administrador_contrato_id: req.user.id, activo: 1 },
                     attributes: ['vinculacion_id']
@@ -81,26 +76,9 @@ const registroController = {
                 const vincIds = misAdmins.map(a => a.vinculacion_id);
 
                 if (vincIds.length > 0) {
-                    // Find Records that belong to these vinculaciones
-                    // There is no direct 'vinculacion_id' on Registro? Yes there is: 'contratista_asignacion_id' pointing to Vinculacion table (renamed logically?)
-                    // Wait, schema says 'contratista_asignacion_id' refers to 'vinculaciones' OR 'contratista_asignaciones'?
-                    // The model definition for Registro says: 
-                    // Registro.belongsTo(Vinculacion, { foreignKey: 'contratista_asignacion_id', as: 'vinculacionEntidad' });
-                    // Registro.belongsTo(ContratistaAsignacion, { foreignKey: 'contratista_asignacion_id', as: 'asignacion' });
-                    // It seems it's the SAME FK being used for both concepts depending on context? That's messy but let's assume 'vinculacionEntidad' usage.
-
-                    // If we want records linked to my Vinculaciones:
-                    // where.contratista_asignacion_id = { [Op.in]: vincIds }; 
-
-                    // BUT, we also want records from direct users.
-                    // So it's OR condition.
-
-                    where[Op.or] = [
-                        { user_id: { [Op.in]: userIds } },
-                        { contratista_asignacion_id: { [Op.in]: vincIds } } // Assuming this ID matches Vinculacion.ID
-                    ];
+                    where.contratista_asignacion_id = { [Op.in]: vincIds };
                 } else {
-                    where.user_id = { [Op.in]: userIds };
+                    where.id = -1;
                 }
             }
             // Admin sees all (no filter)
@@ -272,6 +250,13 @@ const registroController = {
                 return res.status(404).json({ success: false, message: 'Registro no encontrado' });
             }
 
+            // SECURITY: IDOR — sin esto, cualquier usuario autenticado podía leer el
+            // registro (evidencias, hallazgos, comentarios de auditoría) de otra empresa
+            // con solo cambiar el :id de la URL.
+            if (!(await isRegistroInScope(req.user, registro.id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para ver este registro' });
+            }
+
             res.json({ success: true, data: registro });
         } catch (error) {
             console.error('Registro show error:', error);
@@ -315,10 +300,31 @@ const registroController = {
                 eeccNombre = empresa.nombre;
             }
 
+            // If contratista_user, strictly force their assigned vinculacion_id
+            let finalVincId = contratista_asignacion_id;
+            if (req.user.role === 'contratista_user') {
+                if (!req.user.vinculacion_id) {
+                    return res.status(403).json({ success: false, message: 'El usuario no tiene una vinculación asignada.' });
+                }
+                if (contratista_asignacion_id && Number(contratista_asignacion_id) !== Number(req.user.vinculacion_id)) {
+                    return res.status(403).json({ success: false, message: 'No tiene permiso para crear registros fuera de su vinculación.' });
+                }
+                finalVincId = req.user.vinculacion_id;
+            } else if (['contratista_admin', 'administrador_contrato'].includes(req.user.role)) {
+                // SECURITY: sin esto, un contratista_admin/administrador_contrato podía
+                // crear un registro para la vinculación de OTRA empresa que no administra
+                // (ej. para bloquear su periodo aprovechando el índice único
+                // contratista_asignacion_id+periodo) con solo enviar su id en el body.
+                const allowed = await getAllowedVinculacionIds(req.user);
+                if (allowed !== null && (!finalVincId || !allowed.map(Number).includes(Number(finalVincId)))) {
+                    return res.status(403).json({ success: false, message: 'No tiene permiso para crear registros para esta vinculación.' });
+                }
+            }
+
             // Validate vinculacion (stored as contratista_asignacion_id)
-            if (contratista_asignacion_id) {
+            if (finalVincId) {
                 const vinculacion = await Vinculacion.findOne({
-                    where: { id: contratista_asignacion_id, ...(contratistaId ? { contratista_id: contratistaId } : {}) },
+                    where: { id: finalVincId, ...(contratistaId ? { contratista_id: contratistaId } : {}) },
                     include: [
                         { model: Dependencia, as: 'dependencia' },
                         { model: TipoContratista, as: 'servicio' }
@@ -338,9 +344,9 @@ const registroController = {
             }
 
             // Prevent duplicate: same vinculacion + periodo
-            if (contratista_asignacion_id && periodo) {
+            if (finalVincId && periodo) {
                 const existing = await Registro.findOne({
-                    where: { contratista_asignacion_id, periodo }
+                    where: { contratista_asignacion_id: finalVincId, periodo }
                 });
                 if (existing) {
                     return res.status(409).json({
@@ -352,7 +358,7 @@ const registroController = {
 
             const registro = await Registro.create({
                 user_id: targetUserId,
-                contratista_asignacion_id,
+                contratista_asignacion_id: finalVincId,
                 numero_contrato: numContrato,
 
                 programa_id: req.body.programa_id || null,
@@ -421,6 +427,13 @@ const registroController = {
 
             if (!registro) {
                 return res.status(404).json({ success: false, message: 'Registro no encontrado' });
+            }
+
+            // SECURITY: IDOR — sin esto, cualquier contratista_admin/contratista_user podía
+            // editar (incluido cerrar) el registro de OTRA empresa mientras estuviera en
+            // estado 'pendiente', ya que el único chequeo previo era por estado_auditoria.
+            if (!(await isRegistroInScope(req.user, registro.id))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para modificar este registro' });
             }
 
             // Can't edit if already audited (unless in creation or subsanation phase)
@@ -583,6 +596,12 @@ const registroController = {
     // DELETE /api/registros/:id (Solo Admin - RN-001)
     // DELETE /api/registros/:id (Solo Admin - RN-001)
     async destroy(req, res) {
+        // Defensa en profundidad del "Solo Admin" del comentario: hoy la ruta ya exige
+        // requirePrivilege('Registros','excec') que por defecto nadie más tiene, pero ese
+        // privilegio es configurable desde el gestor de roles — este check no depende de eso.
+        if (!['admin', 'oval'].includes(req.user.role)) {
+            return res.status(403).json({ success: false, message: 'Solo un administrador puede eliminar registros.' });
+        }
         const t = await Registro.sequelize.transaction();
         try {
             const registro = await Registro.findByPk(req.params.id);

@@ -1,10 +1,41 @@
-const { Dependencia, TipoContratista, Vinculacion, Administracion, Gerencia, Subgerencia, User, Role, Contratista } = require('../database/models');
+const { Op } = require('sequelize');
+const { Dependencia, TipoContratista, Vinculacion, Administracion, Gerencia, Subgerencia, User, Role, Contratista, VinculacionUsuario } = require('../database/models');
+
+// Helper: get cIds robustly for contratista_admin
+const getContratistaAdminIds = (user) => {
+    const cIds = [];
+    if (Array.isArray(user.contratista_ids) && user.contratista_ids.length > 0) {
+        cIds.push(...user.contratista_ids.map(Number));
+    }
+    if (user.contratista_id && !cIds.includes(Number(user.contratista_id))) {
+        cIds.push(Number(user.contratista_id));
+    }
+    return cIds;
+};
+
+// Helper: get scope vinculacion IDs for contratista_user (from VinculacionUsuario)
+const getContratistaUserVincIds = async (userId) => {
+    const vu = await VinculacionUsuario.findAll({
+        where: { user_id: userId, activo: 1 },
+        attributes: ['vinculacion_id']
+    });
+    return vu.map(v => Number(v.vinculacion_id));
+};
+
+// Helper: get scope vinculacion IDs for administrador_contrato (from Administracion)
+const getAdminContratoVincIds = async (userId) => {
+    const adminRecords = await Administracion.findAll({
+        where: { administrador_contrato_id: userId, activo: 1 },
+        attributes: ['vinculacion_id']
+    });
+    return adminRecords.map(a => Number(a.vinculacion_id));
+};
 
 const resourceController = {
     // GET /api/resources/dependencias
     async dependencias(req, res) {
         try {
-            const { role, id, contratista_id } = req.user;
+            const { role, id } = req.user;
             let where = {};
             let include = [];
 
@@ -21,12 +52,20 @@ const resourceController = {
                     }]
                 }];
             } else if (role === 'contratista_user') {
-                const { dependencia_id } = req.user;
-                where.id = dependencia_id;
+                const vincId = req.user.vinculacion_id;
+                if (vincId) {
+                    include = [{
+                        model: Vinculacion,
+                        as: 'vinculaciones',
+                        where: { id: vincId },
+                        required: true
+                    }];
+                } else {
+                    return res.json({ success: true, data: [] });
+                }
             } else if (role === 'contratista_admin') {
-                const { Op } = require('sequelize');
-                const cIds = req.user.contratista_ids || (contratista_id ? [contratista_id] : (req.user.contratista_id ? [req.user.contratista_id] : []));
-
+                const cIds = getContratistaAdminIds(req.user);
+                if (cIds.length === 0) return res.json({ success: true, data: [] });
                 include = [{
                     model: Vinculacion,
                     as: 'vinculaciones',
@@ -35,47 +74,28 @@ const resourceController = {
                 }];
             }
 
-            // Cascading filter for admin_sistema or others
-            // Cascading filter for admin_sistema or others
+            // Cascading filter by servicio
             if (req.query.servicio_id || req.query.servicio) {
                 let vincInclude = include.find(inc => inc.as === 'vinculaciones');
                 if (!vincInclude) {
-                    vincInclude = {
-                        model: Vinculacion,
-                        as: 'vinculaciones',
-                        required: true,
-                        include: []
-                    };
+                    vincInclude = { model: Vinculacion, as: 'vinculaciones', required: true, include: [] };
                     include.push(vincInclude);
                 }
-
-                // If filtering by ID, applied to Vinculacion
                 if (req.query.servicio_id) {
                     vincInclude.where = { ...vincInclude.where, servicio_id: req.query.servicio_id };
                 }
-
-                // If filtering by Name, applied to TipoContratista association
                 if (req.query.servicio) {
                     vincInclude.include = vincInclude.include || [];
                     let servInclude = vincInclude.include.find(i => i.as === 'servicio');
-
                     if (!servInclude) {
-                        servInclude = {
-                            model: TipoContratista,
-                            as: 'servicio',
-                            required: true,
-                            where: {}
-                        };
+                        servInclude = { model: TipoContratista, as: 'servicio', required: true, where: {} };
                         vincInclude.include.push(servInclude);
                     }
-
-                    // Merge where clause safely
                     servInclude.where = { ...servInclude.where, nombre: req.query.servicio };
-                    servInclude.required = true; // Ensure inner join
+                    servInclude.required = true;
                 }
             }
 
-            // Ensure includes do not select attributes to avoid GROUP BY errors
             const includeForIds = include.map(inc => ({
                 ...inc,
                 attributes: [],
@@ -90,10 +110,7 @@ const resourceController = {
             });
 
             const depIds = scopedDeps.map(d => d.id);
-
-            if (depIds.length === 0) {
-                return res.json({ success: true, data: [] });
-            }
+            if (depIds.length === 0) return res.json({ success: true, data: [] });
 
             const data = await Dependencia.findAll({
                 attributes: ['id', 'nombre'],
@@ -111,7 +128,7 @@ const resourceController = {
     // GET /api/resources/tipos-contratista
     async tiposContratista(req, res) {
         try {
-            const { role, id, contratista_id } = req.user;
+            const { role, id } = req.user;
             let where = {};
             let include = [];
 
@@ -128,12 +145,20 @@ const resourceController = {
                     }]
                 }];
             } else if (role === 'contratista_user') {
-                const { tipo_contratista_id } = req.user;
-                where.id = tipo_contratista_id;
+                const vincId = req.user.vinculacion_id;
+                if (vincId) {
+                    include = [{
+                        model: Vinculacion,
+                        as: 'vinculaciones',
+                        where: { id: vincId },
+                        required: true
+                    }];
+                } else {
+                    return res.json({ success: true, data: [] });
+                }
             } else if (role === 'contratista_admin') {
-                const { Op } = require('sequelize');
-                const cIds = req.user.contratista_ids || (contratista_id ? [contratista_id] : (req.user.contratista_id ? [req.user.contratista_id] : []));
-
+                const cIds = getContratistaAdminIds(req.user);
+                if (cIds.length === 0) return res.json({ success: true, data: [] });
                 include = [{
                     model: Vinculacion,
                     as: 'vinculaciones',
@@ -142,7 +167,6 @@ const resourceController = {
                 }];
             }
 
-            // Ensure includes do not select attributes to avoid GROUP BY errors
             const includeForIds = include.map(inc => ({
                 ...inc,
                 attributes: [],
@@ -157,10 +181,7 @@ const resourceController = {
             });
 
             const typeIds = scopedTypes.map(t => t.id);
-
-            if (typeIds.length === 0) {
-                return res.json({ success: true, data: [] });
-            }
+            if (typeIds.length === 0) return res.json({ success: true, data: [] });
 
             const data = await TipoContratista.findAll({
                 attributes: ['id', 'nombre'],
@@ -178,13 +199,53 @@ const resourceController = {
     // GET /api/resources/gerencias
     async gerencias(req, res) {
         try {
-            // Nota: Para este MVP y filtros, devolveremos todas las gerencias activas.
-            // Si el user scope limita vistas, las dependencias filtradas actuarán en cascada.
+            const { role, id } = req.user;
+
+            // admin / sin restricción
+            if (!role || ['admin', 'oval'].includes(role)) {
+                const data = await Gerencia.findAll({
+                    attributes: ['id', 'nombre'],
+                    where: { activo: 1 },
+                    order: [['nombre', 'ASC']]
+                });
+                return res.json({ success: true, data });
+            }
+
+            // Obtener vinculacion IDs según rol
+            let vincIds = [];
+            if (role === 'administrador_contrato') {
+                vincIds = await getAdminContratoVincIds(id);
+            } else if (role === 'contratista_admin') {
+                const cIds = getContratistaAdminIds(req.user);
+                if (cIds.length === 0) return res.json({ success: true, data: [] });
+                const vincs = await Vinculacion.findAll({
+                    where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
+                    attributes: ['id']
+                });
+                vincIds = vincs.map(v => v.id);
+            } else if (role === 'contratista_user') {
+                const vincId = req.user.vinculacion_id;
+                vincIds = vincId ? [vincId] : [];
+            }
+
+            if (vincIds.length === 0) return res.json({ success: true, data: [] });
+
+            // Obtener gerencias únicas de esas vinculaciones
+            const vincs = await Vinculacion.findAll({
+                where: { id: { [Op.in]: vincIds } },
+                attributes: ['gerencia_id'],
+                group: ['gerencia_id']
+            });
+            const gerenciaIds = vincs.map(v => v.gerencia_id).filter(Boolean);
+
+            if (gerenciaIds.length === 0) return res.json({ success: true, data: [] });
+
             const data = await Gerencia.findAll({
                 attributes: ['id', 'nombre'],
-                where: { activo: 1 },
+                where: { id: { [Op.in]: gerenciaIds }, activo: 1 },
                 order: [['nombre', 'ASC']]
             });
+
             res.json({ success: true, data });
         } catch (error) {
             console.error('Error fetching gerencias:', error);
@@ -195,19 +256,59 @@ const resourceController = {
     // GET /api/resources/subgerencias
     async subgerencias(req, res) {
         try {
+            const { role, id } = req.user;
             const { gerencia_id } = req.query;
-            let where = { activo: 1 };
-            
-            // Filtro cascada si se envía gerencia_id
-            if (gerencia_id && gerencia_id !== 'todas') {
-                where.gerencia_id = gerencia_id;
+
+            // admin / sin restricción
+            if (!role || ['admin', 'oval'].includes(role)) {
+                const where = { activo: 1 };
+                if (gerencia_id && gerencia_id !== 'todas') where.gerencia_id = gerencia_id;
+                const data = await Subgerencia.findAll({
+                    attributes: ['id', 'nombre', 'gerencia_id'],
+                    where,
+                    order: [['nombre', 'ASC']]
+                });
+                return res.json({ success: true, data });
             }
+
+            // Obtener vinculacion IDs según rol
+            let vincIds = [];
+            if (role === 'administrador_contrato') {
+                vincIds = await getAdminContratoVincIds(id);
+            } else if (role === 'contratista_admin') {
+                const cIds = getContratistaAdminIds(req.user);
+                if (cIds.length === 0) return res.json({ success: true, data: [] });
+                const vincs = await Vinculacion.findAll({
+                    where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
+                    attributes: ['id']
+                });
+                vincIds = vincs.map(v => v.id);
+            } else if (role === 'contratista_user') {
+                const vincId = req.user.vinculacion_id;
+                vincIds = vincId ? [vincId] : [];
+            }
+
+            if (vincIds.length === 0) return res.json({ success: true, data: [] });
+
+            // Filtrar por gerencia si se pasa
+            const vincWhere = { id: { [Op.in]: vincIds } };
+            if (gerencia_id && gerencia_id !== 'todas') vincWhere.gerencia_id = gerencia_id;
+
+            const vincs = await Vinculacion.findAll({
+                where: vincWhere,
+                attributes: ['subgerencia_id'],
+                group: ['subgerencia_id']
+            });
+            const subgerenciaIds = vincs.map(v => v.subgerencia_id).filter(Boolean);
+
+            if (subgerenciaIds.length === 0) return res.json({ success: true, data: [] });
 
             const data = await Subgerencia.findAll({
                 attributes: ['id', 'nombre', 'gerencia_id'],
-                where,
+                where: { id: { [Op.in]: subgerenciaIds }, activo: 1 },
                 order: [['nombre', 'ASC']]
             });
+
             res.json({ success: true, data });
         } catch (error) {
             console.error('Error fetching subgerencias:', error);
@@ -218,13 +319,69 @@ const resourceController = {
     // GET /api/resources/adc
     async administradoresContrato(req, res) {
         try {
-            // Usuarios con rol de administrador_contrato que están activos
-            const data = await User.findAll({
-                attributes: ['id', 'name', 'email'],
-                where: { role: 'administrador_contrato', activo: true },
-                order: [['name', 'ASC']]
-            });
-            res.json({ success: true, data });
+            const { role, id } = req.user;
+
+            // admin / oval: devuelve todos
+            if (!role || ['admin', 'oval'].includes(role)) {
+                const data = await User.findAll({
+                    attributes: [['usu_id', 'id'], 'name', 'email'],
+                    where: { role: 'administrador_contrato', activo: true },
+                    order: [['name', 'ASC']]
+                });
+                return res.json({ success: true, data });
+            }
+
+            // administrador_contrato: solo sí mismo
+            if (role === 'administrador_contrato') {
+                const { Op } = require('sequelize');
+                const self = await User.findOne({
+                    where: {
+                        [Op.or]: [
+                            { usu_id: id },
+                            { id: id }
+                        ]
+                    },
+                    attributes: [['usu_id', 'id'], 'name', 'email']
+                });
+                return res.json({ success: true, data: self ? [self] : [] });
+            }
+
+            // contratista_admin: ADCs que tienen administraciones en sus vinculaciones
+            if (role === 'contratista_admin') {
+                const cIds = getContratistaAdminIds(req.user);
+                if (cIds.length === 0) return res.json({ success: true, data: [] });
+
+                const vincs = await Vinculacion.findAll({
+                    where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
+                    attributes: ['id']
+                });
+                const vincIds = vincs.map(v => v.id);
+                if (vincIds.length === 0) return res.json({ success: true, data: [] });
+
+                const admins = await Administracion.findAll({
+                    where: { vinculacion_id: { [Op.in]: vincIds }, activo: 1 },
+                    attributes: ['administrador_contrato_id'],
+                    group: ['administrador_contrato_id']
+                });
+                const adcIds = admins.map(a => a.administrador_contrato_id);
+                if (adcIds.length === 0) return res.json({ success: true, data: [] });
+
+                const data = await User.findAll({
+                    attributes: [['usu_id', 'id'], 'name', 'email'],
+                    where: {
+                        [Op.or]: [
+                            { usu_id: { [Op.in]: adcIds } },
+                            { id: { [Op.in]: adcIds } }
+                        ],
+                        activo: true
+                    },
+                    order: [['name', 'ASC']]
+                });
+                return res.json({ success: true, data });
+            }
+
+            // contratista_user: no necesita ver ADCs
+            return res.json({ success: true, data: [] });
         } catch (error) {
             console.error('Error fetching ADCs:', error);
             res.status(500).json({ success: false, message: 'Error al obtener administradores de contrato' });
@@ -301,3 +458,4 @@ const resourceController = {
 };
 
 module.exports = resourceController;
+

@@ -32,10 +32,15 @@ const Vinculacion = sequelize.define('Vinculacion', {
         type: DataTypes.DATE,
         allowNull: true
     },
+    // NO único: un mismo contrato de OVAL puede cubrir varias combinaciones
+    // servicio/dependencia para la misma empresa (contrato "marco" multi-ubicación,
+    // confirmado en datos reales — ej. contrato 637 de SODEXO CHILE SPA cubre dos
+    // servicios/dependencias distintos). La identidad real de una vinculación es la
+    // combinación (contratista_id, servicio_id, dependencia_id, subgerencia_id,
+    // gerencia_id), que es lo que usa el sincronizador para buscarla/crearla.
     numero_contrato: {
         type: DataTypes.STRING,
-        allowNull: false,
-        unique: true
+        allowNull: false
     },
     fecha_inicio_contrato: {
         type: DataTypes.DATEONLY,

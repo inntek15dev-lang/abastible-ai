@@ -95,7 +95,34 @@ jobs:
             # Asegurar consistencia del esquema (Añadir columnas faltantes)
             echo "Verificando consistencia del esquema..."
             docker exec prepro_oiem_abastible_api node scripts/ensure_schema.js
-            
+
+            # Eliminar FKs físicas no gestionadas por el código (bloquean la sincronización
+            # con OVAL al podar entidades residuales). Se re-verifica en cada deploy.
+            echo "Eliminando FKs físicas del esquema..."
+            docker exec prepro_oiem_abastible_api node scripts/drop_physical_foreign_keys.js
+
+            # Un mismo numero_contrato de OVAL puede cubrir varias combinaciones
+            # servicio/dependencia (contrato "marco"): el índice único físico sobre esa
+            # columna bloqueaba la sincronización completa.
+            echo "Eliminando índice único de vinculaciones.numero_contrato..."
+            docker exec prepro_oiem_abastible_api node scripts/drop_numero_contrato_unique_index.js
+
+            # Migración de PK a usu_id (homologación OvalControl). Se ejecuta en cada
+            # deploy pero solo aplica cambios la primera vez (guardado en configuraciones).
+            echo "Verificando migración de PK a usu_id..."
+            docker exec prepro_oiem_abastible_api node scripts/run_usu_id_pk_migration.js
+
+            # Usuarios demo: activar/desactivar según DEMO_USERS_ENABLED en .env del
+            # servidor (editar esa línea y volver a desplegar para alternar). No es un
+            # "correr una vez": cada deploy reconcilia el estado declarado.
+            if grep -qE '^DEMO_USERS_ENABLED=true' .env 2>/dev/null; then
+              echo "DEMO_USERS_ENABLED=true: creando/asegurando usuarios demo..."
+              docker exec prepro_oiem_abastible_api node scripts/seed_demo_users.js
+            else
+              echo "DEMO_USERS_ENABLED no es 'true': eliminando usuarios demo (si existen)..."
+              docker exec prepro_oiem_abastible_api node scripts/remove_demo_users.js
+            fi
+
             # Limpieza de imágenes antiguas para optimizar espacio
             docker image prune -f
             

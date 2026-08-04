@@ -263,23 +263,24 @@ async function seed() {
 
         const [ovalUser, ovalCreated] = await User.findOrCreate({
             where: { email: 'oval@ovalcontrol.com' },
-            defaults: { name: 'Superusuario OVAL', password: hashedPassword, role: 'oval', activo: 1 }
+            defaults: { name: 'Superusuario OVAL', password: hashedPassword, role: 'oval', usu_id: 1, id: 1, activo: 1 }
         });
-        if (!ovalCreated) await ovalUser.update({ password: hashedPassword, activo: 1 });
+        if (!ovalCreated) await ovalUser.update({ password: hashedPassword, usu_id: 1, id: 1, activo: 1 });
 
         const [adminOiem, adminCreated] = await User.findOrCreate({
             where: { email: 'admin@abastible.cl' },
-            defaults: { name: 'Administrador OIEM', password: hashedPassword, role: 'admin', activo: 1 }
+            defaults: { name: 'Administrador OIEM', password: hashedPassword, role: 'admin', usu_id: 2, id: 2, activo: 1 }
         });
-        if (!adminCreated) await adminOiem.update({ password: hashedPassword, activo: 1 });
+        if (!adminCreated) await adminOiem.update({ password: hashedPassword, usu_id: 2, id: 2, activo: 1 });
 
         const regularUsers = [
-            { name: 'Administrador de Contratos', email: 'administrador.contrato@abastible.cl', password: hashedPassword, role: 'administrador_contrato', activo: 1 },
-            { name: 'Contratista Administrador', email: 'contratista.admin@demo.cl', password: hashedPassword, role: 'contratista_admin', contratista_id: mafran.id, activo: 1 }
+            { name: 'Administrador de Contratos', email: 'administrador.contrato@abastible.cl', password: hashedPassword, role: 'administrador_contrato', usu_id: 3, id: 3, activo: 1 },
+            { name: 'Contratista Administrador', email: 'contratista.admin@demo.cl', password: hashedPassword, role: 'contratista_admin', contratista_id: mafran.id, usu_id: 4, id: 4, activo: 1 }
         ];
         const usersCreated = { adminOiem };
         for (const u of regularUsers) {
             const [user] = await User.findOrCreate({ where: { email: u.email }, defaults: u });
+            if (!user.usu_id) await user.update({ usu_id: u.usu_id, id: u.id });
             if (u.role === 'administrador_contrato') usersCreated.adminContrato = user;
             if (u.role === 'contratista_admin') usersCreated.contratistaAdmin = user;
         }
@@ -293,7 +294,9 @@ async function seed() {
                 contratista_id: mafran.id,
                 tipo_contratista_id: tiposContratista[1].id,
                 dependencia_id: dependencias[9].id,
-                parent_id: usersCreated.contratistaAdmin.id,
+                parent_id: 4, // parent's usu_id
+                usu_id: 5,
+                id: 5,
                 activo: 1
             }
         });
@@ -307,7 +310,9 @@ async function seed() {
                 contratista_id: mafran.id,
                 tipo_contratista_id: tiposContratista[1].id,
                 dependencia_id: dependencias[3].id,
-                parent_id: usersCreated.contratistaAdmin.id,
+                parent_id: 4, // parent's usu_id
+                usu_id: 6,
+                id: 6,
                 activo: 1
             }
         });

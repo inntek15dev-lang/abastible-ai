@@ -39,10 +39,10 @@ export default function ComplianceMatrixReport() {
             try {
                 const [cRes, sRes, dRes, pRes, aRes] = await Promise.all([
                     api.get('/contratistas'),
-                    api.get('/servicios'),
-                    api.get('/dependencias'),
+                    api.get('/resources/tipos-contratista'),
+                    api.get('/resources/dependencias'),
                     api.get('/programas'),
-                    api.get('/usuarios?role=administrador_contrato&active=true')
+                    api.get('/resources/adc')
                 ]);
 
                 setOptions({
@@ -93,6 +93,15 @@ export default function ComplianceMatrixReport() {
     const fetchMatrix = async () => {
         setLoading(true);
         try {
+            console.log('[Browser Console - ComplianceMatrixReport] Iniciando fetch de matriz de cumplimiento...');
+            console.log('[Browser Console - ComplianceMatrixReport] Usuario actual:', {
+                id: user?.id,
+                name: user?.name,
+                email: user?.email,
+                role: user?.role,
+                contratista_id: user?.contratista_id,
+                contratista_ids: user?.contratista_ids
+            });
             const params = new URLSearchParams();
             if (filters.contratista_id !== 'todos') params.append('contratista_id', filters.contratista_id);
             if (filters.servicio_id !== 'todos') params.append('servicio_id', filters.servicio_id);
@@ -106,8 +115,10 @@ export default function ComplianceMatrixReport() {
             params.append('page', page);
             params.append('limit', 5);
 
+            console.log('[Browser Console - ComplianceMatrixReport] Ejecutando query de matriz de cumplimiento con parámetros:', Object.fromEntries(params.entries()));
             const response = await api.get(`/dashboard/matrix?${params.toString()}`);
             if (response.data.success) {
+                console.log('[Browser Console - ComplianceMatrixReport] Datos de matriz de cumplimiento obtenidos:', response.data.data);
                 setData({
                     columns: response.data.data.columns,
                     rows: response.data.data.rows
@@ -115,7 +126,7 @@ export default function ComplianceMatrixReport() {
                 setPagination(response.data.data.pagination);
             }
         } catch (error) {
-            console.error("Error fetching matrix:", error);
+            console.error("[Browser Console - ComplianceMatrixReport] Error fetching matrix:", error);
         } finally {
             setLoading(false);
         }

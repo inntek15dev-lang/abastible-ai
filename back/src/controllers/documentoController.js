@@ -47,6 +47,13 @@ const documentoController = {
             const doc = await Documento.findByPk(req.params.id);
             if (!doc) return res.status(404).json({ message: 'Documento no encontrado' });
 
+            // SECURITY: IDOR — index ya filtra por user_id (solo tus propios documentos);
+            // download no verificaba nada, así que cualquiera podía descargar el documento
+            // de cualquier otro usuario con solo conocer/adivinar el :id.
+            if (String(doc.user_id) !== String(req.user.id) && !['admin', 'oval'].includes(req.user.role)) {
+                return res.status(403).json({ message: 'No tiene permiso para descargar este documento' });
+            }
+
             // File Path
             // Assuming uploads are stored in 'back/uploads' relative to server execution
             // Adjust logic based on where 'uploads' folder is created by middleware

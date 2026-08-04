@@ -1,6 +1,6 @@
 // IEEE Trace: REQ-007 | middleware/auth.js
 const jwt = require('jsonwebtoken');
-const { User, Role, Privilegio, ContratistaUsuario } = require('../database/models');
+const { User, Role, Privilegio, ContratistaUsuario, VinculacionUsuario, Vinculacion } = require('../database/models');
 
 const authMiddleware = async (req, res, next) => {
     try {
@@ -21,7 +21,14 @@ const authMiddleware = async (req, res, next) => {
         }
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        const user = await User.findByPk(decoded.id, {
+        const { Op } = require('sequelize');
+        const user = await User.findOne({
+            where: {
+                [Op.or]: [
+                    { usu_id: decoded.id },
+                    { id: decoded.id }
+                ]
+            },
             attributes: { exclude: ['password'] }
         });
 
@@ -48,7 +55,7 @@ const authMiddleware = async (req, res, next) => {
 
         // Retrieve multiple assigned contractors (for contratista_admin many-to-many relationship)
         const assigned = await ContratistaUsuario.findAll({
-            where: { user_id: user.id },
+            where: { user_id: user.usu_id || user.id },
             attributes: ['contratista_id']
         });
         const contratistaIds = [...new Set(assigned.map(c => Number(c.contratista_id)))];
@@ -57,9 +64,53 @@ const authMiddleware = async (req, res, next) => {
             contratistaIds.push(Number(user.contratista_id));
         }
 
+        // Un contratista_user NO tiene identidad propia de empresa/servicio/dependencia:
+        // esas columnas del usuario están siempre en NULL por diseño (usuarioController
+        // las anula explícitamente). Su ÚNICO scope real es el contrato (Vinculación) al
+        // que fue asignado vía VinculacionUsuario — el numero_contrato de OVAL es el filtro
+        // fijo que debe gobernar todo lo que puede ver. Se deriva aquí, una sola vez, para
+        // que ningún controller vuelva a depender de las columnas NULL del usuario.
+        let vinculacion_id = null;
+        let vinculacionScope = {
+            contratista_id: null,
+            tipo_contratista_id: null,
+            dependencia_id: null,
+            subgerencia_id: null,
+            gerencia_id: null,
+            numero_contrato: null
+        };
+        if (user.role === 'contratista_user') {
+            const vu = await VinculacionUsuario.findOne({
+                where: { user_id: user.usu_id || user.id, activo: 1 },
+                attributes: ['vinculacion_id'],
+                include: [{ model: Vinculacion, as: 'vinculacion', attributes: ['id', 'contratista_id', 'servicio_id', 'dependencia_id', 'subgerencia_id', 'gerencia_id', 'numero_contrato'], where: { activo: 1 }, required: false }]
+            });
+            vinculacion_id = vu ? Number(vu.vinculacion_id) : null;
+            if (vu && vu.vinculacion) {
+                vinculacionScope = {
+                    contratista_id: vu.vinculacion.contratista_id,
+                    tipo_contratista_id: vu.vinculacion.servicio_id,
+                    dependencia_id: vu.vinculacion.dependencia_id,
+                    subgerencia_id: vu.vinculacion.subgerencia_id,
+                    gerencia_id: vu.vinculacion.gerencia_id,
+                    numero_contrato: vu.vinculacion.numero_contrato
+                };
+            } else {
+                // Vinculación asignada pero inactiva/inexistente: fail-closed, sin scope.
+                vinculacion_id = null;
+            }
+        }
+
+        const userJson = user.toJSON();
         req.user = {
-            ...user.toJSON(),
+            ...userJson,
+            id: user.usu_id || user.id, // Map id to usu_id with fallback to legacy id
             contratista_ids: contratistaIds,
+            vinculacion_id,
+            // Para contratista_user, estos SIEMPRE reemplazan las columnas NULL crudas de
+            // userJson con el scope derivado del contrato. Para el resto de los roles se
+            // preservan los valores propios del usuario (spread de userJson ya los puso).
+            ...(user.role === 'contratista_user' ? vinculacionScope : {}),
             privileges
         };
 

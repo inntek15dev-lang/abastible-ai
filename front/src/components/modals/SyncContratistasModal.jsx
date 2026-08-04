@@ -24,6 +24,9 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
     const [fullSyncing, setFullSyncing] = useState(false);
     const [fullSyncProgress, setFullSyncProgress] = useState([]);
 
+    // Errores y advertencias reportados por el backend (failedItems / warnings)
+    const [syncIssues, setSyncIssues] = useState([]);
+
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
@@ -41,6 +44,7 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
             setCurrentPage(1);
             setSyncingItems({});
             setFullSyncing(false);
+            setSyncIssues([]);
         }
     }, [isOpen]);
 
@@ -185,6 +189,28 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
         return new Date(dateString).toLocaleDateString('es-CL', { timeZone: 'UTC' });
     };
 
+    // Arma una descripción legible con TODOS los campos disponibles de un ítem de
+    // error/advertencia/poda, sin importar el tipo de entidad (contratista, vinculación,
+    // usuario, etc.) — para no depender de leer los logs del backend.
+    const describeIssueEntity = (obj) => {
+        if (!obj) return 'Elemento';
+        const parts = [];
+        if (obj.nombre) parts.push(obj.nombre);
+        if (obj.contratista) parts.push(obj.contratista);
+        if (obj.email) parts.push(obj.email);
+        const rut = obj.rut || obj.rut_contratista;
+        if (rut) parts.push(`RUT ${rut}`);
+        if (obj.servicio) parts.push(`Servicio: ${obj.servicio}`);
+        if (obj.dependencia) parts.push(`Dependencia: ${obj.dependencia}`);
+        if (obj.subgerencia) parts.push(`Subgerencia: ${obj.subgerencia}`);
+        if (obj.gerencia) parts.push(`Gerencia: ${obj.gerencia}`);
+        const contrato = obj.numero_contrato || obj.contrato;
+        if (contrato) parts.push(`Contrato: ${contrato}`);
+        if (obj.usu_id != null) parts.push(`usu_id ${obj.usu_id}`);
+        if (parts.length === 0) parts.push(obj.tipo || (obj.id != null ? `ID ${obj.id}` : 'Elemento'));
+        return parts.join(' · ');
+    };
+
     const getItemKey = (item, type) => {
         switch (type) {
             case 'gerencias': return item.nombre;
@@ -204,9 +230,15 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
         const itemKey = getItemKey(item, type);
         setSyncingItems(prev => ({ ...prev, [itemKey]: true }));
         try {
-            await api.post('/sync/execute', { type, items: [item] });
+            const response = await api.post('/sync/execute', { type, items: [item] });
+            const failed = response.data?.failedItems || [];
+            if (failed.length > 0) {
+                const detail = failed[0]?.details || failed[0]?.error || 'Error desconocido';
+                toast.error(`No se pudo sincronizar: ${detail}`);
+                return;
+            }
             toast.success('Elemento sincronizado correctamente');
-            
+
             // Update local state directly so it reflects exists immediately
             setDiffData(prev => {
                 if (!prev) return prev;
@@ -235,8 +267,17 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
     const handleSync = async (type, items) => {
         setSyncing(true);
         try {
-            await api.post('/sync/execute', { type, items });
-            toast.success(`${type.toUpperCase()} sincronizados correctamente`);
+            const response = await api.post('/sync/execute', { type, items });
+            const failedCount = response.data?.failedCount || 0;
+            const stepWarnings = response.data?.warnings || [];
+            if (failedCount > 0 || stepWarnings.length > 0) {
+                setSyncIssues(prev => [...prev, { step: type.toUpperCase(), failedItems: response.data?.failedItems || [], warnings: stepWarnings }]);
+            }
+            if (failedCount > 0) {
+                toast.error(`${type.toUpperCase()}: ${response.data?.syncedCount || 0} sincronizados, ${failedCount} con error`);
+            } else {
+                toast.success(`${type.toUpperCase()} sincronizados correctamente`);
+            }
             await fetchComparison();
         } catch (error) {
             console.error('Error syncing:', error);
@@ -250,7 +291,9 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
     // Sequential Full Sync Flow
     const handleFullSync = async () => {
         setFullSyncing(true);
-        
+        setSyncIssues([]);
+        let totalFailed = 0;
+
         // Initialize progress tracker for the 8 steps
         const initialProgress = steps.map(s => {
             const list = diffData ? diffData[s.key] : [];
@@ -276,16 +319,26 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                     setFullSyncProgress(prev => prev.map((p, idx) => idx === i ? { ...p, status: 'syncing' } : p));
                     
                     // Trigger sync endpoint for this entity's batch
-                    await api.post('/sync/execute', { type: currentStep.key, items: toSync });
-                    
+                    const res = await api.post('/sync/execute', { type: currentStep.key, items: toSync });
+                    const failedCount = res.data?.failedCount || 0;
+                    const stepWarnings = res.data?.warnings || [];
+                    totalFailed += failedCount;
+                    if (failedCount > 0 || stepWarnings.length > 0) {
+                        setSyncIssues(prev => [...prev, { step: currentStep.label, failedItems: res.data?.failedItems || [], warnings: stepWarnings }]);
+                    }
+
                     // Mark as completed
-                    setFullSyncProgress(prev => prev.map((p, idx) => idx === i ? { ...p, status: 'completed', synced: toSync.length } : p));
+                    setFullSyncProgress(prev => prev.map((p, idx) => idx === i ? { ...p, status: 'completed', synced: res.data?.syncedCount ?? toSync.length, failed: failedCount } : p));
                 } else {
                     // Nothing to sync, mark completed immediately
                     setFullSyncProgress(prev => prev.map((p, idx) => idx === i ? { ...p, status: 'completed', synced: 0 } : p));
                 }
             }
-            toast.success('Sincronización de lote completo exitosa');
+            if (totalFailed > 0) {
+                toast.error(`Sincronización completada con ${totalFailed} elementos con error. Revise el detalle en el panel de progreso.`, { duration: 8000 });
+            } else {
+                toast.success('Sincronización de lote completo exitosa');
+            }
             await fetchComparison();
         } catch (error) {
             console.error('Error in sequential Full Sync:', error);
@@ -297,18 +350,21 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
 
     // Forced Sequential Full Sync Flow (Overwrites all data)
     const handleForceFullSync = async () => {
-        if (!window.confirm('⚠️ ¿Estás seguro de ejecutar la RE-SINCRONIZACIÓN FULL? Se volverán a procesar y actualizar todos los registros pisando datos existentes.')) {
+        if (!window.confirm('⚠️ ¿Estás seguro de ejecutar la RE-SINCRONIZACIÓN FULL? Todos los datos sincronizados (gerencias, contratistas, vinculaciones, usuarios de OVAL, etc.) quedarán EXACTAMENTE iguales al origen OVAL: se sobrescribirán los existentes y se ELIMINARÁN los que ya no estén en OVAL. Los registros de cumplimiento, compromisos y evidencias nunca se eliminan.')) {
             return;
         }
 
         setFullSyncing(true);
-        
+        setSyncIssues([]);
+        let totalFailed = 0;
+        let totalPruned = 0;
+
         const initialProgress = steps.map(s => {
             const list = diffData ? diffData[s.key] : [];
             return {
                 label: s.label,
                 key: s.key,
-                status: list.length > 0 ? 'pending' : 'completed',
+                status: 'pending',
                 total: list.length,
                 synced: 0
             };
@@ -318,17 +374,29 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
         try {
             for (let i = 0; i < steps.length; i++) {
                 const currentStep = steps[i];
+                // Se envía SIEMPRE (incluso lista vacía) para que la poda de residuales
+                // corra en todos los pasos: OVAL es la fuente de verdad completa.
                 const list = diffData ? diffData[currentStep.key] : [];
 
-                if (list.length > 0) {
-                    setFullSyncProgress(prev => prev.map((p, idx) => idx === i ? { ...p, status: 'syncing' } : p));
-                    await api.post('/sync/execute', { type: currentStep.key, items: list, force: true });
-                    setFullSyncProgress(prev => prev.map((p, idx) => idx === i ? { ...p, status: 'completed', synced: list.length } : p));
-                } else {
-                    setFullSyncProgress(prev => prev.map((p, idx) => idx === i ? { ...p, status: 'completed', synced: 0 } : p));
+                setFullSyncProgress(prev => prev.map((p, idx) => idx === i ? { ...p, status: 'syncing' } : p));
+                const res = await api.post('/sync/execute', { type: currentStep.key, items: list, force: true });
+                const failedCount = res.data?.failedCount || 0;
+                const stepWarnings = res.data?.warnings || [];
+                const prunedCount = res.data?.prunedCount || 0;
+                totalFailed += failedCount;
+                totalPruned += prunedCount;
+                if (failedCount > 0 || stepWarnings.length > 0 || prunedCount > 0) {
+                    setSyncIssues(prev => [...prev, { step: currentStep.label, failedItems: res.data?.failedItems || [], warnings: stepWarnings, prunedItems: res.data?.prunedItems || [] }]);
                 }
+                setFullSyncProgress(prev => prev.map((p, idx) => idx === i ? { ...p, status: 'completed', synced: res.data?.syncedCount ?? list.length, failed: failedCount, pruned: prunedCount } : p));
             }
-            toast.success('Re-sincronización FULL forzada completada con éxito.');
+            if (totalFailed > 0) {
+                toast.error(`Re-sincronización FULL completada con ${totalFailed} elementos con error. Revise el detalle en el panel de progreso.`, { duration: 8000 });
+            } else if (totalPruned > 0) {
+                toast.success(`Re-sincronización FULL completada. ${totalPruned} elemento(s) residual(es) eliminado(s) para homologar con OVAL.`, { duration: 8000 });
+            } else {
+                toast.success('Re-sincronización FULL forzada completada con éxito.');
+            }
             await fetchComparison();
         } catch (error) {
             console.error('Error in Forced Full Sync:', error);
@@ -718,6 +786,8 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                         background-color: white;
                         border-radius: var(--border-radius-lg);
                         width: 480px;
+                        max-height: 88vh;
+                        overflow-y: auto;
                         padding: 24px;
                         box-shadow: var(--shadow-depth);
                         border: 1px solid var(--border-color);
@@ -1141,6 +1211,18 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                                                         {p.synced > 0 ? `Sincronizados: ${p.synced}` : 'Al día'}
                                                     </span>
                                                 )}
+                                                {p.status === 'completed' && p.failed > 0 && (
+                                                    <span className="text-amber-600 font-bold text-xs flex items-center gap-1">
+                                                        <AlertCircle className="w-3.5 h-3.5" />
+                                                        {p.failed} con error
+                                                    </span>
+                                                )}
+                                                {p.status === 'completed' && p.pruned > 0 && (
+                                                    <span className="text-rose-600 font-bold text-xs flex items-center gap-1">
+                                                        <X className="w-3.5 h-3.5" />
+                                                        {p.pruned} eliminado(s)
+                                                    </span>
+                                                )}
                                                 {p.status === 'error' && (
                                                     <span className="text-rose-600 font-bold text-xs flex items-center gap-1">
                                                         <AlertCircle className="w-3.5 h-3.5" />
@@ -1151,6 +1233,42 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                                         </div>
                                     ))}
                                 </div>
+
+                                {syncIssues.length > 0 && (
+                                    <div className="mt-4 border-t pt-3">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-1.5 text-amber-700 font-bold text-xs">
+                                                <AlertCircle className="w-3.5 h-3.5" />
+                                                Detalle de errores y advertencias
+                                            </div>
+                                            <span className="text-[10px] text-gray-400">
+                                                {syncIssues.reduce((n, issue) => n + (issue.failedItems?.length || 0) + (issue.warnings?.length || 0) + (issue.prunedItems?.length || 0), 0)} ítems — scroll para ver más
+                                            </span>
+                                        </div>
+                                        <div className="max-h-72 overflow-y-auto space-y-1.5 text-[11px] text-gray-600 border border-slate-100 rounded-md bg-slate-50/50 p-2">
+                                            {syncIssues.map((issue, i) => (
+                                                <div key={i}>
+                                                    <div className="font-semibold text-gray-700">{issue.step}</div>
+                                                    {(issue.failedItems || []).map((f, j) => (
+                                                        <div key={`f-${j}`} className="pl-2 text-rose-600">
+                                                            • {describeIssueEntity(f.item)}: {f.details || f.error}
+                                                        </div>
+                                                    ))}
+                                                    {(issue.warnings || []).map((w, j) => (
+                                                        <div key={`w-${j}`} className="pl-2 text-amber-600">
+                                                            • {describeIssueEntity(w)}: {w.error}
+                                                        </div>
+                                                    ))}
+                                                    {(issue.prunedItems || []).map((p, j) => (
+                                                        <div key={`p-${j}`} className="pl-2 text-rose-600">
+                                                            • Eliminado (residual, no está en OVAL): {describeIssueEntity(p)}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {fullSyncProgress.every(p => p.status === 'completed' || p.status === 'error') && (
                                     <div className="mt-5 pt-3 border-t flex justify-end">
