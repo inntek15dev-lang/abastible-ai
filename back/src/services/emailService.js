@@ -121,6 +121,36 @@ const emailService = {
             <a href="${process.env.FRONTEND_URL}/registros/${registro.id}">Ver Registro</a>
         `;
         return this.sendMail({ to: contractorEmail, subject, html });
+    },
+
+    // 7. Se crea un contratista_user -> credenciales de acceso al correo del nuevo usuario
+    async notifyCredencialesNuevoUsuario(usuario, plainPassword) {
+        const subject = `[Bienvenido] Credenciales de Acceso - Plataforma OVAL Control`;
+        const html = `
+            <h3>Bienvenido a la Plataforma OVAL Control</h3>
+            <p>Se ha creado una cuenta de acceso a su nombre, <strong>${usuario.name}</strong>, con las siguientes credenciales:</p>
+            <p>
+                <strong>Usuario (correo):</strong> ${usuario.email}<br>
+                <strong>Contraseña temporal:</strong> ${plainPassword}
+            </p>
+            <p>Le recomendamos cambiar su contraseña después de su primer ingreso.</p>
+            <a href="${process.env.FRONTEND_URL}/login">Ir a la Plataforma</a>
+        `;
+        return this.sendMail({ to: usuario.email, subject, html });
+    },
+
+    // 8. Solicitud de recuperación de contraseña -> enlace de un solo uso al correo
+    async notifyRecuperacionPassword(usuario, resetUrl) {
+        const subject = `[OVAL Control] Recuperación de Contraseña`;
+        const html = `
+            <h3>Recuperación de Contraseña</h3>
+            <p>Hola ${usuario.name},</p>
+            <p>Recibimos una solicitud para restablecer la contraseña de su cuenta (<strong>${usuario.email}</strong>).</p>
+            <p>Si usted realizó esta solicitud, haga clic en el siguiente enlace para elegir una nueva contraseña. Este enlace es válido por 1 hora y solo puede usarse una vez.</p>
+            <a href="${resetUrl}">Restablecer Contraseña</a>
+            <p style="font-size: 12px; color: #64748b; margin-top: 20px;">Si usted no solicitó este cambio, puede ignorar este correo — su contraseña actual seguirá funcionando.</p>
+        `;
+        return this.sendMail({ to: usuario.email, subject, html });
     }
 };
 

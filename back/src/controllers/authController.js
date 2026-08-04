@@ -1,9 +1,15 @@
 // IEEE Trace: REQ-007 | US-006 | authController.js
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { sequelize, User, Role, Privilegio, Contratista, ContratistaUsuario, VinculacionUsuario } = require('../database/models');
+const crypto = require('crypto');
+const { sequelize, User, Role, Privilegio, Contratista, ContratistaUsuario, VinculacionUsuario, PasswordResetToken } = require('../database/models');
 const { decryptDataString } = require('../utils/cryptoHelper');
 const { adoptOvalUsuId } = require('../utils/usuIdHomologation');
+const { validatePasswordPolicy } = require('../utils/passwordPolicy');
+const emailService = require('../services/emailService');
+
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hora
+const hashResetToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 
 const authController = {
     // POST /api/auth/login
@@ -153,6 +159,119 @@ const authController = {
             success: true,
             message: 'Sesión cerrada exitosamente'
         });
+    },
+
+    // POST /api/auth/forgot-password — solo contratista_user. Respuesta SIEMPRE genérica
+    // (exista o no la cuenta) para no revelar por esta vía qué correos están registrados.
+    async forgotPassword(req, res) {
+        const genericResponse = {
+            success: true,
+            message: 'Si el correo corresponde a una cuenta de contratista registrada, se enviará un enlace de recuperación.'
+        };
+        try {
+            const email = (req.body.email || '').toString().trim().toLowerCase();
+            if (!email) {
+                return res.status(400).json({ success: false, message: 'El correo es requerido' });
+            }
+
+            const user = await User.findOne({ where: { email, role: 'contratista_user' } });
+            if (!user || !user.activo) {
+                return res.json(genericResponse);
+            }
+
+            // Invalidar tokens previos sin usar antes de emitir uno nuevo.
+            await PasswordResetToken.update(
+                { used_at: new Date() },
+                { where: { user_id: user.usu_id, used_at: null } }
+            );
+
+            const rawToken = crypto.randomBytes(32).toString('hex');
+            await PasswordResetToken.create({
+                user_id: user.usu_id,
+                token_hash: hashResetToken(rawToken),
+                expires_at: new Date(Date.now() + RESET_TOKEN_TTL_MS)
+            });
+
+            const resetUrl = `${process.env.FRONTEND_URL}/restablecer-password?token=${rawToken}`;
+            try {
+                await emailService.notifyRecuperacionPassword(user, resetUrl);
+            } catch (emailErr) {
+                console.error('Error enviando correo de recuperación de contraseña:', emailErr);
+            }
+
+            res.json(genericResponse);
+        } catch (error) {
+            console.error('Forgot password error:', error);
+            // Ante un error inesperado seguimos sin revelar información — solo logueamos.
+            res.json(genericResponse);
+        }
+    },
+
+    // GET /api/auth/reset-password/:token — valida el token y entrega el email (para
+    // precargar, solo lectura) en la vista de restablecimiento, sin requerir sesión.
+    async validateResetToken(req, res) {
+        try {
+            const { token } = req.params;
+            const record = await PasswordResetToken.findOne({
+                where: { token_hash: hashResetToken(token || '') }
+            });
+
+            if (!record || record.used_at || new Date(record.expires_at) < new Date()) {
+                return res.status(400).json({ success: false, message: 'El enlace de recuperación es inválido o ha expirado.' });
+            }
+
+            const user = await User.findOne({ where: { usu_id: record.user_id, role: 'contratista_user' } });
+            if (!user || !user.activo) {
+                return res.status(400).json({ success: false, message: 'El enlace de recuperación es inválido o ha expirado.' });
+            }
+
+            res.json({ success: true, email: user.email });
+        } catch (error) {
+            console.error('Validate reset token error:', error);
+            res.status(500).json({ success: false, message: 'Error al validar el enlace de recuperación.' });
+        }
+    },
+
+    // POST /api/auth/reset-password
+    async resetPassword(req, res) {
+        try {
+            const { token, password, password_confirmation } = req.body;
+
+            if (!token || !password || !password_confirmation) {
+                return res.status(400).json({ success: false, message: 'Todos los campos son requeridos.' });
+            }
+
+            if (password !== password_confirmation) {
+                return res.status(400).json({ success: false, message: 'Las contraseñas no coinciden.' });
+            }
+
+            const policy = validatePasswordPolicy(password);
+            if (!policy.valid) {
+                return res.status(400).json({ success: false, message: 'La contraseña no cumple los requisitos mínimos de seguridad.', errors: policy.errors });
+            }
+
+            const record = await PasswordResetToken.findOne({
+                where: { token_hash: hashResetToken(token) }
+            });
+
+            if (!record || record.used_at || new Date(record.expires_at) < new Date()) {
+                return res.status(400).json({ success: false, message: 'El enlace de recuperación es inválido o ha expirado.' });
+            }
+
+            const user = await User.findOne({ where: { usu_id: record.user_id, role: 'contratista_user' } });
+            if (!user || !user.activo) {
+                return res.status(400).json({ success: false, message: 'El enlace de recuperación es inválido o ha expirado.' });
+            }
+
+            const hashedPassword = await bcrypt.hash(password, 10);
+            await user.update({ password: hashedPassword });
+            await record.update({ used_at: new Date() });
+
+            res.json({ success: true, message: 'Contraseña actualizada correctamente. Ya puede iniciar sesión.' });
+        } catch (error) {
+            console.error('Reset password error:', error);
+            res.status(500).json({ success: false, message: 'Error al restablecer la contraseña.' });
+        }
     },
 
     // POST /api/auth/login-external

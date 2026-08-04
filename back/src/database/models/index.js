@@ -37,6 +37,7 @@ const Vinculacion = require('./Vinculacion');
 const Administracion = require('./Administracion');
 const VinculacionUsuario = require('./VinculacionUsuario');
 const ContratistaUsuario = require('./ContratistaUsuario');
+const PasswordResetToken = require('./PasswordResetToken');
 
 // ============= SPRINT 1 ASSOCIATIONS =============
 
@@ -254,6 +255,10 @@ ContratistaUsuario.belongsTo(User, { foreignKey: 'user_id', as: 'usuario' });
 Contratista.hasMany(ContratistaUsuario, { foreignKey: 'contratista_id', as: 'contratistasUsuario' });
 ContratistaUsuario.belongsTo(Contratista, { foreignKey: 'contratista_id', as: 'contratista' });
 
+// PasswordResetToken -> User
+User.hasMany(PasswordResetToken, { foreignKey: 'user_id', as: 'passwordResetTokens' });
+PasswordResetToken.belongsTo(User, { foreignKey: 'user_id', as: 'usuario' });
+
 module.exports = {
     sequelize,
     // Sprint 1
@@ -286,5 +291,6 @@ module.exports = {
     Vinculacion,
     Administracion,
     VinculacionUsuario,
-    ContratistaUsuario
+    ContratistaUsuario,
+    PasswordResetToken
 };

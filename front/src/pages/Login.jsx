@@ -1,6 +1,6 @@
 // IEEE Trace: REQ-007 | pages/Login.jsx
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Login.css';
 
@@ -67,6 +67,12 @@ export default function Login() {
                     <button type="submit" className="btn-primary" disabled={loading}>
                         {loading ? 'Ingresando...' : 'Ingresar'}
                     </button>
+
+                    <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>
+                        <Link to="/recuperar-password" style={{ fontSize: '0.85rem' }}>
+                            ¿Olvidó su contraseña? Recuperar contraseña
+                        </Link>
+                    </div>
                 </form>
 
                 <div className="login-footer">

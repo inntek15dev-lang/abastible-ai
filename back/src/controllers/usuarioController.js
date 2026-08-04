@@ -1,6 +1,7 @@
 // IEEE Trace: REQ-007 | US-006, US-007 | usuarioController.js
 const bcrypt = require('bcryptjs');
 const { User, TipoContratista, Dependencia, ContratistaAsignacion, Contratista, Vinculacion, Administracion, Programa, ContratistaUsuario, VinculacionUsuario } = require('../database/models');
+const emailService = require('../services/emailService');
 
 const usuarioController = {
     // GET /api/usuarios
@@ -406,6 +407,15 @@ const usuarioController = {
                     vinculacion_id: Number(vinculacion_id),
                     activo: 1
                 });
+
+                // Envío de credenciales por correo. No debe bloquear la creación del
+                // usuario si el correo falla (igual que el resto de notificaciones del
+                // sistema, ver emailService/registroController).
+                try {
+                    await emailService.notifyCredencialesNuevoUsuario(usuario, password);
+                } catch (emailErr) {
+                    console.error('Error enviando credenciales al nuevo contratista_user:', emailErr);
+                }
             }
 
             // Assign multiple contractors if role is contratista_admin and contratista_ids is provided
