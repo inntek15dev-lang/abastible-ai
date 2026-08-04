@@ -7,7 +7,8 @@
 // Corre esto en AMBOS entornos (prepro y prod) y compara la salida:
 //   docker exec <contenedor> node scripts/debug_prod_incident.js
 const axios = require('axios');
-const { sequelize, User, ContratistaUsuario, Administracion, Registro, Compromiso, RegistroLog } = require('../src/database/models');
+const { Op } = require('sequelize');
+const { sequelize, User, ContratistaUsuario, Administracion, Registro, Compromiso, RegistroLog, Hallazgo } = require('../src/database/models');
 
 const isProduction = process.env.NODE_ENV === 'production';
 const defaultPizzaUrl = isProduction
@@ -84,9 +85,13 @@ async function run() {
     console.log('\n=== 3. DETECCIÓN DE HUÉRFANOS (evidencia de pérdida de datos reales) ===');
     const allUsuIds = new Set((await User.findAll({ attributes: ['usu_id'] })).map(u => Number(u.usu_id)));
 
-    const registrosPorAuditor = await Registro.findAll({ attributes: ['auditor_id'], where: { auditor_id: { [require('sequelize').Op.not]: null } } });
-    const auditorIdsHuerfanos = [...new Set(registrosPorAuditor.map(r => Number(r.auditor_id)).filter(id => !allUsuIds.has(id)))];
-    console.log('Registros con auditor_id que ya no existe en users:', auditorIdsHuerfanos.length, auditorIdsHuerfanos.slice(0, 10));
+    const registrosPorAuditor = await Registro.findAll({ attributes: ['auditado_por'], where: { auditado_por: { [Op.not]: null } } });
+    const auditorIdsHuerfanos = [...new Set(registrosPorAuditor.map(r => Number(r.auditado_por)).filter(id => !allUsuIds.has(id)))];
+    console.log('Registros con auditado_por que ya no existe en users:', auditorIdsHuerfanos.length, auditorIdsHuerfanos.slice(0, 10));
+
+    const hallazgosPorAuditor = await Hallazgo.findAll({ attributes: ['auditor_id'], where: { auditor_id: { [Op.not]: null } } });
+    const hallazgoAuditorHuerfanos = [...new Set(hallazgosPorAuditor.map(h => Number(h.auditor_id)).filter(id => !allUsuIds.has(id)))];
+    console.log('Hallazgos con auditor_id que ya no existe en users:', hallazgoAuditorHuerfanos.length, hallazgoAuditorHuerfanos.slice(0, 10));
 
     const adminsHuerfanos = await Administracion.findAll({ attributes: ['administrador_contrato_id'] });
     const adcIdsHuerfanos = [...new Set(adminsHuerfanos.map(a => Number(a.administrador_contrato_id)).filter(id => !allUsuIds.has(id)))];
@@ -95,6 +100,16 @@ async function run() {
     const cuHuerfanos = await ContratistaUsuario.findAll({ attributes: ['user_id'] });
     const cuIdsHuerfanos = [...new Set(cuHuerfanos.map(c => Number(c.user_id)).filter(id => !allUsuIds.has(id)))];
     console.log('ContratistaUsuario con user_id que ya no existe en users:', cuIdsHuerfanos.length, cuIdsHuerfanos.slice(0, 10));
+
+    const compromisosHuerfanos = await Compromiso.findAll({ attributes: ['responsable_id', 'creado_por_id'] });
+    const compResponsableHuerfanos = [...new Set(compromisosHuerfanos.map(c => Number(c.responsable_id)).filter(id => id && !allUsuIds.has(id)))];
+    const compCreadoPorHuerfanos = [...new Set(compromisosHuerfanos.map(c => Number(c.creado_por_id)).filter(id => id && !allUsuIds.has(id)))];
+    console.log('Compromisos con responsable_id huérfano:', compResponsableHuerfanos.length, compResponsableHuerfanos.slice(0, 10));
+    console.log('Compromisos con creado_por_id huérfano:', compCreadoPorHuerfanos.length, compCreadoPorHuerfanos.slice(0, 10));
+
+    const logsHuerfanos = await RegistroLog.findAll({ attributes: ['user_id'], where: { user_id: { [Op.not]: null } } });
+    const logUserIdsHuerfanos = [...new Set(logsHuerfanos.map(l => Number(l.user_id)).filter(id => !allUsuIds.has(id)))];
+    console.log('RegistroLog con user_id que ya no existe en users:', logUserIdsHuerfanos.length, logUserIdsHuerfanos.slice(0, 10));
 
     // 4. Esquema de tablas clave (para comparar prepro vs prod estructuralmente).
     console.log('\n=== 4. ESQUEMA DE TABLAS CLAVE (comparar contra el otro entorno) ===');
