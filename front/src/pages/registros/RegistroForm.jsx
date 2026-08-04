@@ -42,9 +42,13 @@ export default function RegistroForm() {
     const [reaperturaModal, setReaperturaModal] = useState({ show: false });
     const [errorModal, setErrorModal] = useState({ show: false, message: '' });
     const [registroCerrado, setRegistroCerrado] = useState(false);
-    const isLocked = isReadOnly || (isAdminOrADC 
-        ? ['auditada', 'finalizado'].includes(form.estado_auditoria) 
+    const isLocked = isReadOnly || (isAdminOrADC
+        ? ['auditada', 'finalizado'].includes(form.estado_auditoria)
         : (registroCerrado && !['pendiente', 'pendiente_subsanacion', 'reabierto'].includes(form.estado_auditoria)));
+    // Solo admin/administrador_contrato pueden crear un registro para CUALQUIER empresa
+    // (el resto siempre tiene su propia empresa pre-cargada, ver initData más abajo), y
+    // solo tiene sentido buscar/cambiar de empresa al crear uno nuevo, no al editar.
+    const canSearchContractor = isAdminOrADC && !isEdit && !isLocked;
     const [confirmModal, setConfirmModal] = useState({
         isOpen: false,
         action: null,
@@ -157,6 +161,8 @@ export default function RegistroForm() {
     const [selectedContractor, setSelectedContractor] = useState(null);
     const [searchNombre, setSearchNombre] = useState('');
     const [searchRut, setSearchRut] = useState('');
+    const [showNombreDropdown, setShowNombreDropdown] = useState(false);
+    const [showRutDropdown, setShowRutDropdown] = useState(false);
 
 
     const [reviewComments, setReviewComments] = useState('');
@@ -725,25 +731,108 @@ export default function RegistroForm() {
                     </h2>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                        {/* Visualización de Asignación / Vinculación (Solo Lectura) */}
+                        {/* Selección de Empresa (búsqueda por nombre/RUT) o Asignación Vinculada */}
                         <div style={{ gridColumn: 'span 3' }}>
-                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Asignación Vinculada (Servicio & Dependencia)</label>
-                            <div style={{
-                                ...readOnlyStyle,
-                                padding: '0.6rem 1rem',
-                                borderRadius: '6px',
-                                fontSize: '0.9rem',
-                                fontWeight: 500,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                minHeight: '36px',
-                                backgroundColor: '#f8fafc',
-                                border: '1px solid #e2e8f0'
-                            }}>
-                                <ClipboardCheck size={18} color={themeColors.headerBg} />
-                                {selectedAssignmentLabel}
-                            </div>
+                            {canSearchContractor && !selectedContractor ? (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <div style={{ position: 'relative' }}>
+                                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Buscar Empresa por Nombre *</label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="Escriba el nombre de la empresa..."
+                                            autoComplete="off"
+                                            value={searchNombre}
+                                            onChange={(e) => { setSearchNombre(e.target.value); setShowNombreDropdown(true); }}
+                                            onFocus={() => setShowNombreDropdown(true)}
+                                            onBlur={() => setTimeout(() => setShowNombreDropdown(false), 150)}
+                                        />
+                                        {showNombreDropdown && searchNombre && (
+                                            <div style={{ position: 'absolute', zIndex: 20, top: '100%', left: 0, right: 0, marginTop: '2px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', maxHeight: '220px', overflowY: 'auto', boxShadow: '0 6px 16px rgba(0,0,0,0.1)' }}>
+                                                {filteredByNombre.length > 0 ? filteredByNombre.slice(0, 30).map(c => (
+                                                    <div key={c.id} onMouseDown={() => handleContractorSelect(c)}
+                                                        style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', fontSize: '0.85rem', borderBottom: '1px solid #f1f5f9' }}>
+                                                        <div style={{ fontWeight: 600, color: '#1e293b' }}>{c.nombre}</div>
+                                                        <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{c.rut}</div>
+                                                    </div>
+                                                )) : (
+                                                    <div style={{ padding: '0.6rem 0.75rem', fontSize: '0.8rem', color: '#94a3b8' }}>Sin resultados</div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div style={{ position: 'relative' }}>
+                                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary, marginBottom: '0.25rem' }}>Buscar Empresa por RUT *</label>
+                                        <input
+                                            type="text"
+                                            className="form-control"
+                                            placeholder="Escriba el RUT de la empresa..."
+                                            autoComplete="off"
+                                            value={searchRut}
+                                            onChange={(e) => { setSearchRut(e.target.value); setShowRutDropdown(true); }}
+                                            onFocus={() => setShowRutDropdown(true)}
+                                            onBlur={() => setTimeout(() => setShowRutDropdown(false), 150)}
+                                        />
+                                        {showRutDropdown && searchRut && (
+                                            <div style={{ position: 'absolute', zIndex: 20, top: '100%', left: 0, right: 0, marginTop: '2px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '6px', maxHeight: '220px', overflowY: 'auto', boxShadow: '0 6px 16px rgba(0,0,0,0.1)' }}>
+                                                {filteredByRut.length > 0 ? filteredByRut.slice(0, 30).map(c => (
+                                                    <div key={c.id} onMouseDown={() => handleContractorSelect(c)}
+                                                        style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', fontSize: '0.85rem', borderBottom: '1px solid #f1f5f9' }}>
+                                                        <div style={{ fontWeight: 600, color: '#1e293b' }}>{c.rut}</div>
+                                                        <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{c.nombre}</div>
+                                                    </div>
+                                                )) : (
+                                                    <div style={{ padding: '0.6rem 0.75rem', fontSize: '0.8rem', color: '#94a3b8' }}>Sin resultados</div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: themeColors.textSecondary }}>Asignación Vinculada (Servicio & Dependencia)</label>
+                                        {canSearchContractor && selectedContractor && (
+                                            <button type="button" onClick={clearContractor}
+                                                style={{ fontSize: '0.72rem', color: themeColors.headerBg, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, padding: 0 }}>
+                                                Cambiar empresa
+                                            </button>
+                                        )}
+                                    </div>
+                                    {canSearchContractor && selectedContractor && assignments.length > 1 ? (
+                                        <select
+                                            className="form-control"
+                                            value={form.contratista_asignacion_id || ''}
+                                            onChange={(e) => setForm(prev => ({ ...prev, contratista_asignacion_id: e.target.value }))}
+                                            style={{ padding: '0.6rem 1rem', borderRadius: '6px', fontSize: '0.9rem' }}
+                                        >
+                                            <option value="">Seleccione una asignación...</option>
+                                            {assignments.map(a => (
+                                                <option key={a.id} value={a.id}>
+                                                    {`${a.servicio?.programa?.nombre || ''} » ${a.servicio?.nombre || ''} » ${a.dependencia?.nombre || ''} (Contrato ${a.numero_contrato || '-'})`}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <div style={{
+                                            ...readOnlyStyle,
+                                            padding: '0.6rem 1rem',
+                                            borderRadius: '6px',
+                                            fontSize: '0.9rem',
+                                            fontWeight: 500,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            minHeight: '36px',
+                                            backgroundColor: '#f8fafc',
+                                            border: '1px solid #e2e8f0'
+                                        }}>
+                                            <ClipboardCheck size={18} color={themeColors.headerBg} />
+                                            {selectedAssignmentLabel}
+                                        </div>
+                                    )}
+                                </>
+                            )}
                         </div>
 
                         {/* Row 2 */}

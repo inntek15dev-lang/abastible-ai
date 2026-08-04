@@ -842,12 +842,13 @@ const dashboardController = {
 
             // --- Date range for registros: rango explícito (periodo_desde/hasta) si se
             // envía, si no 6 meses terminando en 'periodo' o en el mes actual ---
+            // 'today' también se usa más abajo para generar las columnas (últimos 6 meses).
+            const today = req.query.periodo ? new Date(req.query.periodo + '-01') : new Date();
             let startMonth, endMonth;
             if (periodo_desde && periodo_hasta) {
                 startMonth = new Date(periodo_desde + '-01');
                 endMonth = new Date(new Date(periodo_hasta + '-01').setMonth(new Date(periodo_hasta + '-01').getMonth() + 1, 0));
             } else {
-                const today = req.query.periodo ? new Date(req.query.periodo + '-01') : new Date();
                 endMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
                 startMonth = new Date(today.getFullYear(), today.getMonth() - 5, 1);
             }

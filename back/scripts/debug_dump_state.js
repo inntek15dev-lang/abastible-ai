@@ -65,6 +65,27 @@ async function run() {
             console.log(`  "${key}" -> ${rows.map(r => `id=${r.id} nombre="${r.nombre}" [${codePoints(r.nombre)}]`).join(' | ')}`);
         }
     }
+
+    console.log('\n=== DEPENDENCIAS — grupos duplicados ignorando mayúsculas/espacios (posible duplicado "invisible") ===');
+    const depByNorm = new Map();
+    deps.forEach(d => {
+        const key = (d.nombre || '').trim().toUpperCase();
+        if (!depByNorm.has(key)) depByNorm.set(key, []);
+        depByNorm.get(key).push(d);
+    });
+    let depNormDupGroups = 0;
+    for (const [key, rows] of depByNorm) {
+        if (rows.length > 1) {
+            depNormDupGroups++;
+            console.log(`  "${key}" -> ${rows.map(r => `id=${r.id} nombre="${r.nombre}" [${codePoints(r.nombre)}]`).join(' | ')}`);
+        }
+    }
+    console.log(`Grupos duplicados (normalizado): ${depNormDupGroups}`);
+
+    console.log('\n=== TODAS las dependencias (nombre + codepoints, para inspección visual) ===');
+    deps.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '')).forEach(d => {
+        console.log(`  id=${d.id} "${d.nombre}" [${codePoints(d.nombre)}]`);
+    });
 }
 
 run()
