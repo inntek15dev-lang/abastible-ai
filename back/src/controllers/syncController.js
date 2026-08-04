@@ -2,7 +2,7 @@ const axios = require('axios');
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
 const { sequelize, Contratista, TipoContratista, Dependencia, Vinculacion, User, Administracion, Gerencia, Subgerencia, ContratistaUsuario } = require('../database/models');
-const { adoptOvalUsuId, nextLocalUsuId, isProtectedEmail, LOCAL_USU_ID_START } = require('../utils/usuIdHomologation');
+const { adoptOvalUsuId, nextLocalUsuId, isProtectedEmail } = require('../utils/usuIdHomologation');
 const {
     DEMO_CONTRATISTA_RUT, DEMO_GERENCIA, DEMO_SUBGERENCIA, DEMO_SERVICIO, DEMO_DEPENDENCIA
 } = require('../utils/demoScaffold');
@@ -1236,26 +1236,12 @@ const syncData = async (req, res) => {
                 await processGranularItem(item, (it, tx) => syncSingleContratistaAdmin(it, tx, { prune: true }));
             }
             if (mirror) {
-                // OVAL a veces NO envía usu_id para este tipo de ítem (confirmado: la API de
-                // producción no lo trae nunca para contratista_admin/administrador_contrato,
-                // aunque preprod sí). Si el objetivo se construyera solo con usu_id, quedaría
-                // vacío y podaría a TODOS los usuarios locales (incidente real en prod: 0
-                // contratista_admin sobrevivientes tras un solo full-sync). Por eso el
-                // objetivo ancla por usu_id cuando OVAL lo da, y por email cuando no.
-                const targetByUid = new Set(items.filter(i => i.usu_id != null).map(i => Number(i.usu_id)));
-                const targetByEmail = new Set(items.filter(i => i.usu_id == null && i.email).map(i => normalize(i.email)));
+                const target = new Set(items.filter(i => i.usu_id != null).map(i => Number(i.usu_id)));
                 const local = await User.findAll({ where: { role: 'contratista_admin' } });
-                // Las cuentas fijas del sistema (seed.js) nunca son residuales.
-                const stale = local.filter(u => {
-                    if (isProtectedEmail(u.email)) return false;
-                    if (Number(u.usu_id) < LOCAL_USU_ID_START) {
-                        // Tiene usu_id real de OVAL: solo se poda si OVAL efectivamente
-                        // reporta usu_ids en esta sincronización y el suyo no aparece.
-                        return targetByUid.size > 0 && !targetByUid.has(Number(u.usu_id));
-                    }
-                    // usu_id del rango local (OVAL nunca se lo entregó): anclar por email.
-                    return !targetByEmail.has(normalize(u.email));
-                });
+                // Las cuentas fijas del sistema (seed.js) nunca son residuales, aunque su
+                // usu_id nunca vaya a coincidir con el rango real de OVAL — mismo guard que
+                // adoptOvalUsuId, pero aplicado aquí porque la poda es una consulta aparte.
+                const stale = local.filter(u => u.usu_id != null && !target.has(Number(u.usu_id)) && !isProtectedEmail(u.email));
                 await pruneOneByOne('contratista_admin', stale, async (u) => {
                     await ContratistaUsuario.destroy({ where: { user_id: u.usu_id } });
                     await u.destroy();
@@ -1331,18 +1317,10 @@ const syncData = async (req, res) => {
                 await processGranularItem(item, (it, tx) => syncSingleAdministradorContrato(it, tx, { prune: true }));
             }
             if (mirror) {
-                // Ver comentario equivalente (y el porqué) en la poda de contratista_admin
-                // más arriba: anclar por usu_id cuando OVAL lo entrega, por email si no.
-                const targetByUid = new Set(items.filter(i => i.usu_id != null).map(i => Number(i.usu_id)));
-                const targetByEmail = new Set(items.filter(i => i.usu_id == null && i.email).map(i => normalize(i.email)));
+                const target = new Set(items.filter(i => i.usu_id != null).map(i => Number(i.usu_id)));
                 const local = await User.findAll({ where: { role: 'administrador_contrato' } });
-                const stale = local.filter(u => {
-                    if (isProtectedEmail(u.email)) return false;
-                    if (Number(u.usu_id) < LOCAL_USU_ID_START) {
-                        return targetByUid.size > 0 && !targetByUid.has(Number(u.usu_id));
-                    }
-                    return !targetByEmail.has(normalize(u.email));
-                });
+                // Ver comentario equivalente en la poda de contratista_admin más arriba.
+                const stale = local.filter(u => u.usu_id != null && !target.has(Number(u.usu_id)) && !isProtectedEmail(u.email));
                 await pruneOneByOne('administrador_contrato', stale, async (u) => {
                     await Administracion.destroy({ where: { administrador_contrato_id: u.usu_id } });
                     await u.destroy();
