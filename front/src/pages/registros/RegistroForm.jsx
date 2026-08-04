@@ -207,8 +207,35 @@ export default function RegistroForm() {
                     // Fetch contractor COMPANIES (Contratista entities, not individual users)
                     const response = await api.get('/contratistas');
                     setContractors(response.data.data);
+                } else if (user.role === 'contratista_user' && user.vinculacion_id) {
+                    // Ancla por vinculacion_id (fuente real del scope de este rol, ver
+                    // middleware/auth.js). Antes se intentaba heredar la empresa leyendo el
+                    // perfil del usuario "padre" (parent_id) vía /usuarios/:id, pero esa
+                    // lectura de OTRO usuario está bloqueada por el chequeo anti-IDOR de esa
+                    // ruta (un contratista_user no puede ver el perfil de alguien más), lo
+                    // que rompía por completo la creación de registros para este rol.
+                    const vincResp = await api.get('/vinculaciones');
+                    const vinc = vincResp.data.data?.[0];
+                    if (vinc) {
+                        // Set assignments/contratista_asignacion_id directamente en vez de
+                        // depender del useEffect de más abajo (espera contractors[].
+                        // vinculaciones anidado, tal como lo entrega /contratistas — /
+                        // vinculaciones no tiene esa forma). Sin esto, la asignación nunca
+                        // quedaba seleccionada y el programa/servicio tampoco se resolvía,
+                        // dejando la lista de actividades sin filtrar por programa.
+                        setAssignments([vinc]);
+                        setForm(prev => ({ ...prev, contratista_asignacion_id: prev.contratista_asignacion_id || vinc.id }));
+                        if (vinc.contratista) {
+                            setContractors([{ ...vinc.contratista, vinculaciones: [vinc] }]);
+                            setSelectedContractor(vinc.contratista.id);
+                            setSearchNombre(vinc.contratista.nombre);
+                            setSearchRut(vinc.contratista.rut);
+                        }
+                    } else {
+                        console.error('[RegistroForm] contratista_user sin vinculación resuelta por /vinculaciones (vinculacion_id=' + user.vinculacion_id + ')');
+                    }
                 } else {
-                    // Contractor user: fetch own profile to get associated company
+                    // Contractor admin: fetch own profile to get associated company
                     const response = await api.get(`/usuarios/${user.id}`);
                     const userData = response.data.data;
                     if (userData.contratistaEntidad) {
