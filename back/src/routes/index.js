@@ -155,6 +155,11 @@ router.get('/auth/me', auth, authController.me);
  */
 router.post('/auth/logout', auth, authController.logout);
 
+// Recuperación de contraseña (contratista_user) — rutas públicas, sin sesión.
+router.post('/auth/forgot-password', authController.forgotPassword);
+router.get('/auth/reset-password/:token', authController.validateResetToken);
+router.post('/auth/reset-password', authController.resetPassword);
+
 // Programas (Admin only)
 /**
  * @swagger

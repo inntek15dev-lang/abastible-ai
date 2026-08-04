@@ -9,6 +9,8 @@ import Layout from './components/Layout';
 // Sprint 1 Pages
 import Login from './pages/Login';
 import LoginExternal from './pages/LoginExternal';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import ProgramaList from './pages/programas/ProgramaList';
 import ProgramaForm from './pages/programas/ProgramaForm';
@@ -108,6 +110,16 @@ function AppRoutes() {
       <Route path="/sso" element={
         <PublicRoute>
           <LoginExternal />
+        </PublicRoute>
+      } />
+      <Route path="/recuperar-password" element={
+        <PublicRoute>
+          <ForgotPassword />
+        </PublicRoute>
+      } />
+      <Route path="/restablecer-password" element={
+        <PublicRoute>
+          <ResetPassword />
         </PublicRoute>
       } />
 
