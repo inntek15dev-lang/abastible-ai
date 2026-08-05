@@ -182,7 +182,10 @@ export default function UsuarioList() {
                     <thead>
                         <tr>
                             <th>Nombre</th>
+                            <th>USU_ID</th>
+                            <th>Usuario</th>
                             <th>Email</th>
+                            <th>RUT</th>
                             <th>Rol</th>
                             <th>Empresa</th>
                             <th>Estado</th>
@@ -192,13 +195,16 @@ export default function UsuarioList() {
                     <tbody>
                         {filteredUsuarios.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="empty-row">No hay usuarios que coincidan con el filtro</td>
+                                <td colSpan={9} className="empty-row">No hay usuarios que coincidan con el filtro</td>
                             </tr>
                         ) : (
                             filteredUsuarios.map((usuario) => (
                                 <tr key={usuario.id}>
                                     <td>{usuario.name}</td>
+                                    <td>{usuario.usu_id ?? '-'}</td>
+                                    <td>{usuario.usuario || '-'}</td>
                                     <td>{usuario.email}</td>
+                                    <td>{usuario.rut || '-'}</td>
                                     <td>
                                         <span className={`badge ${getRoleBadge(usuario.role)}`}>
                                             {usuario.role.replace(/_/g, ' ')}
