@@ -26,7 +26,42 @@ const servicioController = {
                     [{ model: Subgerencia, as: 'subgerencias' }, { model: TipoContratista, as: 'servicios' }, 'nombre', 'ASC']
                 ]
             });
-            res.json({ success: true, data: gerencias });
+
+            // Contadores reales de vinculaciones/contratistas por servicio. Se calculan aparte
+            // (no como subquery correlacionado dentro del include anidado, como sí hace index())
+            // porque el alias SQL que Sequelize genera para TipoContratista dentro de
+            // Gerencia->Subgerencia->servicios no es simplemente "TipoContratista", y depender de
+            // ese alias interno generado automáticamente sería frágil.
+            const counts = await Vinculacion.findAll({
+                attributes: [
+                    'servicio_id',
+                    [sequelize.fn('COUNT', sequelize.col('id')), 'vinculaciones_count'],
+                    [sequelize.fn('COUNT', sequelize.fn('DISTINCT', sequelize.col('contratista_id'))), 'contratistas_count']
+                ],
+                where: { activo: 1 },
+                group: ['servicio_id'],
+                raw: true
+            });
+            const countsByServicio = new Map(
+                counts.map(c => [Number(c.servicio_id), {
+                    vinculaciones_count: Number(c.vinculaciones_count) || 0,
+                    contratistas_count: Number(c.contratistas_count) || 0
+                }])
+            );
+
+            const data = gerencias.map(g => {
+                const gJson = g.toJSON();
+                gJson.subgerencias = (gJson.subgerencias || []).map(sub => {
+                    sub.servicios = (sub.servicios || []).map(serv => ({
+                        ...serv,
+                        ...(countsByServicio.get(Number(serv.id)) || { vinculaciones_count: 0, contratistas_count: 0 })
+                    }));
+                    return sub;
+                });
+                return gJson;
+            });
+
+            res.json({ success: true, data });
         } catch (error) {
             console.error('Hierarchy error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener jerarquía' });

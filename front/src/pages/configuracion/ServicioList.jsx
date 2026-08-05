@@ -274,12 +274,15 @@ function ServicioNode({ servicio, canWrite, canExec, handleDelete }) {
                     </div>
                     <div>
                         <h5 className="node-title" style={{ fontSize: '0.9rem' }}>{servicio.nombre}</h5>
-                        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem' }}>
+                        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                                 <Link2 size={10} /> {servicio.vinculaciones_count || 0} VINCULACIONES
                             </span>
                             <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                                 <Users size={10} /> {servicio.contratistas_count || 0} CONTRATISTAS
+                            </span>
+                            <span style={{ fontSize: '0.75rem', color: servicio.programa?.nombre ? '#6366f1' : '#cbd5e1', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                <Layers size={10} /> {servicio.programa?.nombre || 'Sin programa asignado'}
                             </span>
                         </div>
                     </div>
