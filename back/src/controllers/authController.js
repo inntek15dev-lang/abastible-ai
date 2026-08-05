@@ -2,9 +2,8 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { sequelize, User, Role, Privilegio, Contratista, ContratistaUsuario, VinculacionUsuario, PasswordResetToken } = require('../database/models');
+const { User, Role, Privilegio, Contratista, ContratistaUsuario, VinculacionUsuario, PasswordResetToken } = require('../database/models');
 const { decryptDataString } = require('../utils/cryptoHelper');
-const { adoptOvalUsuId } = require('../utils/usuIdHomologation');
 const { validatePasswordPolicy } = require('../utils/passwordPolicy');
 const emailService = require('../services/emailService');
 
@@ -366,49 +365,29 @@ const authController = {
             }
             console.log(`[SSO ROL MAPPING] Rol externo: "${extRol}" -> Rol interno mapeado: "${mappedRole}"`);
 
-            // Find user strictly by usu_id
-            let user = null;
-            if (userData.usu_id) {
-                console.log(`[DB QUERY] Buscando usuario existente con usu_id: ${userData.usu_id}`);
-                user = await User.findOne({
-                    where: { usu_id: userData.usu_id }
-                });
-            } else {
+            // Autenticación estricta por AMBOS parámetros: el usu_id y el email reportados
+            // por OVAL deben coincidir simultáneamente con el MISMO usuario local. Ya no se
+            // acepta un match parcial (solo usu_id, o solo email) ni se re-clavija el usu_id
+            // automáticamente desde este endpoint — esa homologación sigue existiendo para el
+            // proceso de sincronización (usuIdHomologation.js), pero el login SSO exige que la
+            // identidad ya esté correctamente homologada de antemano.
+            if (!userData.usu_id) {
                 console.warn("[SSO] Validación inválida: No se encontró usu_id en la respuesta del SSO");
                 return res.status(400).json({
                     success: false,
                     message: 'La respuesta de validación del SSO no contiene un usu_id válido'
                 });
             }
-            console.log(`  Resultado: ${user ? `Encontrado (usu_id: ${user.usu_id}, Rol: ${user.role})` : 'No encontrado'}`);
 
-            // Fallback de homologación: si no existe por usu_id pero sí por email,
-            // se adopta el usu_id de Oval (autoritativo) re-apuntando las referencias.
-            if (!user && userData.email) {
-                const fallbackEmail = userData.email.toString().trim().toLowerCase();
-                const byEmail = await User.findOne({ where: { email: fallbackEmail } });
-                if (byEmail) {
-                    console.log(`[SSO HOMOLOGACIÓN] Usuario encontrado por email (${fallbackEmail}); adoptando usu_id ${userData.usu_id} de Oval (local actual: ${byEmail.usu_id}).`);
-                    const t = await sequelize.transaction();
-                    try {
-                        user = await adoptOvalUsuId({
-                            sequelize,
-                            User,
-                            email: byEmail.email,
-                            targetUsuId: userData.usu_id,
-                            transaction: t
-                        });
-                        await t.commit();
-                    } catch (homologErr) {
-                        await t.rollback();
-                        console.error(`[SSO HOMOLOGACIÓN] No se pudo adoptar usu_id ${userData.usu_id} para ${fallbackEmail}:`, homologErr.message);
-                        user = null;
-                    }
-                }
-            }
+            const ssoEmail = userData.email.toString().trim().toLowerCase();
+            console.log(`[DB QUERY] Buscando usuario local con usu_id: ${userData.usu_id} Y email: ${ssoEmail}`);
+            const user = await User.findOne({
+                where: { usu_id: userData.usu_id, email: ssoEmail }
+            });
+            console.log(`  Resultado: ${user ? `Encontrado (usu_id: ${user.usu_id}, email: ${user.email}, Rol: ${user.role})` : 'No encontrado'}`);
 
             if (!user) {
-                console.warn(`[SSO ACCESS DENIED] Usuario con usu_id ${userData.usu_id} no está registrado en el sistema local.`);
+                console.warn(`[SSO ACCESS DENIED] Ningún usuario local tiene simultáneamente usu_id=${userData.usu_id} y email=${ssoEmail}.`);
                 return res.status(401).json({
                     success: false,
                     message: 'Usuario no registrado en el sistema. Contacte al administrador.'
