@@ -34,7 +34,8 @@ async function ensureSchema() {
                     { name: 'dependencia_id', type: 'BIGINT UNSIGNED NULL', after: 'tipo_contratista_id' },
                     { name: 'eecc_nombre', type: 'VARCHAR(255) NULL', after: 'dependencia_id' },
                     { name: 'rut', type: 'VARCHAR(20) NULL', after: 'eecc_nombre' },
-                    { name: 'telefono', type: 'VARCHAR(50) NULL', after: 'rut' }
+                    { name: 'telefono', type: 'VARCHAR(50) NULL', after: 'rut' },
+                    { name: 'session_token', type: 'VARCHAR(64) NULL', after: 'activo' }
                 ]
             },
             {
