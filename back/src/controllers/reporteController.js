@@ -2,6 +2,7 @@ const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
 const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso, Elemento, Vinculacion, Administracion, sequelize, Contratista, TipoContratista, Dependencia, Programa } = require('../database/models');
 const { Op } = require('sequelize');
+const { getProgramaScope, intersectWithProgramaScope } = require('../utils/programaScopeHelper');
 
 module.exports = {
     async registroPdf(req, res) {
@@ -200,6 +201,16 @@ module.exports = {
                     [Op.lt]: endDate
                 };
             }
+
+            // Filtro global (todos los roles, sin excepción, incluido admin/oval): solo
+            // registros cuya vinculación tiene Programa asignado en su servicio.
+            const soloHuerfanosCG = req.query.solo_huerfanos === 'true';
+            const programaScopeCG = await getProgramaScope();
+            whereRegistro.contratista_asignacion_id = intersectWithProgramaScope(
+                whereRegistro.contratista_asignacion_id,
+                programaScopeCG.vinculacionIds,
+                soloHuerfanosCG
+            );
 
             // 1. Resumen de Registros
             const registros = await Registro.findAll({
@@ -673,6 +684,12 @@ module.exports = {
             endMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         }
 
+        // Filtro global (todos los roles, sin excepción, incluido admin/oval): solo
+        // vinculaciones con Programa asignado en su servicio.
+        const soloHuerfanosMatrixData = req.query.solo_huerfanos === 'true';
+        const programaScopeMatrixData = await getProgramaScope();
+        whereVinculacion.id = intersectWithProgramaScope(whereVinculacion.id, programaScopeMatrixData.vinculacionIds, soloHuerfanosMatrixData);
+
         // 4. Fetch
         const vinculaciones = await Vinculacion.findAll({
             where: whereVinculacion,
@@ -778,6 +795,16 @@ module.exports = {
             const endDate = new Date(new Date(endMonthDate).setMonth(endMonthDate.getMonth() + 1));
             whereRegistro.periodo = { [Op.gte]: startDate, [Op.lt]: endDate };
         }
+
+        // Filtro global (todos los roles, sin excepción, incluido admin/oval): solo
+        // registros cuya vinculación tiene Programa asignado en su servicio.
+        const soloHuerfanosStats = req.query.solo_huerfanos === 'true';
+        const programaScopeStats = await getProgramaScope();
+        whereRegistro.contratista_asignacion_id = intersectWithProgramaScope(
+            whereRegistro.contratista_asignacion_id,
+            programaScopeStats.vinculacionIds,
+            soloHuerfanosStats
+        );
 
         const registros = await Registro.findAll({
             where: whereRegistro,

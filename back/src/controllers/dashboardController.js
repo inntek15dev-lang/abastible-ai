@@ -19,6 +19,7 @@ const {
     Subgerencia,
     sequelize
 } = require('../database/models');
+const { getProgramaScope, intersectWithProgramaScope } = require('../utils/programaScopeHelper');
 
 const dashboardController = {
     // GET /api/dashboard/kpis
@@ -179,6 +180,18 @@ const dashboardController = {
                     whereRegistro.contratista_asignacion_id = { [Op.in]: serviceVincIds.length > 0 ? serviceVincIds : [-1] };
                 }
             }
+
+            // Filtro global (todos los roles, sin excepción, incluido admin/oval): un
+            // Registro solo cuenta si su vinculación tiene Programa asignado. Se compone
+            // con el resto de filtros de esta función mediante el mismo patrón de
+            // intersección de ids ya usado arriba (adc_id, gerencia/subgerencia, servicio).
+            const soloHuerfanos = req.query.solo_huerfanos === 'true';
+            const programaScope = await getProgramaScope();
+            whereRegistro.contratista_asignacion_id = intersectWithProgramaScope(
+                whereRegistro.contratista_asignacion_id,
+                programaScope.vinculacionIds,
+                soloHuerfanos
+            );
 
             // Total registros
             const totalRegistros = await Registro.count({ where: whereRegistro });
@@ -430,6 +443,12 @@ const dashboardController = {
                 }
             }
 
+            // Filtro global (todos los roles, sin excepción): solo vinculaciones con
+            // Programa asignado en su servicio.
+            const soloHuerfanosCump = req.query.solo_huerfanos === 'true';
+            const programaScopeCump = await getProgramaScope();
+            vincWhere.id = intersectWithProgramaScope(vincWhere.id, programaScopeCump.vinculacionIds, soloHuerfanosCump);
+
             const data = await Registro.findAll({
                 attributes: [
                     'contratista_asignacion_id',
@@ -555,6 +574,16 @@ const dashboardController = {
                     whereRegistro.contratista_asignacion_id = { [Op.in]: vincIdsFromHierarchy.length > 0 ? vincIdsFromHierarchy : [-1] };
                 }
             }
+
+            // Filtro global (todos los roles, sin excepción): solo actividad de
+            // vinculaciones con Programa asignado en su servicio.
+            const soloHuerfanosAct = req.query.solo_huerfanos === 'true';
+            const programaScopeAct = await getProgramaScope();
+            whereRegistro.contratista_asignacion_id = intersectWithProgramaScope(
+                whereRegistro.contratista_asignacion_id,
+                programaScopeAct.vinculacionIds,
+                soloHuerfanosAct
+            );
 
             // Recent registros
             const registrosRecientes = await Registro.findAll({
@@ -714,6 +743,16 @@ const dashboardController = {
 
             const startMonth = months[0].date;
 
+            // Filtro global (todos los roles, sin excepción): solo vinculaciones con
+            // Programa asignado en su servicio.
+            const soloHuerfanosHist = req.query.solo_huerfanos === 'true';
+            const programaScopeHist = await getProgramaScope();
+            whereRegistro.contratista_asignacion_id = intersectWithProgramaScope(
+                whereRegistro.contratista_asignacion_id,
+                programaScopeHist.vinculacionIds,
+                soloHuerfanosHist
+            );
+
             // Query Data
             const registros = await Registro.findAll({
                 where: {
@@ -839,6 +878,12 @@ const dashboardController = {
                     whereVinculacion.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
                 }
             }
+
+            // Filtro global (todos los roles, sin excepción): solo vinculaciones con
+            // Programa asignado en su servicio.
+            const soloHuerfanosMatrix = req.query.solo_huerfanos === 'true';
+            const programaScopeMatrix = await getProgramaScope();
+            whereVinculacion.id = intersectWithProgramaScope(whereVinculacion.id, programaScopeMatrix.vinculacionIds, soloHuerfanosMatrix);
 
             // --- Date range for registros: rango explícito (periodo_desde/hasta) si se
             // envía, si no 6 meses terminando en 'periodo' o en el mes actual ---

@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const { Dependencia, TipoContratista, Vinculacion, Administracion, Gerencia, Subgerencia, User, Role, Contratista, VinculacionUsuario } = require('../database/models');
+const { getProgramaScope } = require('../utils/programaScopeHelper');
 
 // Helper: get cIds robustly for contratista_admin
 const getContratistaAdminIds = (user) => {
@@ -109,7 +110,14 @@ const resourceController = {
                 group: ['Dependencia.id']
             });
 
-            const depIds = scopedDeps.map(d => d.id);
+            // Filtro global (todos los roles, sin excepción): solo dependencias con al
+            // menos una vinculación cuyo servicio tiene Programa asignado.
+            const soloHuerfanos = req.query.solo_huerfanos === 'true';
+            const scope = await getProgramaScope();
+            const eligibleDepIds = new Set(scope.dependenciaIds.map(Number));
+            const depIds = scopedDeps
+                .map(d => d.id)
+                .filter(id => soloHuerfanos ? !eligibleDepIds.has(Number(id)) : eligibleDepIds.has(Number(id)));
             if (depIds.length === 0) return res.json({ success: true, data: [] });
 
             const data = await Dependencia.findAll({
@@ -180,7 +188,14 @@ const resourceController = {
                 group: ['TipoContratista.id']
             });
 
-            const typeIds = scopedTypes.map(t => t.id);
+            // Filtro global (todos los roles, sin excepción): solo servicios con Programa
+            // asignado (o su inverso, solo_huerfanos=true, para revisión/limpieza).
+            const soloHuerfanos = req.query.solo_huerfanos === 'true';
+            const scope = await getProgramaScope();
+            const eligibleServicioIds = new Set(scope.servicioIds.map(Number));
+            const typeIds = scopedTypes
+                .map(t => t.id)
+                .filter(id => soloHuerfanos ? !eligibleServicioIds.has(Number(id)) : eligibleServicioIds.has(Number(id)));
             if (typeIds.length === 0) return res.json({ success: true, data: [] });
 
             const data = await TipoContratista.findAll({
@@ -200,14 +215,19 @@ const resourceController = {
     async gerencias(req, res) {
         try {
             const { role, id } = req.user;
+            const soloHuerfanos = req.query.solo_huerfanos === 'true';
+            const scope = await getProgramaScope();
+            const eligibleGerenciaIds = new Set(scope.gerenciaIds.map(Number));
+            const passesPrograma = (gId) => soloHuerfanos ? !eligibleGerenciaIds.has(Number(gId)) : eligibleGerenciaIds.has(Number(gId));
 
-            // admin / sin restricción
+            // admin / sin restricción de rol — igual se aplica el filtro global de programa
             if (!role || ['admin', 'oval'].includes(role)) {
-                const data = await Gerencia.findAll({
+                const all = await Gerencia.findAll({
                     attributes: ['id', 'nombre'],
                     where: { activo: 1 },
                     order: [['nombre', 'ASC']]
                 });
+                const data = all.filter(g => passesPrograma(g.id));
                 return res.json({ success: true, data });
             }
 
@@ -236,7 +256,7 @@ const resourceController = {
                 attributes: ['gerencia_id'],
                 group: ['gerencia_id']
             });
-            const gerenciaIds = vincs.map(v => v.gerencia_id).filter(Boolean);
+            const gerenciaIds = vincs.map(v => v.gerencia_id).filter(Boolean).filter(passesPrograma);
 
             if (gerenciaIds.length === 0) return res.json({ success: true, data: [] });
 
@@ -258,16 +278,21 @@ const resourceController = {
         try {
             const { role, id } = req.user;
             const { gerencia_id } = req.query;
+            const soloHuerfanos = req.query.solo_huerfanos === 'true';
+            const scope = await getProgramaScope();
+            const eligibleSubgerenciaIds = new Set(scope.subgerenciaIds.map(Number));
+            const passesPrograma = (sId) => soloHuerfanos ? !eligibleSubgerenciaIds.has(Number(sId)) : eligibleSubgerenciaIds.has(Number(sId));
 
-            // admin / sin restricción
+            // admin / sin restricción de rol — igual se aplica el filtro global de programa
             if (!role || ['admin', 'oval'].includes(role)) {
                 const where = { activo: 1 };
                 if (gerencia_id && gerencia_id !== 'todas') where.gerencia_id = gerencia_id;
-                const data = await Subgerencia.findAll({
+                const all = await Subgerencia.findAll({
                     attributes: ['id', 'nombre', 'gerencia_id'],
                     where,
                     order: [['nombre', 'ASC']]
                 });
+                const data = all.filter(s => passesPrograma(s.id));
                 return res.json({ success: true, data });
             }
 
@@ -299,7 +324,7 @@ const resourceController = {
                 attributes: ['subgerencia_id'],
                 group: ['subgerencia_id']
             });
-            const subgerenciaIds = vincs.map(v => v.subgerencia_id).filter(Boolean);
+            const subgerenciaIds = vincs.map(v => v.subgerencia_id).filter(Boolean).filter(passesPrograma);
 
             if (subgerenciaIds.length === 0) return res.json({ success: true, data: [] });
 

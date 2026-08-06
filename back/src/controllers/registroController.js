@@ -22,6 +22,7 @@ const {
 } = require('../database/models');
 const emailService = require('../services/emailService'); // Import emailService
 const { getAllowedVinculacionIds, isRegistroInScope } = require('../utils/scopeHelper');
+const { getProgramaScope, scopeWhereClause } = require('../utils/programaScopeHelper');
 
 const registroController = {
     // GET /api/registros
@@ -145,6 +146,17 @@ const registroController = {
                 }
             }
 
+            // Filtro global (todos los roles, sin excepción, incluido admin/oval): un
+            // Registro solo es visible si su vinculación tiene un Programa asignado en su
+            // servicio. Retroactivo: si el Programa se desasigna después, el registro
+            // desaparece de inmediato. solo_huerfanos=true invierte el filtro para
+            // revisión/limpieza (ver RN). Se combina con Op.and para no alterar la forma
+            // (a veces Op.or) que ya tiene `where` según el rol.
+            const soloHuerfanos = req.query.solo_huerfanos === 'true';
+            const programaScope = await getProgramaScope();
+            const programaCondition = { contratista_asignacion_id: scopeWhereClause(programaScope.vinculacionIds, soloHuerfanos) };
+            const finalWhere = Object.keys(where).length > 0 ? { [Op.and]: [where, programaCondition] } : programaCondition;
+
             const registros = await Registro.findAll({
                 attributes: {
                     include: [
@@ -158,7 +170,7 @@ const registroController = {
                         ]
                     ]
                 },
-                where,
+                where: finalWhere,
                 include: [
                     { model: User, as: 'usuario', attributes: ['id', 'name', 'email', 'eecc_nombre', 'rut'] },
                     { model: User, as: 'auditor', attributes: ['id', 'name'] },
@@ -257,6 +269,17 @@ const registroController = {
                 return res.status(403).json({ success: false, message: 'No tiene permiso para ver este registro' });
             }
 
+            // Filtro global de completitud de datos (ver index()): un registro cuya
+            // vinculación no tiene Programa asignado nunca debe poder visualizarse, salvo
+            // que se pida explícitamente la vista de huérfanos para limpieza/revisión.
+            const soloHuerfanos = req.query.solo_huerfanos === 'true';
+            const programaScope = await getProgramaScope();
+            const eligibleVincIds = new Set(programaScope.vinculacionIds.map(Number));
+            const isEligible = eligibleVincIds.has(Number(registro.contratista_asignacion_id));
+            if (soloHuerfanos ? isEligible : !isEligible) {
+                return res.status(404).json({ success: false, message: 'Registro no encontrado' });
+            }
+
             res.json({ success: true, data: registro });
         } catch (error) {
             console.error('Registro show error:', error);
@@ -333,6 +356,16 @@ const registroController = {
                 if (!vinculacion) {
                     return res.status(400).json({ success: false, message: 'La vinculación seleccionada no pertenece al contratista' });
                 }
+
+                // Filtro global de completitud de datos: no se puede crear un registro para
+                // una vinculación cuyo servicio no tiene Programa de cumplimiento asignado.
+                if (!vinculacion.servicio || vinculacion.servicio.programa_id == null) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'El servicio de esta vinculación no tiene un Programa de cumplimiento asignado. Solicite al administrador que asigne un Programa antes de crear registros.'
+                    });
+                }
+
                 depNombre = vinculacion.dependencia?.nombre || null;
                 depId = vinculacion.dependencia_id || null;
                 numContrato = vinculacion.numero_contrato || null;
@@ -434,6 +467,14 @@ const registroController = {
             // estado 'pendiente', ya que el único chequeo previo era por estado_auditoria.
             if (!(await isRegistroInScope(req.user, registro.id))) {
                 return res.status(403).json({ success: false, message: 'No tiene permiso para modificar este registro' });
+            }
+
+            // Filtro global de completitud de datos (ver index()): si la vinculación de
+            // este registro ya no tiene un servicio con Programa asignado, no debe poder
+            // seguir editándose (huérfano — solo revisable/eliminable por admin/oval).
+            const programaScopeUpdate = await getProgramaScope();
+            if (!programaScopeUpdate.vinculacionIds.map(Number).includes(Number(registro.contratista_asignacion_id))) {
+                return res.status(404).json({ success: false, message: 'Registro no encontrado' });
             }
 
             // Can't edit if already audited (unless in creation or subsanation phase)
