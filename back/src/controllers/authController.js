@@ -86,8 +86,15 @@ const authController = {
                 });
             }
 
+            // Sesión única: cada login exitoso emite un nuevo sid y lo persiste en el
+            // usuario, invalidando de inmediato cualquier token anterior (local o SSO) de
+            // esa misma cuenta — el middleware auth.js rechaza cualquier token cuyo sid no
+            // coincida con el vigente, sin importar que su firma/expiración sigan siendo válidas.
+            const sessionToken = crypto.randomBytes(32).toString('hex');
+            await user.update({ session_token: sessionToken });
+
             const token = jwt.sign(
-                { id: user.usu_id || user.id, email: user.email, role: user.role },
+                { id: user.usu_id || user.id, email: user.email, role: user.role, sid: sessionToken },
                 process.env.JWT_SECRET,
                 { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
             );
@@ -114,6 +121,7 @@ const authController = {
 
             const userData = user.toJSON();
             delete userData.password;
+            delete userData.session_token;
             userData.id = user.usu_id || user.id; // Map id to usu_id with fallback to legacy id
 
             res.json({
@@ -426,8 +434,13 @@ const authController = {
                 });
             }
 
+            // Sesión única: mismo mecanismo que el login local (ver authController.login) —
+            // invalida cualquier token previo de esta cuenta, sea local o SSO.
+            const sessionToken = crypto.randomBytes(32).toString('hex');
+            await user.update({ session_token: sessionToken });
+
             const jwtToken = jwt.sign(
-                { id: user.usu_id || user.id, email: user.email, role: user.role },
+                { id: user.usu_id || user.id, email: user.email, role: user.role, sid: sessionToken },
                 process.env.JWT_SECRET,
                 { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
             );
@@ -457,6 +470,7 @@ const authController = {
 
             const userJson = user.toJSON();
             delete userJson.password;
+            delete userJson.session_token;
             userJson.id = user.usu_id || user.id; // Map id to usu_id with fallback to legacy id
 
             const finalResponse = {

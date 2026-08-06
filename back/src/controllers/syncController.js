@@ -156,6 +156,10 @@ const compareData = async (req, res) => {
         const extContratistaAdmins = new Map();
         const extVinculaciones = [];
         const extAdministradorContratos = new Map();
+        // Objeto top-level "administradores" (hermano de "contratistas"): admins generales
+        // (rol admin) que antes no contemplaba la sincronización — API homologada para
+        // incluirlos, ver RN-002.
+        const extAdministradores = new Map();
 
         const subgerenciaToGerenciaMap = new Map();
         // Pre-populate map from local database
@@ -202,6 +206,19 @@ const compareData = async (req, res) => {
         if (Array.isArray(fullResponse.dependencias)) {
             fullResponse.dependencias.forEach(d => {
                 if (d && d.nombre) extDependencias.set(normalize(d.nombre), d.nombre);
+            });
+        }
+
+        if (Array.isArray(fullResponse.administradores)) {
+            fullResponse.administradores.forEach(a => {
+                if (a && a.email) {
+                    const emailNorm = normalize(a.email);
+                    extAdministradores.set(emailNorm, {
+                        usu_id: a.usu_id != null ? a.usu_id : null,
+                        nombre: sanitizeString(a.nombre) || a.email.split('@')[0],
+                        email: a.email
+                    });
+                }
             });
         }
 
@@ -548,7 +565,24 @@ const compareData = async (req, res) => {
             });
         });
 
+        // Admins generales (rol admin): solo drift de nombre/activo/rol, sin asociaciones
+        // que comparar (a diferencia de contratista_admin/administrador_contrato).
+        const diffAdministradores = [];
+        extAdministradores.forEach((data, normEmail) => {
+            let estado = computeUserEstado(data);
+            if (estado === 'exists') {
+                const localU = locUsersByEmail.get(normEmail);
+                const cleanName = sanitizeString(data.nombre);
+                const nameDrift = cleanName && localU.name !== cleanName;
+                const inactivo = localU.activo !== 1;
+                const roleDrift = localU.role !== 'admin';
+                if (nameDrift || inactivo || roleDrift) estado = 'updated';
+            }
+            diffAdministradores.push({ ...data, estado });
+        });
+
         res.json({
+            administradores: diffAdministradores,
             gerencias: diffGerencias,
             subgerencias: diffSubgerencias,
             servicios: diffServicios,
@@ -1024,8 +1058,59 @@ const syncData = async (req, res) => {
             return user;
         };
 
+        // Admins generales (rol admin), desde el objeto top-level "administradores".
+        // Sin asociaciones que gestionar (ni empresa, ni vinculación) — a diferencia de
+        // contratista_admin/administrador_contrato, aquí OVAL es la fuente autoritativa
+        // de "quién es admin" y el rol se fuerza siempre a 'admin' incondicionalmente.
+        // isProtectedEmail (dentro de resolveHomologatedUser) sigue protegiendo cuentas
+        // fijas del sistema como admin@abastible.cl, sin excepción.
+        const syncSingleAdministrador = async (item, transaction) => {
+            const cleanEmail = sanitizeEmail(item.email);
+            if (!cleanEmail) throw new Error('Email de administrador es requerido.');
+
+            const cleanName = sanitizeString(item.nombre) || cleanEmail.split('@')[0] || 'Administrador';
+            let { user, created } = await resolveHomologatedUser({
+                cleanEmail,
+                cleanName,
+                role: 'admin',
+                ovalUsuId: item.usu_id,
+                transaction
+            });
+
+            if (!created) {
+                await user.update({
+                    role: 'admin',
+                    email: cleanEmail,
+                    name: cleanName,
+                    activo: 1
+                }, { transaction });
+            }
+
+            if (user.usu_id == null) {
+                throw new Error(`Usuario ${cleanEmail} sin usu_id homologado.`);
+            }
+
+            return user;
+        };
+
         // Dispatch per entity type
-        if (type === 'gerencias') {
+        if (type === 'administradores') {
+            // Cada ítem es el estado completo de ese admin en OVAL => se poda como
+            // contratista_admin/administrador_contrato (mismo patrón de agregación por email).
+            for (const item of items) {
+                await processGranularItem(item, syncSingleAdministrador);
+            }
+            if (mirror) {
+                const target = new Set(items.filter(i => i.usu_id != null).map(i => Number(i.usu_id)));
+                const local = await User.findAll({ where: { role: 'admin' } });
+                // Cuentas fijas del sistema (seed.js, ej. admin@abastible.cl) nunca son
+                // residuales — mismo guard que contratista_admin/administrador_contrato.
+                const stale = local.filter(u => u.usu_id != null && !target.has(Number(u.usu_id)) && !isProtectedEmail(u.email));
+                await pruneOneByOne('administradores', stale, async (u) => {
+                    await u.destroy();
+                }, (u) => ({ usu_id: u.usu_id, email: u.email, nombre: u.name }));
+            }
+        } else if (type === 'gerencias') {
             for (const item of items) {
                 await processGranularItem(item, syncSingleGerencia);
             }

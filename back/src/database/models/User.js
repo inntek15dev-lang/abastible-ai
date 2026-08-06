@@ -71,6 +71,14 @@ const User = sequelize.define('User', {
         type: DataTypes.TINYINT(1),
         allowNull: false,
         defaultValue: 1
+    },
+    session_token: {
+        // Marca la sesión activa vigente: se regenera en cada login exitoso (local o SSO)
+        // y se incrusta en el JWT emitido (claim "sid"). El middleware auth.js compara
+        // ambos en cada request; si no coinciden, un login posterior desde otro lugar ya
+        // invalidó ese token, aunque su firma y expiración sigan siendo válidas.
+        type: DataTypes.STRING(64),
+        allowNull: true
     }
 }, {
     tableName: 'users',

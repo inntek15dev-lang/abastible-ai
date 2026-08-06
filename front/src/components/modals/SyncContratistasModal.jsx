@@ -70,14 +70,15 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
     };
 
     const steps = [
-        { label: 'Gerencias', key: 'gerencias', title: 'Paso 1: Sincronizar Gerencias' },
-        { label: 'Subgerencias', key: 'subgerencias', title: 'Paso 2: Sincronizar Subgerencias' },
-        { label: 'Servicios', key: 'servicios', title: 'Paso 3: Sincronizar Servicios' },
-        { label: 'Dependencias', key: 'dependencias', title: 'Paso 4: Sincronizar Dependencias' },
-        { label: 'Contratistas', key: 'contratistas', title: 'Paso 5: Sincronizar Contratistas' },
-        { label: 'Contratista Admin', key: 'contratista_admin', title: 'Paso 6: Sincronizar Admins de Contratistas' },
-        { label: 'Vinculaciones', key: 'vinculaciones', title: 'Paso 7: Sincronizar Vinculaciones' },
-        { label: 'Admin Contratos', key: 'administrador_contrato', title: 'Paso 8: Sincronizar Admins de Contratos' }
+        { label: 'Administradores', key: 'administradores', title: 'Paso 1: Sincronizar Administradores' },
+        { label: 'Gerencias', key: 'gerencias', title: 'Paso 2: Sincronizar Gerencias' },
+        { label: 'Subgerencias', key: 'subgerencias', title: 'Paso 3: Sincronizar Subgerencias' },
+        { label: 'Servicios', key: 'servicios', title: 'Paso 4: Sincronizar Servicios' },
+        { label: 'Dependencias', key: 'dependencias', title: 'Paso 5: Sincronizar Dependencias' },
+        { label: 'Contratistas', key: 'contratistas', title: 'Paso 6: Sincronizar Contratistas' },
+        { label: 'Contratista Admin', key: 'contratista_admin', title: 'Paso 7: Sincronizar Admins de Contratistas' },
+        { label: 'Vinculaciones', key: 'vinculaciones', title: 'Paso 8: Sincronizar Vinculaciones' },
+        { label: 'Admin Contratos', key: 'administrador_contrato', title: 'Paso 9: Sincronizar Admins de Contratos' }
     ];
 
     const currentKey = steps[step]?.key;
@@ -112,6 +113,7 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                     );
                 case 'contratista_admin':
                 case 'administrador_contrato':
+                case 'administradores':
                     return (
                         item.nombre?.toLowerCase().includes(term) ||
                         item.email?.toLowerCase().includes(term)
@@ -153,7 +155,7 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
             } else if (currentKey === 'contratistas') {
                 if (item.nombre) candidates.push(item.nombre);
                 if (item.rut) candidates.push(item.rut);
-            } else if (currentKey === 'contratista_admin' || currentKey === 'administrador_contrato') {
+            } else if (currentKey === 'contratista_admin' || currentKey === 'administrador_contrato' || currentKey === 'administradores') {
                 if (item.nombre) candidates.push(item.nombre);
                 if (item.email) candidates.push(item.email);
             } else if (currentKey === 'vinculaciones') {
@@ -221,6 +223,7 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
             case 'contratista_admin': return item.email;
             case 'vinculaciones': return `${item.rut_contratista}|${item.servicio}|${item.dependencia}|${item.subgerencia}|${item.gerencia}`;
             case 'administrador_contrato': return item.email;
+            case 'administradores': return item.email;
             default: return JSON.stringify(item);
         }
     };
@@ -415,6 +418,7 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
             switch (type) {
                 case 'administrador_contrato': return `Detalle & Árbol de Asignaciones: Admin Contrato (${item.nombre || item.email})`;
                 case 'contratista_admin': return `Detalle & Árbol de Relaciones: Admin Contratista (${item.nombre || item.email})`;
+                case 'administradores': return `Detalle: Administrador (${item.nombre || item.email})`;
                 case 'contratistas': return `Detalle de Contratista: ${item.nombre} (${item.rut})`;
                 case 'vinculaciones': return `Detalle de Vinculación: ${item.contratista || item.rut_contratista}`;
                 case 'servicios': return `Detalle de Servicio: ${item.nombre}`;
@@ -869,7 +873,7 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                             className="w-full pl-10 pr-10 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white"
                             placeholder={`Buscar por nombre, ${
                                 currentKey === 'contratistas' ? 'RUT' :
-                                currentKey === 'contratista_admin' || currentKey === 'administrador_contrato' ? 'email' :
+                                currentKey === 'contratista_admin' || currentKey === 'administrador_contrato' || currentKey === 'administradores' ? 'email' :
                                 currentKey === 'vinculaciones' ? 'RUT, servicio, contrato' : 'detalles'
                             }...`}
                             value={searchTerm}
@@ -924,7 +928,7 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                         <thead className="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
                             <tr>
                                 <th className="px-6 py-3">
-                                    {currentKey === 'contratista_admin' || currentKey === 'administrador_contrato' ? 'Nombre / Email' : 'Nombre / Identificador'}
+                                    {currentKey === 'contratista_admin' || currentKey === 'administrador_contrato' || currentKey === 'administradores' ? 'Nombre / Email' : 'Nombre / Identificador'}
                                 </th>
                                 {currentKey === 'subgerencias' && <th className="px-6 py-3">Gerencia</th>}
                                 {currentKey === 'servicios' && <th className="px-6 py-3">Subgerencia</th>}
@@ -955,7 +959,7 @@ const SyncContratistasModal = ({ isOpen, onClose, onSyncComplete }) => {
                                                 <Eye size={16} className="text-orange-500 group-hover:scale-125 transition-transform shrink-0" />
                                                 <span className="group-hover:underline font-semibold">
                                                     {currentKey === 'contratistas' ? `${item.nombre} (${item.rut})` :
-                                                     currentKey === 'contratista_admin' || currentKey === 'administrador_contrato' ? `${item.nombre} (${item.email})` :
+                                                     currentKey === 'contratista_admin' || currentKey === 'administrador_contrato' || currentKey === 'administradores' ? `${item.nombre} (${item.email})` :
                                                      currentKey === 'vinculaciones' ? `${item.contratista} (${item.rut_contratista})` : item.nombre}
                                                 </span>
                                                 {currentKey === 'administrador_contrato' && item.asignaciones && (

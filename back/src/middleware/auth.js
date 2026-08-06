@@ -39,6 +39,17 @@ const authMiddleware = async (req, res, next) => {
             });
         }
 
+        // Sesión única: si el sid del token no coincide con el session_token vigente del
+        // usuario, un login posterior (local o SSO, desde otro dispositivo/pestaña) ya lo
+        // reemplazó. El token sigue siendo válido en firma/expiración, pero ya no es la
+        // sesión activa — se rechaza igual que un token expirado.
+        if (!decoded.sid || decoded.sid !== user.session_token) {
+            return res.status(401).json({
+                success: false,
+                message: 'Sesión finalizada: se inició sesión desde otro dispositivo o navegador.'
+            });
+        }
+
         // Load privileges based on role
         const role = await Role.findOne({ where: { name: user.role } });
         let privileges = [];
@@ -102,6 +113,7 @@ const authMiddleware = async (req, res, next) => {
         }
 
         const userJson = user.toJSON();
+        delete userJson.session_token;
         req.user = {
             ...userJson,
             id: user.usu_id || user.id, // Map id to usu_id with fallback to legacy id
