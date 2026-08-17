@@ -53,12 +53,14 @@ const resourceController = {
                     }]
                 }];
             } else if (role === 'contratista_user') {
-                const vincId = req.user.vinculacion_id;
-                if (vincId) {
+                const myVincIds = (req.user.vinculacion_ids && req.user.vinculacion_ids.length > 0)
+                    ? req.user.vinculacion_ids
+                    : (req.user.vinculacion_id ? [req.user.vinculacion_id] : []);
+                if (myVincIds.length > 0) {
                     include = [{
                         model: Vinculacion,
                         as: 'vinculaciones',
-                        where: { id: vincId },
+                        where: { id: { [Op.in]: myVincIds.map(Number) } },
                         required: true
                     }];
                 } else {
@@ -244,8 +246,10 @@ const resourceController = {
                 });
                 vincIds = vincs.map(v => v.id);
             } else if (role === 'contratista_user') {
-                const vincId = req.user.vinculacion_id;
-                vincIds = vincId ? [vincId] : [];
+                const myVincIds = (req.user.vinculacion_ids && req.user.vinculacion_ids.length > 0)
+                    ? req.user.vinculacion_ids
+                    : (req.user.vinculacion_id ? [req.user.vinculacion_id] : []);
+                vincIds = myVincIds.map(Number);
             }
 
             if (vincIds.length === 0) return res.json({ success: true, data: [] });
@@ -309,8 +313,10 @@ const resourceController = {
                 });
                 vincIds = vincs.map(v => v.id);
             } else if (role === 'contratista_user') {
-                const vincId = req.user.vinculacion_id;
-                vincIds = vincId ? [vincId] : [];
+                const myVincIds = (req.user.vinculacion_ids && req.user.vinculacion_ids.length > 0)
+                    ? req.user.vinculacion_ids
+                    : (req.user.vinculacion_id ? [req.user.vinculacion_id] : []);
+                vincIds = myVincIds.map(Number);
             }
 
             if (vincIds.length === 0) return res.json({ success: true, data: [] });

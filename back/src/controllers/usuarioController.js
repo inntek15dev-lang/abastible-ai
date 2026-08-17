@@ -34,27 +34,25 @@ const usuarioController = {
                 const isUser = req.user.role === 'contratista_user';
 
                 if (isUser) {
-                    // Contratista User: su ÚNICO scope es el contrato (Vinculación) al que fue
-                    // asignado — nunca las columnas contratista_id/tipo_contratista_id/
-                    // dependencia_id del propio User, que están SIEMPRE en NULL para este rol.
-                    // Comparar por esas columnas hace match contra CUALQUIER otro usuario cuyas
-                    // columnas también sean NULL (todo contratista_user del sistema, e incluso
-                    // admin/administrador_contrato) — fuga de datos entre empresas distintas.
-                    const myVincId = req.user.vinculacion_id || -1;
+                    // Contratista User: su scope son las vinculaciones asignadas (N contratos)
+                    // via VinculacionUsuario — nunca las columnas directas del User (siempre NULL).
+                    const myVincIds = (req.user.vinculacion_ids && req.user.vinculacion_ids.length > 0)
+                        ? req.user.vinculacion_ids
+                        : (req.user.vinculacion_id ? [req.user.vinculacion_id] : [-1]);
 
                     if (req.query.role === 'administrador_contrato') {
                         const admins = await Administracion.findAll({
-                            where: { activo: 1, vinculacion_id: myVincId },
+                            where: { activo: 1, vinculacion_id: { [Op.in]: myVincIds } },
                             attributes: ['administrador_contrato_id']
                         });
                         const adminIds = [...new Set(admins.map(a => a.administrador_contrato_id))];
                         if (adminIds.length === 0) return res.json({ success: true, data: [] });
                         where[Op.or] = [{ usu_id: adminIds }, { id: adminIds }];
                     } else {
-                        // Peers: otros contratista_user asignados a la MISMA vinculación (mismo
-                        // número de contrato), vía VinculacionUsuario — nunca por columnas null.
+                        // Peers: otros contratista_user asignados a las MISMAS vinculaciones,
+                        // vía VinculacionUsuario — nunca por columnas null.
                         const peers = await VinculacionUsuario.findAll({
-                            where: { vinculacion_id: myVincId, activo: 1 },
+                            where: { vinculacion_id: { [Op.in]: myVincIds }, activo: 1 },
                             attributes: ['user_id']
                         });
                         const peerIds = [...new Set(peers.map(p => p.user_id))];
@@ -230,12 +228,16 @@ const usuarioController = {
             if (!isSelf && !['admin', 'oval'].includes(req.user.role)) {
                 if (req.user.role === 'contratista_user') {
                     let sameVinc = false;
-                    if (usuario.role === 'contratista_user' && req.user.vinculacion_id) {
-                        const targetVinc = await VinculacionUsuario.findOne({
+                    const myVincIds = (req.user.vinculacion_ids && req.user.vinculacion_ids.length > 0)
+                        ? req.user.vinculacion_ids
+                        : (req.user.vinculacion_id ? [req.user.vinculacion_id] : []);
+                    if (usuario.role === 'contratista_user' && myVincIds.length > 0) {
+                        const targetVincs = await VinculacionUsuario.findAll({
                             where: { user_id: usuario.usu_id, activo: 1 },
                             attributes: ['vinculacion_id']
                         });
-                        sameVinc = !!targetVinc && Number(targetVinc.vinculacion_id) === Number(req.user.vinculacion_id);
+                        const targetVincIds = targetVincs.map(tv => Number(tv.vinculacion_id));
+                        sameVinc = targetVincIds.some(tvId => myVincIds.includes(tvId));
                     }
                     if (!sameVinc) {
                         return res.status(403).json({ success: false, message: 'No tiene permiso para ver este usuario' });
@@ -336,39 +338,41 @@ const usuarioController = {
                     });
                 }
 
-                // Check that vinculacion_id is provided
-                const { vinculacion_id } = req.body;
-                if (!vinculacion_id) {
+                // Check that vinculacion_ids (or vinculacion_id for compat) is provided
+                const vinculacion_ids = req.body.vinculacion_ids || (req.body.vinculacion_id ? [req.body.vinculacion_id] : []);
+                if (!vinculacion_ids || vinculacion_ids.length === 0) {
                     return res.status(400).json({
                         success: false,
-                        message: 'La vinculación es requerida para un usuario contratista.'
+                        message: 'Al menos una vinculación es requerida para un usuario contratista.'
                     });
                 }
 
-                // Verify vinculacion exists and is active
-                const v = await Vinculacion.findByPk(vinculacion_id);
-                if (!v || !v.activo) {
-                    return res.status(400).json({
-                        success: false,
-                        message: 'La vinculación seleccionada no existe o no está activa.'
-                    });
-                }
-
-                // If created by a contratista_admin, ensure they manage this contractor
-                if (req.user.role === 'contratista_admin') {
-                    const cIds = [];
-                    if (Array.isArray(req.user.contratista_ids) && req.user.contratista_ids.length > 0) {
-                        cIds.push(...req.user.contratista_ids.map(Number));
-                    }
-                    if (req.user.contratista_id && !cIds.includes(Number(req.user.contratista_id))) {
-                        cIds.push(Number(req.user.contratista_id));
-                    }
-
-                    if (!cIds.includes(Number(v.contratista_id))) {
-                        return res.status(403).json({
+                // Verify all vinculaciones exist and are active
+                for (const vId of vinculacion_ids) {
+                    const v = await Vinculacion.findByPk(vId);
+                    if (!v || !v.activo) {
+                        return res.status(400).json({
                             success: false,
-                            message: 'No tiene permisos para asignar este usuario a la vinculación seleccionada.'
+                            message: `La vinculación ${vId} no existe o no está activa.`
                         });
+                    }
+
+                    // If created by a contratista_admin, ensure they manage this contractor
+                    if (req.user.role === 'contratista_admin') {
+                        const cIds = [];
+                        if (Array.isArray(req.user.contratista_ids) && req.user.contratista_ids.length > 0) {
+                            cIds.push(...req.user.contratista_ids.map(Number));
+                        }
+                        if (req.user.contratista_id && !cIds.includes(Number(req.user.contratista_id))) {
+                            cIds.push(Number(req.user.contratista_id));
+                        }
+
+                        if (!cIds.includes(Number(v.contratista_id))) {
+                            return res.status(403).json({
+                                success: false,
+                                message: 'No tiene permisos para asignar este usuario a la vinculación seleccionada.'
+                            });
+                        }
                     }
                 }
             }
@@ -399,14 +403,15 @@ const usuarioController = {
                 activo: 1
             });
 
-            // If role is contratista_user, create VinculacionUsuario record
+            // If role is contratista_user, create N VinculacionUsuario records
             if (finalRole === 'contratista_user') {
-                const { vinculacion_id } = req.body;
-                await VinculacionUsuario.create({
+                const vinculacion_ids = req.body.vinculacion_ids || (req.body.vinculacion_id ? [req.body.vinculacion_id] : []);
+                const assocData = vinculacion_ids.map(vId => ({
                     user_id: usuario.usu_id,
-                    vinculacion_id: Number(vinculacion_id),
+                    vinculacion_id: Number(vId),
                     activo: 1
-                });
+                }));
+                await VinculacionUsuario.bulkCreate(assocData);
 
                 // Envío de credenciales por correo. No debe bloquear la creación del
                 // usuario si el correo falla (igual que el resto de notificaciones del
@@ -492,19 +497,18 @@ const usuarioController = {
                     return res.status(403).json({ success: false, message: 'No tiene permiso para editar este usuario' });
                 }
             } else if (req.user.role === 'contratista_user') {
-                // Can edit themselves OR peers assigned to the SAME vinculación (contrato).
-                // NUNCA comparar por contratista_id/tipo_contratista_id/dependencia_id: esas
-                // columnas están siempre en NULL para contratista_user, así que
-                // String(null) === String(null) matcheaba cualquier otro usuario con esas
-                // columnas null (todo contratista_user del sistema, e incluso admin /
-                // administrador_contrato) — fuga cross-tenant y escalamiento de privilegios.
+                // Can edit themselves OR peers assigned to ANY of the SAME vinculaciones.
                 let isSameScope = false;
-                if (usuario.role === 'contratista_user' && req.user.vinculacion_id) {
-                    const targetVinc = await VinculacionUsuario.findOne({
+                const myVincIds = (req.user.vinculacion_ids && req.user.vinculacion_ids.length > 0)
+                    ? req.user.vinculacion_ids
+                    : (req.user.vinculacion_id ? [req.user.vinculacion_id] : []);
+                if (usuario.role === 'contratista_user' && myVincIds.length > 0) {
+                    const targetVincs = await VinculacionUsuario.findAll({
                         where: { user_id: usuario.usu_id, activo: 1 },
                         attributes: ['vinculacion_id']
                     });
-                    isSameScope = !!targetVinc && Number(targetVinc.vinculacion_id) === Number(req.user.vinculacion_id);
+                    const targetVincIds = targetVincs.map(tv => Number(tv.vinculacion_id));
+                    isSameScope = targetVincIds.some(tvId => myVincIds.includes(tvId));
                 }
 
                 if (!isSelf && !isSameScope) {
@@ -571,16 +575,19 @@ const usuarioController = {
             // Remove id from updateData to prevent primary key issues
             delete updateData.id;
 
-            // If role is contratista_user, handle VinculacionUsuario update
+            // If role is contratista_user, handle VinculacionUsuario update (N vinculaciones)
             if (usuario.role === 'contratista_user') {
-                const { vinculacion_id } = req.body;
-                if (vinculacion_id) {
+                const vinculacion_ids = req.body.vinculacion_ids || (req.body.vinculacion_id ? [req.body.vinculacion_id] : null);
+                if (vinculacion_ids && Array.isArray(vinculacion_ids)) {
                     await VinculacionUsuario.destroy({ where: { user_id: usuario.usu_id } });
-                    await VinculacionUsuario.create({
-                        user_id: usuario.usu_id,
-                        vinculacion_id: Number(vinculacion_id),
-                        activo: 1
-                    });
+                    if (vinculacion_ids.length > 0) {
+                        const assocData = vinculacion_ids.map(vId => ({
+                            user_id: usuario.usu_id,
+                            vinculacion_id: Number(vId),
+                            activo: 1
+                        }));
+                        await VinculacionUsuario.bulkCreate(assocData);
+                    }
                 }
                 updateData.contratista_id = null;
                 updateData.tipo_contratista_id = null;
@@ -692,12 +699,16 @@ const usuarioController = {
             // matcheaba cualquier otro usuario, cross-tenant). El scope real es la vinculación.
             if (req.user.role === 'contratista_user') {
                 let isSameScope = false;
-                if (usuario.role === 'contratista_user' && req.user.vinculacion_id) {
-                    const targetVinc = await VinculacionUsuario.findOne({
+                const myVincIds = (req.user.vinculacion_ids && req.user.vinculacion_ids.length > 0)
+                    ? req.user.vinculacion_ids
+                    : (req.user.vinculacion_id ? [req.user.vinculacion_id] : []);
+                if (usuario.role === 'contratista_user' && myVincIds.length > 0) {
+                    const targetVincs = await VinculacionUsuario.findAll({
                         where: { user_id: usuario.usu_id, activo: 1 },
                         attributes: ['vinculacion_id']
                     });
-                    isSameScope = !!targetVinc && Number(targetVinc.vinculacion_id) === Number(req.user.vinculacion_id);
+                    const targetVincIds = targetVincs.map(tv => Number(tv.vinculacion_id));
+                    isSameScope = targetVincIds.some(tvId => myVincIds.includes(tvId));
                 }
                 if (!isSameScope) {
                     return res.status(403).json({ success: false, message: 'No tiene permiso para desactivar este usuario' });

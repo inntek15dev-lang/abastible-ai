@@ -61,11 +61,13 @@ const registroController = {
                     where.user_id = req.user.id;
                 }
             } else if (req.user.role === 'contratista_user') {
-                // Ancla por vinculacion_id (el contrato exacto asignado), no por user_id:
+                // Ancla por vinculacion_ids (los contratos asignados), no por user_id:
                 // varios contratista_user pueden compartir el mismo contrato (equipo de
-                // trabajadores), y todos deben ver los registros de ESE contrato, no solo
-                // los que ellos mismos crearon.
-                where.contratista_asignacion_id = req.user.vinculacion_id || -1;
+                // trabajadores), y todos deben ver los registros de ESOS contratos.
+                const myVincIds = (req.user.vinculacion_ids && req.user.vinculacion_ids.length > 0)
+                    ? req.user.vinculacion_ids
+                    : (req.user.vinculacion_id ? [req.user.vinculacion_id] : [-1]);
+                where.contratista_asignacion_id = { [Op.in]: myVincIds };
             } else if (req.user.role === 'administrador_contrato') {
                 // Admin de contrato: registros de las vinculaciones que administra, vía
                 // Administracion (administrador_contrato_id -> vinculacion_id), la fuente
@@ -323,16 +325,19 @@ const registroController = {
                 eeccNombre = empresa.nombre;
             }
 
-            // If contratista_user, strictly force their assigned vinculacion_id
+            // If contratista_user, strictly force their assigned vinculacion_ids
             let finalVincId = contratista_asignacion_id;
             if (req.user.role === 'contratista_user') {
-                if (!req.user.vinculacion_id) {
-                    return res.status(403).json({ success: false, message: 'El usuario no tiene una vinculación asignada.' });
+                const myVincIds = (req.user.vinculacion_ids && req.user.vinculacion_ids.length > 0)
+                    ? req.user.vinculacion_ids
+                    : (req.user.vinculacion_id ? [req.user.vinculacion_id] : []);
+                if (myVincIds.length === 0) {
+                    return res.status(403).json({ success: false, message: 'El usuario no tiene vinculaciones asignadas.' });
                 }
-                if (contratista_asignacion_id && Number(contratista_asignacion_id) !== Number(req.user.vinculacion_id)) {
-                    return res.status(403).json({ success: false, message: 'No tiene permiso para crear registros fuera de su vinculación.' });
+                if (contratista_asignacion_id && !myVincIds.includes(Number(contratista_asignacion_id))) {
+                    return res.status(403).json({ success: false, message: 'No tiene permiso para crear registros fuera de sus vinculaciones.' });
                 }
-                finalVincId = req.user.vinculacion_id;
+                finalVincId = contratista_asignacion_id || myVincIds[0];
             } else if (['contratista_admin', 'administrador_contrato'].includes(req.user.role)) {
                 // SECURITY: sin esto, un contratista_admin/administrador_contrato podía
                 // crear un registro para la vinculación de OTRA empresa que no administra

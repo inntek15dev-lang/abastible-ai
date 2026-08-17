@@ -170,21 +170,11 @@ module.exports = {
                     whereRegistro.id = -1;
                 }
             } else if (user.role === 'contratista_user') {
-                if (user.vinculacion_id) {
-                    whereRegistro.contratista_asignacion_id = Number(user.vinculacion_id);
-                } else if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
-                    const vincs = await Vinculacion.findAll({
-                        where: {
-                            contratista_id: user.contratista_id,
-                            servicio_id: user.tipo_contratista_id,
-                            dependencia_id: user.dependencia_id,
-                            activo: 1
-                        },
-                        attributes: ['id']
-                    });
-                    const vincIds = vincs.map(v => v.id);
-                    if (vincIds.length === 0) whereRegistro.id = -1;
-                    else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
+                const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
+                    ? user.vinculacion_ids
+                    : (user.vinculacion_id ? [user.vinculacion_id] : []);
+                if (myVincIds.length > 0) {
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: myVincIds.map(Number) };
                 } else {
                     whereRegistro.id = -1;
                 }
@@ -651,13 +641,14 @@ module.exports = {
             allowedContratistaIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
             whereVinculacion.contratista_id = { [Op.in]: allowedContratistaIds };
         } else if (user.role === 'contratista_user') {
-            // Ancla por vinculacion_id (el contrato exacto asignado). A diferencia de anclar
+            // Ancla por vinculacion_ids (los contratos asignados). A diferencia de anclar
             // por contratista_id/servicio_id/dependencia_id, estos NUNCA se tocan en el paso
             // 2 (los filtros de query solo escriben esas tres claves), así que ninguna query
-            // param puede pisar el scope. Antes, los tres campos SÍ quedaban sobrescritos por
-            // los filtros de abajo, permitiendo ver la matriz de cumplimiento de cualquier
-            // otra empresa/contrato pasando ?contratista_id=&servicio_id=&dependencia_id=.
-            whereVinculacion.id = user.vinculacion_id || -1;
+            // param puede pisar el scope.
+            const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
+                ? user.vinculacion_ids
+                : (user.vinculacion_id ? [user.vinculacion_id] : []);
+            whereVinculacion.id = myVincIds.length > 0 ? { [Op.in]: myVincIds.map(Number) } : -1;
         }
 
         // 2. Filters (Case-insensitive check for "todos" o "todas"). Para contratista_admin,

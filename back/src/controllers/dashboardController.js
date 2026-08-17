@@ -65,22 +65,12 @@ const dashboardController = {
                     whereRegistro.id = -1;
                 }
             } else if (user.role === 'contratista_user') {
-                if (user.vinculacion_id) {
-                    scopeVinculacionIds = [Number(user.vinculacion_id)];
-                    whereRegistro.contratista_asignacion_id = Number(user.vinculacion_id);
-                } else if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
-                    const vincs = await Vinculacion.findAll({
-                        where: {
-                            contratista_id: user.contratista_id,
-                            servicio_id: user.tipo_contratista_id,
-                            dependencia_id: user.dependencia_id,
-                            activo: 1
-                        },
-                        attributes: ['id']
-                    });
-                    scopeVinculacionIds = vincs.map(v => v.id);
-                    if (scopeVinculacionIds.length === 0) whereRegistro.id = -1;
-                    else whereRegistro.contratista_asignacion_id = { [Op.in]: scopeVinculacionIds };
+                const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
+                    ? user.vinculacion_ids
+                    : (user.vinculacion_id ? [user.vinculacion_id] : []);
+                if (myVincIds.length > 0) {
+                    scopeVinculacionIds = myVincIds.map(Number);
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: scopeVinculacionIds };
                 } else {
                     whereRegistro.id = -1;
                 }
@@ -399,16 +389,11 @@ const dashboardController = {
                 }
                 vincWhere.contratista_id = { [Op.in]: cIds.length > 0 ? cIds : [-1] };
             } else if (user.role === 'contratista_user') {
-                // Ancla por vinculacion_id (el contrato exacto asignado); las columnas
-                // contratista_id/tipo_contratista_id/dependencia_id vienen siempre NULL
-                // para este rol (ver middleware/auth.js), así que usarlas directo aquí
-                // dejaba a contratista_user sin resultados siempre.
-                if (user.vinculacion_id) {
-                    vincWhere.id = Number(user.vinculacion_id);
-                } else if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
-                    vincWhere.contratista_id = user.contratista_id;
-                    vincWhere.servicio_id = user.tipo_contratista_id;
-                    vincWhere.dependencia_id = user.dependencia_id;
+                const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
+                    ? user.vinculacion_ids
+                    : (user.vinculacion_id ? [user.vinculacion_id] : []);
+                if (myVincIds.length > 0) {
+                    vincWhere.id = { [Op.in]: myVincIds.map(Number) };
                 } else {
                     vincWhere.id = -1;
                 }
@@ -511,21 +496,11 @@ const dashboardController = {
                     whereRegistro.id = -1;
                 }
             } else if (user.role === 'contratista_user') {
-                if (user.vinculacion_id) {
-                    whereRegistro.contratista_asignacion_id = Number(user.vinculacion_id);
-                } else if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
-                    const vincs = await Vinculacion.findAll({
-                        where: {
-                            contratista_id: user.contratista_id,
-                            servicio_id: user.tipo_contratista_id,
-                            dependencia_id: user.dependencia_id,
-                            activo: 1
-                        },
-                        attributes: ['id']
-                    });
-                    const vincIds = vincs.map(v => v.id);
-                    if (vincIds.length === 0) whereRegistro.id = -1;
-                    else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
+                const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
+                    ? user.vinculacion_ids
+                    : (user.vinculacion_id ? [user.vinculacion_id] : []);
+                if (myVincIds.length > 0) {
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: myVincIds.map(Number) };
                 } else {
                     whereRegistro.id = -1;
                 }
@@ -658,22 +633,11 @@ const dashboardController = {
                     whereRegistro.id = -1;
                 }
             } else if (user.role === 'contratista_user') {
-                if (user.vinculacion_id) {
-                    const vincIds = [Number(user.vinculacion_id)];
-                    whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
-                } else if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
-                    const vincs = await Vinculacion.findAll({
-                        where: {
-                            contratista_id: user.contratista_id,
-                            servicio_id: user.tipo_contratista_id,
-                            dependencia_id: user.dependencia_id,
-                            activo: 1
-                        },
-                        attributes: ['id']
-                    });
-                    const vincIds = vincs.map(v => v.id);
-                    if (vincIds.length === 0) whereRegistro.id = -1;
-                    else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
+                const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
+                    ? user.vinculacion_ids
+                    : (user.vinculacion_id ? [user.vinculacion_id] : []);
+                if (myVincIds.length > 0) {
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: myVincIds.map(Number) };
                 } else {
                     whereRegistro.id = -1;
                 }
@@ -828,12 +792,11 @@ const dashboardController = {
                     whereVinculacion.id = -1;
                 }
             } else if (user.role === 'contratista_user') {
-                if (user.vinculacion_id) {
-                    whereVinculacion.id = Number(user.vinculacion_id);
-                } else if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
-                    whereVinculacion.contratista_id = user.contratista_id;
-                    whereVinculacion.servicio_id = user.tipo_contratista_id;
-                    whereVinculacion.dependencia_id = user.dependencia_id;
+                const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
+                    ? user.vinculacion_ids
+                    : (user.vinculacion_id ? [user.vinculacion_id] : []);
+                if (myVincIds.length > 0) {
+                    whereVinculacion.id = { [Op.in]: myVincIds.map(Number) };
                 } else {
                     whereVinculacion.id = -1;
                 }

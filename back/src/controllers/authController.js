@@ -109,14 +109,16 @@ const authController = {
                 contratistaIds.push(Number(user.contratista_id));
             }
 
-            // Load vinculacion_id for contratista_user
+            // Load vinculacion_ids for contratista_user (N vinculaciones)
+            let vinculacion_ids = [];
             let vinculacion_id = null;
             if (user.role === 'contratista_user') {
-                const vu = await VinculacionUsuario.findOne({
+                const vus = await VinculacionUsuario.findAll({
                     where: { user_id: user.usu_id || user.id, activo: 1 },
                     attributes: ['vinculacion_id']
                 });
-                vinculacion_id = vu ? Number(vu.vinculacion_id) : null;
+                vinculacion_ids = vus.map(vu => Number(vu.vinculacion_id));
+                vinculacion_id = vinculacion_ids.length > 0 ? vinculacion_ids[0] : null;
             }
 
             const userData = user.toJSON();
@@ -131,6 +133,7 @@ const authController = {
                     ...userData,
                     contratista_ids: contratistaIds,
                     vinculacion_id,
+                    vinculacion_ids,
                     privileges
                 }
             });
