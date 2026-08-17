@@ -19,6 +19,7 @@ const {
     Subgerencia,
     sequelize
 } = require('../database/models');
+const { getProgramaScope, intersectWithProgramaScope } = require('../utils/programaScopeHelper');
 
 const dashboardController = {
     // GET /api/dashboard/kpis
@@ -64,22 +65,12 @@ const dashboardController = {
                     whereRegistro.id = -1;
                 }
             } else if (user.role === 'contratista_user') {
-                if (user.vinculacion_id) {
-                    scopeVinculacionIds = [Number(user.vinculacion_id)];
-                    whereRegistro.contratista_asignacion_id = Number(user.vinculacion_id);
-                } else if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
-                    const vincs = await Vinculacion.findAll({
-                        where: {
-                            contratista_id: user.contratista_id,
-                            servicio_id: user.tipo_contratista_id,
-                            dependencia_id: user.dependencia_id,
-                            activo: 1
-                        },
-                        attributes: ['id']
-                    });
-                    scopeVinculacionIds = vincs.map(v => v.id);
-                    if (scopeVinculacionIds.length === 0) whereRegistro.id = -1;
-                    else whereRegistro.contratista_asignacion_id = { [Op.in]: scopeVinculacionIds };
+                const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
+                    ? user.vinculacion_ids
+                    : (user.vinculacion_id ? [user.vinculacion_id] : []);
+                if (myVincIds.length > 0) {
+                    scopeVinculacionIds = myVincIds.map(Number);
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: scopeVinculacionIds };
                 } else {
                     whereRegistro.id = -1;
                 }
@@ -179,6 +170,18 @@ const dashboardController = {
                     whereRegistro.contratista_asignacion_id = { [Op.in]: serviceVincIds.length > 0 ? serviceVincIds : [-1] };
                 }
             }
+
+            // Filtro global (todos los roles, sin excepción, incluido admin/oval): un
+            // Registro solo cuenta si su vinculación tiene Programa asignado. Se compone
+            // con el resto de filtros de esta función mediante el mismo patrón de
+            // intersección de ids ya usado arriba (adc_id, gerencia/subgerencia, servicio).
+            const soloHuerfanos = req.query.solo_huerfanos === 'true';
+            const programaScope = await getProgramaScope();
+            whereRegistro.contratista_asignacion_id = intersectWithProgramaScope(
+                whereRegistro.contratista_asignacion_id,
+                programaScope.vinculacionIds,
+                soloHuerfanos
+            );
 
             // Total registros
             const totalRegistros = await Registro.count({ where: whereRegistro });
@@ -386,16 +389,11 @@ const dashboardController = {
                 }
                 vincWhere.contratista_id = { [Op.in]: cIds.length > 0 ? cIds : [-1] };
             } else if (user.role === 'contratista_user') {
-                // Ancla por vinculacion_id (el contrato exacto asignado); las columnas
-                // contratista_id/tipo_contratista_id/dependencia_id vienen siempre NULL
-                // para este rol (ver middleware/auth.js), así que usarlas directo aquí
-                // dejaba a contratista_user sin resultados siempre.
-                if (user.vinculacion_id) {
-                    vincWhere.id = Number(user.vinculacion_id);
-                } else if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
-                    vincWhere.contratista_id = user.contratista_id;
-                    vincWhere.servicio_id = user.tipo_contratista_id;
-                    vincWhere.dependencia_id = user.dependencia_id;
+                const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
+                    ? user.vinculacion_ids
+                    : (user.vinculacion_id ? [user.vinculacion_id] : []);
+                if (myVincIds.length > 0) {
+                    vincWhere.id = { [Op.in]: myVincIds.map(Number) };
                 } else {
                     vincWhere.id = -1;
                 }
@@ -429,6 +427,12 @@ const dashboardController = {
                     vincWhere.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
                 }
             }
+
+            // Filtro global (todos los roles, sin excepción): solo vinculaciones con
+            // Programa asignado en su servicio.
+            const soloHuerfanosCump = req.query.solo_huerfanos === 'true';
+            const programaScopeCump = await getProgramaScope();
+            vincWhere.id = intersectWithProgramaScope(vincWhere.id, programaScopeCump.vinculacionIds, soloHuerfanosCump);
 
             const data = await Registro.findAll({
                 attributes: [
@@ -492,21 +496,11 @@ const dashboardController = {
                     whereRegistro.id = -1;
                 }
             } else if (user.role === 'contratista_user') {
-                if (user.vinculacion_id) {
-                    whereRegistro.contratista_asignacion_id = Number(user.vinculacion_id);
-                } else if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
-                    const vincs = await Vinculacion.findAll({
-                        where: {
-                            contratista_id: user.contratista_id,
-                            servicio_id: user.tipo_contratista_id,
-                            dependencia_id: user.dependencia_id,
-                            activo: 1
-                        },
-                        attributes: ['id']
-                    });
-                    const vincIds = vincs.map(v => v.id);
-                    if (vincIds.length === 0) whereRegistro.id = -1;
-                    else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
+                const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
+                    ? user.vinculacion_ids
+                    : (user.vinculacion_id ? [user.vinculacion_id] : []);
+                if (myVincIds.length > 0) {
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: myVincIds.map(Number) };
                 } else {
                     whereRegistro.id = -1;
                 }
@@ -555,6 +549,16 @@ const dashboardController = {
                     whereRegistro.contratista_asignacion_id = { [Op.in]: vincIdsFromHierarchy.length > 0 ? vincIdsFromHierarchy : [-1] };
                 }
             }
+
+            // Filtro global (todos los roles, sin excepción): solo actividad de
+            // vinculaciones con Programa asignado en su servicio.
+            const soloHuerfanosAct = req.query.solo_huerfanos === 'true';
+            const programaScopeAct = await getProgramaScope();
+            whereRegistro.contratista_asignacion_id = intersectWithProgramaScope(
+                whereRegistro.contratista_asignacion_id,
+                programaScopeAct.vinculacionIds,
+                soloHuerfanosAct
+            );
 
             // Recent registros
             const registrosRecientes = await Registro.findAll({
@@ -629,22 +633,11 @@ const dashboardController = {
                     whereRegistro.id = -1;
                 }
             } else if (user.role === 'contratista_user') {
-                if (user.vinculacion_id) {
-                    const vincIds = [Number(user.vinculacion_id)];
-                    whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
-                } else if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
-                    const vincs = await Vinculacion.findAll({
-                        where: {
-                            contratista_id: user.contratista_id,
-                            servicio_id: user.tipo_contratista_id,
-                            dependencia_id: user.dependencia_id,
-                            activo: 1
-                        },
-                        attributes: ['id']
-                    });
-                    const vincIds = vincs.map(v => v.id);
-                    if (vincIds.length === 0) whereRegistro.id = -1;
-                    else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
+                const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
+                    ? user.vinculacion_ids
+                    : (user.vinculacion_id ? [user.vinculacion_id] : []);
+                if (myVincIds.length > 0) {
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: myVincIds.map(Number) };
                 } else {
                     whereRegistro.id = -1;
                 }
@@ -713,6 +706,16 @@ const dashboardController = {
             }
 
             const startMonth = months[0].date;
+
+            // Filtro global (todos los roles, sin excepción): solo vinculaciones con
+            // Programa asignado en su servicio.
+            const soloHuerfanosHist = req.query.solo_huerfanos === 'true';
+            const programaScopeHist = await getProgramaScope();
+            whereRegistro.contratista_asignacion_id = intersectWithProgramaScope(
+                whereRegistro.contratista_asignacion_id,
+                programaScopeHist.vinculacionIds,
+                soloHuerfanosHist
+            );
 
             // Query Data
             const registros = await Registro.findAll({
@@ -789,12 +792,11 @@ const dashboardController = {
                     whereVinculacion.id = -1;
                 }
             } else if (user.role === 'contratista_user') {
-                if (user.vinculacion_id) {
-                    whereVinculacion.id = Number(user.vinculacion_id);
-                } else if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
-                    whereVinculacion.contratista_id = user.contratista_id;
-                    whereVinculacion.servicio_id = user.tipo_contratista_id;
-                    whereVinculacion.dependencia_id = user.dependencia_id;
+                const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
+                    ? user.vinculacion_ids
+                    : (user.vinculacion_id ? [user.vinculacion_id] : []);
+                if (myVincIds.length > 0) {
+                    whereVinculacion.id = { [Op.in]: myVincIds.map(Number) };
                 } else {
                     whereVinculacion.id = -1;
                 }
@@ -839,6 +841,12 @@ const dashboardController = {
                     whereVinculacion.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
                 }
             }
+
+            // Filtro global (todos los roles, sin excepción): solo vinculaciones con
+            // Programa asignado en su servicio.
+            const soloHuerfanosMatrix = req.query.solo_huerfanos === 'true';
+            const programaScopeMatrix = await getProgramaScope();
+            whereVinculacion.id = intersectWithProgramaScope(whereVinculacion.id, programaScopeMatrix.vinculacionIds, soloHuerfanosMatrix);
 
             // --- Date range for registros: rango explícito (periodo_desde/hasta) si se
             // envía, si no 6 meses terminando en 'periodo' o en el mes actual ---

@@ -1,6 +1,7 @@
 // IEEE Trace: REQ-003 | US-003 | controllers/hallazgoController.js
 const { Hallazgo, RegistroActividad, Registro, User } = require('../database/models');
 const { getAllowedVinculacionIds, isRegistroInScope } = require('../utils/scopeHelper');
+const { getProgramaScope, scopeWhereClause } = require('../utils/programaScopeHelper');
 const { Op } = require('sequelize');
 
 const hallazgoController = {
@@ -25,6 +26,16 @@ const hallazgoController = {
                 if (allowedVincIds.length === 0) return res.json({ success: true, data: [] });
                 includeRegistro.where = { contratista_asignacion_id: { [Op.in]: allowedVincIds } };
             }
+
+            // Filtro global (todos los roles, sin excepción): un hallazgo solo es visible
+            // si el registro al que pertenece tiene una vinculación con Programa asignado.
+            const soloHuerfanos = req.query.solo_huerfanos === 'true';
+            const programaScope = await getProgramaScope();
+            includeRegistro.where = {
+                ...includeRegistro.where,
+                contratista_asignacion_id: scopeWhereClause(programaScope.vinculacionIds, soloHuerfanos)
+            };
+            includeRegistro.required = true;
 
             const hallazgos = await Hallazgo.findAll({
                 where,
@@ -56,6 +67,14 @@ const hallazgoController = {
             // sobre el registro de un contrato que no administra con solo enviar su id.
             if (!(await isRegistroInScope(req.user, registro_id))) {
                 return res.status(403).json({ success: false, message: 'No tiene permiso para crear un hallazgo sobre este registro' });
+            }
+
+            // Filtro global de completitud de datos: no se puede crear un hallazgo sobre un
+            // registro cuya vinculación no tiene Programa asignado.
+            const registroParaHallazgo = await Registro.findByPk(registro_id, { attributes: ['id', 'contratista_asignacion_id'] });
+            const programaScopeStore = await getProgramaScope();
+            if (!programaScopeStore.vinculacionIds.map(Number).includes(Number(registroParaHallazgo?.contratista_asignacion_id))) {
+                return res.status(400).json({ success: false, message: 'El servicio de la vinculación de este registro no tiene un Programa asignado.' });
             }
 
             const hallazgo = await Hallazgo.create({
@@ -94,6 +113,13 @@ const hallazgoController = {
             // con solo conocer/adivinar el :id.
             if (!(await isRegistroInScope(req.user, hallazgo.registro_id))) {
                 return res.status(403).json({ success: false, message: 'No tiene permiso para ver este hallazgo' });
+            }
+
+            // Filtro global de completitud de datos (ver registroController.show).
+            const registroDeHallazgo = await Registro.findByPk(hallazgo.registro_id, { attributes: ['id', 'contratista_asignacion_id'] });
+            const programaScopeShow = await getProgramaScope();
+            if (!programaScopeShow.vinculacionIds.map(Number).includes(Number(registroDeHallazgo?.contratista_asignacion_id))) {
+                return res.status(404).json({ success: false, message: 'Hallazgo no encontrado' });
             }
 
             res.json({ success: true, data: hallazgo });

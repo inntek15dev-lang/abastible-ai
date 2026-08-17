@@ -6,7 +6,7 @@ import { Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
 export default function LoginExternal() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { loginWithExternalToken } = useAuth();
+    const { loginWithExternalToken, logout } = useAuth();
     
     const [status, setStatus] = useState('loading'); // 'loading' | 'error'
     const [errorMsg, setErrorMsg] = useState('');
@@ -23,6 +23,8 @@ export default function LoginExternal() {
 
         const authenticate = async () => {
             try {
+                // Clear any existing session to ensure clean request headers/state
+                logout();
                 await loginWithExternalToken(token);
                 // Success! Redirect to home page
                 navigate('/', { replace: true });
@@ -34,7 +36,7 @@ export default function LoginExternal() {
         };
 
         authenticate();
-    }, [searchParams, loginWithExternalToken, navigate]);
+    }, [searchParams, loginWithExternalToken, logout, navigate]);
 
     return (
         <div style={{

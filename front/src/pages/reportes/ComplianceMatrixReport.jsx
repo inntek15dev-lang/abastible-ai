@@ -21,7 +21,8 @@ export default function ComplianceMatrixReport() {
         tiene_registros: 'todos',
         periodo_desde: new Date().toISOString().slice(0, 7),
         periodo_hasta: new Date().toISOString().slice(0, 7),
-        adc_id: 'todos'
+        adc_id: 'todos',
+        solo_huerfanos: false
     });
 
     // Options for filters
@@ -85,7 +86,8 @@ export default function ComplianceMatrixReport() {
             tiene_registros: 'todos',
             periodo_desde: new Date().toISOString().slice(0, 7),
             periodo_hasta: new Date().toISOString().slice(0, 7),
-            adc_id: 'todos'
+            adc_id: 'todos',
+            solo_huerfanos: false
         });
         setPage(1);
     };
@@ -111,6 +113,7 @@ export default function ComplianceMatrixReport() {
             if (filters.periodo_desde) params.append('periodo_desde', filters.periodo_desde);
             if (filters.periodo_hasta) params.append('periodo_hasta', filters.periodo_hasta);
             if (filters.adc_id && filters.adc_id !== 'todos') params.append('adc_id', filters.adc_id);
+            if (filters.solo_huerfanos) params.append('solo_huerfanos', 'true');
 
             params.append('page', page);
             params.append('limit', 5);
@@ -149,6 +152,7 @@ export default function ComplianceMatrixReport() {
         if (filters.programa_id !== 'todos') params.append('programa_id', filters.programa_id);
         if (filters.periodo_desde) params.append('periodo_desde', filters.periodo_desde);
         if (filters.periodo_hasta) params.append('periodo_hasta', filters.periodo_hasta);
+        if (filters.solo_huerfanos) params.append('solo_huerfanos', 'true');
         params.append('token', localStorage.getItem('token'));
         window.open(`${api.defaults.baseURL}/reportes/matrix/pdf?${params.toString()}`, '_blank');
     };
@@ -161,6 +165,7 @@ export default function ComplianceMatrixReport() {
         if (filters.programa_id !== 'todos') params.append('programa_id', filters.programa_id);
         if (filters.periodo_desde) params.append('periodo_desde', filters.periodo_desde);
         if (filters.periodo_hasta) params.append('periodo_hasta', filters.periodo_hasta);
+        if (filters.solo_huerfanos) params.append('solo_huerfanos', 'true');
         params.append('token', localStorage.getItem('token'));
         window.open(`${api.defaults.baseURL}/reportes/matrix/excel?${params.toString()}`, '_blank');
     };
@@ -368,6 +373,22 @@ export default function ComplianceMatrixReport() {
                         }}
                     />
                 </div>
+
+                {['admin', 'oval'].includes(user?.role) && (
+                    <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'flex-end', paddingBottom: '10px' }}>
+                        <label
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: '#64748b', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                            title="Ver solo vinculaciones/registros cuyo servicio NO tiene Programa asignado (para revisión y limpieza)"
+                        >
+                            <input
+                                type="checkbox"
+                                checked={filters.solo_huerfanos}
+                                onChange={(e) => setFilters(f => ({ ...f, solo_huerfanos: e.target.checked }))}
+                            />
+                            Solo huérfanos (sin Programa)
+                        </label>
+                    </div>
+                )}
 
                 {/* Action Buttons */}
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', flexWrap: 'wrap', paddingBottom: '2px' }}>

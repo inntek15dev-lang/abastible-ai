@@ -77,11 +77,11 @@ const authMiddleware = async (req, res, next) => {
 
         // Un contratista_user NO tiene identidad propia de empresa/servicio/dependencia:
         // esas columnas del usuario están siempre en NULL por diseño (usuarioController
-        // las anula explícitamente). Su ÚNICO scope real es el contrato (Vinculación) al
-        // que fue asignado vía VinculacionUsuario — el numero_contrato de OVAL es el filtro
-        // fijo que debe gobernar todo lo que puede ver. Se deriva aquí, una sola vez, para
+        // las anula explícitamente). Su scope real son los contratos (Vinculaciones) a los
+        // que fue asignado vía VinculacionUsuario. Se derivan aquí, una sola vez, para
         // que ningún controller vuelva a depender de las columnas NULL del usuario.
-        let vinculacion_id = null;
+        let vinculacion_ids = [];
+        let vinculacion_id = null; // Compat: primer vinculacion_id del array
         let vinculacionScope = {
             contratista_id: null,
             tipo_contratista_id: null,
@@ -91,24 +91,30 @@ const authMiddleware = async (req, res, next) => {
             numero_contrato: null
         };
         if (user.role === 'contratista_user') {
-            const vu = await VinculacionUsuario.findOne({
+            const vus = await VinculacionUsuario.findAll({
                 where: { user_id: user.usu_id || user.id, activo: 1 },
                 attributes: ['vinculacion_id'],
                 include: [{ model: Vinculacion, as: 'vinculacion', attributes: ['id', 'contratista_id', 'servicio_id', 'dependencia_id', 'subgerencia_id', 'gerencia_id', 'numero_contrato'], where: { activo: 1 }, required: false }]
             });
-            vinculacion_id = vu ? Number(vu.vinculacion_id) : null;
-            if (vu && vu.vinculacion) {
+            // Filtrar solo las que tienen vinculación activa
+            const activeVus = vus.filter(vu => vu.vinculacion);
+            vinculacion_ids = activeVus.map(vu => Number(vu.vinculacion_id));
+            vinculacion_id = vinculacion_ids.length > 0 ? vinculacion_ids[0] : null;
+
+            // Unión de scopes: el usuario puede ver datos de TODAS sus vinculaciones.
+            // Para campos como contratista_id, dependencia_id, etc. ya no se usa un
+            // valor escalar sino que los controllers filtran por vinculacion_ids con Op.in.
+            // Se mantiene vinculacionScope con el primer valor para compat mínima.
+            if (activeVus.length > 0) {
+                const first = activeVus[0].vinculacion;
                 vinculacionScope = {
-                    contratista_id: vu.vinculacion.contratista_id,
-                    tipo_contratista_id: vu.vinculacion.servicio_id,
-                    dependencia_id: vu.vinculacion.dependencia_id,
-                    subgerencia_id: vu.vinculacion.subgerencia_id,
-                    gerencia_id: vu.vinculacion.gerencia_id,
-                    numero_contrato: vu.vinculacion.numero_contrato
+                    contratista_id: first.contratista_id,
+                    tipo_contratista_id: first.servicio_id,
+                    dependencia_id: first.dependencia_id,
+                    subgerencia_id: first.subgerencia_id,
+                    gerencia_id: first.gerencia_id,
+                    numero_contrato: first.numero_contrato
                 };
-            } else {
-                // Vinculación asignada pero inactiva/inexistente: fail-closed, sin scope.
-                vinculacion_id = null;
             }
         }
 
@@ -119,6 +125,7 @@ const authMiddleware = async (req, res, next) => {
             id: user.usu_id || user.id, // Map id to usu_id with fallback to legacy id
             contratista_ids: contratistaIds,
             vinculacion_id,
+            vinculacion_ids,
             // Para contratista_user, estos SIEMPRE reemplazan las columnas NULL crudas de
             // userJson con el scope derivado del contrato. Para el resto de los roles se
             // preservan los valores propios del usuario (spread de userJson ya los puso).

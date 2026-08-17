@@ -48,6 +48,11 @@ export function AuthProvider({ children }) {
 
     // Privilege check methods (privilegios-engine integration)
     const checkPrivilege = useCallback((module, action) => {
+        // STRICT SECURITY RULE: contratista_user must never access Usuarios or Admin_Usuarios modules under any circumstances.
+        if (user?.role === 'contratista_user' && ['Usuarios', 'Admin_Usuarios'].includes(module)) {
+            return false;
+        }
+
         // REGLA CRÍTICA PARKO: El módulo OVAL es EXCLUSIVO para el rol 'oval'
         if (module === 'OVAL') {
             return user?.role === 'oval';

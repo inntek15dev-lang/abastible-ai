@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api';
+import { useAuth } from '../../context/AuthContext';
 import { Shield, Save, ArrowLeft, Check, X } from 'lucide-react';
 
 // List of modules to manage
@@ -24,9 +25,19 @@ const SYSTEM_MODULES = [
 export default function PrivilegeManager() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { canRead } = useAuth();
     const [privileges, setPrivileges] = useState([]);
     const [loading, setLoading] = useState(true);
     const [roleName, setRoleName] = useState('');
+
+    if (!canRead('Admin_Usuarios')) {
+        return (
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#ef4444' }}>
+                <h2>Acceso Denegado</h2>
+                <p>No tiene permiso para visualizar este módulo.</p>
+            </div>
+        );
+    }
 
     useEffect(() => {
         fetchData();

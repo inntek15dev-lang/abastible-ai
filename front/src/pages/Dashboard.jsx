@@ -38,7 +38,8 @@ export default function Dashboard() {
         dependencia_id: 'todas',
         gerencia_id: 'todas',
         subgerencia_id: 'todas',
-        adc_id: 'todos'
+        adc_id: 'todos',
+        solo_huerfanos: false
     });
 
     // Options State
@@ -121,6 +122,7 @@ export default function Dashboard() {
             if (filters.gerencia_id !== 'todas') params.append('gerencia_id', filters.gerencia_id);
             if (filters.subgerencia_id !== 'todas') params.append('subgerencia_id', filters.subgerencia_id);
             if (filters.adc_id !== 'todos') params.append('adc_id', filters.adc_id);
+            if (filters.solo_huerfanos) params.append('solo_huerfanos', 'true');
 
             console.log('[Browser Console - Dashboard] Ejecutando fetchKpis con parámetros:', Object.fromEntries(params.entries()));
             const response = await api.get(`/dashboard/kpis?${params.toString()}`);
@@ -145,6 +147,7 @@ export default function Dashboard() {
             if (filters.gerencia_id !== 'todas') params.append('gerencia_id', filters.gerencia_id);
             if (filters.subgerencia_id !== 'todas') params.append('subgerencia_id', filters.subgerencia_id);
             if (filters.adc_id !== 'todos') params.append('adc_id', filters.adc_id);
+            if (filters.solo_huerfanos) params.append('solo_huerfanos', 'true');
             params.append('limit', 5);
             params.append('page', page);
 
@@ -187,7 +190,8 @@ export default function Dashboard() {
             dependencia_id: 'todas',
             gerencia_id: 'todas',
             subgerencia_id: 'todas',
-            adc_id: 'todos'
+            adc_id: 'todos',
+            solo_huerfanos: false
         });
     };
 
@@ -404,6 +408,18 @@ export default function Dashboard() {
                             {filteredSubgerencias.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
                         </select>
                     </div>
+                    {['admin', 'oval'].includes(user?.role) && (
+                        <div className="filter-group" style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingTop: '20px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }} title="Ver solo vinculaciones/registros cuyo servicio NO tiene Programa asignado (para revisión y limpieza)">
+                                <input
+                                    type="checkbox"
+                                    checked={filters.solo_huerfanos}
+                                    onChange={(e) => handleFilterChange('solo_huerfanos', e.target.checked)}
+                                />
+                                Solo huérfanos (sin Programa)
+                            </label>
+                        </div>
+                    )}
                     <div className="filter-group">
                         <label>Admin. Contrato</label>
                         <select

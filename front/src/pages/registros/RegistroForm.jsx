@@ -204,8 +204,11 @@ export default function RegistroForm() {
         const initData = async () => {
             try {
                 if (user.role === 'admin' || user.role === 'administrador_contrato') {
-                    // Fetch contractor COMPANIES (Contratista entities, not individual users)
-                    const response = await api.get('/contratistas');
+                    // Fetch contractor COMPANIES (Contratista entities, not individual users).
+                    // solo_programados=true: nunca ofrecer aquí una empresa cuyas vinculaciones
+                    // no tengan un servicio con Programa asignado (filtro global de completitud
+                    // de datos) — a diferencia de "Gestión de Contratistas", que sí muestra todo.
+                    const response = await api.get('/contratistas?solo_programados=true');
                     setContractors(response.data.data);
                 } else if (user.role === 'contratista_user' && user.vinculacion_id) {
                     // Ancla por vinculacion_id (fuente real del scope de este rol, ver

@@ -83,7 +83,8 @@ export default function RegistroList() {
         programa: 'Todos',
         admin_contrato: 'Todos',
         gerencia: 'Todas',
-        subgerencia: 'Todas'
+        subgerencia: 'Todas',
+        solo_huerfanos: false
     });
 
     // Check if a record is past its reporting or subsanation deadline
@@ -170,7 +171,8 @@ export default function RegistroList() {
             const params = new URLSearchParams();
             if (currentFilters.gerencia && currentFilters.gerencia !== 'Todas') params.append('gerencia_id', currentFilters.gerencia);
             if (currentFilters.subgerencia && currentFilters.subgerencia !== 'Todas') params.append('subgerencia_id', currentFilters.subgerencia);
-            
+            if (currentFilters.solo_huerfanos) params.append('solo_huerfanos', 'true');
+
             console.log('[Browser Console - RegistroList] Ejecutando query de registros con parámetros:', Object.fromEntries(params.entries()));
             const response = await api.get(`/registros?${params.toString()}`);
             console.log('[Browser Console - RegistroList] Registros obtenidos:', response.data.data);
@@ -239,10 +241,11 @@ export default function RegistroList() {
         return subgerenciasRaw.filter(s => String(s.gerencia_id) === String(filters.gerencia));
     }, [filters.gerencia, subgerenciasRaw]);
 
-    // Trigger fetch on hierarchy change
+    // Trigger fetch on hierarchy change (o al alternar la vista de huérfanos, ambos
+    // parámetros server-side)
     useEffect(() => {
         fetchRegistros();
-    }, [filters.gerencia, filters.subgerencia]);
+    }, [filters.gerencia, filters.subgerencia, filters.solo_huerfanos]);
 
     const getAnnualAverage = (reg) => {
         if (!reg.periodo) return 0;
@@ -896,15 +899,31 @@ export default function RegistroList() {
                     </select>
                 </div>
 
+                {['admin', 'oval'].includes(user?.role) && (
+                    <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '10px' }}>
+                        <label
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                            title="Ver solo registros cuyo servicio NO tiene Programa asignado (para revisión y limpieza)"
+                        >
+                            <input
+                                type="checkbox"
+                                checked={filters.solo_huerfanos}
+                                onChange={(e) => setFilters({ ...filters, solo_huerfanos: e.target.checked })}
+                            />
+                            Solo huérfanos
+                        </label>
+                    </div>
+                )}
+
                 <button className="btn-primary" style={{ height: '38px', padding: '0 12px' }} title="Buscar">
                     <Search size={18} />
                 </button>
                 <button className="btn-secondary" style={{ height: '38px', padding: '0 12px', background: 'white', border: '1px solid #ccc' }}
                     onClick={() => {
-                        setFilters({ 
-                            search: '', period: '', status: 'all', servicio: 'Todos', 
+                        setFilters({
+                            search: '', period: '', status: 'all', servicio: 'Todos',
                             dependencia: 'Todas', programa: 'Todos', admin_contrato: 'Todos',
-                            gerencia: 'Todas', subgerencia: 'Todas'
+                            gerencia: 'Todas', subgerencia: 'Todas', solo_huerfanos: false
                         });
                         fetchDependencies();
                     }}

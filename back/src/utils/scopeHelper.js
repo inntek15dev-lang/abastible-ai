@@ -39,9 +39,11 @@ const getAllowedVinculacionIds = async (user) => {
     }
 
     if (user.role === 'contratista_user') {
-        // Ancla fija por el contrato asignado (vinculacion_id), nunca por
+        // Ancla por los contratos asignados (vinculacion_ids), nunca por
         // contratista_id/servicio/dependencia sueltos.
-        return user.vinculacion_id ? [Number(user.vinculacion_id)] : [];
+        return (user.vinculacion_ids && user.vinculacion_ids.length > 0)
+            ? user.vinculacion_ids.map(Number)
+            : (user.vinculacion_id ? [Number(user.vinculacion_id)] : []);
     }
 
     return [];

@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { safeMove } = require('../utils/fileHelper');
 const { getAllowedVinculacionIds, isRegistroInScope } = require('../utils/scopeHelper');
+const { getProgramaScope, scopeWhereClause } = require('../utils/programaScopeHelper');
 
 const compromisoController = {
     // GET /api/compromisos
@@ -62,6 +63,17 @@ const compromisoController = {
                 vincInclude.where = { ...vincInclude.where, id: { [Op.in]: allowedVincIds.length > 0 ? allowedVincIds : [-1] } };
             }
 
+            // Filtro global (todos los roles, sin excepción): un compromiso solo es visible
+            // si el registro al que pertenece tiene una vinculación con Programa asignado.
+            // solo_huerfanos=true invierte el filtro para revisión/limpieza.
+            const soloHuerfanos = req.query.solo_huerfanos === 'true';
+            const programaScope = await getProgramaScope();
+            includeRegistro.where = {
+                ...includeRegistro.where,
+                contratista_asignacion_id: scopeWhereClause(programaScope.vinculacionIds, soloHuerfanos)
+            };
+            includeRegistro.required = true;
+
             const compromisos = await Compromiso.findAll({
                 where,
                 include: [
@@ -104,6 +116,14 @@ const compromisoController = {
                 return res.status(403).json({ success: false, message: 'No tiene permiso para crear un compromiso sobre este registro' });
             }
 
+            // Filtro global de completitud de datos: no se puede crear un compromiso sobre
+            // un registro cuya vinculación no tiene Programa asignado.
+            const registroParaCompromiso = await Registro.findByPk(registro_id, { attributes: ['id', 'contratista_asignacion_id'] });
+            const programaScopeStore = await getProgramaScope();
+            if (!programaScopeStore.vinculacionIds.map(Number).includes(Number(registroParaCompromiso?.contratista_asignacion_id))) {
+                return res.status(400).json({ success: false, message: 'El servicio de la vinculación de este registro no tiene un Programa asignado.' });
+            }
+
             // Determine responsable (usually the logged in user or the assigned contractor)
             const responsable_id = req.user.id;
             const creado_por_id = req.user.id;
@@ -143,6 +163,13 @@ const compromisoController = {
             // SECURITY: IDOR — mismo hueco que cargarEvidencia, en el mismo recurso.
             if (!(await isRegistroInScope(req.user, compromiso.registro_id))) {
                 return res.status(403).json({ success: false, message: 'No tiene permiso para ver este compromiso' });
+            }
+
+            // Filtro global de completitud de datos (ver registroController.show).
+            const registroDeCompromiso = await Registro.findByPk(compromiso.registro_id, { attributes: ['id', 'contratista_asignacion_id'] });
+            const programaScopeShow = await getProgramaScope();
+            if (!programaScopeShow.vinculacionIds.map(Number).includes(Number(registroDeCompromiso?.contratista_asignacion_id))) {
+                return res.status(404).json({ success: false, message: 'Compromiso no encontrado' });
             }
 
             res.json({ success: true, data: compromiso });

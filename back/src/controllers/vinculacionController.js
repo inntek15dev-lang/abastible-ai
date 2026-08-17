@@ -1,6 +1,7 @@
 // IEEE Trace: REQ-009 | Vinculacion Controller
 const { Vinculacion, Contratista, TipoContratista, Dependencia, Subgerencia, Gerencia, Administracion, VinculacionUsuario, User, sequelize } = require('../database/models');
 const { getAllowedVinculacionIds } = require('../utils/scopeHelper');
+const { getProgramaScope, scopeWhereClause } = require('../utils/programaScopeHelper');
 
 // Verifica que la vinculación pertenezca al scope del usuario (su empresa, su contrato
 // administrado, o su vinculación asignada). null = sin restricción (admin/oval).
@@ -14,7 +15,7 @@ const vinculacionController = {
     // GET /api/vinculaciones
     async index(req, res) {
         try {
-            const { contratista_id, servicio_id, dependencia_id } = req.query;
+            const { contratista_id, servicio_id, dependencia_id, solo_huerfanos } = req.query;
             const { role, id: userId } = req.user;
             const where = { activo: 1 };
 
@@ -58,6 +59,21 @@ const vinculacionController = {
                 console.log(`[Vinculacion Controller - GET /api/vinculaciones] User is contratista_user (ID: ${userId}). Filtering vinculaciones where id = ${where.id}`);
             } else {
                 console.log(`[Vinculacion Controller - GET /api/vinculaciones] User role: ${role} (ID: ${userId}). No specific role filter applied to Vinculacion query.`);
+            }
+
+            // Filtro global (todos los roles, sin excepción, incluido admin/oval): solo
+            // vinculaciones cuyo servicio tiene un Programa asignado. solo_huerfanos=true
+            // invierte el filtro para revisión/limpieza de lo que quedó sin programar.
+            const soloHuerfanos = solo_huerfanos === 'true';
+            const scope = await getProgramaScope();
+            if (where.id !== undefined) {
+                // contratista_user: where.id ya viene fijado a su única vinculación asignada.
+                const eligibleIds = new Set(scope.vinculacionIds.map(Number));
+                const singleId = Number(where.id);
+                const passes = soloHuerfanos ? !eligibleIds.has(singleId) : eligibleIds.has(singleId);
+                if (!passes) return res.json({ success: true, data: [] });
+            } else {
+                where.id = scopeWhereClause(scope.vinculacionIds, soloHuerfanos);
             }
 
             const vinculaciones = await Vinculacion.findAll({

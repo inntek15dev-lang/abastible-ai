@@ -80,6 +80,19 @@ const contratistaController = {
                 console.log(`[Contratista Controller - GET /api/contratistas] User role: ${role} (ID: ${id}). No specific role filter applied to Contratista query.`);
             }
 
+            // Filtro OPT-IN (no aplica por defecto — "Gestión de Contratistas" está exenta
+            // del filtro global de programa y debe seguir mostrando todo). Lo usan
+            // consumidores operativos de este mismo endpoint, como el buscador de empresa
+            // en RegistroForm.jsx, que sí debe respetar la regla: nunca ofrecer una empresa
+            // cuyas vinculaciones no tengan servicio con Programa asignado.
+            if (req.query.solo_programados === 'true') {
+                includeVinculacion.required = true;
+                const servicioInclude = includeVinculacion.include.find(inc => inc.as === 'servicio');
+                const { Op: OpProgramado } = require('sequelize');
+                servicioInclude.where = { ...servicioInclude.where, programa_id: { [OpProgramado.not]: null } };
+                servicioInclude.required = true;
+            }
+
             const contratistas = await Contratista.findAll({
                 where: whereContratista,
                 include: [

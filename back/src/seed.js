@@ -274,9 +274,14 @@ async function seed() {
         if (!adminCreated) await adminOiem.update({ password: hashedPassword, usu_id: 2, id: 2, activo: 1 });
 
         const regularUsers = [
-            { name: 'Administrador de Contratos', email: 'administrador.contrato@abastible.cl', password: hashedPassword, role: 'administrador_contrato', usu_id: 3, id: 3, activo: 1 },
-            { name: 'Contratista Administrador', email: 'contratista.admin@demo.cl', password: hashedPassword, role: 'contratista_admin', contratista_id: mafran.id, usu_id: 4, id: 4, activo: 1 }
+            { name: 'Administrador de Contratos', email: 'administrador.contrato@abastible.cl', password: hashedPassword, role: 'administrador_contrato', usu_id: 3, id: 3, activo: 1 }
         ];
+        if (process.env.DEMO_USERS_ENABLED === 'true') {
+            regularUsers.push(
+                { name: 'Contratista Administrador', email: 'contratista.admin@demo.cl', password: hashedPassword, role: 'contratista_admin', contratista_id: mafran.id, usu_id: 4, id: 4, activo: 1 }
+            );
+        }
+
         const usersCreated = { adminOiem };
         for (const u of regularUsers) {
             const [user] = await User.findOrCreate({ where: { email: u.email }, defaults: u });
@@ -285,64 +290,66 @@ async function seed() {
             if (u.role === 'contratista_admin') usersCreated.contratistaAdmin = user;
         }
 
-        const [contratistaUser] = await User.findOrCreate({
-            where: { email: 'contratista.usuario@demo.cl' },
-            defaults: {
-                name: 'Contratista Usuario',
-                password: hashedPassword,
-                role: 'contratista_user',
-                contratista_id: mafran.id,
-                tipo_contratista_id: tiposContratista[1].id,
-                dependencia_id: dependencias[9].id,
-                parent_id: 4, // parent's usu_id
-                usu_id: 5,
-                id: 5,
-                activo: 1
-            }
-        });
+        if (process.env.DEMO_USERS_ENABLED === 'true') {
+            const [contratistaUser] = await User.findOrCreate({
+                where: { email: 'contratista.usuario@demo.cl' },
+                defaults: {
+                    name: 'Contratista Usuario',
+                    password: hashedPassword,
+                    role: 'contratista_user',
+                    contratista_id: mafran.id,
+                    tipo_contratista_id: tiposContratista[1].id,
+                    dependencia_id: dependencias[9].id,
+                    parent_id: 4, // parent's usu_id
+                    usu_id: 5,
+                    id: 5,
+                    activo: 1
+                }
+            });
 
-        const [contratistaUser2] = await User.findOrCreate({
-            where: { email: 'contratista.usuario2@demo.cl' },
-            defaults: {
-                name: 'Contratista Usuario Dos',
-                password: hashedPassword,
-                role: 'contratista_user',
-                contratista_id: mafran.id,
-                tipo_contratista_id: tiposContratista[1].id,
-                dependencia_id: dependencias[3].id,
-                parent_id: 4, // parent's usu_id
-                usu_id: 6,
-                id: 6,
-                activo: 1
-            }
-        });
+            const [contratistaUser2] = await User.findOrCreate({
+                where: { email: 'contratista.usuario2@demo.cl' },
+                defaults: {
+                    name: 'Contratista Usuario Dos',
+                    password: hashedPassword,
+                    role: 'contratista_user',
+                    contratista_id: mafran.id,
+                    tipo_contratista_id: tiposContratista[1].id,
+                    dependencia_id: dependencias[3].id,
+                    parent_id: 4, // parent's usu_id
+                    usu_id: 6,
+                    id: 6,
+                    activo: 1
+                }
+            });
 
-        console.log('📦 Sincronizando VinculacionUsuario...');
-        await VinculacionUsuario.findOrCreate({
-            where: { vinculacion_id: vinculaciones[11].id, user_id: contratistaUser.id },
-            defaults: { activo: 1 }
-        });
-        await VinculacionUsuario.findOrCreate({
-            where: { vinculacion_id: vinculaciones[10].id, user_id: contratistaUser2.id },
-            defaults: { activo: 1 }
-        });
+            console.log('📦 Sincronizando VinculacionUsuario...');
+            await VinculacionUsuario.findOrCreate({
+                where: { vinculacion_id: vinculaciones[11].id, user_id: contratistaUser.id },
+                defaults: { activo: 1 }
+            });
+            await VinculacionUsuario.findOrCreate({
+                where: { vinculacion_id: vinculaciones[10].id, user_id: contratistaUser2.id },
+                defaults: { activo: 1 }
+            });
 
-        // ============= ORDER 5: Asignación y Administración =============
-        console.log('📦 Sincronizando asignaciones y administración...');
-        await ContratistaAsignacion.findOrCreate({
-            where: { user_id: usersCreated.contratistaAdmin.id, tipo_contratista_id: tiposContratista[1].id, dependencia_id: dependencias[9].id },
-            defaults: { administrador_contrato_id: usersCreated.adminContrato.id, periodo_inicio: new Date('2026-02-01') }
-        });
+            // ============= ORDER 5: Asignación y Administración =============
+            console.log('📦 Sincronizando asignaciones y administración...');
+            await ContratistaAsignacion.findOrCreate({
+                where: { user_id: usersCreated.contratistaAdmin.id, tipo_contratista_id: tiposContratista[1].id, dependencia_id: dependencias[9].id },
+                defaults: { administrador_contrato_id: usersCreated.adminContrato.id, periodo_inicio: new Date('2026-02-01') }
+            });
 
-        await ContratistaAsignacion.findOrCreate({
-            where: { user_id: contratistaUser.id, tipo_contratista_id: tiposContratista[1].id, dependencia_id: dependencias[9].id },
-            defaults: { administrador_contrato_id: usersCreated.adminContrato.id, periodo_inicio: new Date('2026-02-01') }
-        });
+            await ContratistaAsignacion.findOrCreate({
+                where: { user_id: contratistaUser.id, tipo_contratista_id: tiposContratista[1].id, dependencia_id: dependencias[9].id },
+                defaults: { administrador_contrato_id: usersCreated.adminContrato.id, periodo_inicio: new Date('2026-02-01') }
+            });
 
-        await ContratistaAsignacion.findOrCreate({
-            where: { user_id: contratistaUser2.id, tipo_contratista_id: tiposContratista[1].id, dependencia_id: dependencias[3].id },
-            defaults: { administrador_contrato_id: usersCreated.adminContrato.id, periodo_inicio: new Date('2026-02-01') }
-        });
+            await ContratistaAsignacion.findOrCreate({
+                where: { user_id: contratistaUser2.id, tipo_contratista_id: tiposContratista[1].id, dependencia_id: dependencias[3].id },
+                defaults: { administrador_contrato_id: usersCreated.adminContrato.id, periodo_inicio: new Date('2026-02-01') }
+            });
+        }
 
         await Administracion.findOrCreate({
             where: { vinculacion_id: vinculaciones[11].id },
