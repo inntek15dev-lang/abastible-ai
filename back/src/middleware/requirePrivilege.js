@@ -25,12 +25,25 @@ const requirePrivilege = (module, action = 'read') => {
             });
         }
 
+        // STRICT SECURITY RULE: contratista_user must never access Usuarios or Admin_Usuarios modules under any circumstances.
+        if (role === 'contratista_user' && ['Usuarios', 'Admin_Usuarios'].includes(module)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Acceso denegado: el rol contratista_user no tiene acceso a este módulo'
+            });
+        }
+
         if (role === 'admin' || role === 'oval') {
             return next();
         }
 
         // Hardcode: Contratista Admin has access to Usuarios
         if (role === 'contratista_admin' && module === 'Usuarios') {
+            return next();
+        }
+
+        // Hardcode: Administrador de Contratos has read-only access to Usuarios (needed to list contractor users they manage)
+        if (role === 'administrador_contrato' && module === 'Usuarios' && action === 'read') {
             return next();
         }
 

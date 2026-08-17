@@ -103,14 +103,10 @@ function AppRoutes() {
         </PublicRoute>
       } />
       <Route path="/login-external" element={
-        <PublicRoute>
-          <LoginExternal />
-        </PublicRoute>
+        <LoginExternal />
       } />
       <Route path="/sso" element={
-        <PublicRoute>
-          <LoginExternal />
-        </PublicRoute>
+        <LoginExternal />
       } />
       <Route path="/recuperar-password" element={
         <PublicRoute>

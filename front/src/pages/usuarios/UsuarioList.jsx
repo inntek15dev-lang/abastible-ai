@@ -20,7 +20,16 @@ export default function UsuarioList() {
         role: 'Todos',
         status: 'Todos'
     });
-    const { canWrite, canExec } = useAuth();
+    const { canWrite, canExec, canRead } = useAuth();
+
+    if (!canRead('Usuarios')) {
+        return (
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#ef4444' }}>
+                <h2>Acceso Denegado</h2>
+                <p>No tiene permiso para visualizar este módulo.</p>
+            </div>
+        );
+    }
 
     useEffect(() => {
         fetchUsuarios();

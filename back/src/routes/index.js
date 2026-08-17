@@ -924,12 +924,12 @@ router.get('/documentos', auth, documentoController.index);
  *       201:
  *         description: User created
  */
-router.get('/usuarios', auth, usuarioController.index);
-router.get('/usuarios/:id', auth, usuarioController.show);
+router.get('/usuarios', auth, requirePrivilege('Usuarios', 'read'), usuarioController.index);
+router.get('/usuarios/:id', auth, requirePrivilege('Usuarios', 'read'), usuarioController.show);
 router.post('/usuarios', auth, requirePrivilege('Usuarios', 'write'), usuarioController.store);
 router.put('/usuarios/:id', auth, requirePrivilege('Usuarios', 'write'), usuarioController.update);
 router.delete('/usuarios/:id', auth, requirePrivilege('Usuarios', 'excec'), usuarioController.destroy);
-router.get('/usuarios/:id/asignaciones', auth, usuarioController.asignaciones);
+router.get('/usuarios/:id/asignaciones', auth, requirePrivilege('Usuarios', 'read'), usuarioController.asignaciones);
 
 // Resources (Dropdowns)
 const resourceController = require('../controllers/resourceController');

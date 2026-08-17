@@ -11,7 +11,16 @@ export default function RoleList() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const navigate = useNavigate();
-    const { canWrite, canExec } = useAuth();
+    const { canWrite, canExec, canRead } = useAuth();
+
+    if (!canRead('Admin_Usuarios')) {
+        return (
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#ef4444' }}>
+                <h2>Acceso Denegado</h2>
+                <p>No tiene permiso para visualizar este módulo.</p>
+            </div>
+        );
+    }
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
