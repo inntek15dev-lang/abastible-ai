@@ -25,12 +25,15 @@ export default function ServicioForm() {
         activo: 1
     });
     const [programas, setProgramas] = useState([]);
+    const [gerencias, setGerencias] = useState([]);
     const [subgerencias, setSubgerencias] = useState([]);
+    const [selectedGerenciaId, setSelectedGerenciaId] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
     useEffect(() => {
         fetchProgramas();
+        fetchGerencias();
         fetchSubgerencias();
         
         // Handle subgerencia_id from URL query params
@@ -45,12 +48,30 @@ export default function ServicioForm() {
         }
     }, [id]);
 
+    useEffect(() => {
+        if (form.subgerencia_id && subgerencias.length > 0 && !selectedGerenciaId) {
+            const sub = subgerencias.find(s => String(s.id) === String(form.subgerencia_id));
+            if (sub) {
+                setSelectedGerenciaId(sub.gerencia_id);
+            }
+        }
+    }, [form.subgerencia_id, subgerencias, selectedGerenciaId]);
+
     const fetchProgramas = async () => {
         try {
             const response = await api.get('/programas');
             setProgramas(response.data.data);
         } catch (err) {
             console.error('Error loading programs');
+        }
+    };
+
+    const fetchGerencias = async () => {
+        try {
+            const response = await api.get('/resources/gerencias');
+            setGerencias(response.data.data);
+        } catch (err) {
+            console.error('Error loading gerencias');
         }
     };
 
@@ -74,6 +95,9 @@ export default function ServicioForm() {
                 subgerencia_id: data.subgerencia_id || '',
                 activo: data.activo
             });
+            if (data.subgerencia && data.subgerencia.gerencia_id) {
+                setSelectedGerenciaId(data.subgerencia.gerencia_id);
+            }
         } catch (err) {
             setError('Error al cargar datos');
         }
@@ -121,6 +145,8 @@ export default function ServicioForm() {
         btnCancel: { background: 'none', border: 'none', color: '#94a3b8', padding: '18px 32px', borderRadius: '24px', fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.5px', cursor: 'pointer', transition: 'all 0.2s' },
         btnSubmit: { backgroundColor: '#0f172a', color: '#fff', padding: '18px 48px', borderRadius: '24px', fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '2px', border: 'none', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)', display: 'flex', alignItems: 'center', gap: '12px' }
     };
+    
+    const filteredSubgerencias = subgerencias.filter(s => String(s.gerencia_id) === String(selectedGerenciaId));
 
     return (
         <div style={styles.container}>
@@ -180,15 +206,36 @@ export default function ServicioForm() {
                             </div>
 
                             <div style={styles.field}>
+                                <label style={styles.label}>Gerencia</label>
+                                <select
+                                    style={styles.select}
+                                    value={selectedGerenciaId}
+                                    onChange={(e) => {
+                                        setSelectedGerenciaId(e.target.value);
+                                        setForm(prev => ({ ...prev, subgerencia_id: '' }));
+                                    }}
+                                    required
+                                >
+                                    <option value="">Seleccione una gerencia...</option>
+                                    {gerencias.map(g => (
+                                        <option key={g.id} value={g.id}>{g.nombre}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div style={styles.field}>
                                 <label style={styles.label}>Subgerencia Responsable</label>
                                 <select
                                     style={styles.select}
                                     value={form.subgerencia_id}
                                     onChange={(e) => setForm({ ...form, subgerencia_id: e.target.value })}
                                     required
+                                    disabled={!selectedGerenciaId}
                                 >
-                                    <option value="">Seleccione una subgerencia...</option>
-                                    {subgerencias.map(s => (
+                                    <option value="">
+                                        {selectedGerenciaId ? 'Seleccione una subgerencia...' : 'Seleccione primero una gerencia'}
+                                    </option>
+                                    {filteredSubgerencias.map(s => (
                                         <option key={s.id} value={s.id}>{s.nombre}</option>
                                     ))}
                                 </select>
