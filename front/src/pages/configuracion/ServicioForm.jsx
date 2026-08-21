@@ -109,10 +109,15 @@ export default function ServicioForm() {
         setError('');
 
         try {
+            const payload = {
+                ...form,
+                programa_id: form.programa_id ? form.programa_id : null
+            };
+
             if (isEdit) {
-                await api.put(`/servicios/${id}`, form);
+                await api.put(`/servicios/${id}`, payload);
             } else {
-                await api.post('/servicios', form);
+                await api.post('/servicios', payload);
             }
             navigate('/servicios');
         } catch (err) {
@@ -191,14 +196,24 @@ export default function ServicioForm() {
                             </div>
 
                             <div style={styles.field}>
-                                <label style={styles.label}>Programa Asociado</label>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                    <label style={styles.label}>Programa Asociado</label>
+                                    {form.programa_id && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setForm(prev => ({ ...prev, programa_id: '' }))}
+                                            style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                                        >
+                                            ✕ Quitar programa
+                                        </button>
+                                    )}
+                                </div>
                                 <select
                                     style={styles.select}
-                                    value={form.programa_id}
+                                    value={form.programa_id || ''}
                                     onChange={(e) => setForm({ ...form, programa_id: e.target.value })}
-                                    required
                                 >
-                                    <option value="">Seleccione un programa...</option>
+                                    <option value="">Sin programa (Desvincular)</option>
                                     {programas.map(p => (
                                         <option key={p.id} value={p.id}>{p.nombre}</option>
                                     ))}
