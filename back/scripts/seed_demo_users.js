@@ -28,18 +28,20 @@ const {
 const { rekeyUserReferences } = require('../src/utils/usuIdHomologation');
 const {
     DEMO_CONTRATISTA_RUT, DEMO_CONTRATISTA_NOMBRE, DEMO_GERENCIA, DEMO_SUBGERENCIA,
-    DEMO_SERVICIO, DEMO_DEPENDENCIA, DEMO_NUMERO_CONTRATO
+    DEMO_SERVICIO, DEMO_DEPENDENCIA, DEMO_NUMERO_CONTRATO,
+    DEMO_DEPENDENCIA_2, DEMO_NUMERO_CONTRATO_2
 } = require('../src/utils/demoScaffold');
 
 async function run() {
     try {
-        console.log('🔄 Creando/asegurando el scaffold demo (empresa + contrato + usuarios)...');
+        console.log('🔄 Creando/asegurando el scaffold demo (empresa + 2 contratos + usuarios)...');
         const hashedPassword = await bcrypt.hash('User123*', 10);
 
         const [gerencia] = await Gerencia.findOrCreate({ where: { nombre: DEMO_GERENCIA }, defaults: { activo: 1 } });
         const [subgerencia] = await Subgerencia.findOrCreate({ where: { nombre: DEMO_SUBGERENCIA, gerencia_id: gerencia.id }, defaults: { activo: 1 } });
         const [servicio] = await TipoContratista.findOrCreate({ where: { nombre: DEMO_SERVICIO, subgerencia_id: subgerencia.id }, defaults: { descripcion: 'Servicio demo del sistema', activo: 1 } });
         const [dependencia] = await Dependencia.findOrCreate({ where: { nombre: DEMO_DEPENDENCIA }, defaults: { activo: 1 } });
+        const [dependencia2] = await Dependencia.findOrCreate({ where: { nombre: DEMO_DEPENDENCIA_2 }, defaults: { activo: 1 } });
 
         const [contratista] = await Contratista.findOrCreate({
             where: { rut: DEMO_CONTRATISTA_RUT },
@@ -67,23 +69,34 @@ async function run() {
             await vinculacion.update({ numero_contrato: DEMO_NUMERO_CONTRATO, activo: 1 });
         }
 
+        const [vinculacion2] = await Vinculacion.findOrCreate({
+            where: {
+                contratista_id: contratista.id,
+                servicio_id: servicio.id,
+                dependencia_id: dependencia2.id,
+                subgerencia_id: subgerencia.id,
+                gerencia_id: gerencia.id
+            },
+            defaults: {
+                numero_contrato: DEMO_NUMERO_CONTRATO_2,
+                fecha_inicio_contrato: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+                activo: 1
+            }
+        });
+        if (vinculacion2.numero_contrato !== DEMO_NUMERO_CONTRATO_2 || vinculacion2.activo !== 1) {
+            await vinculacion2.update({ numero_contrato: DEMO_NUMERO_CONTRATO_2, activo: 1 });
+        }
+
         // findOrCreate + auto-reparación: si ya existe pero con name/role/usu_id distinto
         // al canónico (p.ej. corrompido por una sincronización previa), lo corrige.
         const ensureUser = async ({ email, name, role, usu_id, extra = {} }) => {
             let user = await User.findOne({ where: { email } });
             if (!user) {
-                // Si esta cuenta fue borrada como residual por un bug ya corregido (la
-                // poda de contratista_admin/administrador_contrato no respetaba
-                // PROTECTED_SYSTEM_EMAILS), su usu_id fijo podría haber sido adoptado
-                // mientras tanto por un usuario real de OVAL. Verificar ANTES de crear,
-                // para un error claro en vez de un choque de PK genérico.
                 const holder = await User.findOne({ where: { usu_id } });
                 if (holder) {
-                    throw new Error(`No se puede crear ${email} con usu_id=${usu_id}: ya lo tiene ${holder.email} (rol "${holder.role}"). Resuelva manualmente antes de re-ejecutar este seeder (probablemente esa cuenta demo fue eliminada como residual por la sincronización antes del fix, y OVAL adoptó ese usu_id para un usuario real).`);
+                    throw new Error(`No se puede crear ${email} con usu_id=${usu_id}: ya lo tiene ${holder.email} (rol "${holder.role}"). Resuelva manualmente antes de re-ejecutar este seeder.`);
                 }
                 await User.create({ name, email, password: hashedPassword, role, usu_id, activo: 1, ...extra });
-                // Re-fetch obligatorio: Sequelize pisa el usu_id de la instancia con el
-                // insertId de MySQL al crear con usu_id explícito (columna AUTO_INCREMENT).
                 user = await User.findOne({ where: { email } });
                 console.log(`✅ Creado: ${email} (usu_id=${user.usu_id})`);
                 return user;
@@ -128,9 +141,15 @@ async function run() {
         const contratistaUser2 = await ensureUser({ email: 'contratista.usuario2@demo.cl', name: 'Contratista Usuario Dos', role: 'contratista_user', usu_id: 6, extra: { parent_id: 4 } });
 
         await ContratistaUsuario.findOrCreate({ where: { user_id: contratistaAdmin.usu_id, contratista_id: contratista.id } });
+
+        // Vinculaciones múltiples para contratistaUser (demostración de N-vinculaciones)
         await VinculacionUsuario.findOrCreate({ where: { vinculacion_id: vinculacion.id, user_id: contratistaUser.usu_id }, defaults: { activo: 1 } });
+        await VinculacionUsuario.findOrCreate({ where: { vinculacion_id: vinculacion2.id, user_id: contratistaUser.usu_id }, defaults: { activo: 1 } });
+
         await VinculacionUsuario.findOrCreate({ where: { vinculacion_id: vinculacion.id, user_id: contratistaUser2.usu_id }, defaults: { activo: 1 } });
+
         await Administracion.findOrCreate({ where: { vinculacion_id: vinculacion.id, administrador_contrato_id: adminContrato.usu_id }, defaults: { activo: 1 } });
+        await Administracion.findOrCreate({ where: { vinculacion_id: vinculacion2.id, administrador_contrato_id: adminContrato.usu_id }, defaults: { activo: 1 } });
 
         console.log('🎉 Scaffold demo listo.');
         process.exit(0);
