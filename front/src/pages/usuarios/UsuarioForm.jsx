@@ -132,10 +132,15 @@ export default function UsuarioForm() {
                         if (v.activo) {
                             if (v.servicio) services.set(v.servicio.id, v.servicio);
                             if (v.dependencia) deps.set(v.dependencia.id, v.dependencia);
-                            activeVincs.push({
-                                id: v.id,
-                                nombre: `${v.numero_contrato || 'Sin Contrato'} — ${v.dependencia?.nombre || 'Sin Dependencia'} (${v.servicio?.nombre || 'Sin Servicio'})`
-                            });
+                            
+                            // Regla de negocio PARKO: solo vinculaciones de servicios con Programa/Plan asignado
+                            const tienePrograma = Boolean(v.servicio && (v.servicio.programa_id || v.servicio.programa));
+                            if (tienePrograma) {
+                                activeVincs.push({
+                                    id: v.id,
+                                    nombre: `${v.numero_contrato || 'Sin Contrato'} — ${v.dependencia?.nombre || 'Sin Dependencia'} (${v.servicio?.nombre || 'Sin Servicio'})`
+                                });
+                            }
                         }
                     });
 

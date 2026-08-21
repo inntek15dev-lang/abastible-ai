@@ -140,7 +140,7 @@ const contratistaController = {
                         where: { activo: 1 },
                         required: false,
                         include: [
-                            { model: TipoContratista, as: 'servicio' },
+                            { model: TipoContratista, as: 'servicio', include: [{ model: Programa, as: 'programa', attributes: ['id', 'nombre'] }] },
                             { model: Dependencia, as: 'dependencia' },
                             { model: Gerencia, as: 'gerencia' },
                             { model: Subgerencia, as: 'subgerencia' },

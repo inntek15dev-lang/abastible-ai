@@ -23,7 +23,7 @@
 const bcrypt = require('bcryptjs');
 const {
     sequelize, User, Contratista, Vinculacion, VinculacionUsuario, ContratistaUsuario,
-    Administracion, Gerencia, Subgerencia, TipoContratista, Dependencia
+    Administracion, Gerencia, Subgerencia, TipoContratista, Dependencia, Programa
 } = require('../src/database/models');
 const { rekeyUserReferences } = require('../src/utils/usuIdHomologation');
 const {
@@ -37,10 +37,14 @@ async function run() {
         console.log('🔄 Creando/asegurando el scaffold demo (empresa + 2 servicios + 2 contratos + usuarios)...');
         const hashedPassword = await bcrypt.hash('User123*', 10);
 
+        const demoPrograma = await Programa.findOne() || await Programa.create({ nombre: 'PROGRAMA DEMO', activo: 1 });
+
         const [gerencia] = await Gerencia.findOrCreate({ where: { nombre: DEMO_GERENCIA }, defaults: { activo: 1 } });
         const [subgerencia] = await Subgerencia.findOrCreate({ where: { nombre: DEMO_SUBGERENCIA, gerencia_id: gerencia.id }, defaults: { activo: 1 } });
-        const [servicio] = await TipoContratista.findOrCreate({ where: { nombre: DEMO_SERVICIO, subgerencia_id: subgerencia.id }, defaults: { descripcion: 'Primer servicio demo del sistema', activo: 1 } });
-        const [servicio2] = await TipoContratista.findOrCreate({ where: { nombre: DEMO_SERVICIO_2, subgerencia_id: subgerencia.id }, defaults: { descripcion: 'Segundo servicio demo del sistema', activo: 1 } });
+        const [servicio] = await TipoContratista.findOrCreate({ where: { nombre: DEMO_SERVICIO, subgerencia_id: subgerencia.id }, defaults: { descripcion: 'Primer servicio demo del sistema', programa_id: demoPrograma.id, activo: 1 } });
+        const [servicio2] = await TipoContratista.findOrCreate({ where: { nombre: DEMO_SERVICIO_2, subgerencia_id: subgerencia.id }, defaults: { descripcion: 'Segundo servicio demo del sistema', programa_id: demoPrograma.id, activo: 1 } });
+        if (!servicio.programa_id) await servicio.update({ programa_id: demoPrograma.id });
+        if (!servicio2.programa_id) await servicio2.update({ programa_id: demoPrograma.id });
         const [dependencia] = await Dependencia.findOrCreate({ where: { nombre: DEMO_DEPENDENCIA }, defaults: { activo: 1 } });
         const [dependencia2] = await Dependencia.findOrCreate({ where: { nombre: DEMO_DEPENDENCIA_2 }, defaults: { activo: 1 } });
 
