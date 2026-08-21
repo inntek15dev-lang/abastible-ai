@@ -165,15 +165,17 @@ const servicioController = {
     async store(req, res) {
         try {
             const { nombre, descripcion, programa_id, subgerencia_id, activo } = req.body;
-            if (!nombre || !programa_id) {
-                return res.status(400).json({ success: false, message: 'Nombre y Programa son obligatorios' });
+            if (!nombre) {
+                return res.status(400).json({ success: false, message: 'El Nombre del servicio es obligatorio' });
             }
+
+            const pid = (programa_id === null || programa_id === '' || programa_id === 'null' || programa_id === undefined) ? null : programa_id;
 
             const servicio = await TipoContratista.create({
                 nombre,
                 descripcion,
-                programa_id,
-                subgerencia_id,
+                programa_id: pid,
+                subgerencia_id: subgerencia_id || null,
                 activo: activo !== undefined ? activo : 1
             });
 
@@ -193,10 +195,14 @@ const servicioController = {
             }
 
             const { nombre, descripcion, programa_id, subgerencia_id, activo } = req.body;
+            const pid = (programa_id === null || programa_id === '' || programa_id === 'null')
+                ? null
+                : (programa_id !== undefined ? programa_id : servicio.programa_id);
+
             await servicio.update({
                 nombre: nombre || servicio.nombre,
                 descripcion: descripcion !== undefined ? descripcion : servicio.descripcion,
-                programa_id: programa_id || servicio.programa_id,
+                programa_id: pid,
                 subgerencia_id: subgerencia_id !== undefined ? subgerencia_id : servicio.subgerencia_id,
                 activo: activo !== undefined ? activo : servicio.activo
             });

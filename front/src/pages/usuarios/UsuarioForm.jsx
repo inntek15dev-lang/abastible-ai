@@ -24,7 +24,8 @@ export default function UsuarioForm() {
         rut: '',
         telefono: '',
         contratista_id: '', // New field to link to contractor
-        vinculacion_id: '', // Add this
+        vinculacion_id: '',
+        vinculacion_ids: [],
         activo: true
     });
 
@@ -66,7 +67,7 @@ export default function UsuarioForm() {
                 if (isEdit) {
                     const userRes = await api.get(`/usuarios/${id}`);
                     const u = userRes.data.data;
-                    const currentVincId = u.vinculacionesAsignadas?.[0]?.vinculacion_id || '';
+                    const currentVincIds = (u.vinculacionesAsignadas || []).map(v => String(v.vinculacion_id));
                     setForm({
                         name: u.name,
                         email: u.email,
@@ -78,7 +79,8 @@ export default function UsuarioForm() {
                         rut: u.rut || '',
                         telefono: u.telefono || '',
                         contratista_id: u.contratista_id || u.parent_id || '', // parent_id is often used as contratista_id link
-                        vinculacion_id: currentVincId,
+                        vinculacion_id: currentVincIds[0] || '',
+                        vinculacion_ids: currentVincIds,
                         activo: u.activo ?? true
                     });
                 } else {
@@ -90,6 +92,7 @@ export default function UsuarioForm() {
                             tipo_contratista_id: currentUser.tipo_contratista_id || '',
                             dependencia_id: currentUser.dependencia_id || '',
                             vinculacion_id: '',
+                            vinculacion_ids: [],
                             role: 'contratista_user'
                         }));
                     }
@@ -129,10 +132,15 @@ export default function UsuarioForm() {
                         if (v.activo) {
                             if (v.servicio) services.set(v.servicio.id, v.servicio);
                             if (v.dependencia) deps.set(v.dependencia.id, v.dependencia);
-                            activeVincs.push({
-                                id: v.id,
-                                nombre: `${v.numero_contrato || 'Sin Contrato'} — ${v.dependencia?.nombre || 'Sin Dependencia'} (${v.servicio?.nombre || 'Sin Servicio'})`
-                            });
+                            
+                            // Regla de negocio PARKO: solo vinculaciones de servicios con Programa/Plan asignado
+                            const tienePrograma = Boolean(v.servicio && (v.servicio.programa_id || v.servicio.programa));
+                            if (tienePrograma) {
+                                activeVincs.push({
+                                    id: v.id,
+                                    nombre: `${v.numero_contrato || 'Sin Contrato'} — ${v.dependencia?.nombre || 'Sin Dependencia'} (${v.servicio?.nombre || 'Sin Servicio'})`
+                                });
+                            }
                         }
                     });
 
@@ -163,6 +171,19 @@ export default function UsuarioForm() {
             }
 
             delete payload.asignacion_inicial;
+
+            if (form.role === 'contratista_user') {
+                const selectedVincs = form.vinculacion_ids && form.vinculacion_ids.length > 0
+                    ? form.vinculacion_ids
+                    : (form.vinculacion_id ? [form.vinculacion_id] : []);
+
+                if (selectedVincs.length === 0) {
+                    setError('Debe seleccionar al menos una vinculación autorizada.');
+                    setLoading(false);
+                    return;
+                }
+                payload.vinculacion_ids = selectedVincs;
+            }
 
             if (isEdit) {
                 await api.put(`/usuarios/${id}`, payload);
@@ -338,22 +359,79 @@ export default function UsuarioForm() {
                                 </div>
                                 <span className="scope-description">
                                     {form.role === 'contratista_user' 
-                                        ? "Seleccione la vinculación única autorizada para este usuario contratista."
+                                        ? "Seleccione una o más vinculaciones autorizadas a las que este usuario contratista tendrá acceso."
                                         : "Defina el servicio y dependencia para este usuario. Las opciones están limitadas a los contratos vigentes."
                                     }
                                 </span>
 
                                 {form.role === 'contratista_user' ? (
                                     <div className="input-group-usuario">
-                                        <label className="label-usuario">Vinculación Autorizada <span className="required">*</span></label>
-                                        <SearchableSelect
-                                            options={availableVinculaciones}
-                                            value={form.vinculacion_id}
-                                            onChange={val => setForm({ ...form, vinculacion_id: val })}
-                                            placeholder="Seleccione Vinculación..."
-                                            dropdownTop="calc(34% + 4px)"
-                                            containerFlex="1 1 auto"
-                                        />
+                                        <label className="label-usuario">Vinculaciones Autorizadas <span className="required">*</span></label>
+                                        {availableVinculaciones.length === 0 ? (
+                                            <div style={{ padding: '12px', background: '#f8fafc', borderRadius: '8px', color: '#64748b', fontSize: '0.9rem' }}>
+                                                No hay vinculaciones activas disponibles para esta empresa.
+                                            </div>
+                                        ) : (
+                                            <div className="vinculaciones-checkbox-list" style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '8px',
+                                                maxHeight: '220px',
+                                                overflowY: 'auto',
+                                                padding: '12px',
+                                                border: '1px solid #e2e8f0',
+                                                borderRadius: '8px',
+                                                backgroundColor: '#ffffff'
+                                            }}>
+                                                {availableVinculaciones.length > 1 && (
+                                                    <div style={{ paddingBottom: '8px', marginBottom: '8px', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '16px' }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const allIds = availableVinculaciones.map(v => String(v.id));
+                                                                setForm(prev => ({ ...prev, vinculacion_ids: allIds, vinculacion_id: allIds[0] || '' }));
+                                                            }}
+                                                            style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                                                        >
+                                                            Seleccionar todas ({availableVinculaciones.length})
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setForm(prev => ({ ...prev, vinculacion_ids: [], vinculacion_id: '' }));
+                                                            }}
+                                                            style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                                                        >
+                                                            Desmarcar todas
+                                                        </button>
+                                                    </div>
+                                                )}
+                                                {availableVinculaciones.map(v => {
+                                                    const vIdStr = String(v.id);
+                                                    const isChecked = (form.vinculacion_ids || []).map(String).includes(vIdStr);
+                                                    return (
+                                                        <label key={v.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', fontSize: '0.9rem', color: '#1e293b', padding: '4px 0' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isChecked}
+                                                                onChange={e => {
+                                                                    const updated = e.target.checked
+                                                                        ? [...(form.vinculacion_ids || []).map(String), vIdStr]
+                                                                        : (form.vinculacion_ids || []).map(String).filter(id => id !== vIdStr);
+                                                                    setForm(prev => ({
+                                                                        ...prev,
+                                                                        vinculacion_ids: updated,
+                                                                        vinculacion_id: updated[0] || ''
+                                                                    }));
+                                                                }}
+                                                                style={{ marginTop: '2px', width: '16px', height: '16px', cursor: 'pointer' }}
+                                                            />
+                                                            <span>{v.nombre}</span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
                                 ) : (
                                     <>
