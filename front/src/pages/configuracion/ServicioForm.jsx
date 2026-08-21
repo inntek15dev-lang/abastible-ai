@@ -52,7 +52,7 @@ export default function ServicioForm() {
         if (form.subgerencia_id && subgerencias.length > 0 && !selectedGerenciaId) {
             const sub = subgerencias.find(s => String(s.id) === String(form.subgerencia_id));
             if (sub) {
-                setSelectedGerenciaId(sub.gerencia_id);
+                setSelectedGerenciaId(String(sub.gerencia_id));
             }
         }
     }, [form.subgerencia_id, subgerencias, selectedGerenciaId]);
@@ -68,8 +68,8 @@ export default function ServicioForm() {
 
     const fetchGerencias = async () => {
         try {
-            const response = await api.get('/resources/gerencias');
-            setGerencias(response.data.data);
+            const response = await api.get('/resources/gerencias?all=true');
+            setGerencias(response.data.data || []);
         } catch (err) {
             console.error('Error loading gerencias');
         }
@@ -77,8 +77,8 @@ export default function ServicioForm() {
 
     const fetchSubgerencias = async () => {
         try {
-            const response = await api.get('/resources/subgerencias');
-            setSubgerencias(response.data.data);
+            const response = await api.get('/resources/subgerencias?all=true');
+            setSubgerencias(response.data.data || []);
         } catch (err) {
             console.error('Error loading subgerencias');
         }
@@ -96,7 +96,7 @@ export default function ServicioForm() {
                 activo: data.activo
             });
             if (data.subgerencia && data.subgerencia.gerencia_id) {
-                setSelectedGerenciaId(data.subgerencia.gerencia_id);
+                setSelectedGerenciaId(String(data.subgerencia.gerencia_id));
             }
         } catch (err) {
             setError('Error al cargar datos');
