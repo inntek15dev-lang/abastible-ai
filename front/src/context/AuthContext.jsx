@@ -19,6 +19,11 @@ export function AuthProvider({ children }) {
     }, []);
 
     const login = async (email, password) => {
+        // Clear previous token and session state to ensure clean authentication for new login
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+
         const response = await api.post('/auth/login', { email, password });
         const { token, user: userData } = response.data;
 
@@ -30,6 +35,11 @@ export function AuthProvider({ children }) {
     };
 
     const loginWithExternalToken = async (token) => {
+        // Clear previous token and session state to ensure clean authentication for new login
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+
         const response = await api.post('/auth/login-external', { token });
         const { token: jwtToken, user: userData } = response.data;
 

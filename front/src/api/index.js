@@ -31,18 +31,24 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            const isExternalLogin = error.config?.url?.includes('/auth/login-external');
+            const isAuthRoute = error.config?.url?.includes('/auth/login') || error.config?.url?.includes('/auth/login-external');
             const serverMessage = error.response?.data?.message || error.response?.data?.error || 'Sesión expirada o no autorizada.';
 
             localStorage.removeItem('token');
             localStorage.removeItem('user');
 
-            if (isExternalLogin) {
-                // Permite que LoginExternal.jsx capture el error en su try/catch y despliegue el pop-up emergente
+            if (isAuthRoute) {
+                // Permite que los flujos de inicio de sesión capturen el error en su try/catch sin interferencia
                 return Promise.reject(error);
             }
 
-            // Pop-up con el motivo exacto antes de redirigir
+            // Si el cliente está en vistas de autenticación, no interrumpir la navegación de Persona B con alertas residuales
+            const currentPath = window.location.pathname;
+            if (['/login', '/login-external', '/sso'].includes(currentPath)) {
+                return Promise.reject(error);
+            }
+
+            // Pop-up con el motivo exacto para Persona A antes de redirigir al login
             alert(`⚠️ Error de Autenticación:\n\nMotivo: ${serverMessage}\n\nHaga clic en Aceptar para ser redirigido al inicio de sesión.`);
             window.location.href = '/login';
         }
