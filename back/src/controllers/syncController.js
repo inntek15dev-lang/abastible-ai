@@ -4,7 +4,7 @@ const { Op } = require('sequelize');
 const { sequelize, Contratista, TipoContratista, Dependencia, Vinculacion, User, Administracion, Gerencia, Subgerencia, ContratistaUsuario } = require('../database/models');
 const { adoptOvalUsuId, nextLocalUsuId, isProtectedEmail } = require('../utils/usuIdHomologation');
 const {
-    DEMO_CONTRATISTA_RUT, DEMO_GERENCIA, DEMO_SUBGERENCIA, DEMO_SERVICIO, DEMO_DEPENDENCIA, DEMO_DEPENDENCIA_2
+    DEMO_CONTRATISTA_RUT, DEMO_GERENCIA, DEMO_SUBGERENCIA, DEMO_SERVICIO, DEMO_SERVICIO_2, DEMO_DEPENDENCIA, DEMO_DEPENDENCIA_2
 } = require('../utils/demoScaffold');
 
 const isProduction = process.env.NODE_ENV === 'production';
@@ -1138,7 +1138,7 @@ const syncData = async (req, res) => {
             if (mirror) {
                 const target = new Set(items.map(i => normalize(`${i.subgerencia}|${i.nombre}`)));
                 const local = await TipoContratista.findAll({ include: [{ model: Subgerencia, as: 'subgerencia' }] });
-                const stale = local.filter(s => !target.has(normalize(`${s.subgerencia ? s.subgerencia.nombre : ''}|${s.nombre}`)) && normalize(s.nombre) !== normalize(DEMO_SERVICIO));
+                const stale = local.filter(s => !target.has(normalize(`${s.subgerencia ? s.subgerencia.nombre : ''}|${s.nombre}`)) && normalize(s.nombre) !== normalize(DEMO_SERVICIO) && normalize(s.nombre) !== normalize(DEMO_SERVICIO_2));
                 await pruneOneByOne('servicios', stale, (s) => s.destroy(), (s) => ({ id: s.id, nombre: s.nombre, subgerencia: s.subgerencia ? s.subgerencia.nombre : null }));
             }
         } else if (type === 'dependencias') {

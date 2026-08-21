@@ -31,8 +31,19 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
+            const isExternalLogin = error.config?.url?.includes('/auth/login-external');
+            const serverMessage = error.response?.data?.message || error.response?.data?.error || 'Sesión expirada o no autorizada.';
+
             localStorage.removeItem('token');
             localStorage.removeItem('user');
+
+            if (isExternalLogin) {
+                // Permite que LoginExternal.jsx capture el error en su try/catch y despliegue el pop-up emergente
+                return Promise.reject(error);
+            }
+
+            // Pop-up con el motivo exacto antes de redirigir
+            alert(`⚠️ Error de Autenticación:\n\nMotivo: ${serverMessage}\n\nHaga clic en Aceptar para ser redirigido al inicio de sesión.`);
             window.location.href = '/login';
         }
         return Promise.reject(error);

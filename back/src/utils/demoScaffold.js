@@ -16,6 +16,7 @@ const DEMO_DEPENDENCIA = 'DEPENDENCIA DEMO';
 const DEMO_NUMERO_CONTRATO = 'DEMO-1';
 
 // Segunda vinculación demo para pruebas de N-vinculaciones
+const DEMO_SERVICIO_2 = 'SERVICIO DEMO 2';
 const DEMO_DEPENDENCIA_2 = 'DEPENDENCIA DEMO 2';
 const DEMO_NUMERO_CONTRATO_2 = 'DEMO-2';
 
@@ -27,6 +28,7 @@ module.exports = {
     DEMO_SERVICIO,
     DEMO_DEPENDENCIA,
     DEMO_NUMERO_CONTRATO,
+    DEMO_SERVICIO_2,
     DEMO_DEPENDENCIA_2,
     DEMO_NUMERO_CONTRATO_2
 };

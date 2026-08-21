@@ -29,17 +29,18 @@ const { rekeyUserReferences } = require('../src/utils/usuIdHomologation');
 const {
     DEMO_CONTRATISTA_RUT, DEMO_CONTRATISTA_NOMBRE, DEMO_GERENCIA, DEMO_SUBGERENCIA,
     DEMO_SERVICIO, DEMO_DEPENDENCIA, DEMO_NUMERO_CONTRATO,
-    DEMO_DEPENDENCIA_2, DEMO_NUMERO_CONTRATO_2
+    DEMO_SERVICIO_2, DEMO_DEPENDENCIA_2, DEMO_NUMERO_CONTRATO_2
 } = require('../src/utils/demoScaffold');
 
 async function run() {
     try {
-        console.log('🔄 Creando/asegurando el scaffold demo (empresa + 2 contratos + usuarios)...');
+        console.log('🔄 Creando/asegurando el scaffold demo (empresa + 2 servicios + 2 contratos + usuarios)...');
         const hashedPassword = await bcrypt.hash('User123*', 10);
 
         const [gerencia] = await Gerencia.findOrCreate({ where: { nombre: DEMO_GERENCIA }, defaults: { activo: 1 } });
         const [subgerencia] = await Subgerencia.findOrCreate({ where: { nombre: DEMO_SUBGERENCIA, gerencia_id: gerencia.id }, defaults: { activo: 1 } });
-        const [servicio] = await TipoContratista.findOrCreate({ where: { nombre: DEMO_SERVICIO, subgerencia_id: subgerencia.id }, defaults: { descripcion: 'Servicio demo del sistema', activo: 1 } });
+        const [servicio] = await TipoContratista.findOrCreate({ where: { nombre: DEMO_SERVICIO, subgerencia_id: subgerencia.id }, defaults: { descripcion: 'Primer servicio demo del sistema', activo: 1 } });
+        const [servicio2] = await TipoContratista.findOrCreate({ where: { nombre: DEMO_SERVICIO_2, subgerencia_id: subgerencia.id }, defaults: { descripcion: 'Segundo servicio demo del sistema', activo: 1 } });
         const [dependencia] = await Dependencia.findOrCreate({ where: { nombre: DEMO_DEPENDENCIA }, defaults: { activo: 1 } });
         const [dependencia2] = await Dependencia.findOrCreate({ where: { nombre: DEMO_DEPENDENCIA_2 }, defaults: { activo: 1 } });
 
@@ -72,7 +73,7 @@ async function run() {
         const [vinculacion2] = await Vinculacion.findOrCreate({
             where: {
                 contratista_id: contratista.id,
-                servicio_id: servicio.id,
+                servicio_id: servicio2.id,
                 dependencia_id: dependencia2.id,
                 subgerencia_id: subgerencia.id,
                 gerencia_id: gerencia.id

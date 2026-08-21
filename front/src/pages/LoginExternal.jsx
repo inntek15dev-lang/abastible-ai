@@ -16,8 +16,10 @@ export default function LoginExternal() {
         const token = searchParams.get('token') || searchParams.get('data');
 
         if (!token) {
+            const msg = 'No se proporcionó un token de acceso externo válido en la URL.';
             setStatus('error');
-            setErrorMsg('No se proporcionó un token de acceso externo válido.');
+            setErrorMsg(msg);
+            alert(`⚠️ Error de Acceso SSO OVAL:\n\nMotivo: ${msg}\n\nHaga clic en Aceptar para ver la pantalla de inicio de sesión.`);
             return;
         }
 
@@ -30,8 +32,10 @@ export default function LoginExternal() {
                 navigate('/', { replace: true });
             } catch (err) {
                 console.error('External login error:', err);
+                const exactReason = err.response?.data?.message || err.response?.data?.error || 'Error al validar las credenciales externas con OVAL.';
                 setStatus('error');
-                setErrorMsg(err.response?.data?.message || 'Error al validar las credenciales externas.');
+                setErrorMsg(exactReason);
+                alert(`⚠️ Error de Autenticación SSO OVAL:\n\nMotivo exacto del rechazo:\n"${exactReason}"\n\nHaga clic en Aceptar para ver el detalle y regresar al inicio de sesión.`);
             }
         };
 
