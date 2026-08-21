@@ -309,12 +309,24 @@ const authController = {
                 console.error("[SSO] Error al intentar desencriptar el token recibido:", decError.message);
             }
 
-            const isProduction = process.env.NODE_ENV === 'production';
-            const pizzaDomain = isProduction 
-                ? 'https://ovalcontrol.com' 
-                : 'https://prepro.ovalcontrol.com';
+            let pizzaDomain = process.env.PIZZA_DOMAIN || process.env.EXTERNAL_AUTH_URL;
+            if (!pizzaDomain && process.env.PIZZA_API_URL) {
+                try {
+                    const parsed = new URL(process.env.PIZZA_API_URL);
+                    pizzaDomain = parsed.origin;
+                } catch (e) {
+                    console.warn('[SSO] No se pudo parsear PIZZA_API_URL, usando fallback');
+                }
+            }
+            if (!pizzaDomain) {
+                const isProduction = process.env.NODE_ENV === 'production';
+                pizzaDomain = isProduction 
+                    ? 'https://ovalcontrol.com' 
+                    : 'https://prepro.ovalcontrol.com';
+            }
             
-            const validationUrl = `${pizzaDomain}/api/external-auth/validate`;
+            const cleanDomain = pizzaDomain.replace(/\/$/, '');
+            const validationUrl = `${cleanDomain}/api/external-auth/validate`;
             const sharedApiKey = process.env.EXTERNAL_API_KEY || ''; // Needs to be in .env
 
             const axios = require('axios');
