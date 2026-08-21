@@ -962,6 +962,12 @@ const resourceController = require('../controllers/resourceController');
  *     tags: [Resources]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: all
+ *         schema:
+ *           type: boolean
+ *         description: Set to true to return all gerencias without scope filtering
  *     responses:
  *       200:
  *         description: List of gerencias
@@ -972,6 +978,17 @@ const resourceController = require('../controllers/resourceController');
  *     tags: [Resources]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: all
+ *         schema:
+ *           type: boolean
+ *         description: Set to true to return all subgerencias without scope filtering
+ *       - in: query
+ *         name: gerencia_id
+ *         schema:
+ *           type: integer
+ *         description: Filter subgerencias by gerencia ID
  *     responses:
  *       200:
  *         description: List of subgerencias

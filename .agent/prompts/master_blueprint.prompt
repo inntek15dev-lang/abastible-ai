@@ -787,7 +787,7 @@ users, vinculaciones, programas, dependencias ──< registros
 `GET /usuarios`, `GET /usuarios/:id`, `POST /usuarios`, `PUT /usuarios/:id`, `DELETE /usuarios/:id`, `GET /usuarios/:id/asignaciones`
 
 **Resources / dropdowns (7)** — solo `auth`
-`GET /resources/dependencias`, `GET /resources/roles`, `GET /resources/tipos-contratista`, `GET /resources/gerencias`, `GET /resources/subgerencias`, `GET /resources/adc`, `GET /resources/adc-scope`
+`GET /resources/dependencias`, `GET /resources/roles`, `GET /resources/tipos-contratista`, `GET /resources/gerencias` (soporta `?all=true` para omitir filtro de scope), `GET /resources/subgerencias` (soporta `?all=true` y `?gerencia_id`), `GET /resources/adc`, `GET /resources/adc-scope`
 
 **Roles y Privilegios (6)** — `Admin_Usuarios.read/write/excec` (solo admin/oval por defecto)
 `GET /roles`, `POST /roles`, `PUT /roles/:id`, `DELETE /roles/:id`, `GET /roles/:id/privileges`, `PUT /roles/:id/privileges`

@@ -218,6 +218,17 @@ const resourceController = {
         try {
             const { role, id } = req.user;
             const soloHuerfanos = req.query.solo_huerfanos === 'true';
+            const allGerencias = req.query.all === 'true' || req.query.all === '1';
+
+            if (allGerencias) {
+                const data = await Gerencia.findAll({
+                    attributes: ['id', 'nombre'],
+                    where: { activo: 1 },
+                    order: [['nombre', 'ASC']]
+                });
+                return res.json({ success: true, data });
+            }
+
             const scope = await getProgramaScope();
             const eligibleGerenciaIds = new Set(scope.gerenciaIds.map(Number));
             const passesPrograma = (gId) => soloHuerfanos ? !eligibleGerenciaIds.has(Number(gId)) : eligibleGerenciaIds.has(Number(gId));
@@ -283,6 +294,19 @@ const resourceController = {
             const { role, id } = req.user;
             const { gerencia_id } = req.query;
             const soloHuerfanos = req.query.solo_huerfanos === 'true';
+            const allSubgerencias = req.query.all === 'true' || req.query.all === '1';
+
+            if (allSubgerencias) {
+                const where = { activo: 1 };
+                if (gerencia_id && gerencia_id !== 'todas') where.gerencia_id = gerencia_id;
+                const data = await Subgerencia.findAll({
+                    attributes: ['id', 'nombre', 'gerencia_id'],
+                    where,
+                    order: [['nombre', 'ASC']]
+                });
+                return res.json({ success: true, data });
+            }
+
             const scope = await getProgramaScope();
             const eligibleSubgerenciaIds = new Set(scope.subgerenciaIds.map(Number));
             const passesPrograma = (sId) => soloHuerfanos ? !eligibleSubgerenciaIds.has(Number(sId)) : eligibleSubgerenciaIds.has(Number(sId));

@@ -22,7 +22,7 @@ function verifyBlueprintSync() {
 
     // 1. Extract Seed Data from Blueprint
     // Looking for the JSON block under ## VII. SEED DATA INICIAL
-    const seedSectionRegex = /## VII\. SEED DATA INICIAL\s+```json([\s\S]*?)```/;
+    const seedSectionRegex = /## VII\. SEED DATA INICIAL[^\n]*\s+```json([\s\S]*?)```/;
     const match = blueprintContent.match(seedSectionRegex);
 
     if (!match) {
@@ -72,11 +72,12 @@ function verifyBlueprintSync() {
     console.log('\nChecking Configurations...');
     const blueprintConfigs = blueprintData.configuraciones || [];
     blueprintConfigs.forEach(conf => {
-        if (!seedUsersContent.includes(conf.key)) {
-            console.error(`❌ Missing Config Key in seed.js: ${conf.key} (defined in Blueprint)`);
+        const configKey = conf.clave || conf.key;
+        if (!seedUsersContent.includes(configKey)) {
+            console.error(`❌ Missing Config Key in seed.js: ${configKey} (defined in Blueprint)`);
             hasErrors = true;
         } else {
-            console.log(`✅ Found: ${conf.key}`);
+            console.log(`✅ Found: ${configKey}`);
         }
     });
 
