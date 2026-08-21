@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
@@ -10,8 +10,13 @@ export default function LoginExternal() {
     
     const [status, setStatus] = useState('loading'); // 'loading' | 'error'
     const [errorMsg, setErrorMsg] = useState('');
+    const hasExecutedRef = useRef(false);
 
     useEffect(() => {
+        // Strict single execution guard per component mount (prevents context re-render loop)
+        if (hasExecutedRef.current) return;
+        hasExecutedRef.current = true;
+
         // Support token or data parameters
         const token = searchParams.get('token') || searchParams.get('data');
 
@@ -40,7 +45,7 @@ export default function LoginExternal() {
         };
 
         authenticate();
-    }, [searchParams, loginWithExternalToken, logout, navigate]);
+    }, [searchParams]);
 
     return (
         <div style={{

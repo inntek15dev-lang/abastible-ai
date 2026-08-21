@@ -18,7 +18,7 @@ export function AuthProvider({ children }) {
         setLoading(false);
     }, []);
 
-    const login = async (email, password) => {
+    const login = useCallback(async (email, password) => {
         // Clear previous token and session state to ensure clean authentication for new login
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -32,9 +32,9 @@ export function AuthProvider({ children }) {
         setUser(userData);
 
         return userData;
-    };
+    }, []);
 
-    const loginWithExternalToken = async (token) => {
+    const loginWithExternalToken = useCallback(async (token) => {
         // Clear previous token and session state to ensure clean authentication for new login
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -48,13 +48,13 @@ export function AuthProvider({ children }) {
         setUser(userData);
 
         return userData;
-    };
+    }, []);
 
-    const logout = () => {
+    const logout = useCallback(() => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setUser(null);
-    };
+    }, []);
 
     // Privilege check methods (privilegios-engine integration)
     const checkPrivilege = useCallback((module, action) => {
