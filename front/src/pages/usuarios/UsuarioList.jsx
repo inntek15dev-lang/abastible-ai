@@ -207,52 +207,57 @@ export default function UsuarioList() {
                                 <td colSpan={9} className="empty-row">No hay usuarios que coincidan con el filtro</td>
                             </tr>
                         ) : (
-                            filteredUsuarios.map((usuario) => (
-                                <tr key={usuario.id}>
-                                    <td>{usuario.name}</td>
-                                    <td>{usuario.usu_id ?? '-'}</td>
-                                    <td>{usuario.usuario || '-'}</td>
-                                    <td>{usuario.email}</td>
-                                    <td>{usuario.rut || '-'}</td>
-                                    <td>
-                                        <span className={`badge ${getRoleBadge(usuario.role)}`}>
-                                            {usuario.role.replace(/_/g, ' ')}
-                                        </span>
-                                    </td>
-                                    <td>{usuario.eecc_nombre || '-'}</td>
-                                    <td>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <Toggle
-                                                checked={Boolean(usuario.activo)}
-                                                onChange={() => toggleActive(usuario.id, usuario.activo)}
-                                                disabled={!canExec('Usuarios') || usuario.id === useAuth().user?.id}
-                                                title={usuario.id === useAuth().user?.id ? "No puede desactivar su propia cuenta" : ""}
-                                            />
-                                            <span style={{ fontSize: '0.85rem', color: usuario.activo ? 'var(--success)' : 'var(--text-secondary)' }}>
-                                                {usuario.activo ? 'Activo' : 'Inactivo'}
+                            filteredUsuarios.map((usuario) => {
+                                const userId = usuario.usu_id || usuario.id;
+                                const currentUserId = useAuth().user?.usu_id || useAuth().user?.id;
+                                const isSelf = String(userId) === String(currentUserId);
+                                return (
+                                    <tr key={userId}>
+                                        <td>{usuario.name}</td>
+                                        <td>{usuario.usu_id ?? '-'}</td>
+                                        <td>{usuario.usuario || '-'}</td>
+                                        <td>{usuario.email}</td>
+                                        <td>{usuario.rut || '-'}</td>
+                                        <td>
+                                            <span className={`badge ${getRoleBadge(usuario.role)}`}>
+                                                {usuario.role.replace(/_/g, ' ')}
                                             </span>
-                                        </div>
-                                    </td>
-                                    <td className="actions-cell">
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            {canWrite('Usuarios') && (
-                                                <Link to={`/usuarios/${usuario.id}/edit`} className="btn-icon" title="Editar">
-                                                    <Edit size={18} />
-                                                </Link>
-                                            )}
-                                            {canWrite('Usuarios') && usuario.id !== useAuth().user?.id && (
-                                                <button 
-                                                    className="btn-icon text-red-500" 
-                                                    onClick={() => handleDelete(usuario.id)}
-                                                    title="Eliminar"
-                                                >
-                                                    <Trash2 size={18} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))
+                                        </td>
+                                        <td>{usuario.eecc_nombre || '-'}</td>
+                                        <td>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <Toggle
+                                                    checked={Boolean(usuario.activo)}
+                                                    onChange={() => toggleActive(userId, usuario.activo)}
+                                                    disabled={!canExec('Usuarios') || isSelf}
+                                                    title={isSelf ? "No puede desactivar su propia cuenta" : ""}
+                                                />
+                                                <span style={{ fontSize: '0.85rem', color: usuario.activo ? 'var(--success)' : 'var(--text-secondary)' }}>
+                                                    {usuario.activo ? 'Activo' : 'Inactivo'}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="actions-cell">
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                {canWrite('Usuarios') && (
+                                                    <Link to={`/usuarios/${userId}/edit`} className="btn-icon" title="Editar">
+                                                        <Edit size={18} />
+                                                    </Link>
+                                                )}
+                                                {canWrite('Usuarios') && !isSelf && (
+                                                    <button 
+                                                        className="btn-icon text-red-500" 
+                                                        onClick={() => handleDelete(userId)}
+                                                        title="Eliminar"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })
                         )}
                     </tbody>
                 </table>

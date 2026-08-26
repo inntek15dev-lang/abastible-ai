@@ -154,7 +154,15 @@ const usuarioController = {
                 ]
             });
 
-            res.json({ success: true, data: usuarios });
+            const mappedUsuarios = usuarios.map(u => {
+                const json = u.toJSON();
+                if (!json.id && json.usu_id) {
+                    json.id = json.usu_id;
+                }
+                return json;
+            });
+
+            res.json({ success: true, data: mappedUsuarios });
         } catch (error) {
             console.error('Usuarios index error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener usuarios' });
@@ -271,7 +279,12 @@ const usuarioController = {
                 }
             }
 
-            res.json({ success: true, data: usuario });
+            const userData = usuario.toJSON();
+            if (!userData.id && userData.usu_id) {
+                userData.id = userData.usu_id;
+            }
+
+            res.json({ success: true, data: userData });
         } catch (error) {
             console.error('Usuario show error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener usuario' });
