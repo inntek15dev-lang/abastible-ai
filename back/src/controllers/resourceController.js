@@ -1,6 +1,6 @@
 const { Op } = require('sequelize');
 const { Dependencia, TipoContratista, Vinculacion, Administracion, Gerencia, Subgerencia, User, Role, Contratista, VinculacionUsuario } = require('../database/models');
-const { getProgramaScope } = require('../utils/programaScopeHelper');
+const { getProgramaScope, scopeWhereClause } = require('../utils/programaScopeHelper');
 
 // Helper: get cIds robustly for contratista_admin
 const getContratistaAdminIds = (user) => {
@@ -375,12 +375,30 @@ const resourceController = {
     async administradoresContrato(req, res) {
         try {
             const { role, id } = req.user;
+            const soloHuerfanos = req.query.solo_huerfanos === 'true';
+            const scope = await getProgramaScope();
 
-            // admin / oval: devuelve todos
+            // admin / oval: devuelve todos los ADCs con vinculaciones dentro del filtro de programa
             if (!role || ['admin', 'oval'].includes(role)) {
+                const vincWhere = scopeWhereClause(scope.vinculacionIds, soloHuerfanos);
+                const admins = await Administracion.findAll({
+                    where: { vinculacion_id: vincWhere, activo: 1 },
+                    attributes: ['administrador_contrato_id'],
+                    group: ['administrador_contrato_id']
+                });
+                const adcIds = admins.map(a => a.administrador_contrato_id);
+                if (adcIds.length === 0) return res.json({ success: true, data: [] });
+
                 const data = await User.findAll({
                     attributes: [['usu_id', 'id'], 'name', 'email'],
-                    where: { role: 'administrador_contrato', activo: true },
+                    where: {
+                        role: 'administrador_contrato',
+                        activo: true,
+                        [Op.or]: [
+                            { usu_id: { [Op.in]: adcIds } },
+                            { id: { [Op.in]: adcIds } }
+                        ]
+                    },
                     order: [['name', 'ASC']]
                 });
                 return res.json({ success: true, data });
@@ -413,8 +431,12 @@ const resourceController = {
                 const vincIds = vincs.map(v => v.id);
                 if (vincIds.length === 0) return res.json({ success: true, data: [] });
 
+                const eligibleSet = new Set(scope.vinculacionIds.map(Number));
+                const filteredVincIds = vincIds.filter(vId => soloHuerfanos ? !eligibleSet.has(Number(vId)) : eligibleSet.has(Number(vId)));
+                if (filteredVincIds.length === 0) return res.json({ success: true, data: [] });
+
                 const admins = await Administracion.findAll({
-                    where: { vinculacion_id: { [Op.in]: vincIds }, activo: 1 },
+                    where: { vinculacion_id: { [Op.in]: filteredVincIds }, activo: 1 },
                     attributes: ['administrador_contrato_id'],
                     group: ['administrador_contrato_id']
                 });
@@ -451,12 +473,18 @@ const resourceController = {
                 return res.json({ success: true, data: { empresas: [], dependencias: [] } });
             }
 
+            const soloHuerfanos = req.query.solo_huerfanos === 'true';
+            const scope = await getProgramaScope();
+            const eligibleVincIds = new Set(scope.vinculacionIds.map(Number));
+            const passesPrograma = (vId) => soloHuerfanos ? !eligibleVincIds.has(Number(vId)) : eligibleVincIds.has(Number(vId));
+
             const administraciones = await Administracion.findAll({
                 where: { administrador_contrato_id: id, activo: 1 },
                 include: [{
                     model: Vinculacion,
                     as: 'vinculacion',
                     required: true,
+                    where: { activo: 1 },
                     include: [
                         { model: Contratista, as: 'contratista', required: true },
                         { model: Dependencia, as: 'dependencia', required: true }
@@ -469,18 +497,20 @@ const resourceController = {
 
             administraciones.forEach(adm => {
                 const v = adm.vinculacion;
-                if (v && v.contratista) {
-                    empresasMap.set(v.contratista.id, {
-                        id: v.contratista.id,
-                        nombre: v.contratista.nombre,
-                        rut: v.contratista.rut
-                    });
-                }
-                if (v && v.dependencia) {
-                    dependenciasMap.set(v.dependencia.id, {
-                        id: v.dependencia.id,
-                        nombre: v.dependencia.nombre
-                    });
+                if (v && passesPrograma(v.id)) {
+                    if (v.contratista) {
+                        empresasMap.set(v.contratista.id, {
+                            id: v.contratista.id,
+                            nombre: v.contratista.nombre,
+                            rut: v.contratista.rut
+                        });
+                    }
+                    if (v.dependencia) {
+                        dependenciasMap.set(v.dependencia.id, {
+                            id: v.dependencia.id,
+                            nombre: v.dependencia.nombre
+                        });
+                    }
                 }
             });
 
