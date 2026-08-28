@@ -3,13 +3,19 @@ import { Link } from 'react-router-dom';
 import { AlertCircle, PlusCircle, ArrowRight } from 'lucide-react';
 import api from '../../api';
 
-export default function PendingRegistersWidget({ vinculacion }) {
+export default function PendingRegistersWidget({ vinculacion, vinculaciones }) {
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    const activeVinculaciones = useMemo(() => {
+        if (vinculaciones && vinculaciones.length > 0) return vinculaciones;
+        if (vinculacion) return [vinculacion];
+        return [];
+    }, [vinculacion, vinculaciones]);
+
     useEffect(() => {
         const fetchHistory = async () => {
-            if (!vinculacion) return;
+            if (activeVinculaciones.length === 0) return;
             try {
                 setLoading(true);
                 // Fetch full history for this contractor to check for gaps
@@ -22,61 +28,67 @@ export default function PendingRegistersWidget({ vinculacion }) {
             }
         };
         fetchHistory();
-    }, [vinculacion]);
+    }, [activeVinculaciones]);
 
     const pendingPeriods = useMemo(() => {
-        if (!vinculacion || !vinculacion.fecha_inicio_contrato) return [];
+        if (activeVinculaciones.length === 0) return [];
 
-        const start = new Date(vinculacion.fecha_inicio_contrato);
+        const periods = [];
         const now = new Date();
         // Tope explícito: último instante del mes en curso para garantizar su inclusión
         const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-        const periods = [];
 
-        // Normalize start date to first day of month to avoid issues
-        let current = new Date(start.getFullYear(), start.getMonth(), 1);
+        activeVinculaciones.forEach(v => {
+            if (!v.fecha_inicio_contrato) return;
 
-        while (current <= end) {
-            const year = current.getFullYear();
-            const month = String(current.getMonth() + 1).padStart(2, '0');
-            const periodStr = `${year}-${month}`;
-            const isCurrentMonth = year === now.getFullYear() && current.getMonth() === now.getMonth();
+            const start = new Date(v.fecha_inicio_contrato);
+            // Normalize start date to first day of month to avoid issues
+            let current = new Date(start.getFullYear(), start.getMonth(), 1);
 
-            // Check if register exists for this period AND this specific vinculacion
-            const existingRecord = history.find(r => 
-                r.periodo && 
-                r.periodo.startsWith(periodStr) && 
-                (r.vinculacion_id === vinculacion.id || r.contratista_asignacion_id === vinculacion.id)
-            );
+            while (current <= end) {
+                const year = current.getFullYear();
+                const month = String(current.getMonth() + 1).padStart(2, '0');
+                const periodStr = `${year}-${month}`;
+                const isCurrentMonth = year === now.getFullYear() && current.getMonth() === now.getMonth();
 
-            if (!existingRecord) {
-                periods.push({
-                    periodo: periodStr,
-                    date: new Date(current),
-                    vinculacionId: vinculacion.id,
-                    action: 'create',
-                    isCurrentMonth
-                });
-            } else if (existingRecord.cerrado === 0 || existingRecord.cerrado === false) {
-                periods.push({
-                    periodo: periodStr,
-                    date: new Date(current),
-                    vinculacionId: vinculacion.id,
-                    action: 'complete',
-                    recordId: existingRecord.id,
-                    isCurrentMonth
-                });
+                // Check if register exists for this period AND this specific vinculacion
+                const existingRecord = history.find(r => 
+                    r.periodo && 
+                    r.periodo.startsWith(periodStr) && 
+                    (r.vinculacion_id === v.id || r.contratista_asignacion_id === v.id)
+                );
+
+                if (!existingRecord) {
+                    periods.push({
+                        periodo: periodStr,
+                        date: new Date(current),
+                        vinculacionId: v.id,
+                        vinculacion: v,
+                        action: 'create',
+                        isCurrentMonth
+                    });
+                } else if (existingRecord.cerrado === 0 || existingRecord.cerrado === false) {
+                    periods.push({
+                        periodo: periodStr,
+                        date: new Date(current),
+                        vinculacionId: v.id,
+                        vinculacion: v,
+                        action: 'complete',
+                        recordId: existingRecord.id,
+                        isCurrentMonth
+                    });
+                }
+
+                // Next month
+                current.setMonth(current.getMonth() + 1);
             }
-
-            // Next month
-            current.setMonth(current.getMonth() + 1);
-        }
+        });
 
         // Return oldest first to catch up
         return periods.sort((a, b) => a.date - b.date);
-    }, [vinculacion, history]);
+    }, [activeVinculaciones, history]);
 
-    if (!vinculacion || (loading && history.length === 0)) return null;
+    if (activeVinculaciones.length === 0 || (loading && history.length === 0)) return null;
     if (pendingPeriods.length === 0) return null;
 
     return (
@@ -110,7 +122,10 @@ export default function PendingRegistersWidget({ vinculacion }) {
 
             <div style={{ padding: '16px' }}>
                 <p style={{ fontSize: '0.9rem', color: '#4b5563', marginBottom: '16px' }}>
-                    Se han detectado periodos mensuales sin registro desde el inicio de su contrato ({new Date(vinculacion.fecha_inicio_contrato).toLocaleDateString('es-CL')}).
+                    {activeVinculaciones.length === 1 
+                        ? `Se han detectado periodos mensuales sin registro desde el inicio de su contrato (${new Date(activeVinculaciones[0].fecha_inicio_contrato).toLocaleDateString('es-CL')}).`
+                        : "Se han detectado periodos mensuales sin registro en sus vinculaciones de contrato activas."
+                    }
                 </p>
 
                 <div className="table-container" style={{ maxHeight: '300px', overflowY: 'auto' }}>
@@ -124,7 +139,7 @@ export default function PendingRegistersWidget({ vinculacion }) {
                         </thead>
                         <tbody>
                             {pendingPeriods.map((item) => (
-                                <tr key={item.periodo} style={{ backgroundColor: item.isCurrentMonth ? '#f0fdfa' : 'transparent' }}>
+                                <tr key={`${item.periodo}-${item.vinculacionId}`} style={{ backgroundColor: item.isCurrentMonth ? '#f0fdfa' : 'transparent' }}>
                                     <td style={{ fontWeight: 600, color: item.isCurrentMonth ? '#0d9488' : (item.action === 'create' ? '#c2410c' : '#2563eb') }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <span>{item.date.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}</span>
@@ -140,9 +155,9 @@ export default function PendingRegistersWidget({ vinculacion }) {
                                     </td>
                                     <td>
                                         <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                            <span style={{ fontWeight: 500 }}>{vinculacion.servicio?.nombre}</span>
+                                            <span style={{ fontWeight: 500 }}>{item.vinculacion?.servicio?.nombre}</span>
                                             <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                                                {vinculacion.dependencia?.nombre}
+                                                {item.vinculacion?.dependencia?.nombre}
                                             </span>
                                         </div>
                                     </td>
@@ -161,7 +176,7 @@ export default function PendingRegistersWidget({ vinculacion }) {
                                             </Link>
                                         ) : (
                                             <Link
-                                                to={`/registros/new?periodo=${item.periodo}&vinculacion_id=${vinculacion.id}`}
+                                                to={`/registros/new?periodo=${item.periodo}&vinculacion_id=${item.vinculacionId}`}
                                                 className="btn-primary"
                                                 style={{
                                                     display: 'inline-flex', alignItems: 'center', gap: '4px',

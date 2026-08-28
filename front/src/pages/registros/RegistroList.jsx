@@ -49,6 +49,7 @@ export default function RegistroList() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const { canWrite, canExec, user, isAdmin } = useAuth();
+    const isContractor = ['contratista_admin', 'contratista_user'].includes(user?.role);
     const [activeTab, setActiveTab] = useState('operaciones');
     const [tracePanelOpen, setTracePanelOpen] = useState(false);
     const [selectedRegistroId, setSelectedRegistroId] = useState(null);
@@ -185,30 +186,22 @@ export default function RegistroList() {
         }
     };
 
-    // --- Special Logic for Pending Registers Widget (Contractor User) ---
-    const [myVinculacion, setMyVinculacion] = useState(null);
+    // --- Special Logic for Pending Registers Widget (Contractor User / Admin) ---
+    const [myVinculaciones, setMyVinculaciones] = useState([]);
 
     useEffect(() => {
-        const fetchMyVinculacion = async () => {
-            // Only for contratista_user who has specific scope. Ancla por vinculacion_id:
-            // contratista_id/tipo_contratista_id/dependencia_id están siempre en NULL para
-            // este rol (ver middleware/auth.js), así que esta condición nunca se cumplía y
-            // el widget de pendientes jamás se cargaba. El backend (vinculacionController.
-            // index) ya fuerza where.id = vinculacion_id para este rol sin importar los
-            // query params, así que no hace falta enviar ningún filtro.
-            if (user?.role === 'contratista_user' && user.vinculacion_id) {
+        const fetchMyVinculaciones = async () => {
+            if (isContractor) {
                 try {
                     const res = await api.get('/vinculaciones');
-                    if (res.data.data && res.data.data.length > 0) {
-                        setMyVinculacion(res.data.data[0]);
-                    }
+                    setMyVinculaciones(res.data.data || []);
                 } catch (err) {
-                    console.error("Error fetching my vinculacion for widget", err);
+                    console.error("Error fetching my vinculaciones for widget", err);
                 }
             }
         };
-        fetchMyVinculacion();
-    }, [user]);
+        fetchMyVinculaciones();
+    }, [user, isContractor]);
 
     // Calculate Yearly Averages
     const yearlyAverages = useMemo(() => {
@@ -373,7 +366,6 @@ export default function RegistroList() {
         setReaperturaModal(true);
     };
 
-    const isContractor = ['contratista_admin', 'contratista_user'].includes(user?.role);
     const isAdminOrADC = isAdmin || user?.role === 'administrador_contrato';
 
     const handleReabrirDirecto = (registroId) => {
@@ -778,7 +770,7 @@ export default function RegistroList() {
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--color-brand-secondary)' }}>
                     Registros de Cumplimiento
                 </h1>
-                {canWrite('Registros') && !isContractor && (
+                {canWrite('Registros') && (
                     <Link id="btn-nuevo-registro" to="/registros/new" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
                         <Plus size={18} /> Nuevo Registro
                     </Link>
@@ -935,9 +927,9 @@ export default function RegistroList() {
 
             {error && <div className="error-message">{error}</div>}
 
-            {/* Pending Registers Widget (Only for Contractor User) */}
-            {user?.role === 'contratista_user' && myVinculacion && (
-                <PendingRegistersWidget vinculacion={myVinculacion} />
+            {/* Pending Registers Widget (For Contractor User/Admin) */}
+            {isContractor && myVinculaciones.length > 0 && (
+                <PendingRegistersWidget vinculaciones={myVinculaciones} />
             )}
 
             {/* Data Table */}
