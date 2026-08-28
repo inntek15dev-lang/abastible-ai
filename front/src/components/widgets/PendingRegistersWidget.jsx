@@ -28,7 +28,9 @@ export default function PendingRegistersWidget({ vinculacion }) {
         if (!vinculacion || !vinculacion.fecha_inicio_contrato) return [];
 
         const start = new Date(vinculacion.fecha_inicio_contrato);
-        const end = new Date(); // Today
+        const now = new Date();
+        // Tope explícito: último instante del mes en curso para garantizar su inclusión
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
         const periods = [];
 
         // Normalize start date to first day of month to avoid issues
@@ -38,6 +40,7 @@ export default function PendingRegistersWidget({ vinculacion }) {
             const year = current.getFullYear();
             const month = String(current.getMonth() + 1).padStart(2, '0');
             const periodStr = `${year}-${month}`;
+            const isCurrentMonth = year === now.getFullYear() && current.getMonth() === now.getMonth();
 
             // Check if register exists for this period AND this specific vinculacion
             const existingRecord = history.find(r => 
@@ -51,7 +54,8 @@ export default function PendingRegistersWidget({ vinculacion }) {
                     periodo: periodStr,
                     date: new Date(current),
                     vinculacionId: vinculacion.id,
-                    action: 'create'
+                    action: 'create',
+                    isCurrentMonth
                 });
             } else if (existingRecord.cerrado === 0 || existingRecord.cerrado === false) {
                 periods.push({
@@ -59,7 +63,8 @@ export default function PendingRegistersWidget({ vinculacion }) {
                     date: new Date(current),
                     vinculacionId: vinculacion.id,
                     action: 'complete',
-                    recordId: existingRecord.id
+                    recordId: existingRecord.id,
+                    isCurrentMonth
                 });
             }
 
@@ -119,9 +124,19 @@ export default function PendingRegistersWidget({ vinculacion }) {
                         </thead>
                         <tbody>
                             {pendingPeriods.map((item) => (
-                                <tr key={item.periodo}>
-                                    <td style={{ fontWeight: 600, color: item.action === 'create' ? '#c2410c' : '#2563eb' }}>
-                                        {item.date.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
+                                <tr key={item.periodo} style={{ backgroundColor: item.isCurrentMonth ? '#f0fdfa' : 'transparent' }}>
+                                    <td style={{ fontWeight: 600, color: item.isCurrentMonth ? '#0d9488' : (item.action === 'create' ? '#c2410c' : '#2563eb') }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span>{item.date.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}</span>
+                                            {item.isCurrentMonth && (
+                                                <span style={{
+                                                    backgroundColor: '#0d9488', color: 'white',
+                                                    borderRadius: '10px', padding: '2px 8px',
+                                                    fontSize: '0.65rem', fontWeight: 700,
+                                                    letterSpacing: '0.5px', whiteSpace: 'nowrap'
+                                                }}>MES ACTUAL</span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td>
                                         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -150,7 +165,9 @@ export default function PendingRegistersWidget({ vinculacion }) {
                                                 className="btn-primary"
                                                 style={{
                                                     display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                                    padding: '4px 12px', fontSize: '0.8rem'
+                                                    padding: '4px 12px', fontSize: '0.8rem',
+                                                    backgroundColor: item.isCurrentMonth ? '#0d9488' : undefined,
+                                                    borderColor: item.isCurrentMonth ? '#0d9488' : undefined
                                                 }}
                                             >
                                                 <PlusCircle size={14} /> Crear Registro

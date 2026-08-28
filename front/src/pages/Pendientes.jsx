@@ -55,6 +55,8 @@ export default function Pendientes() {
     const calculatePendingPeriods = (vincs, allRegs) => {
         const pending = [];
         const now = new Date();
+        // Tope explícito: último instante del mes en curso para garantizar su inclusión
+        const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
         
         vincs.forEach(v => {
             if (!v.fecha_inicio_contrato) return;
@@ -63,10 +65,11 @@ export default function Pendientes() {
             // Reset to first day of month
             current = new Date(current.getFullYear(), current.getMonth(), 1);
             
-            while (current <= now) {
+            while (current <= endOfCurrentMonth) {
                 const year = current.getFullYear();
                 const month = String(current.getMonth() + 1).padStart(2, '0');
                 const periodStr = `${year}-${month}`;
+                const isCurrentMonth = year === now.getFullYear() && current.getMonth() === now.getMonth();
                 
                 // Match by period AND correct FK field (contratista_asignacion_id refers to Vinculacion)
                 const existingRecord = allRegs.find(r => 
@@ -81,7 +84,8 @@ export default function Pendientes() {
                         periodo: periodStr,
                         date: new Date(current),
                         vinculacion: v,
-                        action: 'create'
+                        action: 'create',
+                        isCurrentMonth
                     });
                 } else if (existingRecord.cerrado === 0 || existingRecord.cerrado === false) {
                     // State 2: Draft (Created but not submitted)
@@ -90,7 +94,8 @@ export default function Pendientes() {
                         date: new Date(current),
                         vinculacion: v,
                         action: 'complete',
-                        recordId: existingRecord.id
+                        recordId: existingRecord.id,
+                        isCurrentMonth
                     });
                 }
                 // State 3: Closed (cerrado: 1) -> Do not include in this widget
@@ -368,14 +373,24 @@ export default function Pendientes() {
                                 </thead>
                                 <tbody>
                                     {pendientesCreacion.map((item, idx) => (
-                                        <tr key={`${item.periodo}-${idx}`} style={{ borderBottom: '1px solid #f9fafb' }}>
+                                        <tr key={`${item.periodo}-${idx}`} style={{ borderBottom: '1px solid #f9fafb', backgroundColor: item.isCurrentMonth ? '#f0fdfa' : 'transparent' }}>
                                             <td style={{ padding: '1rem 0.75rem' }}>
-                                                <div style={{ 
-                                                    fontWeight: 600, 
-                                                    color: item.action === 'create' ? '#f97316' : '#3b82f6', 
-                                                    textTransform: 'capitalize' 
-                                                }}>
-                                                    {item.date.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span style={{ 
+                                                        fontWeight: 600, 
+                                                        color: item.isCurrentMonth ? '#0d9488' : (item.action === 'create' ? '#f97316' : '#3b82f6'), 
+                                                        textTransform: 'capitalize' 
+                                                    }}>
+                                                        {item.date.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}
+                                                    </span>
+                                                    {item.isCurrentMonth && (
+                                                        <span style={{
+                                                            backgroundColor: '#0d9488', color: 'white',
+                                                            borderRadius: '10px', padding: '2px 8px',
+                                                            fontSize: '0.65rem', fontWeight: 700,
+                                                            letterSpacing: '0.5px', whiteSpace: 'nowrap'
+                                                        }}>MES ACTUAL</span>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td style={{ padding: '1rem 0.75rem' }}>
@@ -398,7 +413,7 @@ export default function Pendientes() {
                                                     <button 
                                                         onClick={() => navigate(`/registros/new?periodo=${item.periodo}&vinculacion_id=${item.vinculacion.id}`)}
                                                         style={{ 
-                                                            backgroundColor: '#f97316', color: 'white', border: 'none', 
+                                                            backgroundColor: item.isCurrentMonth ? '#0d9488' : '#f97316', color: 'white', border: 'none', 
                                                             padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
                                                             display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600
                                                         }}
