@@ -855,59 +855,82 @@ module.exports = {
     },
 
     async _getBillingData() {
-        const { Configuracion } = require('../database/models');
+        const { Configuracion, Registro } = require('../database/models');
         
         // 1. Get billable amount from config
         const configMonto = await Configuracion.findOne({ where: { clave: 'monto_facturable_contrato' } });
         const montoUnitario = parseFloat(configMonto?.valor || 1000);
 
-        // 2. Fetch Contractors with their active contracts (Vinculaciones)
+        // 2. Fetch Contractors with active vinculaciones that have an active program AND at least 1 created Registro
+        // REGLA DE EXCLUSIÓN DEMO: Excluir explícitamente cualquier empresa o contrato con denominación DEMO
         const contratistas = await Contratista.findAll({
-            where: { activo: 1 },
+            where: {
+                activo: 1,
+                nombre: { [Op.notLike]: '%DEMO%' }
+            },
             include: [
                 {
                     model: Vinculacion,
                     as: 'vinculaciones',
-                    where: { activo: 1 },
-                    required: false,
+                    where: {
+                        activo: 1,
+                        numero_contrato: { [Op.notLike]: '%DEMO%' }
+                    },
+                    required: true,
                     include: [
                         {
                             model: TipoContratista,
                             as: 'servicio',
+                            required: true,
                             include: [
                                 {
                                     model: Programa,
                                     as: 'programa',
-                                    where: { activo: 1 }
+                                    where: { activo: 1 },
+                                    required: true
                                 }
                             ]
                         },
-                        { model: Dependencia, as: 'dependencia' }
+                        { model: Dependencia, as: 'dependencia' },
+                        {
+                            model: Registro,
+                            as: 'registros',
+                            required: true // Contabilizar exclusivamente vinculaciones con al menos 1 registro de cumplimiento creado
+                        }
                     ]
                 }
             ]
         });
 
-        const mappedContratistas = contratistas.map(c => {
-            const activeContracts = c.vinculaciones || [];
-            const billableContracts = activeContracts.filter(v => v.servicio?.programa);
-            
-            return {
-                id: c.id,
-                nombre: c.nombre,
-                rut: c.rut,
-                totalContratos: activeContracts.length,
-                contratosFacturables: billableContracts.length,
-                montoTotal: billableContracts.length * montoUnitario,
-                detalleContratos: billableContracts.map(v => ({
-                    id: v.id,
-                    numero_contrato: v.numero_contrato,
-                    servicio: v.servicio.nombre,
-                    programa: v.servicio.programa.nombre,
-                    dependencia: v.dependencia?.nombre || 'N/A'
-                }))
-            };
-        });
+        const mappedContratistas = contratistas
+            .map(c => {
+                const activeContracts = c.vinculaciones || [];
+                // Billable contracts: must have active programa AND at least 1 created registro AND not be DEMO
+                const billableContracts = activeContracts.filter(v => 
+                    v.servicio?.programa && 
+                    v.registros && 
+                    v.registros.length > 0 &&
+                    !v.numero_contrato.toUpperCase().includes('DEMO')
+                );
+                
+                return {
+                    id: c.id,
+                    nombre: c.nombre,
+                    rut: c.rut,
+                    totalContratos: activeContracts.length,
+                    contratosFacturables: billableContracts.length,
+                    montoTotal: billableContracts.length * montoUnitario,
+                    detalleContratos: billableContracts.map(v => ({
+                        id: v.id,
+                        numero_contrato: v.numero_contrato,
+                        servicio: v.servicio.nombre,
+                        programa: v.servicio.programa.nombre,
+                        dependencia: v.dependencia?.nombre || 'N/A',
+                        totalRegistros: v.registros.length
+                    }))
+                };
+            })
+            .filter(c => c.contratosFacturables > 0 && !c.nombre.toUpperCase().includes('DEMO')); // Exclusivamente empresas reales con contratos facturables
 
         return {
             montoUnitario,

@@ -18,6 +18,7 @@ const {
     User,
     ContratistaAsignacion,
     Contratista,
+    ContratistaUsuario,
     Vinculacion,
     Administracion,
     VinculacionUsuario,
@@ -70,14 +71,29 @@ async function seed() {
         }
 
         // ============= ORDER 2: Empresa Contratista (MOVED UP) =============
-        console.log('📦 Sincronizando empresa contratista...');
-        const [mafran] = await Contratista.findOrCreate({
+        console.log('📦 Sincronizando empresa contratista 1...');
+        const [contratistaDemo1] = await Contratista.findOrCreate({
             where: { rut: '76169976-8' },
             defaults: {
-                nombre: 'SOC DE TRANSPORTE MAFRAN LTDA',
+                nombre: 'EMPRESA DEMO 1 SPA',
                 activo: 1
             }
         });
+        if (contratistaDemo1.nombre !== 'EMPRESA DEMO 1 SPA') {
+            await contratistaDemo1.update({ nombre: 'EMPRESA DEMO 1 SPA' });
+        }
+
+        console.log('📦 Sincronizando segunda empresa contratista demo...');
+        const [contratistaDemo2] = await Contratista.findOrCreate({
+            where: { rut: '77888999-K' },
+            defaults: {
+                nombre: 'EMPRESA DEMO2 SPA',
+                activo: 1
+            }
+        });
+        if (contratistaDemo2.nombre !== 'EMPRESA DEMO2 SPA') {
+            await contratistaDemo2.update({ nombre: 'EMPRESA DEMO2 SPA' });
+        }
 
         console.log('📦 Sincronizando Gerencias...');
         const [gerenciaDistribucion] = await Gerencia.findOrCreate({
@@ -228,33 +244,35 @@ async function seed() {
             }
         }
 
-        // mafran already created above and linked to gerencias
+        // contratistaDemo1 and contratistaDemo2 created above
 
-        // ============= ORDER 3: Vinculaciones de MAFRAN =============
-        console.log('📦 Sincronizando vinculaciones de MAFRAN...');
+        // ============= ORDER 3: Vinculaciones (2 por empresa) =============
+        console.log('📦 Sincronizando vinculaciones de EMPRESA DEMO 1 SPA...');
         const vinculacionesSource = [
-            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[0].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '265', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[1].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '277', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[2].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '297', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[3].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '303', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[4].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '1207', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[5].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '1208', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[6].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '1248', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[7].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '1320', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[7].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '1397', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[8].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '1399', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[3].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '1400', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
-            { contratista_id: mafran.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[9].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: '1401', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 }
+            { contratista_id: contratistaDemo1.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[4].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: 'DEMO-1', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: contratistaDemo1.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[9].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: 'DEMO-2', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 }
         ];
         const vinculaciones = [];
         for (const v of vinculacionesSource) {
             const [vinculacion] = await Vinculacion.findOrCreate({
-                where: { 
-                    numero_contrato: v.numero_contrato
-                },
+                where: { numero_contrato: v.numero_contrato },
                 defaults: v
             });
             vinculaciones.push(vinculacion);
+        }
+
+        console.log('📦 Sincronizando vinculaciones de EMPRESA DEMO2 SPA...');
+        const vinculacionesDemo2Source = [
+            { contratista_id: contratistaDemo2.id, servicio_id: tiposContratista[0].id, dependencia_id: dependencias[4].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: 'DEMO-3', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 },
+            { contratista_id: contratistaDemo2.id, servicio_id: tiposContratista[1].id, dependencia_id: dependencias[9].id, subgerencia_id: subgerenciaOperaciones.id, gerencia_id: gerenciaDistribucion.id, numero_contrato: 'DEMO-4', fecha_inicio_contrato: '2026-02-01', fecha_termino_contrato: null, activo: 1 }
+        ];
+        const vinculacionesDemo2 = [];
+        for (const v of vinculacionesDemo2Source) {
+            const [vinculacion] = await Vinculacion.findOrCreate({
+                where: { numero_contrato: v.numero_contrato },
+                defaults: v
+            });
+            vinculacionesDemo2.push(vinculacion);
         }
 
         // ============= ORDER 4: Usuarios =============
@@ -278,7 +296,7 @@ async function seed() {
         ];
         if (process.env.DEMO_USERS_ENABLED === 'true') {
             regularUsers.push(
-                { name: 'Contratista Administrador', email: 'contratista.admin@demo.cl', password: hashedPassword, role: 'contratista_admin', contratista_id: mafran.id, usu_id: 4, id: 4, activo: 1 }
+                { name: 'Contratista Administrador', email: 'contratista.admin@demo.cl', password: hashedPassword, role: 'contratista_admin', contratista_id: contratistaDemo1.id, usu_id: 4, id: 4, activo: 1 }
             );
         }
 
@@ -297,7 +315,7 @@ async function seed() {
                     name: 'Contratista Usuario',
                     password: hashedPassword,
                     role: 'contratista_user',
-                    contratista_id: mafran.id,
+                    contratista_id: contratistaDemo1.id,
                     tipo_contratista_id: tiposContratista[1].id,
                     dependencia_id: dependencias[9].id,
                     parent_id: 4, // parent's usu_id
@@ -313,9 +331,9 @@ async function seed() {
                     name: 'Contratista Usuario Dos',
                     password: hashedPassword,
                     role: 'contratista_user',
-                    contratista_id: mafran.id,
-                    tipo_contratista_id: tiposContratista[1].id,
-                    dependencia_id: dependencias[3].id,
+                    contratista_id: contratistaDemo1.id,
+                    tipo_contratista_id: tiposContratista[0].id,
+                    dependencia_id: dependencias[4].id,
                     parent_id: 4, // parent's usu_id
                     usu_id: 6,
                     id: 6,
@@ -325,11 +343,11 @@ async function seed() {
 
             console.log('📦 Sincronizando VinculacionUsuario...');
             await VinculacionUsuario.findOrCreate({
-                where: { vinculacion_id: vinculaciones[11].id, user_id: contratistaUser.id },
+                where: { vinculacion_id: vinculaciones[1].id, user_id: contratistaUser.id },
                 defaults: { activo: 1 }
             });
             await VinculacionUsuario.findOrCreate({
-                where: { vinculacion_id: vinculaciones[10].id, user_id: contratistaUser2.id },
+                where: { vinculacion_id: vinculaciones[0].id, user_id: contratistaUser2.id },
                 defaults: { activo: 1 }
             });
 
@@ -346,15 +364,34 @@ async function seed() {
             });
 
             await ContratistaAsignacion.findOrCreate({
-                where: { user_id: contratistaUser2.id, tipo_contratista_id: tiposContratista[1].id, dependencia_id: dependencias[3].id },
+                where: { user_id: contratistaUser2.id, tipo_contratista_id: tiposContratista[0].id, dependencia_id: dependencias[4].id },
                 defaults: { administrador_contrato_id: usersCreated.adminContrato.id, periodo_inicio: new Date('2026-02-01') }
             });
         }
 
-        await Administracion.findOrCreate({
-            where: { vinculacion_id: vinculaciones[11].id },
-            defaults: { administrador_contrato_id: usersCreated.adminContrato.id, activo: 1 }
-        });
+        // Administrador de contrato para todas las vinculaciones (Demo 1 y Demo 2)
+        for (const v1 of vinculaciones) {
+            await Administracion.findOrCreate({
+                where: { vinculacion_id: v1.id },
+                defaults: { administrador_contrato_id: usersCreated.adminContrato.id, activo: 1 }
+            });
+        }
+        for (const vDemo2 of vinculacionesDemo2) {
+            await Administracion.findOrCreate({
+                where: { vinculacion_id: vDemo2.id },
+                defaults: { administrador_contrato_id: usersCreated.adminContrato.id, activo: 1 }
+            });
+        }
+
+        // Asociar Contratista Admin a ambas empresas contratistas
+        if (usersCreated.contratistaAdmin) {
+            await ContratistaUsuario.findOrCreate({
+                where: { contratista_id: contratistaDemo1.id, user_id: usersCreated.contratistaAdmin.id }
+            });
+            await ContratistaUsuario.findOrCreate({
+                where: { contratista_id: contratistaDemo2.id, user_id: usersCreated.contratistaAdmin.id }
+            });
+        }
 
         // ============= EVIDENCE TEMPLATES =============
         console.log('📦 Cargando templates de evidencia...');
@@ -395,7 +432,7 @@ async function seed() {
         console.log(`✅ ${templatesLoaded} templates de evidencia procesados`);
 
         // ============= SAMPLE DATA: Registros, Logs & Compromisos =============
-        console.log('🚀 Sincronizando data de muestra (Granel Mafran Osorno)...');
+        console.log('🚀 Sincronizando data de muestra (Granel EMPRESA DEMO 1 SPA Osorno)...');
         const sampleData = [
             { period: '2025-08-01', estado: 'finalizado', avance: 100, personas: 15, dotacion: 20 },
             { period: '2025-09-01', estado: 'finalizado', avance: 100, personas: 16, dotacion: 20 },
@@ -405,7 +442,7 @@ async function seed() {
             { period: '2026-01-01', estado: 'borrador', avance: 10, personas: 10, dotacion: 12 }
         ];
 
-        const vinc = vinculaciones[11];
+        const vinc = vinculaciones[1];
         const activities = await Actividad.findAll({
             include: [{ model: Elemento, as: 'elemento', where: { programa_id: programas[1].id } }]
         });
@@ -418,7 +455,7 @@ async function seed() {
                     programa_id: programas[1].id,
                     dependencia_id: vinc.dependencia_id,
                     numero_contrato: vinc.numero_contrato,
-                    eecc_nombre: mafran.nombre,
+                    eecc_nombre: contratistaDemo1.nombre,
                     dependencia: 'PLANTA OSORNO',
                     personas_nuevas: Math.floor(item.personas / 4),
                     supervisores: 2, prevencionistas: 1, dotacion_total: item.dotacion,
