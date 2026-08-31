@@ -843,7 +843,8 @@ module.exports = {
 
     async billingReport(req, res) {
         try {
-            const reportData = await module.exports._getBillingData();
+            const { periodo } = req.query;
+            const reportData = await module.exports._getBillingData(periodo);
             res.json({
                 success: true,
                 data: reportData
@@ -854,12 +855,33 @@ module.exports = {
         }
     },
 
-    async _getBillingData() {
+    async _getBillingData(periodoFilter) {
         const { Configuracion, Registro } = require('../database/models');
         
+        const MONTH_NAMES_ES = [
+            'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+        ];
+
+        const formatPeriodName = (periodStr) => {
+            if (!periodStr) return '';
+            const parts = String(periodStr).split('-');
+            if (parts.length < 2) return String(periodStr);
+            const year = parts[0];
+            const monthIdx = parseInt(parts[1], 10) - 1;
+            if (isNaN(monthIdx) || monthIdx < 0 || monthIdx > 11) return String(periodStr);
+            return `${MONTH_NAMES_ES[monthIdx]} ${year}`;
+        };
+
         // 1. Get billable amount from config
         const configMonto = await Configuracion.findOne({ where: { clave: 'monto_facturable_contrato' } });
         const montoUnitario = parseFloat(configMonto?.valor || 1000);
+
+        // Build Registro filter condition
+        const registroWhere = {};
+        if (periodoFilter) {
+            registroWhere.periodo = { [Op.like]: `${periodoFilter}%` };
+        }
 
         // 2. Fetch Contractors with active vinculaciones that have an active program AND at least 1 created Registro
         // REGLA DE EXCLUSIÓN DEMO: Excluir explícitamente cualquier empresa o contrato con denominación DEMO
@@ -895,7 +917,8 @@ module.exports = {
                         {
                             model: Registro,
                             as: 'registros',
-                            required: true // Contabilizar exclusivamente vinculaciones con al menos 1 registro de cumplimiento creado
+                            where: registroWhere,
+                            required: true // Contabilizar exclusivamente vinculaciones con registros de cumplimiento creados
                         }
                     ]
                 }
@@ -920,20 +943,32 @@ module.exports = {
                     totalContratos: activeContracts.length,
                     contratosFacturables: billableContracts.length,
                     montoTotal: billableContracts.length * montoUnitario,
-                    detalleContratos: billableContracts.map(v => ({
-                        id: v.id,
-                        numero_contrato: v.numero_contrato,
-                        servicio: v.servicio.nombre,
-                        programa: v.servicio.programa.nombre,
-                        dependencia: v.dependencia?.nombre || 'N/A',
-                        totalRegistros: v.registros.length
-                    }))
+                    detalleContratos: billableContracts.map(v => {
+                        const periodosSet = new Set();
+                        v.registros.forEach(r => {
+                            if (r.periodo) {
+                                periodosSet.add(formatPeriodName(r.periodo));
+                            }
+                        });
+                        const periodosArray = Array.from(periodosSet);
+                        return {
+                            id: v.id,
+                            numero_contrato: v.numero_contrato,
+                            servicio: v.servicio.nombre,
+                            programa: v.servicio.programa.nombre,
+                            dependencia: v.dependencia?.nombre || 'N/A',
+                            totalRegistros: v.registros.length,
+                            periodosRegistros: periodosArray,
+                            periodosTexto: periodosArray.length > 0 ? `Registros encontrados: ${periodosArray.join(', ')}` : 'Sin registros'
+                        };
+                    })
                 };
             })
-            .filter(c => c.contratosFacturables > 0 && !c.nombre.toUpperCase().includes('DEMO')); // Exclusivamente empresas reales con contratos facturables
+            .filter(c => c.contratosFacturables > 0 && !c.nombre.toUpperCase().includes('DEMO'));
 
         return {
             montoUnitario,
+            periodoFiltro: periodoFilter ? formatPeriodName(periodoFilter) : 'Todos los periodos',
             contratistas: mappedContratistas,
             resumen: {
                 totalContratistas: mappedContratistas.length,
@@ -1120,7 +1155,8 @@ module.exports = {
 
     async billingReportPdf(req, res) {
         try {
-            const reportData = await module.exports._getBillingData();
+            const { periodo } = req.query;
+            const reportData = await module.exports._getBillingData(periodo);
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', 'attachment; filename=reporte-facturacion-oval.pdf');
             
@@ -1133,25 +1169,32 @@ module.exports = {
 
     async billingReportExcel(req, res) {
         try {
-            const reportData = await module.exports._getBillingData();
+            const { periodo } = req.query;
+            const reportData = await module.exports._getBillingData(periodo);
             const workbook = new ExcelJS.Workbook();
             const sheet = workbook.addWorksheet('Facturacion');
 
             sheet.columns = [
-                { header: 'Contratista', key: 'nombre', width: 40 },
+                { header: 'Empresa Contratista', key: 'nombre', width: 35 },
                 { header: 'RUT', key: 'rut', width: 15 },
-                { header: 'Contratos Facturables', key: 'cant', width: 20 },
-                { header: 'Monto Unitario', key: 'unitario', width: 15 },
+                { header: 'N° Contrato', key: 'numero_contrato', width: 15 },
+                { header: 'Programa / Servicio', key: 'servicio', width: 35 },
+                { header: 'Dependencia', key: 'dependencia', width: 25 },
+                { header: 'Registros Encontrados', key: 'periodos', width: 35 },
                 { header: 'Monto Total', key: 'total', width: 15 }
             ];
 
             reportData.contratistas.forEach(c => {
-                sheet.addRow({
-                    nombre: c.nombre,
-                    rut: c.rut,
-                    cant: c.contratosFacturables,
-                    unitario: reportData.montoUnitario,
-                    total: c.montoTotal
+                c.detalleContratos.forEach(v => {
+                    sheet.addRow({
+                        nombre: c.nombre,
+                        rut: c.rut,
+                        numero_contrato: v.numero_contrato,
+                        servicio: `${v.servicio} (${v.programa})`,
+                        dependencia: v.dependencia,
+                        periodos: v.periodosRegistros?.join(', ') || 'Sin registros',
+                        total: reportData.montoUnitario
+                    });
                 });
             });
 
@@ -1167,10 +1210,10 @@ module.exports = {
 
     async sendBillingReportEmail(req, res) {
         try {
-            const { email } = req.body;
+            const { email, periodo } = req.body;
             if (!email) return res.status(400).json({ success: false, message: 'Email requerido' });
 
-            const reportData = await module.exports._getBillingData();
+            const reportData = await module.exports._getBillingData(periodo);
             const emailService = require('../services/emailService');
 
             // 1. Generate PDF in memory using the same aesthetic helper
