@@ -856,7 +856,7 @@ module.exports = {
     },
 
     async _getBillingData(periodoFilter) {
-        const { Configuracion, Registro } = require('../database/models');
+        const { Registro } = require('../database/models');
         
         const MONTH_NAMES_ES = [
             'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -873,17 +873,13 @@ module.exports = {
             return `${MONTH_NAMES_ES[monthIdx]} ${year}`;
         };
 
-        // 1. Get billable amount from config
-        const configMonto = await Configuracion.findOne({ where: { clave: 'monto_facturable_contrato' } });
-        const montoUnitario = parseFloat(configMonto?.valor || 1000);
-
         // Build Registro filter condition
         const registroWhere = {};
         if (periodoFilter) {
             registroWhere.periodo = { [Op.like]: `${periodoFilter}%` };
         }
 
-        // 2. Fetch Contractors with active vinculaciones that have an active program AND at least 1 created Registro
+        // Fetch Contractors with active vinculaciones that have an active program AND at least 1 created Registro
         // REGLA DE EXCLUSIÓN DEMO: Excluir explícitamente cualquier empresa o contrato con denominación DEMO
         const contratistas = await Contratista.findAll({
             where: {
@@ -942,7 +938,6 @@ module.exports = {
                     rut: c.rut,
                     totalContratos: activeContracts.length,
                     contratosFacturables: billableContracts.length,
-                    montoTotal: billableContracts.length * montoUnitario,
                     detalleContratos: billableContracts.map(v => {
                         const periodosSet = new Set();
                         v.registros.forEach(r => {
@@ -967,13 +962,11 @@ module.exports = {
             .filter(c => c.contratosFacturables > 0 && !c.nombre.toUpperCase().includes('DEMO'));
 
         return {
-            montoUnitario,
             periodoFiltro: periodoFilter ? formatPeriodName(periodoFilter) : 'Todos los periodos',
             contratistas: mappedContratistas,
             resumen: {
                 totalContratistas: mappedContratistas.length,
-                totalContratosFacturables: mappedContratistas.reduce((acc, c) => acc + c.contratosFacturables, 0),
-                montoGranTotal: mappedContratistas.reduce((acc, c) => acc + c.montoTotal, 0)
+                totalContratosFacturables: mappedContratistas.reduce((acc, c) => acc + c.contratosFacturables, 0)
             }
         };
     },
@@ -1047,41 +1040,34 @@ module.exports = {
 
         // --- SUMMARY CARDS ---
         const startY = doc.y;
-        const cardWidth = 160;
+        const cardWidth = 230;
         
         // Card 1: Total Contratistas
         doc.rect(50, startY, cardWidth, 60).fillAndStroke('#f8fafc', '#e2e8f0');
-        doc.fillColor('#64748b').fontSize(8).text('CONTRATISTAS', 60, startY + 15);
-        doc.fillColor('#1e293b').fontSize(14).font('Helvetica-Bold').text(reportData.resumen.totalContratistas.toString(), 60, startY + 30);
+        doc.fillColor('#64748b').fontSize(8).text('CONTRATISTAS CON ACTIVIDAD', 65, startY + 15);
+        doc.fillColor('#1e293b').fontSize(14).font('Helvetica-Bold').text(reportData.resumen.totalContratistas.toString(), 65, startY + 30);
 
         // Card 2: Contratos
-        doc.rect(220, startY, cardWidth, 60).fillAndStroke('#f8fafc', '#e2e8f0');
-        doc.fillColor('#64748b').fontSize(8).text('CONTRATOS FACTURABLES', 230, startY + 15);
-        doc.fillColor('#1e293b').fontSize(14).font('Helvetica-Bold').text(reportData.resumen.totalContratosFacturables.toString(), 230, startY + 30);
-
-        // Card 3: Total $
-        doc.rect(390, startY, cardWidth, 60).fillAndStroke('#fff7ed', '#fdba74'); // Orange tint
-        doc.fillColor('#ea580c').fontSize(8).text('TOTAL FACTURABLE', 400, startY + 15);
-        doc.fillColor('#9a3412').fontSize(14).font('Helvetica-Bold').text(`$${new Intl.NumberFormat('es-CL').format(reportData.resumen.montoGranTotal)}`, 400, startY + 30);
+        doc.rect(320, startY, cardWidth, 60).fillAndStroke('#f8fafc', '#e2e8f0');
+        doc.fillColor('#64748b').fontSize(8).text('CONTRATOS FACTURABLES', 335, startY + 15);
+        doc.fillColor('#1e293b').fontSize(14).font('Helvetica-Bold').text(reportData.resumen.totalContratosFacturables.toString(), 335, startY + 30);
 
         doc.moveDown(6);
 
         // --- TABLE HEADER ---
-        doc.fillColor('#003399').fontSize(12).font('Helvetica-Bold').text('DETALLE DE FACTURACIÓN POR EMPRESA', { underline: true });
+        doc.fillColor('#003399').fontSize(12).font('Helvetica-Bold').text('DETALLE DE REGISTROS POR EMPRESA', { underline: true });
         doc.moveDown();
 
         // Table Columns Helper
         const tableTop = doc.y;
         const col1 = 50;
-        const col2 = 300;
-        const col3 = 400;
-        const col4 = 500;
+        const col2 = 320;
+        const col3 = 450;
 
         doc.fontSize(10).fillColor('#475569');
         doc.text('Empresa Contratista', col1, tableTop);
         doc.text('RUT', col2, tableTop);
-        doc.text('Cant.', col3, tableTop);
-        doc.text('Monto Total', col4, tableTop);
+        doc.text('Contratos Facturables', col3, tableTop);
         
         doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke('#cbd5e1');
         doc.moveDown();
@@ -1097,10 +1083,9 @@ module.exports = {
                 }
 
                 doc.fillColor('#1e293b').font('Helvetica');
-                doc.text(c.nombre, col1, rowY, { width: 240 });
+                doc.text(c.nombre, col1, rowY, { width: 250 });
                 doc.text(c.rut, col2, rowY);
-                doc.text(c.contratosFacturables.toString(), col3, rowY);
-                doc.font('Helvetica-Bold').text(`$${new Intl.NumberFormat('es-CL').format(c.montoTotal)}`, col4, rowY);
+                doc.font('Helvetica-Bold').text(c.contratosFacturables.toString(), col3, rowY);
                 
                 doc.moveDown(1.5);
 
@@ -1180,8 +1165,7 @@ module.exports = {
                 { header: 'N° Contrato', key: 'numero_contrato', width: 15 },
                 { header: 'Programa / Servicio', key: 'servicio', width: 35 },
                 { header: 'Dependencia', key: 'dependencia', width: 25 },
-                { header: 'Registros Encontrados', key: 'periodos', width: 35 },
-                { header: 'Monto Total', key: 'total', width: 15 }
+                { header: 'Registros Encontrados', key: 'periodos', width: 35 }
             ];
 
             reportData.contratistas.forEach(c => {
@@ -1192,8 +1176,7 @@ module.exports = {
                         numero_contrato: v.numero_contrato,
                         servicio: `${v.servicio} (${v.programa})`,
                         dependencia: v.dependencia,
-                        periodos: v.periodosRegistros?.join(', ') || 'Sin registros',
-                        total: reportData.montoUnitario
+                        periodos: v.periodosRegistros?.join(', ') || 'Sin registros'
                     });
                 });
             });
