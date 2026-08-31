@@ -210,51 +210,70 @@ export default function RegistroForm() {
                     // de datos) — a diferencia de "Gestión de Contratistas", que sí muestra todo.
                     const response = await api.get('/contratistas?solo_programados=true');
                     setContractors(response.data.data);
-                } else if (user.role === 'contratista_user' && user.vinculacion_id) {
-                    // Ancla por vinculacion_id (fuente real del scope de este rol, ver
-                    // middleware/auth.js). Antes se intentaba heredar la empresa leyendo el
-                    // perfil del usuario "padre" (parent_id) vía /usuarios/:id, pero esa
-                    // lectura de OTRO usuario está bloqueada por el chequeo anti-IDOR de esa
-                    // ruta (un contratista_user no puede ver el perfil de alguien más), lo
-                    // que rompía por completo la creación de registros para este rol.
+                } else if (isContractor) {
+                    // For all contractor roles (contratista_admin, contratista_user):
+                    // /api/vinculaciones automatically filters to return ONLY active vinculaciones
+                    // whose service HAS a programa_id assigned, across all companies the user manages.
                     const vincResp = await api.get('/vinculaciones');
-                    const vinc = vincResp.data.data?.[0];
-                    if (vinc) {
-                        // Set assignments/contratista_asignacion_id directamente en vez de
-                        // depender del useEffect de más abajo (espera contractors[].
-                        // vinculaciones anidado, tal como lo entrega /contratistas — /
-                        // vinculaciones no tiene esa forma). Sin esto, la asignación nunca
-                        // quedaba seleccionada y el programa/servicio tampoco se resolvía,
-                        // dejando la lista de actividades sin filtrar por programa.
-                        setAssignments([vinc]);
-                        setForm(prev => ({ ...prev, contratista_asignacion_id: prev.contratista_asignacion_id || vinc.id }));
-                        if (vinc.contratista) {
-                            setContractors([{ ...vinc.contratista, vinculaciones: [vinc] }]);
-                            setSelectedContractor(vinc.contratista.id);
-                            setSearchNombre(vinc.contratista.nombre);
-                            setSearchRut(vinc.contratista.rut);
+                    const validVincs = vincResp.data.data || [];
+
+                    // Group unique contractors and attach their valid vinculaciones
+                    const uniqueContractors = [];
+                    const seen = new Set();
+                    validVincs.forEach(v => {
+                        if (v.contratista && !seen.has(v.contratista.id)) {
+                            seen.add(v.contratista.id);
+                            const companyVincs = validVincs.filter(v2 => v2.contratista_id === v.contratista.id);
+                            uniqueContractors.push({
+                                ...v.contratista,
+                                vinculaciones: companyVincs
+                            });
                         }
-                    } else {
-                        console.error('[RegistroForm] contratista_user sin vinculación resuelta por /vinculaciones (vinculacion_id=' + user.vinculacion_id + ')');
-                    }
-                } else {
-                    // Contractor admin: fetch own profile to get associated company
-                    const response = await api.get(`/usuarios/${user.id}`);
-                    const userData = response.data.data;
-                    if (userData.contratistaEntidad) {
-                        setContractors([userData.contratistaEntidad]);
-                        setSelectedContractor(userData.contratistaEntidad.id);
-                        setSearchNombre(userData.contratistaEntidad.nombre);
-                        setSearchRut(userData.contratistaEntidad.rut);
-                    } else if (user.parent_id) {
-                        // Fallback: check parent user for company association
-                        const parentResp = await api.get(`/usuarios/${user.parent_id}`);
-                        if (parentResp.data.data.contratistaEntidad) {
-                            setContractors([parentResp.data.data.contratistaEntidad]);
-                            setSelectedContractor(parentResp.data.data.contratistaEntidad.id);
-                            setSearchNombre(parentResp.data.data.contratistaEntidad.nombre);
-                            setSearchRut(parentResp.data.data.contratistaEntidad.rut);
+                    });
+
+                    setContractors(uniqueContractors);
+                    setAssignments(validVincs);
+
+                    // PRE-FILL / AUTO-SELECT LOGIC
+                    const prePeriodo = searchParams.get('periodo');
+                    const preVinculacionId = searchParams.get('vinculacion_id');
+
+                    if (!isEdit && preVinculacionId) {
+                        const target = validVincs.find(v => String(v.id) === String(preVinculacionId));
+                        if (target) {
+                            setForm(prev => ({
+                                ...prev,
+                                contratista_asignacion_id: target.id,
+                                periodo: prePeriodo || prev.periodo
+                            }));
+                            if (target.contratista) {
+                                setSelectedContractor(target.contratista.id);
+                                setSearchNombre(target.contratista.nombre);
+                                setSearchRut(target.contratista.rut);
+                            }
                         }
+                    } else if (!isEdit && validVincs.length === 1) {
+                        // Single valid assignment across all user's companies -> Auto-select
+                        const target = validVincs[0];
+                        setForm(prev => ({
+                            ...prev,
+                            contratista_asignacion_id: target.id,
+                            periodo: prePeriodo || prev.periodo
+                        }));
+                        if (target.contratista) {
+                            setSelectedContractor(target.contratista.id);
+                            setSearchNombre(target.contratista.nombre);
+                            setSearchRut(target.contratista.rut);
+                        }
+                    } else if (!isEdit && uniqueContractors.length === 1) {
+                        setSelectedContractor(uniqueContractors[0].id);
+                        setSearchNombre(uniqueContractors[0].nombre);
+                        setSearchRut(uniqueContractors[0].rut);
+                        if (prePeriodo) {
+                            setForm(prev => ({ ...prev, periodo: prePeriodo }));
+                        }
+                    } else if (validVincs.length === 0) {
+                        setError('No tiene vinculaciones activas con programa de cumplimiento asignado. Contacte al administrador.');
                     }
                 }
             } catch (err) {
@@ -669,11 +688,20 @@ export default function RegistroForm() {
     }, [actividades]);
 
     const selectedAssignmentLabel = useMemo(() => {
-        if (!form.contratista_asignacion_id || assignments.length === 0) return 'No seleccionado';
+        if (!form.contratista_asignacion_id || assignments.length === 0) {
+            return assignments.length > 1
+                ? 'Seleccione una asignación del menú desplegable superior'
+                : 'No existen asignaciones válidas seleccionadas';
+        }
         const a = assignments.find(assign => String(assign.id) === String(form.contratista_asignacion_id));
-        if (!a) return 'No seleccionado';
-        return `${a.servicio?.programa?.nombre || ''} » ${a.servicio?.nombre || ''} » ${a.dependencia?.nombre || ''}`;
-    }, [form.contratista_asignacion_id, assignments]);
+        if (!a) {
+            return assignments.length > 1
+                ? 'Seleccione una asignación del menú desplegable superior'
+                : 'No existen asignaciones válidas seleccionadas';
+        }
+        const companyPrefix = (contractors.length > 1 && a.contratista?.nombre) ? `${a.contratista.nombre} » ` : '';
+        return `${companyPrefix}${a.servicio?.programa?.nombre || ''} » ${a.servicio?.nombre || ''} » ${a.dependencia?.nombre || ''}`;
+    }, [form.contratista_asignacion_id, assignments, contractors]);
 
     const getEstadoIcon = (estado) => {
         switch (estado) {
@@ -829,7 +857,7 @@ export default function RegistroForm() {
                                             </button>
                                         )}
                                     </div>
-                                    {canSearchContractor && selectedContractor && assignments.length > 1 ? (
+                                    {(!isEdit && !isLocked && assignments.length > 1) ? (
                                         <select
                                             className="form-control"
                                             value={form.contratista_asignacion_id || ''}
@@ -837,11 +865,15 @@ export default function RegistroForm() {
                                             style={{ padding: '0.6rem 1rem', borderRadius: '6px', fontSize: '0.9rem' }}
                                         >
                                             <option value="">Seleccione una asignación...</option>
-                                            {assignments.map(a => (
-                                                <option key={a.id} value={a.id}>
-                                                    {`${a.servicio?.programa?.nombre || ''} » ${a.servicio?.nombre || ''} » ${a.dependencia?.nombre || ''} (Contrato ${a.numero_contrato || '-'})`}
-                                                </option>
-                                            ))}
+                                            {assignments.map(a => {
+                                                const hasMultipleContractors = contractors.length > 1 || new Set(assignments.map(x => x.contratista_id)).size > 1;
+                                                const contractorName = hasMultipleContractors && a.contratista?.nombre ? `${a.contratista.nombre} » ` : '';
+                                                return (
+                                                    <option key={a.id} value={a.id}>
+                                                        {`${contractorName}${a.servicio?.programa?.nombre || ''} » ${a.servicio?.nombre || ''} » ${a.dependencia?.nombre || ''} (Contrato ${a.numero_contrato || '-'})`}
+                                                    </option>
+                                                );
+                                            })}
                                         </select>
                                     ) : (
                                         <div style={{

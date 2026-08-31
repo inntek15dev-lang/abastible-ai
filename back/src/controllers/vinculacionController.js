@@ -49,14 +49,17 @@ const vinculacionController = {
                 console.log(`[Vinculacion Controller - GET /api/vinculaciones] User is contratista_admin (ID: ${userId}). Allowed contratista_ids: [${cIds.join(', ')}]. Filtering vinculaciones where contratista_id IN (${cIds.join(', ')})`);
                 where.contratista_id = { [Op.in]: cIds.length > 0 ? cIds : [-1] };
             } else if (role === 'contratista_user') {
-                // Único contrato al que fue asignado (vía VinculacionUsuario). SIN esta rama,
-                // caía en el "else" y veía TODAS las vinculaciones del sistema (todas las
-                // empresas, todos los admins de contrato, todos los usuarios asignados).
+                const { Op } = require('sequelize');
                 delete where.contratista_id;
                 delete where.servicio_id;
                 delete where.dependencia_id;
-                where.id = req.user.vinculacion_id || -1;
-                console.log(`[Vinculacion Controller - GET /api/vinculaciones] User is contratista_user (ID: ${userId}). Filtering vinculaciones where id = ${where.id}`);
+
+                const myVincIds = (req.user.vinculacion_ids && req.user.vinculacion_ids.length > 0)
+                    ? req.user.vinculacion_ids
+                    : (req.user.vinculacion_id ? [req.user.vinculacion_id] : []);
+
+                where.id = { [Op.in]: myVincIds.length > 0 ? myVincIds : [-1] };
+                console.log(`[Vinculacion Controller - GET /api/vinculaciones] User is contratista_user (ID: ${userId}). Filtering vinculaciones where id IN (${myVincIds.join(', ')})`);
             } else {
                 console.log(`[Vinculacion Controller - GET /api/vinculaciones] User role: ${role} (ID: ${userId}). No specific role filter applied to Vinculacion query.`);
             }
