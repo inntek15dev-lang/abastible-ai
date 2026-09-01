@@ -342,54 +342,74 @@ async function seed() {
             });
 
             console.log('📦 Sincronizando VinculacionUsuario...');
-            await VinculacionUsuario.findOrCreate({
-                where: { vinculacion_id: vinculaciones[1].id, user_id: contratistaUser.id },
-                defaults: { activo: 1 }
-            });
-            await VinculacionUsuario.findOrCreate({
-                where: { vinculacion_id: vinculaciones[0].id, user_id: contratistaUser2.id },
-                defaults: { activo: 1 }
-            });
+            const userId1 = contratistaUser.usu_id || contratistaUser.id;
+            const userId2 = contratistaUser2.usu_id || contratistaUser2.id;
+            
+            if (userId1) {
+                await VinculacionUsuario.findOrCreate({
+                    where: { vinculacion_id: vinculaciones[1].id, user_id: userId1 },
+                    defaults: { activo: 1 }
+                });
+            }
+            if (userId2) {
+                await VinculacionUsuario.findOrCreate({
+                    where: { vinculacion_id: vinculaciones[0].id, user_id: userId2 },
+                    defaults: { activo: 1 }
+                });
+            }
 
             // ============= ORDER 5: Asignación y Administración =============
             console.log('📦 Sincronizando asignaciones y administración...');
-            await ContratistaAsignacion.findOrCreate({
-                where: { user_id: usersCreated.contratistaAdmin.id, tipo_contratista_id: tiposContratista[1].id, dependencia_id: dependencias[9].id },
-                defaults: { administrador_contrato_id: usersCreated.adminContrato.id, periodo_inicio: new Date('2026-02-01') }
-            });
+            const adminContratistaId = usersCreated.contratistaAdmin ? (usersCreated.contratistaAdmin.usu_id || usersCreated.contratistaAdmin.id) : null;
+            const adminContratoId = usersCreated.adminContrato ? (usersCreated.adminContrato.usu_id || usersCreated.adminContrato.id) : null;
 
-            await ContratistaAsignacion.findOrCreate({
-                where: { user_id: contratistaUser.id, tipo_contratista_id: tiposContratista[1].id, dependencia_id: dependencias[9].id },
-                defaults: { administrador_contrato_id: usersCreated.adminContrato.id, periodo_inicio: new Date('2026-02-01') }
-            });
+            if (adminContratistaId && adminContratoId) {
+                await ContratistaAsignacion.findOrCreate({
+                    where: { user_id: adminContratistaId, tipo_contratista_id: tiposContratista[1].id, dependencia_id: dependencias[9].id },
+                    defaults: { administrador_contrato_id: adminContratoId, periodo_inicio: new Date('2026-02-01') }
+                });
+            }
 
-            await ContratistaAsignacion.findOrCreate({
-                where: { user_id: contratistaUser2.id, tipo_contratista_id: tiposContratista[0].id, dependencia_id: dependencias[4].id },
-                defaults: { administrador_contrato_id: usersCreated.adminContrato.id, periodo_inicio: new Date('2026-02-01') }
-            });
+            if (userId1 && adminContratoId) {
+                await ContratistaAsignacion.findOrCreate({
+                    where: { user_id: userId1, tipo_contratista_id: tiposContratista[1].id, dependencia_id: dependencias[9].id },
+                    defaults: { administrador_contrato_id: adminContratoId, periodo_inicio: new Date('2026-02-01') }
+                });
+            }
+
+            if (userId2 && adminContratoId) {
+                await ContratistaAsignacion.findOrCreate({
+                    where: { user_id: userId2, tipo_contratista_id: tiposContratista[0].id, dependencia_id: dependencias[4].id },
+                    defaults: { administrador_contrato_id: adminContratoId, periodo_inicio: new Date('2026-02-01') }
+                });
+            }
         }
 
-        // Administrador de contrato para todas las vinculaciones (Demo 1 y Demo 2)
-        for (const v1 of vinculaciones) {
-            await Administracion.findOrCreate({
-                where: { vinculacion_id: v1.id },
-                defaults: { administrador_contrato_id: usersCreated.adminContrato.id, activo: 1 }
-            });
-        }
-        for (const vDemo2 of vinculacionesDemo2) {
-            await Administracion.findOrCreate({
-                where: { vinculacion_id: vDemo2.id },
-                defaults: { administrador_contrato_id: usersCreated.adminContrato.id, activo: 1 }
-            });
+        const adminContratoId = usersCreated.adminContrato ? (usersCreated.adminContrato.usu_id || usersCreated.adminContrato.id) : null;
+        if (adminContratoId) {
+            // Administrador de contrato para todas las vinculaciones (Demo 1 y Demo 2)
+            for (const v1 of vinculaciones) {
+                await Administracion.findOrCreate({
+                    where: { vinculacion_id: v1.id },
+                    defaults: { administrador_contrato_id: adminContratoId, activo: 1 }
+                });
+            }
+            for (const vDemo2 of vinculacionesDemo2) {
+                await Administracion.findOrCreate({
+                    where: { vinculacion_id: vDemo2.id },
+                    defaults: { administrador_contrato_id: adminContratoId, activo: 1 }
+                });
+            }
         }
 
         // Asociar Contratista Admin a ambas empresas contratistas
-        if (usersCreated.contratistaAdmin) {
+        const adminContratistaId = usersCreated.contratistaAdmin ? (usersCreated.contratistaAdmin.usu_id || usersCreated.contratistaAdmin.id) : null;
+        if (adminContratistaId) {
             await ContratistaUsuario.findOrCreate({
-                where: { contratista_id: contratistaDemo1.id, user_id: usersCreated.contratistaAdmin.id }
+                where: { contratista_id: contratistaDemo1.id, user_id: adminContratistaId }
             });
             await ContratistaUsuario.findOrCreate({
-                where: { contratista_id: contratistaDemo2.id, user_id: usersCreated.contratistaAdmin.id }
+                where: { contratista_id: contratistaDemo2.id, user_id: adminContratistaId }
             });
         }
 
