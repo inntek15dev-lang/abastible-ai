@@ -5,7 +5,7 @@ echo "Esperando a que la base de datos ($DB_HOST) esté lista..."
 MAX_RETRIES=50
 COUNT=0
 
-while ! nc -z $DB_HOST 3306; do
+while ! node -e "const net = require('net'); const c = net.connect({host: process.env.DB_HOST || 'db', port: 3306}, () => { c.end(); process.exit(0); }); c.on('error', () => process.exit(1));"; do
   COUNT=$((COUNT + 1))
   if [ $COUNT -gt $MAX_RETRIES ]; then
     echo "❌ Error: La base de datos no respondió tras $MAX_RETRIES segundos. Abortando."
