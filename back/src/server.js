@@ -12,7 +12,18 @@ const PORT = process.env.PORT || 4000;
 // Trust Proxy (Required for Nginx/Load Balancers to handle CORS/IPs correctly)
 app.set('trust proxy', 1);
 
-// Middleware de CORS Atómico (Garantizado para Producción y Preflight)
+// Configuración de CORS con paquete cors + middleware atómico de respaldo
+const corsOptions = {
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-Api-Key'],
+    optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
 app.use((req, res, next) => {
     const origin = req.headers.origin;
     
@@ -25,9 +36,9 @@ app.use((req, res, next) => {
 
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Api-Key');
+    res.setHeader('Vary', 'Origin');
     res.setHeader('X-CORS-Status', 'Universal-Applied');
 
-    // Manejo Inmediato y Definitivo de Preflight (OPTIONS)
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
