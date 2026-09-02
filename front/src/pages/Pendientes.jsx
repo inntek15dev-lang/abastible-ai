@@ -36,7 +36,7 @@ export default function Pendientes() {
 
     const fetchAdmins = async () => {
         try {
-            const response = await api.get('/usuarios?role=administrador_contrato&active=true');
+            const response = await api.get('/resources/adc').catch(() => ({ data: { data: [] } }));
             setPotentialAdmins(response.data.data || []);
         } catch (err) {
             console.error('Error fetching admins', err);

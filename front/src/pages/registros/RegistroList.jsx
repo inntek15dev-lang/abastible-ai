@@ -140,7 +140,7 @@ export default function RegistroList() {
             const [servRes, progRes, userRes, gerRes, subgRes] = await Promise.all([
                 api.get('/resources/tipos-contratista'),
                 api.get('/programas'),
-                api.get('/usuarios?role=administrador_contrato'),
+                api.get('/resources/adc').catch(() => ({ data: { data: [] } })),
                 api.get('/resources/gerencias'),
                 api.get('/resources/subgerencias')
             ]);
