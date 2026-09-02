@@ -12,30 +12,22 @@ const PORT = process.env.PORT || 4000;
 // Trust Proxy (Required for Nginx/Load Balancers to handle CORS/IPs correctly)
 app.set('trust proxy', 1);
 
-// Middleware de CORS Atómico (OPCIÓN NUCLEAR - Misión Crítica)
+// Middleware de CORS Atómico (Garantizado para Producción y Preflight)
 app.use((req, res, next) => {
     const origin = req.headers.origin;
     
-    // Loguear solo en desarrollo para no saturar logs de prod, 
-    // pero habilitar headers para cualquier subdominio de inntek.cl
     if (origin) {
-        const originLower = origin.toLowerCase();
-        const isInntekOrOval = originLower.includes('inntek.cl') || 
-                               originLower.includes('ovalcontrol.com') ||
-                               originLower.includes('localhost') || 
-                               originLower.includes('127.0.0.1');
-
-        if (isInntekOrOval) {
-            res.setHeader('Access-Control-Allow-Origin', origin);
-            res.setHeader('Access-Control-Allow-Credentials', 'true');
-        }
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+    } else {
+        res.setHeader('Access-Control-Allow-Origin', '*');
     }
 
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Api-Key');
-    res.setHeader('X-CORS-Status', 'Nuclear-Applied'); // Header de depuración
+    res.setHeader('X-CORS-Status', 'Universal-Applied');
 
-    // Manejo Inmediato y Agresivo de Preflight (OPTIONS)
+    // Manejo Inmediato y Definitivo de Preflight (OPTIONS)
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
