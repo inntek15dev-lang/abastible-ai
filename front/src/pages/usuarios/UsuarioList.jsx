@@ -223,7 +223,12 @@ export default function UsuarioList() {
                                                 {usuario.role.replace(/_/g, ' ')}
                                             </span>
                                         </td>
-                                        <td>{usuario.eecc_nombre || '-'}</td>
+                                        <td>
+                                            {usuario.eecc_nombre ||
+                                             (usuario.contratistasAsignados?.map(c => c.nombre).join(', ')) ||
+                                             (usuario.vinculacionesAsignadas?.map(v => v.vinculacion?.contratista?.nombre).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(', ')) ||
+                                             '-'}
+                                        </td>
                                         <td>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                 <Toggle
