@@ -409,9 +409,9 @@ export default function RegistroForm() {
             setActividades(prev => prev.map((act, i) => {
                 if (i === actividadIndex) {
                     const newEvidencias = act.evidencias.filter(e => e.id !== evidenciaId);
-                    // Special behavior: If it's the last evidence and it was required, user might want to change back to No Cumple
-                    // but we won't force it here, just update the list.
-                    return { ...act, evidencias: newEvidencias };
+                    const hasRemaining = newEvidencias.length > 0 || (act.pendingFiles && act.pendingFiles.length > 0);
+                    const newCumple = (act.requiere_evidencia && !hasRemaining) ? false : act.cumple;
+                    return { ...act, evidencias: newEvidencias, cumple: newCumple };
                 }
                 return act;
             }));

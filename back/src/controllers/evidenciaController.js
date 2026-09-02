@@ -268,6 +268,19 @@ const evidenciaController = {
                 descripcion
             });
 
+            // Actualizar la actividad a 'cumple = 1' automáticamente al subir evidencia
+            await registroActividad.update({ cumple: 1 });
+
+            // Recalcular porcentaje_cumplimiento en el registro
+            const regId = registroActividad.registro_id;
+            if (regId) {
+                const allActs = await RegistroActividad.findAll({ where: { registro_id: regId } });
+                const applicableActs = allActs.filter(a => a.cumple !== 2);
+                const cumplidasCount = applicableActs.filter(a => a.cumple === true || a.cumple === 1).length;
+                const porcentaje = applicableActs.length > 0 ? (cumplidasCount / applicableActs.length) * 100 : 0;
+                await Registro.update({ porcentaje_cumplimiento: porcentaje.toFixed(2) }, { where: { id: regId } });
+            }
+
             res.status(201).json({ success: true, data: evidencia });
         } catch (error) {
             console.error('Evidencia store error:', error);
@@ -297,19 +310,6 @@ const evidenciaController = {
             }
 
             if (!fs.existsSync(evidencia.ruta)) {
-                // Fallback for old paths (absolute or relative to back)
-                // New paths start with 'storage/' and are relative to project root (parent of back)
-                // But wait, I saved 'storage/...' in DB.
-                // Physically they are in ../storage/...
-                // If I join __dirname (back/src/controllers) with ../../ + dbPath (storage/...)
-                // it becomes back/storage/... which is wrong. It should be ../../ (back root) + ../ (project root) + dbPath?
-                // No.
-                // DB Path: storage/registros/...
-                // Physical: c:/laragon/www/a-oiem-ai/storage/registros/...
-                // __dirname: c:/laragon/www/a-oiem-ai/back/src/controllers
-                // ../../ = back/
-                // ../../../ = a-oiem-ai/
-
                 const projectRoot = path.join(__dirname, '../../../');
                 const absolutePath = path.join(projectRoot, evidencia.ruta);
 
@@ -317,8 +317,6 @@ const evidenciaController = {
                     return res.download(absolutePath, evidencia.nombre_original);
                 }
 
-                // Fallback: check if it's an old upload in 'uploads/evidencias' (relative to back root)
-                // Old ruta was req.file.path (absolute path from multer)
                 if (path.isAbsolute(evidencia.ruta) && fs.existsSync(evidencia.ruta)) {
                     return res.download(evidencia.ruta, evidencia.nombre_original);
                 }
@@ -336,25 +334,56 @@ const evidenciaController = {
     // DELETE /api/evidencias/:id
     async destroy(req, res) {
         try {
-            const evidencia = await Evidencia.findByPk(req.params.id);
+            const evidencia = await Evidencia.findByPk(req.params.id, {
+                include: [{
+                    model: RegistroActividad,
+                    as: 'registroActividad',
+                    include: [{ model: Actividad, as: 'actividad' }]
+                }]
+            });
 
             if (!evidencia) {
                 return res.status(404).json({ success: false, message: 'Evidencia no encontrada' });
             }
 
+            const registroActividad = evidencia.registroActividad;
+            const registroId = registroActividad?.registro_id;
+
+            // SECURITY: IDOR — verificar si la evidencia pertenece a un registro en el scope del usuario
+            if (registroId && !(await isRegistroInScope(req.user, registroId))) {
+                return res.status(403).json({ success: false, message: 'No tiene permiso para eliminar esta evidencia' });
+            }
+
             // Delete file
-            // Try new path first
             const projectRoot = path.join(__dirname, '../../../');
             const absolutePath = path.join(projectRoot, evidencia.ruta);
 
             if (fs.existsSync(absolutePath)) {
                 fs.unlinkSync(absolutePath);
             } else if (fs.existsSync(evidencia.ruta)) {
-                // Try old path (absolute)
                 fs.unlinkSync(evidencia.ruta);
             }
 
+            const raId = evidencia.registro_actividad_id;
             await evidencia.destroy();
+
+            // Si quedan 0 evidencias para esta actividad y la actividad requiere evidencia, cambiar a no cumple (0)
+            if (raId && registroActividad) {
+                const remainingCount = await Evidencia.count({ where: { registro_actividad_id: raId } });
+                const requiereEv = registroActividad.actividad?.requiere_evidencia;
+                if (remainingCount === 0 && (requiereEv === 1 || requiereEv === true)) {
+                    await registroActividad.update({ cumple: 0 });
+                }
+
+                // Recalcular porcentaje de avance del registro
+                if (registroId) {
+                    const allActs = await RegistroActividad.findAll({ where: { registro_id: registroId } });
+                    const applicableActs = allActs.filter(a => a.cumple !== 2);
+                    const cumplidasCount = applicableActs.filter(a => a.cumple === true || a.cumple === 1).length;
+                    const porcentaje = applicableActs.length > 0 ? (cumplidasCount / applicableActs.length) * 100 : 0;
+                    await Registro.update({ porcentaje_cumplimiento: porcentaje.toFixed(2) }, { where: { id: registroId } });
+                }
+            }
 
             res.json({ success: true, message: 'Evidencia eliminada' });
         } catch (error) {

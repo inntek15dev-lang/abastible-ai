@@ -491,7 +491,7 @@ router.get('/evidencias', auth, evidenciaController.index);
 router.get('/evidencias/bulk-download', auth, evidenciaController.downloadSelected);
 router.post('/evidencias', auth, upload.single('archivo'), evidenciaController.store);
 router.get('/evidencias/:id/download', auth, evidenciaController.download);
-router.delete('/evidencias/:id', auth, requirePrivilege('Evidencias', 'excec'), evidenciaController.destroy);
+router.delete('/evidencias/:id', auth, requirePrivilege('Evidencias', 'write'), evidenciaController.destroy);
 
 // Hallazgos
 /**
