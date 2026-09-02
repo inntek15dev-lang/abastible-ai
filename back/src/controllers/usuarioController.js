@@ -3,6 +3,72 @@ const bcrypt = require('bcryptjs');
 const { User, TipoContratista, Dependencia, ContratistaAsignacion, Contratista, Vinculacion, Administracion, Programa, ContratistaUsuario, VinculacionUsuario } = require('../database/models');
 const emailService = require('../services/emailService');
 
+function formatUserData(u) {
+    if (!u) return u;
+    const json = typeof u.toJSON === 'function' ? u.toJSON() : u;
+    if (!json.id && json.usu_id) {
+        json.id = json.usu_id;
+    }
+
+    // Resolutor universal para eecc_nombre
+    const companyNames = new Set();
+    if (json.eecc_nombre && json.eecc_nombre.trim() !== '') {
+        companyNames.add(json.eecc_nombre.trim());
+    }
+    if (json.contratistaEntidad?.nombre) {
+        companyNames.add(json.contratistaEntidad.nombre.trim());
+    }
+    if (json.contratistasAsignados && Array.isArray(json.contratistasAsignados)) {
+        json.contratistasAsignados.forEach(c => {
+            if (c.nombre) companyNames.add(c.nombre.trim());
+        });
+    }
+    if (json.vinculacionesAsignadas && Array.isArray(json.vinculacionesAsignadas)) {
+        json.vinculacionesAsignadas.forEach(vu => {
+            if (vu.vinculacion?.contratista?.nombre) {
+                companyNames.add(vu.vinculacion.contratista.nombre.trim());
+            }
+        });
+    }
+    if (companyNames.size > 0) {
+        json.eecc_nombre = Array.from(companyNames).join(', ');
+    }
+
+    // Resolutor universal para contratista_ids y contratista_id
+    const cIds = new Set();
+    if (json.contratista_id) cIds.add(Number(json.contratista_id));
+    if (json.contratistaEntidad?.id) cIds.add(Number(json.contratistaEntidad.id));
+    if (json.contratistasAsignados && Array.isArray(json.contratistasAsignados)) {
+        json.contratistasAsignados.forEach(c => { if (c.id) cIds.add(Number(c.id)); });
+    }
+    if (json.vinculacionesAsignadas && Array.isArray(json.vinculacionesAsignadas)) {
+        json.vinculacionesAsignadas.forEach(vu => {
+            if (vu.vinculacion?.contratista_id) cIds.add(Number(vu.vinculacion.contratista_id));
+            if (vu.vinculacion?.contratista?.id) cIds.add(Number(vu.vinculacion.contratista.id));
+        });
+    }
+    json.contratista_ids = Array.from(cIds);
+    if (!json.contratista_id && json.contratista_ids.length > 0) {
+        json.contratista_id = json.contratista_ids[0];
+    }
+
+    // Resolutor universal para vinculacion_ids y vinculacion_id
+    const vIds = new Set();
+    if (json.vinculacion_id) vIds.add(Number(json.vinculacion_id));
+    if (json.vinculacionesAsignadas && Array.isArray(json.vinculacionesAsignadas)) {
+        json.vinculacionesAsignadas.forEach(vu => {
+            if (vu.vinculacion_id) vIds.add(Number(vu.vinculacion_id));
+            if (vu.vinculacion?.id) vIds.add(Number(vu.vinculacion.id));
+        });
+    }
+    json.vinculacion_ids = Array.from(vIds);
+    if (!json.vinculacion_id && json.vinculacion_ids.length > 0) {
+        json.vinculacion_id = json.vinculacion_ids[0];
+    }
+
+    return json;
+}
+
 const usuarioController = {
     // GET /api/usuarios
     async index(req, res) {
@@ -154,13 +220,9 @@ const usuarioController = {
                 ]
             });
 
-            const mappedUsuarios = usuarios.map(u => {
-                const json = u.toJSON();
-                if (!json.id && json.usu_id) {
-                    json.id = json.usu_id;
-                }
-                return json;
-            });
+            const mappedUsuarios = usuarios.map(formatUserData);
+
+            res.json({ success: true, data: mappedUsuarios });
 
             res.json({ success: true, data: mappedUsuarios });
         } catch (error) {
@@ -279,10 +341,7 @@ const usuarioController = {
                 }
             }
 
-            const userData = usuario.toJSON();
-            if (!userData.id && userData.usu_id) {
-                userData.id = userData.usu_id;
-            }
+            const userData = formatUserData(usuario);
 
             res.json({ success: true, data: userData });
         } catch (error) {

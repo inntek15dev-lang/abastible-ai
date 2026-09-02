@@ -1,6 +1,6 @@
 // IEEE Trace: REQ-007 | middleware/auth.js
 const jwt = require('jsonwebtoken');
-const { User, Role, Privilegio, ContratistaUsuario, VinculacionUsuario, Vinculacion } = require('../database/models');
+const { User, Role, Privilegio, ContratistaUsuario, VinculacionUsuario, Vinculacion, Contratista, Administracion } = require('../database/models');
 
 const authMiddleware = async (req, res, next) => {
     try {
@@ -32,7 +32,7 @@ const authMiddleware = async (req, res, next) => {
             attributes: { exclude: ['password'] }
         });
 
-        if (!user || !user.activo) {
+        if (!user || user.activo === 0 || user.activo === false) {
             return res.status(401).json({
                 success: false,
                 message: 'Usuario no encontrado o inactivo'
@@ -50,28 +50,39 @@ const authMiddleware = async (req, res, next) => {
             });
         }
 
-        // Load privileges based on role
-        const role = await Role.findOne({ where: { name: user.role } });
-        let privileges = [];
+        // Fetch user permissions
+        const userPrivileges = await Privilegio.findAll({
+            where: { role_id: user.role_id || user.role }
+        });
 
-        if (role) {
-            const privs = await Privilegio.findAll({ where: { role_id: role.id } });
-            privileges = privs.map(p => ({
-                module: p.ref_modulo,
-                read: p.read === 1,
-                write: p.write === 1,
-                excec: p.excec === 1
-            }));
+        // Resolve role name if role_id is numeric
+        let roleName = user.role;
+        if (!isNaN(user.role)) {
+            const roleRecord = await Role.findByPk(user.role);
+            if (roleRecord) roleName = roleRecord.name;
         }
 
-        // Retrieve multiple assigned contractors (for contratista_admin many-to-many relationship)
-        const assigned = await ContratistaUsuario.findAll({
-            where: { user_id: user.usu_id || user.id },
-            attributes: ['contratista_id']
+        const privileges = {};
+        userPrivileges.forEach(priv => {
+            privileges[priv.ref_modulo] = {
+                read: Boolean(priv.read),
+                write: Boolean(priv.write),
+                excec: Boolean(priv.excec)
+            };
         });
-        const contratistaIds = [...new Set(assigned.map(c => Number(c.contratista_id)))];
-        // Ensure legacy user.contratista_id is included as fallback
-        if (user.contratista_id && !contratistaIds.includes(Number(user.contratista_id))) {
+
+        // Contratista IDs for contratista_admin / contratista_user
+        let contratistaIds = [];
+        if (user.role === 'contratista_admin') {
+            const cus = await ContratistaUsuario.findAll({
+                where: { user_id: user.usu_id || user.id },
+                attributes: ['contratista_id']
+            });
+            contratistaIds = cus.map(cu => Number(cu.contratista_id));
+            if (user.contratista_id && !contratistaIds.includes(Number(user.contratista_id))) {
+                contratistaIds.push(Number(user.contratista_id));
+            }
+        } else if (user.contratista_id) {
             contratistaIds.push(Number(user.contratista_id));
         }
 
@@ -90,21 +101,43 @@ const authMiddleware = async (req, res, next) => {
             gerencia_id: null,
             numero_contrato: null
         };
-        if (user.role === 'contratista_user') {
+
+        if (user.role === 'administrador_contrato') {
+            const admins = await Administracion.findAll({
+                where: { administrador_contrato_id: user.usu_id || user.id, activo: 1 },
+                attributes: ['vinculacion_id']
+            });
+            vinculacion_ids = admins.map(a => Number(a.vinculacion_id));
+            vinculacion_id = vinculacion_ids.length > 0 ? vinculacion_ids[0] : null;
+        } else if (user.role === 'contratista_user') {
             const vus = await VinculacionUsuario.findAll({
                 where: { user_id: user.usu_id || user.id, activo: 1 },
                 attributes: ['vinculacion_id'],
-                include: [{ model: Vinculacion, as: 'vinculacion', attributes: ['id', 'contratista_id', 'servicio_id', 'dependencia_id', 'subgerencia_id', 'gerencia_id', 'numero_contrato'], where: { activo: 1 }, required: false }]
+                include: [{
+                    model: Vinculacion,
+                    as: 'vinculacion',
+                    attributes: ['id', 'contratista_id', 'servicio_id', 'dependencia_id', 'subgerencia_id', 'gerencia_id', 'numero_contrato'],
+                    include: [{ model: Contratista, as: 'contratista', attributes: ['id', 'nombre', 'rut'] }],
+                    where: { activo: 1 },
+                    required: false
+                }]
             });
             // Filtrar solo las que tienen vinculación activa
             const activeVus = vus.filter(vu => vu.vinculacion);
             vinculacion_ids = activeVus.map(vu => Number(vu.vinculacion_id));
             vinculacion_id = vinculacion_ids.length > 0 ? vinculacion_ids[0] : null;
 
-            // Unión de scopes: el usuario puede ver datos de TODAS sus vinculaciones.
-            // Para campos como contratista_id, dependencia_id, etc. ya no se usa un
-            // valor escalar sino que los controllers filtran por vinculacion_ids con Op.in.
-            // Se mantiene vinculacionScope con el primer valor para compat mínima.
+            const companyNames = new Set();
+            activeVus.forEach(vu => {
+                if (vu.vinculacion?.contratista?.nombre) {
+                    companyNames.add(vu.vinculacion.contratista.nombre);
+                }
+                if (vu.vinculacion?.contratista_id) {
+                    contratistaIds.push(Number(vu.vinculacion.contratista_id));
+                }
+            });
+            contratistaIds = [...new Set(contratistaIds)];
+
             if (activeVus.length > 0) {
                 const first = activeVus[0].vinculacion;
                 vinculacionScope = {
@@ -113,7 +146,8 @@ const authMiddleware = async (req, res, next) => {
                     dependencia_id: first.dependencia_id,
                     subgerencia_id: first.subgerencia_id,
                     gerencia_id: first.gerencia_id,
-                    numero_contrato: first.numero_contrato
+                    numero_contrato: first.numero_contrato,
+                    eecc_nombre: companyNames.size > 0 ? Array.from(companyNames).join(', ') : (first.contratista?.nombre || null)
                 };
             }
         }
