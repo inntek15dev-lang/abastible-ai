@@ -272,7 +272,6 @@ const evidenciaController = {
             await registroActividad.update({ cumple: 1 });
 
             // Recalcular porcentaje_cumplimiento en el registro
-            const regId = registroActividad.registro_id;
             if (regId) {
                 const allActs = await RegistroActividad.findAll({ where: { registro_id: regId } });
                 const applicableActs = allActs.filter(a => a.cumple !== 2);
