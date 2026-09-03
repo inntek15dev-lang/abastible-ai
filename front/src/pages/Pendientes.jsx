@@ -131,11 +131,16 @@ export default function Pendientes() {
             const queryStr = params.toString() ? `&${params.toString()}` : '';
             const queryStrFirst = params.toString() ? `?${params.toString()}` : '';
 
+            const safeGet = (url, fallback = []) => api.get(url).catch(err => {
+                console.error(`Error loading ${url}`, err);
+                return { data: { data: fallback } };
+            });
+
             const promises = [
-                api.get(`/dashboard/kpis${queryStrFirst}`),
-                api.get(`/reaperturas?estado=pendiente${queryStr}`),
-                api.get(`/registros?estado_auditoria=${auditParams}${queryStr}`),
-                api.get(`/registros?estado_auditoria=${reviewParams}${queryStr}`)
+                safeGet(`/dashboard/kpis${queryStrFirst}`, {}),
+                safeGet(`/reaperturas?estado=pendiente${queryStr}`, []),
+                safeGet(`/registros?estado_auditoria=${auditParams}${queryStr}`, []),
+                safeGet(`/registros?estado_auditoria=${reviewParams}${queryStr}`, [])
             ];
 
             // If contractor, also fetch vinculaciones and full registry history to find gaps
@@ -147,8 +152,8 @@ export default function Pendientes() {
                     if (user.dependencia_id) vincParams.append('dependencia_id', user.dependencia_id);
                 }
                 
-                promises.push(api.get(`/vinculaciones?${vincParams.toString()}`));
-                promises.push(api.get('/registros')); // Full history for the contractor
+                promises.push(safeGet(`/vinculaciones?${vincParams.toString()}`, []));
+                promises.push(safeGet('/registros', [])); // Full history for the contractor
             }
 
             const results = await Promise.all(promises);

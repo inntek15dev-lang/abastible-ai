@@ -1,4 +1,5 @@
 // IEEE Trace: REQ-004 | US-004 | reaperturaController.js
+const { Op } = require('sequelize');
 const {
     SolicitudReapertura,
     Registro,
@@ -7,6 +8,7 @@ const {
     User,
     Administracion
 } = require('../database/models');
+const { getAllowedVinculacionIds } = require('../utils/scopeHelper');
 const emailService = require('../services/emailService');
 
 const reaperturaController = {
@@ -14,23 +16,33 @@ const reaperturaController = {
     async index(req, res) {
         try {
             const { estado } = req.query;
-            let where = {};
+            const where = {};
 
             if (estado) where.estado = estado;
 
-            // Role-based filtering
-            if (['contratista_admin', 'contratista_user'].includes(req.user.role)) {
-                where.solicitante_id = req.user.id;
+            // Filtro Universal por Rol: admin ve todo, contratista_admin filtra
+            // por su empresa (id_cot), administrador_contrato filtra por las
+            // vinculaciones que administra, contratista_user por sus contratos.
+            const allowedVincIds = await getAllowedVinculacionIds(req.user);
+
+            const registroInclude = {
+                model: Registro,
+                as: 'registro',
+                attributes: ['id', 'periodo', 'eecc_nombre', 'contratista_asignacion_id'],
+                required: true
+            };
+
+            if (allowedVincIds !== null) {
+                // No es admin → filtrar por vinculaciones permitidas
+                registroInclude.where = {
+                    contratista_asignacion_id: { [Op.in]: allowedVincIds.length > 0 ? allowedVincIds : [-1] }
+                };
             }
 
             const solicitudes = await SolicitudReapertura.findAll({
                 where,
                 include: [
-                    {
-                        model: Registro,
-                        as: 'registro',
-                        attributes: ['id', 'periodo', 'eecc_nombre']
-                    },
+                    registroInclude,
                     { model: User, as: 'solicitante', attributes: ['id', 'name', 'email'] },
                     { model: User, as: 'aprobador', attributes: ['id', 'name'] }
                 ],

@@ -20,6 +20,7 @@ const {
     sequelize
 } = require('../database/models');
 const { getProgramaScope, intersectWithProgramaScope } = require('../utils/programaScopeHelper');
+const { buildScopeWhere, getAllowedVinculacionIds } = require('../utils/scopeHelper');
 
 const dashboardController = {
     // GET /api/dashboard/kpis
@@ -30,51 +31,8 @@ const dashboardController = {
             const isContractor = ['contratista_admin', 'contratista_user'].includes(user.role);
             const isContractManager = user.role === 'administrador_contrato';
 
-            // Determine scope filters
-            const whereRegistro = {};
-
-            // 1. Get Vinculacion IDs based on role
-            let scopeVinculacionIds = [];
-
-            if (user.role === 'administrador_contrato') {
-                const adminRecords = await Administracion.findAll({
-                    where: { administrador_contrato_id: user.id, activo: 1 },
-                    attributes: ['vinculacion_id']
-                });
-                scopeVinculacionIds = adminRecords.map(a => a.vinculacion_id);
-                if (scopeVinculacionIds.length === 0) whereRegistro.id = -1;
-                else whereRegistro.contratista_asignacion_id = { [Op.in]: scopeVinculacionIds };
-            } else if (user.role === 'contratista_admin') {
-                const cIds = [];
-                if (Array.isArray(user.contratista_ids) && user.contratista_ids.length > 0) {
-                    cIds.push(...user.contratista_ids.map(Number));
-                }
-                if (user.contratista_id && !cIds.includes(Number(user.contratista_id))) {
-                    cIds.push(Number(user.contratista_id));
-                }
-
-                if (cIds.length > 0) {
-                    const vincs = await Vinculacion.findAll({
-                        where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
-                        attributes: ['id']
-                    });
-                    scopeVinculacionIds = vincs.map(v => v.id);
-                    if (scopeVinculacionIds.length === 0) whereRegistro.id = -1;
-                    else whereRegistro.contratista_asignacion_id = { [Op.in]: scopeVinculacionIds };
-                } else {
-                    whereRegistro.id = -1;
-                }
-            } else if (user.role === 'contratista_user') {
-                const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
-                    ? user.vinculacion_ids
-                    : (user.vinculacion_id ? [user.vinculacion_id] : []);
-                if (myVincIds.length > 0) {
-                    scopeVinculacionIds = myVincIds.map(Number);
-                    whereRegistro.contratista_asignacion_id = { [Op.in]: scopeVinculacionIds };
-                } else {
-                    whereRegistro.id = -1;
-                }
-            }
+            // Filtro Universal por Rol (centralizado en scopeHelper)
+            const whereRegistro = await buildScopeWhere(user);
 
             const { fecha_inicio, fecha_fin, programa_id, servicio_id, dependencia_id, search, estado, gerencia_id, subgerencia_id, adc_id } = req.query;
 
@@ -371,32 +329,10 @@ const dashboardController = {
             let vincWhere = { activo: 1 };
             const { gerencia_id, subgerencia_id, adc_id } = req.query;
 
-            // 1. Base Role
-            if (user.role === 'administrador_contrato') {
-                const adminVincs = await Administracion.findAll({
-                    where: { administrador_contrato_id: user.id, activo: 1 },
-                    attributes: ['vinculacion_id']
-                });
-                const scopeIds = adminVincs.map(a => a.vinculacion_id);
-                vincWhere.id = { [Op.in]: scopeIds.length > 0 ? scopeIds : [-1] };
-            } else if (user.role === 'contratista_admin') {
-                const cIds = [];
-                if (Array.isArray(user.contratista_ids) && user.contratista_ids.length > 0) {
-                    cIds.push(...user.contratista_ids.map(Number));
-                }
-                if (user.contratista_id && !cIds.includes(Number(user.contratista_id))) {
-                    cIds.push(Number(user.contratista_id));
-                }
-                vincWhere.contratista_id = { [Op.in]: cIds.length > 0 ? cIds : [-1] };
-            } else if (user.role === 'contratista_user') {
-                const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
-                    ? user.vinculacion_ids
-                    : (user.vinculacion_id ? [user.vinculacion_id] : []);
-                if (myVincIds.length > 0) {
-                    vincWhere.id = { [Op.in]: myVincIds.map(Number) };
-                } else {
-                    vincWhere.id = -1;
-                }
+            // Filtro Universal por Rol (centralizado en scopeHelper)
+            const allowedVincIds = await getAllowedVinculacionIds(user);
+            if (allowedVincIds !== null) {
+                vincWhere.id = { [Op.in]: allowedVincIds.length > 0 ? allowedVincIds : [-1] };
             }
 
             // 2. Filtros Avanzados
@@ -465,46 +401,8 @@ const dashboardController = {
         try {
             const user = req.user;
             const { gerencia_id, subgerencia_id, adc_id } = req.query;
-            const whereRegistro = {};
-
-            // Same robust scoping as kpis
-            if (user.role === 'administrador_contrato') {
-                const adminRecords = await Administracion.findAll({
-                    where: { administrador_contrato_id: user.id, activo: 1 },
-                    attributes: ['vinculacion_id']
-                });
-                const vincIds = adminRecords.map(a => a.vinculacion_id);
-                if (vincIds.length === 0) whereRegistro.id = -1;
-                else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
-            } else if (user.role === 'contratista_admin') {
-                const cIds = [];
-                if (Array.isArray(user.contratista_ids) && user.contratista_ids.length > 0) {
-                    cIds.push(...user.contratista_ids.map(Number));
-                }
-                if (user.contratista_id && !cIds.includes(Number(user.contratista_id))) {
-                    cIds.push(Number(user.contratista_id));
-                }
-                if (cIds.length > 0) {
-                    const vincs = await Vinculacion.findAll({
-                        where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
-                        attributes: ['id']
-                    });
-                    const vincIds = vincs.map(v => v.id);
-                    if (vincIds.length === 0) whereRegistro.id = -1;
-                    else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
-                } else {
-                    whereRegistro.id = -1;
-                }
-            } else if (user.role === 'contratista_user') {
-                const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
-                    ? user.vinculacion_ids
-                    : (user.vinculacion_id ? [user.vinculacion_id] : []);
-                if (myVincIds.length > 0) {
-                    whereRegistro.contratista_asignacion_id = { [Op.in]: myVincIds.map(Number) };
-                } else {
-                    whereRegistro.id = -1;
-                }
-            }
+            // Filtro Universal por Rol (centralizado en scopeHelper)
+            const whereRegistro = await buildScopeWhere(user);
 
             // Filtros Avanzados
             if (adc_id && adc_id !== 'todos') {
@@ -601,47 +499,8 @@ const dashboardController = {
         try {
             const user = req.user;
             const { gerencia_id, subgerencia_id, adc_id } = req.query;
-            const whereRegistro = {};
-
-            // Apply same filters as KPIs
-            if (user.role === 'administrador_contrato') {
-                const adminRecords = await Administracion.findAll({
-                    where: { administrador_contrato_id: user.id, activo: 1 },
-                    attributes: ['vinculacion_id']
-                });
-                const vincIds = adminRecords.map(a => a.vinculacion_id);
-                if (vincIds.length === 0) whereRegistro.id = -1;
-                else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
-            } else if (user.role === 'contratista_admin') {
-                const cIds = [];
-                if (Array.isArray(user.contratista_ids) && user.contratista_ids.length > 0) {
-                    cIds.push(...user.contratista_ids.map(Number));
-                }
-                if (user.contratista_id && !cIds.includes(Number(user.contratista_id))) {
-                    cIds.push(Number(user.contratista_id));
-                }
-
-                if (cIds.length > 0) {
-                    const vincs = await Vinculacion.findAll({
-                        where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
-                        attributes: ['id']
-                    });
-                    const vincIds = vincs.map(v => v.id);
-                    if (vincIds.length === 0) whereRegistro.id = -1;
-                    else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
-                } else {
-                    whereRegistro.id = -1;
-                }
-            } else if (user.role === 'contratista_user') {
-                const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
-                    ? user.vinculacion_ids
-                    : (user.vinculacion_id ? [user.vinculacion_id] : []);
-                if (myVincIds.length > 0) {
-                    whereRegistro.contratista_asignacion_id = { [Op.in]: myVincIds.map(Number) };
-                } else {
-                    whereRegistro.id = -1;
-                }
-            }
+            // Filtro Universal por Rol (centralizado en scopeHelper)
+            const whereRegistro = await buildScopeWhere(user);
 
             // Filtros Avanzados
             if (adc_id && adc_id !== 'todos') {
@@ -769,37 +628,10 @@ const dashboardController = {
             // 1. Build Vinculacion where clause
             const whereVinculacion = { activo: 1 };
 
-            // --- Role-based visibility ---
-            if (user.role === 'administrador_contrato') {
-                const adminRecords = await Administracion.findAll({
-                    where: { administrador_contrato_id: user.id, activo: 1 },
-                    attributes: ['vinculacion_id']
-                });
-                const vincIds = adminRecords.map(a => a.vinculacion_id);
-                whereVinculacion.id = vincIds.length > 0 ? { [Op.in]: vincIds } : -1;
-            } else if (user.role === 'contratista_admin') {
-                const cIds = [];
-                if (Array.isArray(user.contratista_ids) && user.contratista_ids.length > 0) {
-                    cIds.push(...user.contratista_ids.map(Number));
-                }
-                if (user.contratista_id && !cIds.includes(Number(user.contratista_id))) {
-                    cIds.push(Number(user.contratista_id));
-                }
-
-                if (cIds.length > 0) {
-                    whereVinculacion.contratista_id = { [Op.in]: cIds };
-                } else {
-                    whereVinculacion.id = -1;
-                }
-            } else if (user.role === 'contratista_user') {
-                const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
-                    ? user.vinculacion_ids
-                    : (user.vinculacion_id ? [user.vinculacion_id] : []);
-                if (myVincIds.length > 0) {
-                    whereVinculacion.id = { [Op.in]: myVincIds.map(Number) };
-                } else {
-                    whereVinculacion.id = -1;
-                }
+            // Filtro Universal por Rol (centralizado en scopeHelper)
+            const allowedVincIds = await getAllowedVinculacionIds(user);
+            if (allowedVincIds !== null) {
+                whereVinculacion.id = { [Op.in]: allowedVincIds.length > 0 ? allowedVincIds : [-1] };
             }
 
             // --- Query param filters ---

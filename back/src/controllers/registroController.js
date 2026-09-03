@@ -21,7 +21,7 @@ const {
     AuditoriaComentario
 } = require('../database/models');
 const emailService = require('../services/emailService'); // Import emailService
-const { getAllowedVinculacionIds, isRegistroInScope } = require('../utils/scopeHelper');
+const { getAllowedVinculacionIds, isRegistroInScope, buildScopeWhere } = require('../utils/scopeHelper');
 const { getProgramaScope, scopeWhereClause } = require('../utils/programaScopeHelper');
 
 const registroController = {
@@ -29,62 +29,9 @@ const registroController = {
     async index(req, res) {
         try {
             const { user, role } = req.user;
-            let where = {};
-
-            // Apply role-based filtering (RN-002)
-            // Apply role-based filtering (RN-002)
-            if (req.user.role === 'contratista_admin') {
-                // Contractor Admin sees ALL records for their Companies (via Vinculacion)
-                const cIds = [];
-                if (Array.isArray(req.user.contratista_ids) && req.user.contratista_ids.length > 0) {
-                    cIds.push(...req.user.contratista_ids.map(Number));
-                }
-                if (req.user.contratista_id && !cIds.includes(Number(req.user.contratista_id))) {
-                    cIds.push(Number(req.user.contratista_id));
-                }
-
-                if (cIds.length > 0) {
-                    const vinculaciones = await Vinculacion.findAll({
-                        where: { contratista_id: { [Op.in]: cIds } },
-                        attributes: ['id']
-                    });
-                    const vinculacionIds = vinculaciones.map(v => v.id);
-
-                    where = {
-                        [Op.or]: [
-                            { user_id: req.user.id }, // Created by me
-                            { contratista_asignacion_id: { [Op.in]: vinculacionIds } } // Belonging to my companies
-                        ]
-                    };
-                } else {
-                    // Fallback if no contratista_id (should not happen for valid admin)
-                    where.user_id = req.user.id;
-                }
-            } else if (req.user.role === 'contratista_user') {
-                // Ancla por vinculacion_ids (los contratos asignados), no por user_id:
-                // varios contratista_user pueden compartir el mismo contrato (equipo de
-                // trabajadores), y todos deben ver los registros de ESOS contratos.
-                const myVincIds = (req.user.vinculacion_ids && req.user.vinculacion_ids.length > 0)
-                    ? req.user.vinculacion_ids
-                    : (req.user.vinculacion_id ? [req.user.vinculacion_id] : [-1]);
-                where.contratista_asignacion_id = { [Op.in]: myVincIds };
-            } else if (req.user.role === 'administrador_contrato') {
-                // Admin de contrato: registros de las vinculaciones que administra, vía
-                // Administracion (administrador_contrato_id -> vinculacion_id), la fuente
-                // real que puebla la sincronización con OVAL.
-                const misAdmins = await Administracion.findAll({
-                    where: { administrador_contrato_id: req.user.id, activo: 1 },
-                    attributes: ['vinculacion_id']
-                });
-                const vincIds = misAdmins.map(a => a.vinculacion_id);
-
-                if (vincIds.length > 0) {
-                    where.contratista_asignacion_id = { [Op.in]: vincIds };
-                } else {
-                    where.id = -1;
-                }
-            }
-            // Admin sees all (no filter)
+            
+            // Filtro Universal por Rol (centralizado en scopeHelper)
+            let where = await buildScopeWhere(req.user);
 
             // hierarchy filters (Gerencia - Subgerencia)
             const { gerencia_id, subgerencia_id, adc_id } = req.query;

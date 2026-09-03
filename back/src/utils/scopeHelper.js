@@ -60,5 +60,15 @@ const isRegistroInScope = async (user, registroId) => {
     if (!registro) return false;
     return allowed.includes(Number(registro.contratista_asignacion_id));
 };
+// Construye el fragmento where de scope para queries sobre Registro.
+// Retorna {} para admin (sin restricción), { id: -1 } si no hay vinculaciones
+// (0 resultados), o { contratista_asignacion_id: { [Op.in]: [...] } } para
+// el resto de roles. Uso: const whereRegistro = await buildScopeWhere(user);
+const buildScopeWhere = async (user) => {
+    const vincIds = await getAllowedVinculacionIds(user);
+    if (vincIds === null) return {};  // admin/oval: sin restricción
+    if (vincIds.length === 0) return { id: -1 };  // sin vinculaciones: 0 resultados
+    return { contratista_asignacion_id: { [Op.in]: vincIds } };
+};
 
-module.exports = { getContratistaAdminIds, getAllowedVinculacionIds, isRegistroInScope };
+module.exports = { getContratistaAdminIds, getAllowedVinculacionIds, isRegistroInScope, buildScopeWhere };
