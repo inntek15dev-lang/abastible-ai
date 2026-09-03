@@ -15,7 +15,7 @@ const reaperturaController = {
     // GET /api/reaperturas
     async index(req, res) {
         try {
-            const { estado } = req.query;
+            const { estado, adc_id } = req.query;
             const where = {};
 
             if (estado) where.estado = estado;
@@ -32,10 +32,26 @@ const reaperturaController = {
                 required: true
             };
 
-            if (allowedVincIds !== null) {
-                // No es admin → filtrar por vinculaciones permitidas
+            let vincFilterIds = allowedVincIds;
+
+            // Intersección por ADC si se especifica en query params
+            if (adc_id && adc_id !== 'todos') {
+                const adminRecords = await Administracion.findAll({
+                    where: { administrador_contrato_id: adc_id, activo: 1 },
+                    attributes: ['vinculacion_id']
+                });
+                const adcVincIds = adminRecords.map(a => Number(a.vinculacion_id));
+
+                if (vincFilterIds === null) {
+                    vincFilterIds = adcVincIds;
+                } else {
+                    vincFilterIds = vincFilterIds.filter(id => adcVincIds.includes(Number(id)));
+                }
+            }
+
+            if (vincFilterIds !== null) {
                 registroInclude.where = {
-                    contratista_asignacion_id: { [Op.in]: allowedVincIds.length > 0 ? allowedVincIds : [-1] }
+                    contratista_asignacion_id: { [Op.in]: vincFilterIds.length > 0 ? vincFilterIds : [-1] }
                 };
             }
 

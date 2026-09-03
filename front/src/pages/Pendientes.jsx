@@ -150,6 +150,9 @@ export default function Pendientes() {
             });
 
             const vincParams = new URLSearchParams();
+            if (selectedAdc !== 'todos') {
+                vincParams.append('adc_id', selectedAdc);
+            }
             if (user?.role === 'contratista_user') {
                 if (user.contratista_id) vincParams.append('contratista_id', user.contratista_id);
                 if (user.tipo_contratista_id) vincParams.append('servicio_id', user.tipo_contratista_id);
@@ -162,7 +165,7 @@ export default function Pendientes() {
                 safeGet(`/registros?estado_auditoria=${auditParams}${queryStr}`, []),
                 safeGet(`/registros?estado_auditoria=${reviewParams}${queryStr}`, []),
                 safeGet(`/vinculaciones?${vincParams.toString()}`, []),
-                safeGet('/registros', [])
+                safeGet(`/registros${queryStrFirst}`, [])
             ];
 
             const results = await Promise.all(promises);
