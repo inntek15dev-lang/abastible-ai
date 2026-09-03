@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
-import { Plus, Eye, Edit, Edit2, RefreshCw, Trash2, FileText, Search, Filter, Calendar, Building, List, ClipboardCheck, Monitor, X, Lock, Check, Clock, AlertTriangle } from 'lucide-react';
+import { Plus, Eye, Edit, Edit2, RefreshCw, Trash2, FileText, Search, Filter, Calendar, Building, List, ClipboardCheck, Monitor, X, Lock, Check, Clock, AlertTriangle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toast } from 'react-hot-toast'; // Import toast
@@ -360,6 +360,23 @@ export default function RegistroList() {
         }
         return sortableItems;
     }, [filteredRegistros, sortConfig]);
+
+    // --- Pagination State & Logic ---
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    // Reset pagination when filters, search or sorting change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filters, sortConfig, itemsPerPage]);
+
+    const totalItems = sortedRegistros.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+
+    const paginatedRegistros = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return sortedRegistros.slice(start, start + itemsPerPage);
+    }, [sortedRegistros, currentPage, itemsPerPage]);
 
     const openReaperturaModal = (registroId) => {
         setSelectedRegistroId(registroId);
@@ -957,15 +974,15 @@ export default function RegistroList() {
                         </tr>
                     </thead>
                     <tbody>
-                        {sortedRegistros.length === 0 ? (
+                        {totalItems === 0 ? (
                             <tr>
                                 <td colSpan={16} className="empty-row">No se encontraron registros coincidentes.</td>
                             </tr>
                         ) : (
-                            sortedRegistros.map((registro, idx) => (
+                            paginatedRegistros.map((registro, idx) => (
                                 <tr key={registro.id} id={`row-${registro.id}`} data-status={registro.estado_auditoria}>
                                     <td style={{ fontWeight: 500, color: '#6b7280', borderBottom: '3px solid var(--color-brand-primary)' }}>
-                                        {idx + 1}
+                                        {(currentPage - 1) * itemsPerPage + idx + 1}
                                     </td>
                                     <td style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <div style={{ fontWeight: 500 }}>
@@ -1215,8 +1232,182 @@ export default function RegistroList() {
                 </table>
             </div>
 
-            <div style={{ marginTop: '20px', textAlign: 'right', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-                Mostrando {filteredRegistros.length} de {registros.length} registros
+            {/* Pagination Controls Bar */}
+            <div className="pagination-bar" style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '16px',
+                marginTop: '20px',
+                padding: '12px 16px',
+                backgroundColor: '#ffffff',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+            }}>
+                {/* Left side: Items per page & info count */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#4b5563', fontSize: '0.85rem' }}>
+                        <span>Registros por página:</span>
+                        <select
+                            value={itemsPerPage}
+                            onChange={(e) => {
+                                setItemsPerPage(Number(e.target.value));
+                                setCurrentPage(1);
+                            }}
+                            style={{
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                border: '1px solid #d1d5db',
+                                backgroundColor: '#f9fafb',
+                                fontSize: '0.85rem',
+                                fontWeight: 500,
+                                color: '#111827',
+                                cursor: 'pointer',
+                                outline: 'none'
+                            }}
+                        >
+                            <option value={5}>5</option>
+                            <option value={10}>10</option>
+                            <option value={25}>25</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                        </select>
+                    </div>
+
+                    <div style={{ color: '#6b7280', fontSize: '0.85rem' }}>
+                        Mostrando{' '}
+                        <strong style={{ color: '#111827' }}>
+                            {totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}
+                        </strong>{' '}
+                        a{' '}
+                        <strong style={{ color: '#111827' }}>
+                            {Math.min(currentPage * itemsPerPage, totalItems)}
+                        </strong>{' '}
+                        de{' '}
+                        <strong style={{ color: '#111827' }}>{totalItems}</strong> registros
+                        {registros.length !== totalItems && (
+                            <span style={{ fontStyle: 'italic', marginLeft: '4px', color: '#9ca3af' }}>
+                                (filtrados de {registros.length} totales)
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Right side: Page Navigation Buttons */}
+                {totalPages > 1 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <button
+                            onClick={() => setCurrentPage(1)}
+                            disabled={currentPage === 1}
+                            title="Primera página"
+                            style={{
+                                padding: '6px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid #d1d5db',
+                                backgroundColor: currentPage === 1 ? '#f3f4f6' : '#ffffff',
+                                color: currentPage === 1 ? '#9ca3af' : '#374151',
+                                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                fontSize: '0.85rem'
+                            }}
+                        >
+                            <ChevronsLeft size={16} />
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={currentPage === 1}
+                            title="Página anterior"
+                            style={{
+                                padding: '6px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid #d1d5db',
+                                backgroundColor: currentPage === 1 ? '#f3f4f6' : '#ffffff',
+                                color: currentPage === 1 ? '#9ca3af' : '#374151',
+                                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                fontSize: '0.85rem'
+                            }}
+                        >
+                            <ChevronLeft size={16} />
+                        </button>
+
+                        {/* Page Numbers */}
+                        {(() => {
+                            const pages = [];
+                            const maxVisiblePages = 5;
+                            let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                            let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+                            if (endPage - startPage + 1 < maxVisiblePages) {
+                                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                            }
+
+                            for (let i = startPage; i <= endPage; i++) {
+                                pages.push(
+                                    <button
+                                        key={i}
+                                        onClick={() => setCurrentPage(i)}
+                                        style={{
+                                            padding: '6px 12px',
+                                            borderRadius: '6px',
+                                            border: i === currentPage ? '1px solid var(--color-brand-primary, #ff6600)' : '1px solid #d1d5db',
+                                            backgroundColor: i === currentPage ? 'var(--color-brand-primary, #ff6600)' : '#ffffff',
+                                            color: i === currentPage ? '#ffffff' : '#374151',
+                                            fontWeight: i === currentPage ? 600 : 400,
+                                            cursor: 'pointer',
+                                            fontSize: '0.85rem',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                    >
+                                        {i}
+                                    </button>
+                                );
+                            }
+                            return pages;
+                        })()}
+
+                        <button
+                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                            disabled={currentPage === totalPages}
+                            title="Página siguiente"
+                            style={{
+                                padding: '6px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid #d1d5db',
+                                backgroundColor: currentPage === totalPages ? '#f3f4f6' : '#ffffff',
+                                color: currentPage === totalPages ? '#9ca3af' : '#374151',
+                                cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                fontSize: '0.85rem'
+                            }}
+                        >
+                            <ChevronRight size={16} />
+                        </button>
+                        <button
+                            onClick={() => setCurrentPage(totalPages)}
+                            disabled={currentPage === totalPages}
+                            title="Última página"
+                            style={{
+                                padding: '6px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid #d1d5db',
+                                backgroundColor: currentPage === totalPages ? '#f3f4f6' : '#ffffff',
+                                color: currentPage === totalPages ? '#9ca3af' : '#374151',
+                                cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                fontSize: '0.85rem'
+                            }}
+                        >
+                            <ChevronsRight size={16} />
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Traceability Panel Integration */}
