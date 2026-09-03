@@ -1,4 +1,5 @@
 // IEEE Trace: REQ-004 | US-004 | reaperturaController.js
+const { Op } = require('sequelize');
 const {
     SolicitudReapertura,
     Registro,
@@ -7,30 +8,57 @@ const {
     User,
     Administracion
 } = require('../database/models');
+const { getAllowedVinculacionIds } = require('../utils/scopeHelper');
 const emailService = require('../services/emailService');
 
 const reaperturaController = {
     // GET /api/reaperturas
     async index(req, res) {
         try {
-            const { estado } = req.query;
-            let where = {};
+            const { estado, adc_id } = req.query;
+            const where = {};
 
             if (estado) where.estado = estado;
 
-            // Role-based filtering
-            if (['contratista_admin', 'contratista_user'].includes(req.user.role)) {
-                where.solicitante_id = req.user.id;
+            // Filtro Universal por Rol: admin ve todo, contratista_admin filtra
+            // por su empresa (id_cot), administrador_contrato filtra por las
+            // vinculaciones que administra, contratista_user por sus contratos.
+            const allowedVincIds = await getAllowedVinculacionIds(req.user);
+
+            const registroInclude = {
+                model: Registro,
+                as: 'registro',
+                attributes: ['id', 'periodo', 'eecc_nombre', 'contratista_asignacion_id'],
+                required: true
+            };
+
+            let vincFilterIds = allowedVincIds;
+
+            // Intersección por ADC si se especifica en query params
+            if (adc_id && adc_id !== 'todos') {
+                const adminRecords = await Administracion.findAll({
+                    where: { administrador_contrato_id: adc_id, activo: 1 },
+                    attributes: ['vinculacion_id']
+                });
+                const adcVincIds = adminRecords.map(a => Number(a.vinculacion_id));
+
+                if (vincFilterIds === null) {
+                    vincFilterIds = adcVincIds;
+                } else {
+                    vincFilterIds = vincFilterIds.filter(id => adcVincIds.includes(Number(id)));
+                }
+            }
+
+            if (vincFilterIds !== null) {
+                registroInclude.where = {
+                    contratista_asignacion_id: { [Op.in]: vincFilterIds.length > 0 ? vincFilterIds : [-1] }
+                };
             }
 
             const solicitudes = await SolicitudReapertura.findAll({
                 where,
                 include: [
-                    {
-                        model: Registro,
-                        as: 'registro',
-                        attributes: ['id', 'periodo', 'eecc_nombre']
-                    },
+                    registroInclude,
                     { model: User, as: 'solicitante', attributes: ['id', 'name', 'email'] },
                     { model: User, as: 'aprobador', attributes: ['id', 'name'] }
                 ],

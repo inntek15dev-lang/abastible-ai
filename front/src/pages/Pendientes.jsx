@@ -36,7 +36,7 @@ export default function Pendientes() {
 
     const fetchAdmins = async () => {
         try {
-            const response = await api.get('/usuarios?role=administrador_contrato&active=true');
+            const response = await api.get('/resources/adc').catch(() => ({ data: { data: [] } }));
             setPotentialAdmins(response.data.data || []);
         } catch (err) {
             console.error('Error fetching admins', err);
@@ -104,7 +104,20 @@ export default function Pendientes() {
             }
         });
         
-        setPendientesCreacion(pending.sort((a, b) => a.date - b.date));
+        // Ordenamiento universal: Empresa -> Contrato -> Fecha
+        pending.sort((a, b) => {
+            const empA = (a.vinculacion?.contratista?.nombre || a.vinculacion?.eecc_nombre || '').toLowerCase();
+            const empB = (b.vinculacion?.contratista?.nombre || b.vinculacion?.eecc_nombre || '').toLowerCase();
+            if (empA !== empB) return empA.localeCompare(empB);
+
+            const ctrA = (a.vinculacion?.numero_contrato || '').toLowerCase();
+            const ctrB = (b.vinculacion?.numero_contrato || '').toLowerCase();
+            if (ctrA !== ctrB) return ctrA.localeCompare(ctrB);
+
+            return a.date - b.date;
+        });
+
+        setPendientesCreacion(pending);
     };
 
     useEffect(() => {
@@ -131,41 +144,43 @@ export default function Pendientes() {
             const queryStr = params.toString() ? `&${params.toString()}` : '';
             const queryStrFirst = params.toString() ? `?${params.toString()}` : '';
 
-            const promises = [
-                api.get(`/dashboard/kpis${queryStrFirst}`),
-                api.get(`/reaperturas?estado=pendiente${queryStr}`),
-                api.get(`/registros?estado_auditoria=${auditParams}${queryStr}`),
-                api.get(`/registros?estado_auditoria=${reviewParams}${queryStr}`)
-            ];
+            const safeGet = (url, fallback = []) => api.get(url).catch(err => {
+                console.error(`Error loading ${url}`, err);
+                return { data: { data: fallback } };
+            });
 
-            // If contractor, also fetch vinculaciones and full registry history to find gaps
-            if (!isAdminOrADC) {
-                const vincParams = new URLSearchParams();
-                if (user?.role === 'contratista_user') {
-                    if (user.contratista_id) vincParams.append('contratista_id', user.contratista_id);
-                    if (user.tipo_contratista_id) vincParams.append('servicio_id', user.tipo_contratista_id);
-                    if (user.dependencia_id) vincParams.append('dependencia_id', user.dependencia_id);
-                }
-                
-                promises.push(api.get(`/vinculaciones?${vincParams.toString()}`));
-                promises.push(api.get('/registros')); // Full history for the contractor
+            const vincParams = new URLSearchParams();
+            if (selectedAdc !== 'todos') {
+                vincParams.append('adc_id', selectedAdc);
             }
+            if (user?.role === 'contratista_user') {
+                if (user.contratista_id) vincParams.append('contratista_id', user.contratista_id);
+                if (user.tipo_contratista_id) vincParams.append('servicio_id', user.tipo_contratista_id);
+                if (user.dependencia_id) vincParams.append('dependencia_id', user.dependencia_id);
+            }
+
+            const promises = [
+                safeGet(`/dashboard/kpis${queryStrFirst}`, {}),
+                safeGet(`/reaperturas?estado=pendiente${queryStr}`, []),
+                safeGet(`/registros?estado_auditoria=${auditParams}${queryStr}`, []),
+                safeGet(`/registros?estado_auditoria=${reviewParams}${queryStr}`, []),
+                safeGet(`/vinculaciones?${vincParams.toString()}`, []),
+                safeGet(`/registros${queryStrFirst}`, [])
+            ];
 
             const results = await Promise.all(promises);
             
-            const [kpiRes, solRes, auditRes, reviewRes] = results;
+            const [kpiRes, solRes, auditRes, reviewRes, vincRes, allRegsRes] = results;
 
             setKpis(kpiRes.data.data);
-            setSolicitudes(solRes.data.data);
-            setPorAuditar(auditRes.data.data);
-            setPorRevisar(reviewRes.data.data);
+            setSolicitudes(solRes.data.data || []);
+            setPorAuditar(auditRes.data.data || []);
+            setPorRevisar(reviewRes.data.data || []);
 
-            if (!isAdminOrADC && results[4] && results[5]) {
-                const vincs = results[4].data.data;
-                const allRegs = results[5].data.data;
-                setVinculaciones(vincs);
-                calculatePendingPeriods(vincs, allRegs);
-            }
+            const vincs = vincRes.data.data || [];
+            const allRegs = allRegsRes.data.data || [];
+            setVinculaciones(vincs);
+            calculatePendingPeriods(vincs, allRegs);
 
             setLoading(false);
         } catch (err) {
@@ -204,7 +219,7 @@ export default function Pendientes() {
         <div className="dashboard-page">
             <div className="skeleton" style={{ height: '40px', width: '300px', marginBottom: '1rem' }} />
             <div className="kpi-grid">
-                {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: '140px', borderRadius: '16px' }} />)}
+                {[1, 2, 3, 4].map(i => <div key={i} className="skeleton" style={{ height: '140px', borderRadius: '16px' }} />)}
             </div>
         </div>
     );
@@ -266,6 +281,17 @@ export default function Pendientes() {
                         <span className="kpi-card-title">SOLICITUDES REAPERTURA</span>
                         <span className="kpi-card-value" style={{ color: '#f59e0b' }}>{solicitudes.length}</span>
                         <span className="kpi-card-subtitle">Pendientes de aprobación</span>
+                    </div>
+                </div>
+
+                <div className="kpi-card-polished" style={{ borderLeft: '4px solid #f97316' }}>
+                    <div className="kpi-card-icon-wrapper" style={{ backgroundColor: '#fff7ed' }}>
+                        <AlertCircle size={20} color="#f97316" />
+                    </div>
+                    <div className="kpi-card-content">
+                        <span className="kpi-card-title">PENDIENTES DE CREACIÓN</span>
+                        <span className="kpi-card-value" style={{ color: '#f97316' }}>{pendientesCreacion.length}</span>
+                        <span className="kpi-card-subtitle">Carpetas por iniciar o completar</span>
                     </div>
                 </div>
 
@@ -351,8 +377,8 @@ export default function Pendientes() {
                     </section>
                 )}
 
-                {/* 2. Registros Pendientes de Creación - Solo Contratistas */}
-                {!isAdminOrADC && pendientesCreacion.length > 0 && (
+                {/* 2. Registros Pendientes de Creación - Visible para Todos los Roles segun Scope */}
+                {pendientesCreacion.length > 0 && (
                     <section className="dashboard-section-card" style={{ padding: '1.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '1rem' }}>
                             <div style={{ backgroundColor: '#fff7ed', p: '8px', borderRadius: '8px' }}>
@@ -366,14 +392,31 @@ export default function Pendientes() {
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <thead>
                                     <tr style={{ textAlign: 'left', borderBottom: '2px solid #f3f4f6' }}>
+                                        <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>EMPRESA CONTRATISTA</th>
+                                        <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>Nº CONTRATO / SERVICIO / DEPENDENCIA</th>
                                         <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>PERIODO</th>
-                                        <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>SERVICIO / DEPENDENCIA</th>
                                         <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700, textAlign: 'right' }}>ACCIÓN</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {pendientesCreacion.map((item, idx) => (
                                         <tr key={`${item.periodo}-${idx}`} style={{ borderBottom: '1px solid #f9fafb', backgroundColor: item.isCurrentMonth ? '#f0fdfa' : 'transparent' }}>
+                                            <td style={{ padding: '1rem 0.75rem' }}>
+                                                <div style={{ fontWeight: 700, color: '#111827' }}>
+                                                    {item.vinculacion?.contratista?.nombre || item.vinculacion?.eecc_nombre || 'N/A'}
+                                                </div>
+                                                {item.vinculacion?.contratista?.rut && (
+                                                    <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>RUT: {item.vinculacion.contratista.rut}</div>
+                                                )}
+                                            </td>
+                                            <td style={{ padding: '1rem 0.75rem' }}>
+                                                <div style={{ color: '#374151', fontWeight: 600 }}>
+                                                    {item.vinculacion?.numero_contrato ? `Contrato N° ${item.vinculacion.numero_contrato}` : (item.vinculacion?.servicio?.nombre || 'Servicio')}
+                                                </div>
+                                                <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                                                    {item.vinculacion?.servicio?.nombre} • {item.vinculacion?.dependencia?.nombre}
+                                                </div>
+                                            </td>
                                             <td style={{ padding: '1rem 0.75rem' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     <span style={{ 
@@ -392,10 +435,6 @@ export default function Pendientes() {
                                                         }}>MES ACTUAL</span>
                                                     )}
                                                 </div>
-                                            </td>
-                                            <td style={{ padding: '1rem 0.75rem' }}>
-                                                <div style={{ color: '#374151', fontWeight: 500 }}>{item.vinculacion?.servicio?.nombre}</div>
-                                                <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>{item.vinculacion?.dependencia?.nombre}</div>
                                             </td>
                                             <td style={{ padding: '1rem 0.75rem', textAlign: 'right' }}>
                                                 {item.action === 'complete' ? (
@@ -430,10 +469,9 @@ export default function Pendientes() {
                     </section>
                 )}
 
-                {/* 2. Registros por Auditar */}
                 <section className="dashboard-section-card" style={{ padding: '1.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '1rem' }}>
-                        <div style={{ backgroundColor: '#eff6ff', p: '8px', borderRadius: '8px' }}>
+                        <div style={{ backgroundColor: '#eff6ff', padding: '8px', borderRadius: '8px' }}>
                             <FileText size={20} color="#3b82f6" />
                         </div>
                         <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#374151' }}>Registros Pendientes de Auditoría</h3>

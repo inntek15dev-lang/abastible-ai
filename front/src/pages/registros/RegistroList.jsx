@@ -140,7 +140,7 @@ export default function RegistroList() {
             const [servRes, progRes, userRes, gerRes, subgRes] = await Promise.all([
                 api.get('/resources/tipos-contratista'),
                 api.get('/programas'),
-                api.get('/usuarios?role=administrador_contrato'),
+                api.get('/resources/adc').catch(() => ({ data: { data: [] } })),
                 api.get('/resources/gerencias'),
                 api.get('/resources/subgerencias')
             ]);
@@ -191,7 +191,7 @@ export default function RegistroList() {
 
     useEffect(() => {
         const fetchMyVinculaciones = async () => {
-            if (isContractor) {
+            if (isContractor || user?.role === 'administrador_contrato' || isAdmin) {
                 try {
                     const res = await api.get('/vinculaciones');
                     setMyVinculaciones(res.data.data || []);
@@ -201,7 +201,7 @@ export default function RegistroList() {
             }
         };
         fetchMyVinculaciones();
-    }, [user, isContractor]);
+    }, [user, isContractor, isAdmin]);
 
     // Calculate Yearly Averages
     const yearlyAverages = useMemo(() => {
@@ -927,9 +927,9 @@ export default function RegistroList() {
 
             {error && <div className="error-message">{error}</div>}
 
-            {/* Pending Registers Widget (For Contractor User/Admin) */}
-            {isContractor && myVinculaciones.length > 0 && (
-                <PendingRegistersWidget vinculaciones={myVinculaciones} />
+            {/* Pending Registers Widget (For Contractor / Administrador de Contrato / Admin) */}
+            {myVinculaciones.length > 0 && (
+                <PendingRegistersWidget vinculaciones={myVinculaciones} readOnly={!isContractor} />
             )}
 
             {/* Data Table */}

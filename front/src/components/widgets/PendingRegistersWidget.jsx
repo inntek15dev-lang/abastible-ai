@@ -1,11 +1,12 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, PlusCircle, ArrowRight } from 'lucide-react';
+import { AlertCircle, PlusCircle, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../../api';
 
-export default function PendingRegistersWidget({ vinculacion, vinculaciones }) {
+export default function PendingRegistersWidget({ vinculacion, vinculaciones, readOnly = false }) {
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isExpanded, setIsExpanded] = useState(false); // Collapsed (plegado) by default
 
     const activeVinculaciones = useMemo(() => {
         if (vinculaciones && vinculaciones.length > 0) return vinculaciones;
@@ -100,31 +101,59 @@ export default function PendingRegistersWidget({ vinculacion, vinculaciones }) {
             overflow: 'hidden',
             boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
         }}>
-            <div style={{
-                background: '#fff7ed', // Orange tint for "Action Required"
-                padding: '12px 16px',
-                borderBottom: '1px solid #fed7aa',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-            }}>
-                <AlertCircle size={20} color="#c2410c" />
-                <h3 style={{ margin: 0, fontSize: '1rem', color: '#9a3412', fontWeight: 600 }}>
-                    Registros Pendientes de Creación
-                </h3>
-                <span style={{
-                    background: '#c2410c', color: 'white',
-                    borderRadius: '12px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600
-                }}>
-                    {pendingPeriods.length}
-                </span>
+            <div 
+                onClick={() => setIsExpanded(!isExpanded)}
+                style={{
+                    background: '#fff7ed', // Orange tint for "Action Required"
+                    padding: '12px 16px',
+                    borderBottom: isExpanded ? '1px solid #fed7aa' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    userSelect: 'none'
+                }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <AlertCircle size={20} color="#c2410c" />
+                    <h3 style={{ margin: 0, fontSize: '1rem', color: '#9a3412', fontWeight: 600 }}>
+                        Registros Pendientes de Creación
+                    </h3>
+                    <span style={{
+                        background: '#c2410c', color: 'white',
+                        borderRadius: '12px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600
+                    }}>
+                        {pendingPeriods.length}
+                    </span>
+                </div>
+
+                <button
+                    type="button"
+                    style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#9a3412',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                    }}
+                >
+                    <span>{isExpanded ? 'Ocultar' : 'Mostrar'}</span>
+                    {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                </button>
             </div>
 
-            <div style={{ padding: '16px' }}>
+            {isExpanded && (
+                <div style={{ padding: '16px' }}>
                 <p style={{ fontSize: '0.9rem', color: '#4b5563', marginBottom: '16px' }}>
-                    {activeVinculaciones.length === 1 
-                        ? `Se han detectado periodos mensuales sin registro desde el inicio de su contrato (${new Date(activeVinculaciones[0].fecha_inicio_contrato).toLocaleDateString('es-CL')}).`
-                        : "Se han detectado periodos mensuales sin registro en sus vinculaciones de contrato activas."
+                    {readOnly 
+                        ? "Se han detectado periodos mensuales sin registro en las vinculaciones administradas."
+                        : (activeVinculaciones.length === 1 
+                            ? `Se han detectado periodos mensuales sin registro desde el inicio de su contrato (${new Date(activeVinculaciones[0].fecha_inicio_contrato).toLocaleDateString('es-CL')}).`
+                            : "Se han detectado periodos mensuales sin registro en sus vinculaciones de contrato activas.")
                     }
                 </p>
 
@@ -133,8 +162,9 @@ export default function PendingRegistersWidget({ vinculacion, vinculaciones }) {
                         <thead>
                             <tr>
                                 <th>Periodo</th>
-                                <th>Contrato / Vinculación</th>
-                                <th style={{ textAlign: 'right' }}>Acción</th>
+                                {readOnly && <th>Empresa Contratista</th>}
+                                <th>Contrato / Servicio</th>
+                                <th style={{ textAlign: 'right' }}>{readOnly ? 'Estado' : 'Acción'}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -153,6 +183,20 @@ export default function PendingRegistersWidget({ vinculacion, vinculaciones }) {
                                             )}
                                         </div>
                                     </td>
+                                    {readOnly && (
+                                        <td>
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <span style={{ fontWeight: 600, color: '#1f2937' }}>
+                                                    {item.vinculacion?.contratista?.nombre || item.vinculacion?.eecc_nombre || 'Contratista'}
+                                                </span>
+                                                {item.vinculacion?.numero_contrato && (
+                                                    <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                                                        Nº Contrato: {item.vinculacion.numero_contrato}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                    )}
                                     <td>
                                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                                             <span style={{ fontWeight: 500 }}>{item.vinculacion?.servicio?.nombre}</span>
@@ -162,31 +206,53 @@ export default function PendingRegistersWidget({ vinculacion, vinculaciones }) {
                                         </div>
                                     </td>
                                     <td style={{ textAlign: 'right' }}>
-                                        {item.action === 'complete' ? (
-                                            <Link
-                                                to={`/registros/${item.recordId}/edit`}
-                                                className="btn-primary"
-                                                style={{
+                                        {readOnly ? (
+                                            item.action === 'complete' ? (
+                                                <span style={{
                                                     display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                                    padding: '4px 12px', fontSize: '0.8rem',
-                                                    backgroundColor: '#2563eb', borderColor: '#2563eb'
-                                                }}
-                                            >
-                                                <ArrowRight size={14} /> Completar Registro
-                                            </Link>
+                                                    padding: '4px 10px', fontSize: '0.8rem', fontWeight: 600,
+                                                    borderRadius: '12px',
+                                                    backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d'
+                                                }}>
+                                                    Incompleto (Sin Cerrar)
+                                                </span>
+                                            ) : (
+                                                <span style={{
+                                                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                                    padding: '4px 10px', fontSize: '0.8rem', fontWeight: 600,
+                                                    borderRadius: '12px',
+                                                    backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5'
+                                                }}>
+                                                    Pendiente de Creación
+                                                </span>
+                                            )
                                         ) : (
-                                            <Link
-                                                to={`/registros/new?periodo=${item.periodo}&vinculacion_id=${item.vinculacionId}`}
-                                                className="btn-primary"
-                                                style={{
-                                                    display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                                    padding: '4px 12px', fontSize: '0.8rem',
-                                                    backgroundColor: item.isCurrentMonth ? '#0d9488' : undefined,
-                                                    borderColor: item.isCurrentMonth ? '#0d9488' : undefined
-                                                }}
-                                            >
-                                                <PlusCircle size={14} /> Crear Registro
-                                            </Link>
+                                            item.action === 'complete' ? (
+                                                <Link
+                                                    to={`/registros/${item.recordId}/edit`}
+                                                    className="btn-primary"
+                                                    style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                                        padding: '4px 12px', fontSize: '0.8rem',
+                                                        backgroundColor: '#2563eb', borderColor: '#2563eb'
+                                                    }}
+                                                >
+                                                    <ArrowRight size={14} /> Completar Registro
+                                                </Link>
+                                            ) : (
+                                                <Link
+                                                    to={`/registros/new?periodo=${item.periodo}&vinculacion_id=${item.vinculacionId}`}
+                                                    className="btn-primary"
+                                                    style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                                        padding: '4px 12px', fontSize: '0.8rem',
+                                                        backgroundColor: item.isCurrentMonth ? '#0d9488' : undefined,
+                                                        borderColor: item.isCurrentMonth ? '#0d9488' : undefined
+                                                    }}
+                                                >
+                                                    <PlusCircle size={14} /> Crear Registro
+                                                </Link>
+                                            )
                                         )}
                                     </td>
                                 </tr>
@@ -195,6 +261,7 @@ export default function PendingRegistersWidget({ vinculacion, vinculaciones }) {
                     </table>
                 </div>
             </div>
+            )}
         </div>
     );
 }

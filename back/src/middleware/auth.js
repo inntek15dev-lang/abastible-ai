@@ -73,7 +73,7 @@ const authMiddleware = async (req, res, next) => {
 
         // Contratista IDs for contratista_admin / contratista_user
         let contratistaIds = [];
-        if (user.role === 'contratista_admin') {
+        if (roleName === 'contratista_admin') {
             const cus = await ContratistaUsuario.findAll({
                 where: { user_id: user.usu_id || user.id },
                 attributes: ['contratista_id']
@@ -102,14 +102,14 @@ const authMiddleware = async (req, res, next) => {
             numero_contrato: null
         };
 
-        if (user.role === 'administrador_contrato') {
+        if (roleName === 'administrador_contrato') {
             const admins = await Administracion.findAll({
                 where: { administrador_contrato_id: user.usu_id || user.id, activo: 1 },
                 attributes: ['vinculacion_id']
             });
             vinculacion_ids = admins.map(a => Number(a.vinculacion_id));
             vinculacion_id = vinculacion_ids.length > 0 ? vinculacion_ids[0] : null;
-        } else if (user.role === 'contratista_user') {
+        } else if (roleName === 'contratista_user') {
             const vus = await VinculacionUsuario.findAll({
                 where: { user_id: user.usu_id || user.id, activo: 1 },
                 attributes: ['vinculacion_id'],
@@ -157,13 +157,14 @@ const authMiddleware = async (req, res, next) => {
         req.user = {
             ...userJson,
             id: user.usu_id || user.id, // Map id to usu_id with fallback to legacy id
+            role: roleName, // Mapeo explícito al nombre del rol resuelto (evita que role_id numérico pise el nombre)
             contratista_ids: contratistaIds,
             vinculacion_id,
             vinculacion_ids,
             // Para contratista_user, estos SIEMPRE reemplazan las columnas NULL crudas de
             // userJson con el scope derivado del contrato. Para el resto de los roles se
             // preservan los valores propios del usuario (spread de userJson ya los puso).
-            ...(user.role === 'contratista_user' ? vinculacionScope : {}),
+            ...(roleName === 'contratista_user' ? vinculacionScope : {}),
             privileges
         };
 

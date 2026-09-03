@@ -15,7 +15,7 @@ const vinculacionController = {
     // GET /api/vinculaciones
     async index(req, res) {
         try {
-            const { contratista_id, servicio_id, dependencia_id, solo_huerfanos } = req.query;
+            const { contratista_id, servicio_id, dependencia_id, solo_huerfanos, adc_id } = req.query;
             const { role, id: userId } = req.user;
             const where = { activo: 1 };
 
@@ -32,6 +32,11 @@ const vinculacionController = {
                     { model: User, as: 'administradorContrato', attributes: ['id', 'name', 'email'] }
                 ]
             };
+
+            if (adc_id && adc_id !== 'todos') {
+                includeAdmin.required = true;
+                includeAdmin.where.administrador_contrato_id = adc_id;
+            }
 
             if (role === 'administrador_contrato') {
                 console.log(`[Vinculacion Controller - GET /api/vinculaciones] User is administrador_contrato (ID: ${userId}). Filtering vinculaciones where administrador_contrato_id = ${userId}`);

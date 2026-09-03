@@ -3,6 +3,7 @@ const ExcelJS = require('exceljs');
 const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso, Elemento, Vinculacion, Administracion, sequelize, Contratista, TipoContratista, Dependencia, Programa } = require('../database/models');
 const { Op } = require('sequelize');
 const { getProgramaScope, intersectWithProgramaScope } = require('../utils/programaScopeHelper');
+const { buildScopeWhere, getAllowedVinculacionIds } = require('../utils/scopeHelper');
 
 module.exports = {
     async registroPdf(req, res) {
@@ -139,46 +140,8 @@ module.exports = {
         try {
             const { periodo, periodo_desde, periodo_hasta } = req.query; 
             const user = req.user;
-            const whereRegistro = {};
-
-            // 1. Get Vinculacion IDs based on role (Unified scope logic)
-            if (user.role === 'administrador_contrato') {
-                const adminRecords = await Administracion.findAll({
-                    where: { administrador_contrato_id: user.id, activo: 1 },
-                    attributes: ['vinculacion_id']
-                });
-                const vincIds = adminRecords.map(a => a.vinculacion_id);
-                if (vincIds.length === 0) whereRegistro.id = -1;
-                else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
-            } else if (user.role === 'contratista_admin') {
-                const cIds = [];
-                if (Array.isArray(user.contratista_ids) && user.contratista_ids.length > 0) {
-                    cIds.push(...user.contratista_ids.map(Number));
-                }
-                if (user.contratista_id && !cIds.includes(Number(user.contratista_id))) {
-                    cIds.push(Number(user.contratista_id));
-                }
-                if (cIds.length > 0) {
-                    const vincs = await Vinculacion.findAll({
-                        where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
-                        attributes: ['id']
-                    });
-                    const vincIds = vincs.map(v => v.id);
-                    if (vincIds.length === 0) whereRegistro.id = -1;
-                    else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
-                } else {
-                    whereRegistro.id = -1;
-                }
-            } else if (user.role === 'contratista_user') {
-                const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
-                    ? user.vinculacion_ids
-                    : (user.vinculacion_id ? [user.vinculacion_id] : []);
-                if (myVincIds.length > 0) {
-                    whereRegistro.contratista_asignacion_id = { [Op.in]: myVincIds.map(Number) };
-                } else {
-                    whereRegistro.id = -1;
-                }
-            }
+            // Filtro Universal por Rol (centralizado en scopeHelper)
+            const whereRegistro = await buildScopeWhere(user);
 
             if (periodo_desde || periodo_hasta || periodo) {
                 const startDate = new Date((periodo_desde || periodo) + '-01');
@@ -629,26 +592,10 @@ module.exports = {
         const whereVinculacion = { activo: 1 };
         let allowedContratistaIds = null; // null = sin restricción (admin/oval)
 
-        // 1. Role Scope
-        if (user.role === 'administrador_contrato') {
-            const adminRecords = await Administracion.findAll({
-                where: { administrador_contrato_id: user.id, activo: 1 },
-                attributes: ['vinculacion_id']
-            });
-            const vincIds = adminRecords.map(a => a.vinculacion_id);
-            whereVinculacion.id = vincIds.length > 0 ? { [Op.in]: vincIds } : -1;
-        } else if (user.role === 'contratista_admin') {
-            allowedContratistaIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
-            whereVinculacion.contratista_id = { [Op.in]: allowedContratistaIds };
-        } else if (user.role === 'contratista_user') {
-            // Ancla por vinculacion_ids (los contratos asignados). A diferencia de anclar
-            // por contratista_id/servicio_id/dependencia_id, estos NUNCA se tocan en el paso
-            // 2 (los filtros de query solo escriben esas tres claves), así que ninguna query
-            // param puede pisar el scope.
-            const myVincIds = (user.vinculacion_ids && user.vinculacion_ids.length > 0)
-                ? user.vinculacion_ids
-                : (user.vinculacion_id ? [user.vinculacion_id] : []);
-            whereVinculacion.id = myVincIds.length > 0 ? { [Op.in]: myVincIds.map(Number) } : -1;
+        // 1. Role Scope (Filtro Universal por Rol)
+        const allowedVincIds = await getAllowedVinculacionIds(user);
+        if (allowedVincIds !== null) {
+            whereVinculacion.id = { [Op.in]: allowedVincIds.length > 0 ? allowedVincIds : [-1] };
         }
 
         // 2. Filters (Case-insensitive check for "todos" o "todas"). Para contratista_admin,
@@ -742,43 +689,8 @@ module.exports = {
     async _getStats(req, periodo) {
         // This logic is mostly copied from cumplimientoGeneral for this demo
         const user = req.user;
-        const whereRegistro = {};
-        
-        // Unified scope logic (Simplified for helper)
-        if (user.role === 'administrador_contrato') {
-            const adminRecords = await Administracion.findAll({ where: { administrador_contrato_id: user.id, activo: 1 } });
-            whereRegistro.contratista_asignacion_id = { [Op.in]: adminRecords.map(a => a.vinculacion_id) };
-        } else if (user.role === 'contratista_admin') {
-            const cIds = user.contratista_ids || (user.contratista_id ? [user.contratista_id] : []);
-            if (cIds.length > 0) {
-                const vincs = await Vinculacion.findAll({
-                    where: { contratista_id: { [Op.in]: cIds }, activo: 1 },
-                    attributes: ['id']
-                });
-                const vincIds = vincs.map(v => v.id);
-                if (vincIds.length === 0) whereRegistro.id = -1;
-                else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
-            } else {
-                whereRegistro.id = -1;
-            }
-        } else if (user.role === 'contratista_user') {
-            if (user.contratista_id && user.tipo_contratista_id && user.dependencia_id) {
-                const vincs = await Vinculacion.findAll({
-                    where: {
-                        contratista_id: user.contratista_id,
-                        servicio_id: user.tipo_contratista_id,
-                        dependencia_id: user.dependencia_id,
-                        activo: 1
-                    },
-                    attributes: ['id']
-                });
-                const vincIds = vincs.map(v => v.id);
-                if (vincIds.length === 0) whereRegistro.id = -1;
-                else whereRegistro.contratista_asignacion_id = { [Op.in]: vincIds };
-            } else {
-                whereRegistro.id = -1;
-            }
-        }
+        // Unified scope logic (Filtro Universal por Rol)
+        const whereRegistro = await buildScopeWhere(user);
         
         if (req.query.periodo_desde || req.query.periodo_hasta || periodo) {
             const startDate = new Date((req.query.periodo_desde || periodo) + '-01');

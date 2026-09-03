@@ -223,8 +223,6 @@ const usuarioController = {
             const mappedUsuarios = usuarios.map(formatUserData);
 
             res.json({ success: true, data: mappedUsuarios });
-
-            res.json({ success: true, data: mappedUsuarios });
         } catch (error) {
             console.error('Usuarios index error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener usuarios' });

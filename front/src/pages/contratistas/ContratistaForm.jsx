@@ -37,7 +37,7 @@ export default function ContratistaForm() {
                 const [depsRes, servsRes, adcsRes] = await Promise.all([
                     api.get('/resources/dependencias'),
                     api.get('/servicios'),
-                    api.get('/usuarios?role=administrador_contrato')
+                    api.get('/resources/adc').catch(() => ({ data: { data: [] } }))
                 ]);
                 setDependencias(depsRes.data.data);
                 setServicios(servsRes.data.data);
