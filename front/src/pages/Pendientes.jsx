@@ -46,6 +46,17 @@ export default function Pendientes() {
     const [error, setError] = useState('');
     const [vinculaciones, setVinculaciones] = useState([]);
     const [pendientesCreacion, setPendientesCreacion] = useState([]);
+
+    const formatPeriodoStr = (periodoStr) => {
+        if (!periodoStr) return '-';
+        const parts = String(periodoStr).split('-');
+        if (parts.length < 2) return periodoStr;
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const d = new Date(year, month, 1);
+        const formatted = d.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
+        return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+    };
     
     // Modal state for Reopening Requests
     const [actionModal, setActionModal] = useState({ show: false, solicitud: null, type: '' });
@@ -500,7 +511,7 @@ export default function Pendientes() {
                                                 <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>ID: #{reg.id}</div>
                                             </td>
                                             <td style={{ padding: '1rem 0.75rem' }}>
-                                                <div style={{ color: '#374151' }}>{new Date(reg.periodo).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}</div>
+                                                <div style={{ color: '#374151' }}>{formatPeriodoStr(reg.periodo)}</div>
                                                 <div style={{ fontSize: '0.8rem', color: '#6366f1' }}>{reg.programa?.nombre}</div>
                                             </td>
                                             <td style={{ padding: '1rem 0.75rem', textAlign: 'center' }}>
@@ -579,7 +590,7 @@ export default function Pendientes() {
                                                 <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>ID: #{reg.id}</div>
                                             </td>
                                             <td style={{ padding: '1rem 0.75rem' }}>
-                                                <div style={{ color: '#374151' }}>{new Date(reg.periodo).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}</div>
+                                                <div style={{ color: '#374151' }}>{formatPeriodoStr(reg.periodo)}</div>
                                                 <div style={{ fontSize: '0.8rem', color: '#6366f1' }}>{reg.programa?.nombre}</div>
                                             </td>
                                             <td style={{ padding: '1rem 0.75rem', textAlign: 'center' }}>

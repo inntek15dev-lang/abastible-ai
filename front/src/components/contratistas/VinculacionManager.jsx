@@ -255,8 +255,8 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                                             {v.administraciones && v.administraciones.length > 0 ? (
                                                 v.administraciones.map(a => (
-                                                    <div key={a.id} className="admin-tag-small" title={a.administradorContrato?.email}>
-                                                        {a.administradorContrato?.name}
+                                                    <div key={a.id} className="admin-tag-small" style={{ backgroundColor: '#EFF6FF', borderColor: '#BFDBFE', color: '#1E40AF' }} title={`Admin Contrato: ${a.administradorContrato?.email || ''}`}>
+                                                        {a.administradorContrato?.name || 'Admin sin nombre'}
                                                         {!isADC && user?.role !== 'admin' && (
                                                             <button onClick={() => handleAdminRemove(v.id, a.administrador_contrato_id)}>
                                                                 <X size={10} />
@@ -273,7 +273,7 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                                                     value=""
                                                     onChange={(e) => handleAdminAdd(v.id, e.target.value)}
                                                 >
-                                                    <option value="">+ Añadir</option>
+                                                    <option value="">+ Añadir ADC</option>
                                                     {usersAdmin
                                                         .filter(u => !(v.administraciones || []).some(a => a.administrador_contrato_id === u.id))
                                                         .map(u => (
@@ -287,10 +287,10 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                                     {/* CONTRATISTAS USUARIOS - Vinculacion Specific */}
                                     <div className="admin-tags-cell">
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                            {v.usuariosVinculados && v.usuariosVinculados.filter(uv => uv.usuario?.role === 'contratista_user').length > 0 ? (
-                                                v.usuariosVinculados.filter(uv => uv.usuario?.role === 'contratista_user').map(uv => (
-                                                    <div key={uv.id} className="admin-tag-small" style={{ backgroundColor: '#ECFDF5', borderColor: '#D1FAE5' }} title={uv.usuario?.email}>
-                                                        {uv.usuario?.name}
+                                            {(v.usuariosVinculados || []).filter(uv => uv.usuario && uv.activo !== 0).length > 0 ? (
+                                                (v.usuariosVinculados || []).filter(uv => uv.usuario && uv.activo !== 0).map(uv => (
+                                                    <div key={uv.id} className="admin-tag-small" style={{ backgroundColor: '#ECFDF5', borderColor: '#A7F3D0', color: '#065F46' }} title={`Contratista User: ${uv.usuario?.email || ''}`}>
+                                                        {uv.usuario?.name || 'Usuario sin nombre'}
                                                         {!isADC && user?.role !== 'admin' && (
                                                             <button onClick={() => handleUserRemove(v.id, uv.user_id)}>
                                                                 <X size={10} />
@@ -307,7 +307,7 @@ export default function VinculacionManager({ contratista, onUpdate }) {
                                                     value=""
                                                     onChange={(e) => handleUserAdd(v.id, e.target.value)}
                                                 >
-                                                    <option value="">+ Añadir</option>
+                                                    <option value="">+ Añadir User</option>
                                                     {usersCUser
                                                         .filter(u => !(v.usuariosVinculados || []).some(uv => uv.user_id === u.id))
                                                         .map(u => (
