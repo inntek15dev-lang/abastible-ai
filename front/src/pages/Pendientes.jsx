@@ -60,6 +60,8 @@ export default function Pendientes() {
         
         vincs.forEach(v => {
             if (!v.fecha_inicio_contrato) return;
+            // REGLA GLOBAL MANDATORIA: Solo considerar vinculaciones en servicios con programa asignado
+            if (v.servicio && v.servicio.programa_id === null) return;
             
             let current = new Date(v.fecha_inicio_contrato);
             // Reset to first day of month
