@@ -74,14 +74,17 @@ const vinculacionController = {
             // invierte el filtro para revisión/limpieza de lo que quedó sin programar.
             const soloHuerfanos = solo_huerfanos === 'true';
             const scope = await getProgramaScope();
+            const programaCondition = scopeWhereClause(scope.vinculacionIds, soloHuerfanos);
+
             if (where.id !== undefined) {
-                // contratista_user: where.id ya viene fijado a su única vinculación asignada.
-                const eligibleIds = new Set(scope.vinculacionIds.map(Number));
-                const singleId = Number(where.id);
-                const passes = soloHuerfanos ? !eligibleIds.has(singleId) : eligibleIds.has(singleId);
-                if (!passes) return res.json({ success: true, data: [] });
+                const { Op } = require('sequelize');
+                where[Op.and] = [
+                    { id: where.id },
+                    { id: programaCondition }
+                ];
+                delete where.id;
             } else {
-                where.id = scopeWhereClause(scope.vinculacionIds, soloHuerfanos);
+                where.id = programaCondition;
             }
 
             const vinculaciones = await Vinculacion.findAll({

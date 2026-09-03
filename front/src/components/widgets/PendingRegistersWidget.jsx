@@ -41,6 +41,8 @@ export default function PendingRegistersWidget({ vinculacion, vinculaciones, rea
 
         activeVinculaciones.forEach(v => {
             if (!v.fecha_inicio_contrato) return;
+            // REGLA GLOBAL MANDATORIA: Solo considerar vinculaciones en servicios con programa asignado
+            if (v.servicio && v.servicio.programa_id === null) return;
 
             const start = new Date(v.fecha_inicio_contrato);
             // Normalize start date to first day of month to avoid issues
