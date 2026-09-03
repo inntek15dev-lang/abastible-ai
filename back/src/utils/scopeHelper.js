@@ -18,9 +18,10 @@ const getContratistaAdminIds = (user) => {
 
 // null = sin restricción (admin/oval). Array (posiblemente vacío) = vinculacion_ids permitidos.
 const getAllowedVinculacionIds = async (user) => {
-    if (['admin', 'oval'].includes(user.role)) return null;
+    const roleStr = String(user?.role || '').toLowerCase();
+    if (['admin', 'oval', 'administrador', 'super_admin', 'admin_dios'].includes(roleStr)) return null;
 
-    if (user.role === 'administrador_contrato') {
+    if (roleStr === 'administrador_contrato') {
         const recs = await Administracion.findAll({
             where: { administrador_contrato_id: user.id, activo: 1 },
             attributes: ['vinculacion_id']
@@ -28,7 +29,7 @@ const getAllowedVinculacionIds = async (user) => {
         return recs.map(r => Number(r.vinculacion_id));
     }
 
-    if (user.role === 'contratista_admin') {
+    if (roleStr === 'contratista_admin') {
         const cIds = getContratistaAdminIds(user);
         if (cIds.length === 0) return [];
         const vincs = await Vinculacion.findAll({
@@ -38,7 +39,7 @@ const getAllowedVinculacionIds = async (user) => {
         return vincs.map(v => v.id);
     }
 
-    if (user.role === 'contratista_user') {
+    if (roleStr === 'contratista_user') {
         // Ancla por los contratos asignados (vinculacion_ids), nunca por
         // contratista_id/servicio/dependencia sueltos.
         return (user.vinculacion_ids && user.vinculacion_ids.length > 0)

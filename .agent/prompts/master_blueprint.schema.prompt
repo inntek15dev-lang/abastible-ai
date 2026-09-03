@@ -5,7 +5,7 @@ Este documento es el meta-esquema obligatorio para la skill ieee-gen. Cualquier 
 
 I. PROTOCOLO DE IDENTIDAD Y GOBERNANZA (IEEE 1058)
 # Source: c:\laragon\www\abastible-ai\info
-# Last Updated: 2026-09-03T09:50:00-04:00 (PARKO Protocol - Tarjeta KPI Pendientes de Creación y Visibilidad Universal por Rol)
+# Last Updated: 2026-09-03T10:10:00-04:00 (PARKO Protocol - Diagnóstico y Fix de Visibilidad Admin Dios en Operación -> Registros)
 Toda salida debe tener de gobernanza que establezca el contexto legal y administrativo del software.
 
 Metadata: UUID del proyecto, versión del estándar (IEEE 12207:2017) y nivel de criticidad.
