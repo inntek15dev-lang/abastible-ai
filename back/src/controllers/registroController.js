@@ -253,12 +253,18 @@ const registroController = {
                 return res.status(400).json({ success: false, message: 'El periodo es requerido' });
             }
 
+            // Sanitize periodo to YYYY-MM-01 format
+            let finalPeriodo = periodo;
+            if (typeof periodo === 'string' && periodo.length >= 7) {
+                finalPeriodo = `${periodo.substring(0, 7)}-01`;
+            }
+
             let targetUserId = req.user.id;
             let eeccNombre = null;
             let depNombre = null;
             let depId = null;
             let numContrato = null;
-
+            let programaId = req.body.programa_id || null;
 
             // Accept contratista_id (company entity) from the form
             const contratistaId = req.body.contratista_id;
@@ -321,6 +327,7 @@ const registroController = {
                 depNombre = vinculacion.dependencia?.nombre || null;
                 depId = vinculacion.dependencia_id || null;
                 numContrato = vinculacion.numero_contrato || null;
+                if (!programaId) programaId = vinculacion.servicio.programa_id;
 
                 if (!eeccNombre && vinculacion.contratista_id) {
                     const emp = await Contratista.findByPk(vinculacion.contratista_id);
@@ -329,9 +336,9 @@ const registroController = {
             }
 
             // Prevent duplicate: same vinculacion + periodo
-            if (finalVincId && periodo) {
+            if (finalVincId && finalPeriodo) {
                 const existing = await Registro.findOne({
-                    where: { contratista_asignacion_id: finalVincId, periodo }
+                    where: { contratista_asignacion_id: finalVincId, periodo: finalPeriodo }
                 });
                 if (existing) {
                     return res.status(409).json({
@@ -346,15 +353,15 @@ const registroController = {
                 contratista_asignacion_id: finalVincId,
                 numero_contrato: numContrato,
 
-                programa_id: req.body.programa_id || null,
+                programa_id: programaId,
                 dependencia_id: depId || req.body.dependencia_id || null,
-                periodo,
+                periodo: finalPeriodo,
                 eecc_nombre: eeccNombre, 
                 dependencia: depNombre, 
-                personas_nuevas,
-                supervisores,
-                prevencionistas,
-                dotacion_total,
+                personas_nuevas: Number(personas_nuevas) || 0,
+                supervisores: Number(supervisores) || 0,
+                prevencionistas: Number(prevencionistas) || 0,
+                dotacion_total: Number(dotacion_total) || 0,
                 porcentaje_cumplimiento: 0,
                 estado_auditoria: req.body.cerrado === 1 ? 'auditable' : 'pendiente',
                 cerrado: req.body.cerrado === 1 ? 1 : 0,
@@ -362,21 +369,32 @@ const registroController = {
             });
 
             // Create registro actividades if provided
-            if (actividades.length > 0) {
+            if (Array.isArray(actividades) && actividades.length > 0) {
                 for (const act of actividades) {
+                    if (!act.actividad_id) continue;
+
+                    let cumpleVal = null;
+                    if (act.cumple === true || act.cumple === 1 || act.cumple === '1') {
+                        cumpleVal = 1;
+                    } else if (act.cumple === false || act.cumple === 0 || act.cumple === '0') {
+                        cumpleVal = 0;
+                    } else if (act.cumple === 2 || act.cumple === '2') {
+                        cumpleVal = 2;
+                    }
+
                     await RegistroActividad.create({
                         registro_id: registro.id,
                         actividad_id: act.actividad_id,
-                        cumple: act.cumple,
-                        responsable: act.responsable,
-                        descripcion_contratista: act.descripcion_contratista
+                        cumple: cumpleVal,
+                        responsable: act.responsable || null,
+                        descripcion_contratista: act.descripcion_contratista || null
                     });
                 }
 
                 // Calculate percentage (Contractor)
-                // Note: Currently contractors don't have N/A, but we future-proof it.
-                const applicableActsCount = actividades.filter(a => a.cumple !== 2).length;
-                const cumplidas = actividades.filter(a => a.cumple === 1 || a.cumple === true).length;
+                const validActs = actividades.filter(a => a.actividad_id);
+                const applicableActsCount = validActs.filter(a => a.cumple !== 2 && a.cumple !== '2').length;
+                const cumplidas = validActs.filter(a => a.cumple === 1 || a.cumple === true || a.cumple === '1').length;
                 const porcentaje = applicableActsCount > 0 ? (cumplidas / applicableActsCount) * 100 : 0;
                 await registro.update({ porcentaje_cumplimiento: porcentaje.toFixed(2) });
             }
@@ -384,11 +402,11 @@ const registroController = {
             // Log creation
             await RegistroLog.create({
                 registro_id: registro.id,
-                user_id: req.user.id,
+                user_id: req.user.id || req.user.usu_id || null,
                 accion: 'CREAR',
-                descripcion: 'Registro creado',
-                datos_nuevos: { periodo, dotacion_total },
-                ip_address: req.ip
+                descripcion: req.body.cerrado === 1 ? 'Registro creado y enviado a auditoría' : 'Registro creado (Borrador)',
+                datos_nuevos: { periodo: finalPeriodo, dotacion_total },
+                ip_address: req.ip || null
             });
 
             // Notify Admin via Email (Mock)
@@ -520,12 +538,12 @@ const registroController = {
             // Update actividades if provided
             if (actividades && actividades.length > 0) {
                 for (const act of actividades) {
-                    // PARKO Validation: If setting to "Cumple" and requires evidence, check presence
-                    if (act.cumple === true || act.cumple === 1) {
+                    if (!act.actividad_id) continue;
+
+                    // PARKO Validation: Only block if CLOSING or SUBMITTING, not when saving draft
+                    if ((registroData.cerrado === 1 || terminar_subsanacion) && (act.cumple === true || act.cumple === 1)) {
                         const baseAct = await Actividad.findByPk(act.actividad_id);
                         if (baseAct && baseAct.requiere_evidencia) {
-                            // Check if there are ALREADY evidences for this RA
-                            // If act.id is null (new RA during update?), then it definitely has no evidence yet.
                             let evidenceExists = false;
                             if (act.id) {
                                 const count = await Evidencia.count({ where: { registro_actividad_id: act.id } });

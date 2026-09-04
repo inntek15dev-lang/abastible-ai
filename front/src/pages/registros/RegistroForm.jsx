@@ -235,7 +235,8 @@ export default function RegistroForm() {
                     setAssignments(validVincs);
 
                     // PRE-FILL / AUTO-SELECT LOGIC
-                    const prePeriodo = searchParams.get('periodo');
+                    const rawPrePeriodo = searchParams.get('periodo');
+                    const prePeriodo = rawPrePeriodo ? rawPrePeriodo.substring(0, 7) : null;
                     const preVinculacionId = searchParams.get('vinculacion_id');
 
                     if (!isEdit && preVinculacionId) {
@@ -297,7 +298,8 @@ export default function RegistroForm() {
             setAssignments(selected.vinculaciones);
 
             // PRE-FILL LOGIC from Query Params or Auto-select
-            const prePeriodo = searchParams.get('periodo');
+            const rawPrePeriodo = searchParams.get('periodo');
+            const prePeriodo = rawPrePeriodo ? rawPrePeriodo.substring(0, 7) : null;
             const preVinculacionId = searchParams.get('vinculacion_id');
 
             if (!isEdit && preVinculacionId) {
@@ -551,12 +553,14 @@ export default function RegistroForm() {
             return;
         }
 
+        const cleanPeriodo = form.periodo ? `${form.periodo.substring(0, 7)}-01` : '';
+
         const payload = {
             ...form,
             terminar_subsanacion: options.terminar_subsanacion || false,
             cerrado: options.enviar ? 1 : 0,
             contratista_id: selectedContractor, // Send selected Contratista company ID
-            periodo: `${form.periodo}-01`,
+            periodo: cleanPeriodo,
             actividades: actividades.map(a => ({
                 id: a.id,
                 actividad_id: a.actividad_id,
