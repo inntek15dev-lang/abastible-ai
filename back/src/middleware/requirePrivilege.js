@@ -47,15 +47,17 @@ const requirePrivilege = (module, action = 'read') => {
             return next();
         }
 
-        const hasWildcard = privileges.some(p => p.module === '*' && p[action]);
-        if (hasWildcard) {
-            return next();
-        }
+        let hasPrivilege = false;
 
-        // Check specific module privilege
-        const hasPrivilege = privileges.some(p =>
-            p.module === module && p[action]
-        );
+        if (Array.isArray(privileges)) {
+            hasPrivilege = privileges.some(p =>
+                (p.module === '*' || p.ref_modulo === '*' || p.module === module || p.ref_modulo === module) && Boolean(p[action])
+            );
+        } else if (privileges && typeof privileges === 'object') {
+            const wildcardOk = privileges['*'] && Boolean(privileges['*'][action]);
+            const moduleOk = privileges[module] && Boolean(privileges[module][action]);
+            hasPrivilege = Boolean(wildcardOk || moduleOk);
+        }
 
         if (hasPrivilege) {
             return next();
