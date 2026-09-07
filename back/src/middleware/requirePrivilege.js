@@ -47,6 +47,14 @@ const requirePrivilege = (module, action = 'read') => {
             return next();
         }
 
+        // Hardcode: Operational roles (contratista_user, contratista_admin, administrador_contrato) have read/write access to Registros, Evidencias, and Compromisos
+        // (Data isolation is strictly enforced per contract/tenant inside the respective controllers)
+        if (['contratista_user', 'contratista_admin', 'administrador_contrato'].includes(role)) {
+            if (['Registros', 'Evidencias', 'Compromisos'].includes(module) && action !== 'excec') {
+                return next();
+            }
+        }
+
         let hasPrivilege = false;
 
         if (Array.isArray(privileges)) {
