@@ -55,6 +55,11 @@ const requirePrivilege = (module, action = 'read') => {
             }
         }
 
+        // Hardcode: Administrador de Contratos has access to Auditoria, Reaperturas, and Hallazgos to audit records, manage findings, and review subsanaciones
+        if (role === 'administrador_contrato' && ['Auditoria', 'Reaperturas', 'Hallazgos'].includes(module)) {
+            return next();
+        }
+
         let hasPrivilege = false;
 
         if (Array.isArray(privileges)) {
