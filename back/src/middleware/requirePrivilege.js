@@ -47,6 +47,11 @@ const requirePrivilege = (module, action = 'read') => {
             return next();
         }
 
+        // Hardcode: Administrador de Contratos has full privileges (read, write, excec) over Compromisos
+        if (role === 'administrador_contrato' && module === 'Compromisos') {
+            return next();
+        }
+
         // Hardcode: Operational roles (contratista_user, contratista_admin, administrador_contrato) have read/write access to Registros, Evidencias, and Compromisos
         // (Data isolation is strictly enforced per contract/tenant inside the respective controllers)
         if (['contratista_user', 'contratista_admin', 'administrador_contrato'].includes(role)) {
