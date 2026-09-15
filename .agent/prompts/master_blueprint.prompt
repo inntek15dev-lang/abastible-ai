@@ -675,7 +675,7 @@
         "evaluation_order": ["1: module==='OVAL' -> solo role==='oval' pasa (ni admin)", "2: role==='admin'||role==='oval' -> pasa cualquier otro módulo", "3: role==='contratista_admin' && module==='Usuarios' -> pasa (hardcode)", "4: privilegio con ref_modulo:'*' -> pasa", "5: privilegio específico de módulo+acción -> pasa", "6: 403"],
         "admin": {"seed_estatico": ["*"], "actions": ["read","write","excec"], "excepcion": "OVAL (403 incluso siendo admin)"},
         "oval": {"seed_estatico": ["*", "OVAL"], "actions": ["read","write","excec"]},
-        "administrador_contrato": {"seed_estatico_adicional": ["Auditoria","Reportes","Registros_Exportar"], "seed_dinamico": ["Dashboard","Registros(read-only)","Contratistas","Reaperturas","Compromisos","Auditoria","Reportes","Registros_Exportar","Programas","Vinculaciones","Gestion_Configuracion(write,no-excec)"], "parche_posterior": "patch_audit_privileges.js revoca excec sobre Registros si lo tuviera"},
+        "administrador_contrato": {"seed_estatico_adicional": ["Auditoria","Reportes","Registros_Exportar","Compromisos"], "seed_dinamico": ["Dashboard","Registros(read-only)","Contratistas","Reaperturas","Compromisos(R/W/X)","Auditoria","Reportes","Registros_Exportar","Programas","Vinculaciones","Gestion_Configuracion(write,no-excec)"], "parche_posterior": "patch_audit_privileges.js revoca excec sobre Registros; patch_compromisos_privileges.js otorga R/W/X sobre Compromisos"},
         "contratista_admin": {"seed_dinamico": ["Dashboard","Registros(write)","Evidencias(write)","Reaperturas","Usuarios(write, +hardcode)","Compromisos","Reportes","Registros_Exportar","Programas","Vinculaciones"]},
         "contratista_user": {"seed_dinamico": ["Dashboard","Registros(write)","Evidencias(write)","Usuarios(write)","Registros_Exportar","Programas","Vinculaciones"], "frontend_hardcode_adicional": "Compromisos (coincide con lo ya otorgado por seed, redundante)"}
       }
@@ -757,8 +757,8 @@ users, vinculaciones, programas, dependencias ──< registros
 **Actividades (4)** — escritura vía módulo `Gestion_Configuracion` (no `Programas`), soporta `multer` (`plantilla`)
 `GET /actividades`, `POST /actividades`, `PUT /actividades/:id`, `DELETE /actividades/:id`
 
-**Registros (5)** — `requirePrivilege('Registros', write|excec)`, scoping interno por controller
-`GET /registros`, `GET /registros/:id`, `POST /registros`, `PUT /registros/:id`, `DELETE /registros/:id`
+**Registros (6)** — `requirePrivilege('Registros', write|excec)`, scoping interno por controller, migración de periodo solo admin
+`GET /registros`, `GET /registros/:id`, `POST /registros`, `PUT /registros/:id`, `DELETE /registros/:id`, `POST /registros/:id/migrar-periodo` (**Solo Admin dios** — migra el periodo del registro validando que la vinculación no posea un registro en el periodo destino)
 
 **Auditoría (7)** — `requirePrivilege('Auditoria','write')` salvo comentarios (solo `auth`)
 `POST /registros/:id/auditar`, `PUT /registros/:id/actividades/:actividadId/auditar`, `PUT /registros/:id/guardar-avance-auditoria`, `POST /registros/:id/finalizar-auditoria`, `POST /registros/:id/iniciar-revision`, `POST /registros/:id/finalizar-revision`, `POST /registros/:id/comentarios` (**sin `requirePrivilege`**)
