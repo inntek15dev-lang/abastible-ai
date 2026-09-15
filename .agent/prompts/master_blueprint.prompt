@@ -757,8 +757,8 @@ users, vinculaciones, programas, dependencias ──< registros
 **Actividades (4)** — escritura vía módulo `Gestion_Configuracion` (no `Programas`), soporta `multer` (`plantilla`)
 `GET /actividades`, `POST /actividades`, `PUT /actividades/:id`, `DELETE /actividades/:id`
 
-**Registros (5)** — `requirePrivilege('Registros', write|excec)`, scoping interno por controller
-`GET /registros`, `GET /registros/:id`, `POST /registros`, `PUT /registros/:id`, `DELETE /registros/:id`
+**Registros (6)** — `requirePrivilege('Registros', write|excec)`, scoping interno por controller, migración de periodo solo admin
+`GET /registros`, `GET /registros/:id`, `POST /registros`, `PUT /registros/:id`, `DELETE /registros/:id`, `POST /registros/:id/migrar-periodo` (**Solo Admin dios** — migra el periodo del registro validando que la vinculación no posea un registro en el periodo destino)
 
 **Auditoría (7)** — `requirePrivilege('Auditoria','write')` salvo comentarios (solo `auth`)
 `POST /registros/:id/auditar`, `PUT /registros/:id/actividades/:actividadId/auditar`, `PUT /registros/:id/guardar-avance-auditoria`, `POST /registros/:id/finalizar-auditoria`, `POST /registros/:id/iniciar-revision`, `POST /registros/:id/finalizar-revision`, `POST /registros/:id/comentarios` (**sin `requirePrivilege`**)

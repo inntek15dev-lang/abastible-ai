@@ -664,6 +664,82 @@ const registroController = {
             console.error('Registro destroy error:', error);
             res.status(500).json({ success: false, message: 'Error al eliminar registro: ' + error.message });
         }
+    },
+
+    // POST /api/registros/:id/migrar-periodo (Solo Admin dios)
+    async migrarPeriodo(req, res) {
+        try {
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Solo el usuario con rol Admin (admin dios) puede migrar el periodo de un registro.'
+                });
+            }
+
+            const registro = await Registro.findByPk(req.params.id);
+            if (!registro) {
+                return res.status(404).json({ success: false, message: 'Registro no encontrado' });
+            }
+
+            const { nuevo_periodo } = req.body;
+            if (!nuevo_periodo) {
+                return res.status(400).json({ success: false, message: 'El nuevo periodo es requerido' });
+            }
+
+            let finalPeriodo = nuevo_periodo;
+            if (typeof nuevo_periodo === 'string' && nuevo_periodo.length >= 7) {
+                finalPeriodo = `${nuevo_periodo.substring(0, 7)}-01`;
+            }
+
+            if (registro.periodo === finalPeriodo) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'El registro ya pertenece al periodo seleccionado'
+                });
+            }
+
+            // Restricción: solo se puede migrar a un periodo donde esa vinculación NO tenga registro creado
+            if (registro.contratista_asignacion_id) {
+                const existing = await Registro.findOne({
+                    where: {
+                        contratista_asignacion_id: registro.contratista_asignacion_id,
+                        periodo: finalPeriodo,
+                        id: { [Op.ne]: registro.id }
+                    }
+                });
+
+                if (existing) {
+                    const displayMonth = finalPeriodo.substring(0, 7);
+                    return res.status(409).json({
+                        success: false,
+                        message: `No se puede migrar: La vinculación ya cuenta con un registro creado para el periodo ${displayMonth}.`
+                    });
+                }
+            }
+
+            const oldPeriodo = registro.periodo;
+            await registro.update({ periodo: finalPeriodo });
+
+            // Audit log
+            await RegistroLog.create({
+                registro_id: registro.id,
+                user_id: req.user.id || req.user.usu_id || null,
+                accion: 'MIGRAR_PERIODO',
+                descripcion: `Periodo migrado de ${oldPeriodo} a ${finalPeriodo} por Admin`,
+                datos_anteriores: { periodo: oldPeriodo },
+                datos_nuevos: { periodo: finalPeriodo },
+                ip_address: req.ip || null
+            });
+
+            res.json({
+                success: true,
+                message: `Registro migrado exitosamente del periodo ${oldPeriodo.substring(0, 7)} al periodo ${finalPeriodo.substring(0, 7)}`,
+                data: registro
+            });
+        } catch (error) {
+            console.error('Registro migrarPeriodo error:', error);
+            res.status(500).json({ success: false, message: 'Error al migrar periodo del registro' });
+        }
     }
 };
 

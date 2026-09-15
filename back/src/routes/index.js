@@ -312,6 +312,44 @@ router.post('/registros', auth, requirePrivilege('Registros', 'write'), registro
 router.put('/registros/:id', auth, requirePrivilege('Registros', 'write'), registroController.update);
 router.delete('/registros/:id', auth, requirePrivilege('Registros', 'excec'), registroController.destroy);
 
+/**
+ * @swagger
+ * /registros/{id}/migrar-periodo:
+ *   post:
+ *     summary: Migrar registro de cumplimiento a un nuevo periodo (Solo Admin dios)
+ *     tags: [Registros]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nuevo_periodo
+ *             properties:
+ *               nuevo_periodo:
+ *                 type: string
+ *                 example: "2026-04"
+ *     responses:
+ *       200:
+ *         description: Registro migrado exitosamente
+ *       400:
+ *         description: Parámetros inválidos o periodo igual
+ *       403:
+ *         description: Solo Admin puede migrar
+ *       409:
+ *         description: La vinculación ya cuenta con un registro en el periodo seleccionado
+ */
+router.post('/registros/:id/migrar-periodo', auth, registroController.migrarPeriodo);
+
 // ============= SPRINT 2: AUDITORÍA =============
 
 // Auditoría (Admin/Admin Contrato)

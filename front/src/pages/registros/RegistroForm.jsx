@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
-import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock, CheckCircle, Trash2, Clock, AlertTriangle, User, Download } from 'lucide-react';
+import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock, CheckCircle, Trash2, Clock, AlertTriangle, User, Download, Calendar } from 'lucide-react';
 import FileUpload from '../../components/forms/FileUpload';
 import HallazgoModal from '../../components/forms/HallazgoModal';
 import HallazgoList from '../../components/forms/HallazgoList';
@@ -33,6 +33,10 @@ export default function RegistroForm() {
         dotacion_total: 0,
         eecc_nombre: ''
     });
+
+    // State for Admin Period Migration
+    const [selectedMigrarPeriodo, setSelectedMigrarPeriodo] = useState('');
+    const [migratingPeriodo, setMigratingPeriodo] = useState(false);
     // ... (rest of state items are same)
     const [actividades, setActividades] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -462,8 +466,9 @@ export default function RegistroForm() {
         try {
             const response = await api.get(`/registros/${id}`);
             const data = response.data.data;
+            const pStr = data.periodo ? data.periodo.substring(0, 7) : '';
             setForm({
-                periodo: data.periodo ? data.periodo.substring(0, 7) : '',
+                periodo: pStr,
                 personas_nuevas: data.personas_nuevas,
                 supervisores: data.supervisores,
                 prevencionistas: data.prevencionistas,
@@ -475,6 +480,7 @@ export default function RegistroForm() {
                 eecc_nombre: data.eecc_nombre || '',
                 auditor_name: data.auditor?.name || ''
             });
+            setSelectedMigrarPeriodo(pStr);
             setRegistroCerrado(data.cerrado === 1 || data.cerrado === true);
             setReviewComments(data.comentario_general || '');
 
@@ -770,6 +776,61 @@ export default function RegistroForm() {
         }
     };
 
+    const formatPeriodoLabel = (periodoStr) => {
+        if (!periodoStr || periodoStr.length < 7) return periodoStr || '';
+        const parts = periodoStr.substring(0, 7).split('-');
+        const year = parts[0];
+        const month = parts[1];
+        const months = [
+            'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+        ];
+        const monthIndex = parseInt(month, 10) - 1;
+        if (monthIndex >= 0 && monthIndex < 12) {
+            return `${months[monthIndex]} de ${year}`;
+        }
+        return periodoStr;
+    };
+
+    const handleMigrarPeriodoClick = () => {
+        if (!selectedMigrarPeriodo) {
+            toast.error('Debe seleccionar un periodo de destino');
+            return;
+        }
+        if (selectedMigrarPeriodo === form.periodo) {
+            toast.error('El registro ya pertenece al periodo seleccionado');
+            return;
+        }
+
+        const currentDisplay = formatPeriodoLabel(form.periodo);
+        const targetDisplay = formatPeriodoLabel(selectedMigrarPeriodo);
+
+        setConfirmModal({
+            isOpen: true,
+            title: 'Confirmar Migración de Período',
+            message: `¿Está seguro de migrar este registro de cumplimiento del período ${currentDisplay} al período ${targetDisplay}? Esta acción reubicará el registro en el nuevo período seleccionado.`,
+            action: () => executeMigrarPeriodo(selectedMigrarPeriodo)
+        });
+    };
+
+    const executeMigrarPeriodo = async (targetPeriodo) => {
+        setMigratingPeriodo(true);
+        try {
+            const response = await api.post(`/registros/${id}/migrar-periodo`, {
+                nuevo_periodo: targetPeriodo
+            });
+            toast.success(response.data?.message || 'Periodo migrado exitosamente');
+            await fetchRegistro();
+        } catch (err) {
+            console.error('Error migrando periodo:', err);
+            const errMsg = err.response?.data?.message || 'Error al migrar periodo del registro';
+            toast.error(errMsg);
+        } finally {
+            setMigratingPeriodo(false);
+            setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }
+    };
+
     return (
         <div className="page-container" style={{ maxWidth: '1180px', margin: '0 auto', padding: '16px', backgroundColor: themeColors.pageBg, minHeight: '100vh', transition: 'background-color 0.3s ease' }}>
 
@@ -780,6 +841,76 @@ export default function RegistroForm() {
                     Registro Mensual de Cumplimiento {isReadOnly && <span style={{ fontSize: '0.8rem', backgroundColor: themeColors.inputBg, padding: '2px 8px', borderRadius: '4px', border: `1px solid ${themeColors.inputBorder}`, color: themeColors.textSecondary, marginLeft: '10px' }}>VISTA SOLO LECTURA</span>}
                 </h1>
             </div>
+
+            {/* Sección Especial: Migración de Periodo (Solo Admin dios) */}
+            {user?.role === 'admin' && isEdit && (
+                <div style={{
+                    backgroundColor: themeColors.cardBg,
+                    border: '1px solid #f59e0b',
+                    borderRadius: '8px',
+                    padding: '1rem 1.25rem',
+                    marginBottom: '1.5rem',
+                    boxShadow: '0 2px 4px rgba(245, 158, 11, 0.08)',
+                    background: 'linear-gradient(135deg, rgba(254, 243, 199, 0.25) 0%, rgba(255, 255, 255, 0.95) 100%)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Calendar size={18} color="#d97706" />
+                            <h2 style={{ fontSize: '0.95rem', fontWeight: 600, color: themeColors.textPrimary, margin: 0 }}>
+                                Migración de período
+                            </h2>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 600, backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '2px 8px', borderRadius: '12px' }}>
+                                Admin dios
+                            </span>
+                        </div>
+                        <span style={{ fontSize: '0.8rem', color: themeColors.textSecondary }}>
+                            Periodo actual: <strong>{formatPeriodoLabel(form.periodo)}</strong>
+                        </span>
+                    </div>
+
+                    <p style={{ fontSize: '0.8rem', color: themeColors.textSecondary, margin: '0 0 0.85rem 0' }}>
+                        Seleccione el nuevo período de destino. El registro solo podrá migrarse a un período donde la vinculación no tenga un registro creado (pendiente de creación).
+                    </p>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <label htmlFor="selector-migracion-periodo" style={{ fontSize: '0.8rem', fontWeight: 600, color: themeColors.textPrimary }}>
+                                Selector de período:
+                            </label>
+                            <input
+                                id="selector-migracion-periodo"
+                                type="month"
+                                className="form-control"
+                                style={{ width: '180px', height: '36px', fontSize: '0.85rem' }}
+                                value={selectedMigrarPeriodo}
+                                onChange={(e) => setSelectedMigrarPeriodo(e.target.value)}
+                            />
+                        </div>
+
+                        <button
+                            id="btn-migrar-periodo"
+                            type="button"
+                            onClick={handleMigrarPeriodoClick}
+                            disabled={migratingPeriodo || !selectedMigrarPeriodo || selectedMigrarPeriodo === form.periodo}
+                            className="btn-primary"
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                height: '36px',
+                                padding: '0 16px',
+                                fontSize: '0.85rem',
+                                backgroundColor: selectedMigrarPeriodo === form.periodo ? '#9ca3af' : '#d97706',
+                                borderColor: selectedMigrarPeriodo === form.periodo ? '#9ca3af' : '#d97706',
+                                cursor: (migratingPeriodo || !selectedMigrarPeriodo || selectedMigrarPeriodo === form.periodo) ? 'not-allowed' : 'pointer'
+                            }}
+                        >
+                            <RefreshCw size={15} className={migratingPeriodo ? 'animate-spin' : ''} />
+                            <span>{migratingPeriodo ? 'Migrando...' : 'Migrar'}</span>
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {error && <div className="error-message" style={{ marginBottom: '1rem' }}>{error}</div>}
 
