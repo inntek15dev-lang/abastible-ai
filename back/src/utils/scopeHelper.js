@@ -40,11 +40,25 @@ const getAllowedVinculacionIds = async (user) => {
     }
 
     if (roleStr === 'contratista_user') {
-        // Ancla por los contratos asignados (vinculacion_ids), nunca por
-        // contratista_id/servicio/dependencia sueltos.
-        return (user.vinculacion_ids && user.vinculacion_ids.length > 0)
-            ? user.vinculacion_ids.map(Number)
-            : (user.vinculacion_id ? [Number(user.vinculacion_id)] : []);
+        const vIds = [];
+        if (Array.isArray(user.vinculacion_ids) && user.vinculacion_ids.length > 0) {
+            vIds.push(...user.vinculacion_ids.map(Number));
+        }
+        if (user.vinculacion_id && !vIds.includes(Number(user.vinculacion_id))) {
+            vIds.push(Number(user.vinculacion_id));
+        }
+        if (vIds.length > 0) return vIds;
+
+        // Fallback si posee contratista_id asignado
+        if (user.contratista_id) {
+            const vincs = await Vinculacion.findAll({
+                where: { contratista_id: user.contratista_id, activo: 1 },
+                attributes: ['id']
+            });
+            return vincs.map(v => v.id);
+        }
+
+        return [];
     }
 
     return [];
