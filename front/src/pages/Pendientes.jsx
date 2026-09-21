@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import { formatPeriodo } from '../utils/dateUtils';
 import { 
     AlertTriangle, 
     CheckCircle2, 
@@ -360,7 +361,7 @@ export default function Pendientes() {
                                             </div>
                                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                                                 <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>Periodo</span>
-                                                <span style={{ color: '#374151' }}>{new Date(sol.registro?.periodo).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}</span>
+                                                <span style={{ color: '#374151' }}>{formatPeriodo(sol.registro?.periodo)}</span>
                                             </div>
                                             <div style={{ maxWidth: '300px' }}>
                                                 <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>Motivo</span>
@@ -651,7 +652,7 @@ export default function Pendientes() {
                         </h2>
                         
                         <p style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-                            Estás por {actionModal.type} la solicitud para el registro de <strong>{actionModal.solicitud?.registro?.eecc_nombre}</strong> ({new Date(actionModal.solicitud?.registro?.periodo).toLocaleDateString('es-CL', { month: 'short', year: 'numeric' })}).
+                            Estás por {actionModal.type} la solicitud para el registro de <strong>{actionModal.solicitud?.registro?.eecc_nombre}</strong> ({formatPeriodo(actionModal.solicitud?.registro?.periodo, { monthFormat: 'short' })}).
                         </p>
 
                         <div style={{ marginBottom: '1.5rem' }}>

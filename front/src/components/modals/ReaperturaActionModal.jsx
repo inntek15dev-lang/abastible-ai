@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Check, X, Calendar, MessageSquare, AlertCircle } from 'lucide-react';
 import Modal from '../ui/Modal';
+import { formatPeriodo } from '../../utils/dateUtils';
 
 /**
  * ReaperturaActionModal
@@ -103,7 +104,7 @@ export default function ReaperturaActionModal({ isOpen, onClose, onConfirm, soli
                     fontSize: '0.9rem'
                 }}>
                     <div style={{ fontWeight: 700, color: '#1e293b', marginBottom: '4px' }}>
-                        Registro: {solicitud.registro?.periodo}
+                        Registro: {formatPeriodo(solicitud.registro?.periodo)}
                     </div>
                     <div style={{ color: '#64748b' }}>
                         Solicitante: {solicitud.solicitante?.name}

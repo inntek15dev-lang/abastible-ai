@@ -13,7 +13,7 @@
 |-------|-------|
 | UUID | `oiem-abastible-2026-02` |
 | Versión Estándar | IEEE 12207:2017 |
-| Versión de este Blueprint | 3.0.0 (realineación total a la implementación real) |
+| Versión de este Blueprint | 3.1.0 (Homologación de formato de periodo en UI y dateUtils) |
 | Criticidad | ALTA — Sistema de Gestión de Cumplimiento HSE/Operacional para contratistas de Abastible, operado por OVAL Control |
 | Motor BD | MySQL 8.0 (InnoDB) — confirmado por imagen `mysql:8.0` en los 3 `docker-compose*.yml` |
 | ORM | Sequelize ^6.35.2 (`sequelize.sync({force:false})`, sin migraciones formales — el esquema real de la BD es 100% derivado de las definiciones de modelo en `back/src/database/models/*.js`) |
@@ -769,7 +769,7 @@ users, vinculaciones, programas, dependencias ──< registros
 **Hallazgos (5)** — todo bajo `Auditoria.write` salvo lectura
 `GET /hallazgos`, `GET /hallazgos/:id`, `POST /hallazgos`, `PUT /hallazgos/:id`, `DELETE /hallazgos/:id`
 
-**Compromisos (7)** — `Compromisos.write/excec`; `cumplir`/`evidencia` solo `auth` (restricción de rol dentro del controller)
+**Compromisos (7)** — `Compromisos.write/excec`; `evidencia` permite a contratistas adjuntar archivos (transición `pendiente` → `en_proceso`); `cumplir` exclusivo para `admin` y `administrador_contrato` (transición → `cumplido`)
 `GET /compromisos`, `GET /compromisos/:id`, `POST /compromisos`, `PUT /compromisos/:id`, `PATCH /compromisos/:id/cumplir`, `PATCH /compromisos/:id/evidencia`, `DELETE /compromisos/:id`
 
 **Reaperturas (5)** — `index`/`store` solo `auth` (sin scoping de propiedad en `store`); `aprobar`/`rechazar` `Auditoria.write`; `directa` `Reaperturas.excec`
@@ -944,6 +944,7 @@ users, vinculaciones, programas, dependencias ──< registros
     { "role": "admin", "ref_modulo": "Registros_Exportar", "read":1,"write":1,"excec":1 }
   ],
   "privilegios_dinamicos_por_formula": "Ver security_hardening.rbac_policy_real en la Sección III — la fórmula real de write/excec por rol y módulo está en el bucle dynamicPrivs de seed.js, no en una tabla estática simple",
-  "seeding_note": "sample data adicional (Registros/RegistroActividad/RegistroLog/Compromiso de ejemplo para MAFRAN Osorno, periodos 2025-08 a 2026-01) se genera al final de seed.js, fuera de este resumen — solo para ambiente local/demo, nunca ejecutado en CI/CD por RN-002.28"
+  "seeding_note": "sample data adicional (Registros/RegistroActividad/RegistroLog/Compromiso de ejemplo para MAFRAN Osorno, periodos 2025-08 a 2026-01) se genera al final de seed.js, fuera de este resumen — solo para ambiente local/demo, nunca ejecutado en CI/CD por RN-002.28",
+  "period_format_rule": "Formateo homologado de periodo mensual en UI vía front/src/utils/dateUtils.js (formatPeriodo). Garantiza que `registro.periodo` (YYYY-MM-DD/YYYY-MM) renderice el mismo mes UTC (ej. Septiembre de 2026) en la tarjeta de resumen y encabezado de RegistroAudit y demás componentes de la app sin desfases por zona horaria local."
 }
 ```
