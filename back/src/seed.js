@@ -15,7 +15,8 @@ const {
     ContratistaUsuario,
     Vinculacion,
     Administracion,
-    VinculacionUsuario
+    VinculacionUsuario,
+    Configuracion
 } = require('./database/models');
 
 async function seed() {
@@ -242,6 +243,23 @@ async function seed() {
             await ContratistaUsuario.findOrCreate({
                 where: { contratista_id: contratistaDemo2.id, user_id: contratistaAdminId }
             });
+
+            // ============= CONFIGURACIONES DEL SISTEMA =============
+            console.log('📦 Sincronizando configuraciones...');
+            const configs = [
+                { clave: 'meta_programa', valor: '85', tipo: 'text', descripcion: 'Porcentaje meta de cumplimiento' },
+                { clave: 'fecha_limite_reporte', valor: '5', tipo: 'number', descripcion: 'Día límite de reporte mensual' },
+                { clave: 'dias_cierre_hallazgo', valor: '30', tipo: 'number', descripcion: 'Días para cerrar hallazgo' },
+                { clave: 'evidencia_obligatoria', valor: '1', tipo: 'boolean', descripcion: 'Evidencia requerida por defecto' },
+                { clave: 'max_evidencias_por_actividad', valor: '4', tipo: 'integer', descripcion: 'Límite máximo de evidencias por actividad' },
+                { clave: 'monto_facturable_contrato', valor: '1000', tipo: 'number', descripcion: 'Monto facturable por contrato' }
+            ];
+            for (const cfg of configs) {
+                await Configuracion.findOrCreate({
+                    where: { clave: cfg.clave },
+                    defaults: cfg
+                });
+            }
         }
 
         console.log('\n✅ Seed demo completado exitosamente!');

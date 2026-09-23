@@ -775,7 +775,7 @@ users, vinculaciones, programas, dependencias ──< registros
 **Reaperturas (5)** — `index`/`store` solo `auth` (sin scoping de propiedad en `store`); `aprobar`/`rechazar` `Auditoria.write`; `directa` `Reaperturas.excec`
 `GET /reaperturas`, `POST /reaperturas`, `PUT /reaperturas/:id/aprobar`, `PUT /reaperturas/:id/rechazar`, `POST /reaperturas/directa`
 
-**Dashboard (5)** — solo `auth`, scoping interno
+**Dashboard (5)** — solo `auth`, scoping interno; `GET /dashboard/historico` soporta filtros dinámicos de periodo (`fecha_inicio`, `fecha_fin`) y scope corporativo (`programa_id`, `servicio_id`, `dependencia_id`, `gerencia_id`, `subgerencia_id`, `adc_id`, `search`, `solo_huerfanos`)
 `GET /dashboard/kpis`, `GET /dashboard/cumplimiento`, `GET /dashboard/historico`, `GET /dashboard/actividad`, `GET /dashboard/matrix`
 
 **Reportes (11)** — los 6 de `/reportes/oval/*` exigen `requirePrivilege('OVAL', read|write)`; el resto solo `auth`

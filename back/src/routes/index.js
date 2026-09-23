@@ -782,13 +782,64 @@ router.get('/dashboard/cumplimiento', auth, dashboardController.cumplimiento);
  * @swagger
  * /dashboard/historico:
  *   get:
- *     summary: Get historical compliance data
+ *     summary: Get historical compliance data by period range and scope filters
  *     tags: [Dashboard]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: fecha_inicio
+ *         schema:
+ *           type: string
+ *         description: Start period filter (YYYY-MM)
+ *       - in: query
+ *         name: fecha_fin
+ *         schema:
+ *           type: string
+ *         description: End period filter (YYYY-MM)
+ *       - in: query
+ *         name: programa_id
+ *         schema:
+ *           type: string
+ *         description: Filter by program ID
+ *       - in: query
+ *         name: servicio_id
+ *         schema:
+ *           type: string
+ *         description: Filter by service ID
+ *       - in: query
+ *         name: dependencia_id
+ *         schema:
+ *           type: string
+ *         description: Filter by dependency ID
+ *       - in: query
+ *         name: gerencia_id
+ *         schema:
+ *           type: string
+ *         description: Filter by gerencia ID
+ *       - in: query
+ *         name: subgerencia_id
+ *         schema:
+ *           type: string
+ *         description: Filter by subgerencia ID
+ *       - in: query
+ *         name: adc_id
+ *         schema:
+ *           type: string
+ *         description: Filter by contract admin ID
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search by contractor name or RUT
+ *       - in: query
+ *         name: solo_huerfanos
+ *         schema:
+ *           type: boolean
+ *         description: Filter records without assigned program
  *     responses:
  *       200:
- *         description: Historical data
+ *         description: Historical data grouped by month
  *
  * /dashboard/actividad:
  *   get:
