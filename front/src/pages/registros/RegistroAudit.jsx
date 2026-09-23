@@ -28,6 +28,7 @@ import 'jspdf-autotable';
 import HallazgoModal from '../../components/forms/HallazgoModal';
 import ConfirmationModal from '../../components/modals/ConfirmationModal';
 import { toast } from 'react-hot-toast';
+import { formatPeriodo } from '../../utils/dateUtils';
 
 export default function RegistroAudit() {
     const { id } = useParams();
@@ -312,7 +313,7 @@ export default function RegistroAudit() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <FileText className="text-orange-500" size={20} />
                             <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>
-                                Detalle de Registro - {new Date(registro.periodo).toLocaleDateString('es-CL', { month: 'long', year: 'numeric', timeZone: 'UTC' }).replace(/^\w/, c => c.toUpperCase())}
+                                Detalle de Registro - {formatPeriodo(registro.periodo)}
                             </h2>
                         </div>
                     </div>
@@ -355,7 +356,7 @@ export default function RegistroAudit() {
                     </div>
                     <div className="summary-card">
                         <div className="summary-label">PERIODO</div>
-                        <div className="summary-value">{new Date(registro.periodo).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}</div>
+                        <div className="summary-value">{formatPeriodo(registro.periodo)}</div>
                     </div>
                     <div className="summary-card">
                         <div className="summary-label">CUMPLIMIENTO</div>

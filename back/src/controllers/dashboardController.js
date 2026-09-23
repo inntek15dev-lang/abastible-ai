@@ -494,11 +494,11 @@ const dashboardController = {
         }
     },
 
-    // GET /api/dashboard/historico (Last 6 months)
+    // GET /api/dashboard/historico (Dynamic period range and scope filters)
     async historico(req, res) {
         try {
             const user = req.user;
-            const { gerencia_id, subgerencia_id, adc_id } = req.query;
+            const { fecha_inicio, fecha_fin, programa_id, servicio_id, dependencia_id, search, gerencia_id, subgerencia_id, adc_id } = req.query;
             // Filtro Universal por Rol (centralizado en scopeHelper)
             const whereRegistro = await buildScopeWhere(user);
 
@@ -546,28 +546,35 @@ const dashboardController = {
                 }
             }
 
-            // Calculate range: Last 6 months including current
-            const today = new Date();
-            const months = [];
-            // Generate last 6 months array (YYYY-MM)
-            for (let i = 5; i >= 0; i--) {
-                const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-                // Adjust for timezone offset to ensure correct month
-                // Use UTC methods to avoid local time shifts
-                const year = d.getFullYear();
-                const month = d.getMonth() + 1;
-                const key = `${year}-${String(month).padStart(2, '0')}`;
-
-                const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-                const name = monthNames[d.getMonth()];
-
-                months.push({ key, name, date: d });
+            if (programa_id && programa_id !== 'todos') {
+                whereRegistro.programa_id = programa_id;
             }
 
-            const startMonth = months[0].date;
+            if (dependencia_id && dependencia_id !== 'todas') {
+                whereRegistro.dependencia_id = dependencia_id;
+            }
 
-            // Filtro global (todos los roles, sin excepción): solo vinculaciones con
-            // Programa asignado en su servicio.
+            if (search) {
+                whereRegistro.eecc_nombre = { [Op.like]: `%${search}%` };
+            }
+
+            if (servicio_id && servicio_id !== 'todos') {
+                const vincsWithService = await Vinculacion.findAll({
+                    where: { servicio_id: servicio_id, activo: 1 },
+                    attributes: ['id']
+                });
+                const serviceVincIds = vincsWithService.map(v => v.id);
+
+                if (whereRegistro.contratista_asignacion_id) {
+                    const existingIds = whereRegistro.contratista_asignacion_id[Op.in] || [];
+                    const intersection = existingIds.filter(id => serviceVincIds.includes(id));
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+                } else {
+                    whereRegistro.contratista_asignacion_id = { [Op.in]: serviceVincIds.length > 0 ? serviceVincIds : [-1] };
+                }
+            }
+
+            // Filtro global (todos los roles): solo vinculaciones con Programa asignado
             const soloHuerfanosHist = req.query.solo_huerfanos === 'true';
             const programaScopeHist = await getProgramaScope();
             whereRegistro.contratista_asignacion_id = intersectWithProgramaScope(
@@ -576,12 +583,66 @@ const dashboardController = {
                 soloHuerfanosHist
             );
 
+            // Calculate range: Dynamic range based on fecha_inicio and fecha_fin, or last 6 months default
+            const today = new Date();
+            let startYear, startMonth, endYear, endMonth;
+
+            if (fecha_inicio && fecha_fin) {
+                const [sy, sm] = fecha_inicio.split('-').map(Number);
+                const [ey, em] = fecha_fin.split('-').map(Number);
+                startYear = sy; startMonth = sm - 1;
+                endYear = ey; endMonth = em - 1;
+            } else if (fecha_inicio && !fecha_fin) {
+                const [sy, sm] = fecha_inicio.split('-').map(Number);
+                startYear = sy; startMonth = sm - 1;
+                endYear = today.getFullYear();
+                endMonth = today.getMonth();
+                if (new Date(startYear, startMonth, 1) > new Date(endYear, endMonth, 1)) {
+                    endYear = startYear; endMonth = startMonth;
+                }
+            } else if (!fecha_inicio && fecha_fin) {
+                const [ey, em] = fecha_fin.split('-').map(Number);
+                endYear = ey; endMonth = em - 1;
+                const d = new Date(endYear, endMonth - 5, 1);
+                startYear = d.getFullYear(); startMonth = d.getMonth();
+            } else {
+                endYear = today.getFullYear(); endMonth = today.getMonth();
+                const d = new Date(endYear, endMonth - 5, 1);
+                startYear = d.getFullYear(); startMonth = d.getMonth();
+            }
+
+            const months = [];
+            const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+            let curr = new Date(startYear, startMonth, 1);
+            const endDate = new Date(endYear, endMonth, 1);
+
+            let guard = 0;
+            while (curr <= endDate && guard < 60) {
+                const y = curr.getFullYear();
+                const m = curr.getMonth();
+                const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+
+                const showYear = startYear !== endYear;
+                const name = showYear ? `${monthNames[m]} ${String(y).slice(2)}` : monthNames[m];
+
+                months.push({ key, name, date: new Date(curr) });
+
+                curr.setMonth(curr.getMonth() + 1);
+                guard++;
+            }
+
+            const startDateObj = new Date(startYear, startMonth, 1);
+            const endDateObj = new Date(endYear, endMonth + 1, 1);
+
+            whereRegistro.periodo = {
+                [Op.gte]: startDateObj,
+                [Op.lt]: endDateObj
+            };
+
             // Query Data
             const registros = await Registro.findAll({
-                where: {
-                    ...whereRegistro,
-                    periodo: { [Op.gte]: startMonth }
-                },
+                where: whereRegistro,
                 attributes: [
                     'periodo',
                     [sequelize.fn('AVG', sequelize.col('porcentaje_cumplimiento')), 'promedioDeclarado'],
@@ -593,10 +654,7 @@ const dashboardController = {
 
             // Map and Fill Gaps
             const data = months.map(m => {
-                // Find matching record
-                // Careful with date comparison. String conversion is safest.
                 const record = registros.find(r => {
-                    // DB DATEONLY is "YYYY-MM-DD". Substring(0,7) is "YYYY-MM".
                     const rKey = String(r.periodo).substring(0, 7);
                     return rKey === m.key;
                 });

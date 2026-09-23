@@ -75,12 +75,11 @@ export default function Dashboard() {
                     contratista_id: user?.contratista_id,
                     contratista_ids: user?.contratista_ids
                 });
-                const [progRes, servRes, depRes, vincRes, histRes, gerRes, subgRes, adcRes] = await Promise.all([
+                const [progRes, servRes, depRes, vincRes, gerRes, subgRes, adcRes] = await Promise.all([
                     api.get('/programas'),
                     api.get('/resources/tipos-contratista'),
                     api.get('/resources/dependencias'),
                     api.get('/vinculaciones'),
-                    api.get('/dashboard/historico'),
                     api.get('/resources/gerencias'),
                     api.get('/resources/subgerencias'),
                     api.get('/resources/adc')
@@ -90,7 +89,6 @@ export default function Dashboard() {
                 setServices(servRes.data.data || []);
                 setDependencies(depRes.data.data || []);
                 setVinculaciones(vincRes.data.data || []);
-                setHistoryData(histRes.data.data || []);
                 setGerencias(gerRes.data.data || []);
                 setSubgerenciasRaw(subgRes.data.data || []);
                 setAdcs(adcRes.data.data || []);
@@ -100,14 +98,40 @@ export default function Dashboard() {
         };
         loadInitialData();
         fetchKpis();
+        fetchHistory();
     }, []);
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {
             fetchKpis();
+            fetchHistory();
         }, 500);
         return () => clearTimeout(timeoutId);
     }, [filters]);
+
+    const fetchHistory = async () => {
+        try {
+            const params = new URLSearchParams();
+            if (filters.fecha_inicio) params.append('fecha_inicio', filters.fecha_inicio);
+            if (filters.fecha_fin) params.append('fecha_fin', filters.fecha_fin);
+            if (filters.search) params.append('search', filters.search);
+            if (filters.programa_id !== 'todos') params.append('programa_id', filters.programa_id);
+            if (filters.servicio_id !== 'todos') params.append('servicio_id', filters.servicio_id);
+            if (filters.dependencia_id !== 'todas') params.append('dependencia_id', filters.dependencia_id);
+            if (filters.gerencia_id !== 'todas') params.append('gerencia_id', filters.gerencia_id);
+            if (filters.subgerencia_id !== 'todas') params.append('subgerencia_id', filters.subgerencia_id);
+            if (filters.adc_id !== 'todos') params.append('adc_id', filters.adc_id);
+            if (filters.solo_huerfanos) params.append('solo_huerfanos', 'true');
+
+            console.log('[Browser Console - Dashboard] Ejecutando fetchHistory con parámetros:', Object.fromEntries(params.entries()));
+            const response = await api.get(`/dashboard/historico?${params.toString()}`);
+            if (response.data.success) {
+                setHistoryData(response.data.data || []);
+            }
+        } catch (err) {
+            console.error('[Browser Console - Dashboard] Error al cargar histórico:', err);
+        }
+    };
 
     const fetchKpis = async () => {
         try {
@@ -491,7 +515,13 @@ export default function Dashboard() {
                         <div className="section-title-wrapper">
                             <h3 className="section-title">
                                 <TrendingUp size={22} color="#3b82f6" />
-                                Evolución de Cumplimiento (Últimos 6 meses)
+                                {filters.fecha_inicio && filters.fecha_fin
+                                    ? `Evolución de Cumplimiento (${filters.fecha_inicio} a ${filters.fecha_fin})`
+                                    : filters.fecha_inicio
+                                        ? `Evolución de Cumplimiento (desde ${filters.fecha_inicio})`
+                                        : filters.fecha_fin
+                                            ? `Evolución de Cumplimiento (hasta ${filters.fecha_fin})`
+                                            : 'Evolución de Cumplimiento (Últimos 6 meses)'}
                             </h3>
                         </div>
 

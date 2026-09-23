@@ -12,6 +12,7 @@ import SolicitudReaperturaModal from '../../components/forms/SolicitudReapertura
 import PendingRegistersWidget from '../../components/widgets/PendingRegistersWidget';
 import CompromisosModal from '../../components/modals/CompromisosModal';
 import ConfirmationModal from '../../components/modals/ConfirmationModal';
+import { formatPeriodo } from '../../utils/dateUtils';
 
 
 // --- Tab Navigation Component (from Skin) ---
@@ -468,11 +469,7 @@ export default function RegistroList() {
             doc.setFontSize(14);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(0, 0, 0);
-            const spanishMonth = (() => {
-                if (!registro.periodo) return 'N/A';
-                const [y, m] = registro.periodo.split('-');
-                return new Date(parseInt(y), parseInt(m) - 1, 1).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' }).toUpperCase();
-            })();
+            const spanishMonth = formatPeriodo(registro.periodo).toUpperCase();
             doc.text(spanishMonth, pageWidth - 35 - margin, 24, { align: 'center' });
 
             // Orange Line Separator
@@ -986,10 +983,7 @@ export default function RegistroList() {
                                     </td>
                                     <td style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <div style={{ fontWeight: 500 }}>
-                                            {registro.periodo ? (() => {
-                                                const [y, m] = registro.periodo.split('-');
-                                                return new Date(parseInt(y), parseInt(m) - 1, 1).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase());
-                                            })() : '-'}
+                                            {formatPeriodo(registro.periodo)}
                                         </div>
                                         {isOutOfDeadline(registro) && (
                                             <div style={{ 
