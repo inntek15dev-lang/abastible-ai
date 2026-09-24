@@ -24,7 +24,7 @@ import {
     Calendar
 } from 'lucide-react';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import HallazgoModal from '../../components/forms/HallazgoModal';
 import ConfirmationModal from '../../components/modals/ConfirmationModal';
 import { toast } from 'react-hot-toast';

@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
 import { CheckCircle, Clock, AlertCircle, Calendar, User, Edit, X, Save, Shield, Trash2, TrendingUp, Download, FileText, Filter, CheckSquare } from 'lucide-react';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import './CompromisoList.css';
 
 export default function CompromisoList() {
@@ -319,7 +319,7 @@ export default function CompromisoList() {
             c.responsableCierre?.name || (c.estado === 'cumplido' ? 'Administrador' : '-')
         ]);
 
-        doc.autoTable({
+        autoTable(doc, {
             startY: 33,
             head: tableHeaders,
             body: tableData,
