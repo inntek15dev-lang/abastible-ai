@@ -242,6 +242,54 @@ function createBarChartImage(empresasData) {
     return canvas.toDataURL('image/png');
 }
 
+let cachedLogoDataUrl = null;
+
+async function getLogoDataUrl() {
+    if (cachedLogoDataUrl) return cachedLogoDataUrl;
+
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                const targetWidth = 800;
+                const targetHeight = Math.round(targetWidth / (793.75 / 182.55));
+                canvas.width = targetWidth;
+                canvas.height = targetHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, targetWidth, targetHeight);
+                ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+                cachedLogoDataUrl = canvas.toDataURL('image/png');
+                resolve(cachedLogoDataUrl);
+            } catch (e) {
+                console.warn('Canvas logo export issue:', e);
+                resolve(null);
+            }
+        };
+
+        img.onerror = () => {
+            const pngImg = new Image();
+            pngImg.crossOrigin = 'Anonymous';
+            pngImg.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = pngImg.width || 400;
+                canvas.height = pngImg.height || 100;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(pngImg, 0, 0);
+                cachedLogoDataUrl = canvas.toDataURL('image/png');
+                resolve(cachedLogoDataUrl);
+            };
+            pngImg.onerror = () => resolve(null);
+            pngImg.src = '/logo.png';
+        };
+
+        img.src = '/logo.svg';
+    });
+}
+
 const defaultIsVencido = (fechaCompromiso, estado) => {
     if (estado === 'cumplido') return false;
     if (estado === 'vencido') return true;
@@ -252,11 +300,13 @@ const defaultIsVencido = (fechaCompromiso, estado) => {
     return dateComp < today;
 };
 
-export function generateExecutiveCompromisosPDF(compromisosParam, userParam, filtersInfoParam, isVencidoFnParam) {
+export async function generateExecutiveCompromisosPDF(compromisosParam, userParam, filtersInfoParam, isVencidoFnParam) {
     const compromisos = Array.isArray(compromisosParam) ? compromisosParam : (compromisosParam?.compromisos || []);
     const user = userParam || compromisosParam?.user || {};
     const filtersInfo = filtersInfoParam || compromisosParam?.filtersInfo || '';
     const checkVencido = isVencidoFnParam || compromisosParam?.isVencidoFn || defaultIsVencido;
+
+    const logoDataUrl = await getLogoDataUrl();
 
     let filterStr = '';
     if (typeof filtersInfo === 'string') {
@@ -298,24 +348,51 @@ export function generateExecutiveCompromisosPDF(compromisosParam, userParam, fil
     // PAGE 1: PORTADA Y DASHBOARD EJECUTIVO
     // ==========================================
 
-    // Header Banner
-    doc.setFillColor(0, 53, 148); // Abastible Blue
+    // White Corporate Header Banner
+    doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, pageWidth, 24, 'F');
 
-    // Title
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('ABASTIBLE - INFORME EJECUTIVO DE COMPROMISOS', 14, 12);
+    // Top Blue Accent Stripe
+    doc.setFillColor(0, 53, 148);
+    doc.rect(0, 0, pageWidth, 1.5, 'F');
 
-    doc.setFontSize(9);
+    // Bottom Orange Accent Stripe
+    doc.setFillColor(254, 80, 0); // Abastible Orange
+    doc.rect(0, 23, pageWidth, 1, 'F');
+
+    // Logo Image
+    if (logoDataUrl) {
+        doc.addImage(logoDataUrl, 'PNG', 14, 5, 44, 10.1);
+    } else {
+        doc.setFillColor(0, 53, 148);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('ABASTIBLE', 14, 14);
+    }
+
+    // Header Title next to Logo
+    const titleX = logoDataUrl ? 63 : 14;
+    doc.setTextColor(0, 53, 148); // Abastible Blue
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('INFORME EJECUTIVO DE COMPROMISOS', titleX, 11.5);
+
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'normal');
-    doc.text('Sistema de Control Operacional e Inspecciones (OIEM)', 14, 18);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Sistema de Control Operacional e Inspecciones (OIEM)', titleX, 17);
 
     // Right Metadata Box in Banner
     doc.setFontSize(8.5);
-    doc.text(`Generado por: ${user?.name || 'Usuario'} (${user?.role || 'Auditor'})`, pageWidth - 14, 10, { align: 'right' });
-    doc.text(`Emisión: ${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`, pageWidth - 14, 16, { align: 'right' });
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 41, 59);
+    doc.text('ABASTIBLE S.A.', pageWidth - 14, 9, { align: 'right' });
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Generado por: ${user?.name || 'Usuario'} (${user?.role || 'Auditor'})`, pageWidth - 14, 14, { align: 'right' });
+    doc.text(`Emisión: ${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`, pageWidth - 14, 18.5, { align: 'right' });
 
     // Active Filters Line
     doc.setFillColor(241, 245, 249);
@@ -443,12 +520,29 @@ export function generateExecutiveCompromisosPDF(compromisosParam, userParam, fil
     doc.addPage('a4', 'landscape');
 
     // Page 2 Header Banner
-    doc.setFillColor(0, 53, 148);
+    doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, pageWidth, 16, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(12);
+
+    doc.setFillColor(0, 53, 148);
+    doc.rect(0, 0, pageWidth, 1.2, 'F');
+
+    doc.setFillColor(254, 80, 0);
+    doc.rect(0, 15, pageWidth, 0.8, 'F');
+
+    if (logoDataUrl) {
+        doc.addImage(logoDataUrl, 'PNG', 14, 2.5, 32, 7.36);
+    }
+
+    const page2TitleX = logoDataUrl ? 50 : 14;
+    doc.setTextColor(0, 53, 148);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text('COMPENDIO DETALLADO DE COMPROMISOS', 14, 11);
+    doc.text('COMPENDIO DETALLADO DE COMPROMISOS', page2TitleX, 10.5);
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Fecha emisión: ${new Date().toLocaleDateString('es-CL')}`, pageWidth - 14, 10.5, { align: 'right' });
 
     const tableHeaders = [
         ['ID', 'Empresa / Servicio / Contrato', 'Descripción de la Acción Correctiva', 'Marca Resp.', 'F. Compromiso', 'Estado', 'Registrado Por', 'Responsable Cierre']
