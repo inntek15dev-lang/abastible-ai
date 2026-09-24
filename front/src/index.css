@@ -245,9 +245,12 @@ a {
   border-color: transparent !important;
 }
 
-/* Sub-menu Dropdowns (Positioning managed dynamically by React Aria Popover) */
+/* Sub-menu Dropdowns (Positioned relative to navbar item) */
 .dropdown-menu {
-  margin-top: 0.5rem;
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  margin-top: 0;
   width: 260px;
   background: white;
   border-radius: var(--border-radius-md);
@@ -258,6 +261,8 @@ a {
 }
 
 .dropdown-menu.right {
+  left: auto;
+  right: 0;
   width: 200px;
 }
 

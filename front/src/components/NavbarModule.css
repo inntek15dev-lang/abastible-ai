@@ -87,19 +87,25 @@
 
 /* Dropdown Menu */
 .dropdown-menu {
-    /* position: absolute;  Managed by RAC Popover */
-    /* top: 100%;           Managed by RAC Popover */
-    /* left: 0;             Managed by RAC Popover */
-    margin-top: 0.5rem;
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    margin-top: 0;
     width: 250px;
     background-color: white;
     border-radius: 0.5rem;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     border: 1px solid #e5e7eb;
     padding: 0.5rem;
-    z-index: 1000;
-    /* Increased Z-index to ensure visibility */
+    z-index: 10000;
     transform-origin: top left;
+}
+
+.dropdown-menu.right {
+    left: auto;
+    right: 0;
+    width: 200px;
+    transform-origin: top right;
 }
 
 .dropdown-item {
@@ -128,6 +134,7 @@
 
 /* User Section */
 .navbar-user {
+    position: relative;
     margin-left: auto;
     padding-left: 1rem;
     border-left: 1px solid #f3f4f6;
