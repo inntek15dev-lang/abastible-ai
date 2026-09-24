@@ -242,7 +242,40 @@ function createBarChartImage(empresasData) {
     return canvas.toDataURL('image/png');
 }
 
-export function generateExecutiveCompromisosPDF({ compromisos, user, filtersInfo, isVencidoFn }) {
+const defaultIsVencido = (fechaCompromiso, estado) => {
+    if (estado === 'cumplido') return false;
+    if (estado === 'vencido') return true;
+    if (!fechaCompromiso) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dateComp = new Date(fechaCompromiso);
+    return dateComp < today;
+};
+
+export function generateExecutiveCompromisosPDF(compromisosParam, userParam, filtersInfoParam, isVencidoFnParam) {
+    const compromisos = Array.isArray(compromisosParam) ? compromisosParam : (compromisosParam?.compromisos || []);
+    const user = userParam || compromisosParam?.user || {};
+    const filtersInfo = filtersInfoParam || compromisosParam?.filtersInfo || '';
+    const checkVencido = isVencidoFnParam || compromisosParam?.isVencidoFn || defaultIsVencido;
+
+    let filterStr = '';
+    if (typeof filtersInfo === 'string') {
+        filterStr = filtersInfo || 'Todos los registros y compromisos';
+    } else if (typeof filtersInfo === 'object' && filtersInfo !== null) {
+        const parts = [];
+        if (filtersInfo.empresa && filtersInfo.empresa !== 'Todas') parts.push(`Empresa: ${filtersInfo.empresa}`);
+        if (filtersInfo.servicio && filtersInfo.servicio !== 'Todos') parts.push(`Servicio: ${filtersInfo.servicio}`);
+        if (filtersInfo.dependencia && filtersInfo.dependencia !== 'Todas') parts.push(`Dependencia: ${filtersInfo.dependencia}`);
+        if (filtersInfo.responsabilidad && filtersInfo.responsabilidad !== 'Todas') parts.push(`Resp: ${filtersInfo.responsabilidad}`);
+        if (filtersInfo.estado && filtersInfo.estado !== 'Todos') parts.push(`Estado: ${filtersInfo.estado}`);
+        if (filtersInfo.contrato && filtersInfo.contrato !== 'Todos') parts.push(`Contrato: ${filtersInfo.contrato}`);
+        if (filtersInfo.periodoCreacion && filtersInfo.periodoCreacion !== 'Todo el Histórico') parts.push(`Creación: ${filtersInfo.periodoCreacion}`);
+        if (filtersInfo.periodoCompromiso && filtersInfo.periodoCompromiso !== 'Todo el Histórico') parts.push(`Compromiso: ${filtersInfo.periodoCompromiso}`);
+        filterStr = parts.length > 0 ? parts.join(' | ') : 'Todos los registros y compromisos';
+    } else {
+        filterStr = 'Todos los registros y compromisos';
+    }
+
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const pageWidth = 297;
     const pageHeight = 210;
@@ -290,14 +323,14 @@ export function generateExecutiveCompromisosPDF({ compromisos, user, filtersInfo
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(51, 65, 85);
-    const filterText = `Filtros: ${filtersInfo || 'Todos los registros y compromisos'}`;
+    const filterText = `Filtros: ${filterStr}`;
     doc.text(filterText.length > 150 ? filterText.substring(0, 147) + '...' : filterText, 14, 30);
 
     // Calculate Metrics
     const totalCount = compromisos.length;
     const cumplidosCount = compromisos.filter(c => c.estado === 'cumplido').length;
-    const vencidosCount = compromisos.filter(c => isVencidoFn(c.fecha_compromiso, c.estado)).length;
-    const pendientesCount = compromisos.filter(c => ['pendiente', 'en_proceso'].includes(c.estado) && !isVencidoFn(c.fecha_compromiso, c.estado)).length;
+    const vencidosCount = compromisos.filter(c => checkVencido(c.fecha_compromiso, c.estado)).length;
+    const pendientesCount = compromisos.filter(c => ['pendiente', 'en_proceso'].includes(c.estado) && !checkVencido(c.fecha_compromiso, c.estado)).length;
     const cierrePct = totalCount > 0 ? Math.round((cumplidosCount / totalCount) * 100) : 0;
 
     const abastibleCount = compromisos.filter(c => (c.responsabilidad || '').toLowerCase() === 'abastible').length;
@@ -396,7 +429,7 @@ export function generateExecutiveCompromisosPDF({ compromisos, user, filtersInfo
         if (!empMap[name]) empMap[name] = { nombre: name, total: 0, cumplidos: 0, pendientes: 0, enProceso: 0, vencidos: 0 };
         empMap[name].total += 1;
         if (c.estado === 'cumplido') empMap[name].cumplidos += 1;
-        else if (isVencidoFn(c.fecha_compromiso, c.estado)) empMap[name].vencidos += 1;
+        else if (checkVencido(c.fecha_compromiso, c.estado)) empMap[name].vencidos += 1;
         else empMap[name].pendientes += 1;
     });
 
@@ -427,7 +460,7 @@ export function generateExecutiveCompromisosPDF({ compromisos, user, filtersInfo
         c.descripcion || 'Sin descripción',
         (c.responsabilidad || 'contratista').toUpperCase(),
         c.fecha_compromiso ? new Date(c.fecha_compromiso).toLocaleDateString('es-CL') : 'N/A',
-        isVencidoFn(c.fecha_compromiso, c.estado) ? 'VENCIDO' : c.estado.toUpperCase().replace('_', ' '),
+        checkVencido(c.fecha_compromiso, c.estado) ? 'VENCIDO' : (c.estado || '').toUpperCase().replace('_', ' '),
         c.creadoPor?.name || c.responsable?.name || 'N/A',
         c.responsableCierre?.name || (c.estado === 'cumplido' ? 'Administrador' : '-')
     ]);

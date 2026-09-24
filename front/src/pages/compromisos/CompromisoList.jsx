@@ -292,7 +292,7 @@ export default function CompromisoList() {
         };
 
         try {
-            await generateExecutiveCompromisosPDF(compromisos, user, activeFilters);
+            await generateExecutiveCompromisosPDF(compromisos, user, activeFilters, isVencido);
         } catch (err) {
             console.error('Error al generar PDF de compromisos:', err);
             alert('Ocurrió un error al generar el reporte PDF. Por favor intente nuevamente.');
