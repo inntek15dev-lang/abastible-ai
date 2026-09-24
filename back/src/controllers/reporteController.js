@@ -1,6 +1,6 @@
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
-const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso, Elemento, Vinculacion, Administracion, sequelize, Contratista, TipoContratista, Dependencia, Programa } = require('../database/models');
+const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso, Elemento, Vinculacion, Administracion, sequelize, Contratista, TipoContratista, Dependencia, Programa, Gerencia, Subgerencia } = require('../database/models');
 const { Op } = require('sequelize');
 const { getProgramaScope, intersectWithProgramaScope } = require('../utils/programaScopeHelper');
 const { buildScopeWhere, getAllowedVinculacionIds } = require('../utils/scopeHelper');
@@ -138,123 +138,11 @@ module.exports = {
 
     async cumplimientoGeneral(req, res) {
         try {
-            const { periodo, periodo_desde, periodo_hasta } = req.query; 
-            const user = req.user;
-            // Filtro Universal por Rol (centralizado en scopeHelper)
-            const whereRegistro = await buildScopeWhere(user);
-
-            if (periodo_desde || periodo_hasta || periodo) {
-                const startDate = new Date((periodo_desde || periodo) + '-01');
-                const endDate = periodo_hasta 
-                    ? new Date(new Date(periodo_hasta + '-01').setMonth(new Date(periodo_hasta + '-01').getMonth() + 1))
-                    : new Date(new Date(startDate).setMonth(startDate.getMonth() + 1));
-                    
-                whereRegistro.periodo = {
-                    [Op.gte]: startDate,
-                    [Op.lt]: endDate
-                };
-            }
-
-            // Filtro global (todos los roles, sin excepción, incluido admin/oval): solo
-            // registros cuya vinculación tiene Programa asignado en su servicio.
-            const soloHuerfanosCG = req.query.solo_huerfanos === 'true';
-            const programaScopeCG = await getProgramaScope();
-            whereRegistro.contratista_asignacion_id = intersectWithProgramaScope(
-                whereRegistro.contratista_asignacion_id,
-                programaScopeCG.vinculacionIds,
-                soloHuerfanosCG
-            );
-
-            // 1. Resumen de Registros
-            const registros = await Registro.findAll({
-                where: whereRegistro,
-                attributes: ['id', 'periodo', 'eecc_nombre', 'porcentaje_cumplimiento', 'estado_auditoria', 'auditado'],
-                order: [['periodo', 'DESC']],
-                include: [{ model: User, as: 'usuario', attributes: ['name'] }]
-            });
-
-            // 2. Cumplimiento por Elemento
-            // This is heavier. We need to aggregate RegistroActividad linked to these registros.
-            // If no registros, elements are 0% or N/A?
-            // Let's get all elements matches?
-            // Complex query:
-            // Select Elemento.nombre, AVG(case when respuesta='cumple' then 1 else 0 end)
-            // From RegistroActividad
-            // Join Actividad -> Elemento
-            // Where registro_id IN (registros.ids)
-
-            let elementosStats = [];
-            const registroIds = registros.map(r => r.id);
-
-            if (registroIds.length > 0) {
-                // Raw query for aggregation
-                /*
-                SELECT e.id, e.nombre,
-                       COUNT(ra.id) as total_actividades,
-                       SUM(CASE WHEN ra.respuesta_auditor = 'cumple' OR (ra.respuesta_auditor IS NULL AND ra.respuesta_contratista = 'cumple') THEN 1 ELSE 0 END) as cumplidas
-                FROM registro_actividades ra
-                JOIN actividades a ON ra.actividad_id = a.id
-                JOIN elementos e ON a.elemento_id = e.id
-                WHERE ra.registro_id IN (...)
-                GROUP BY e.id
-                */
-                // Using Sequelize syntax:
-                // Using Sequelize syntax:
-                elementosStats = await RegistroActividad.findAll({
-                    attributes: [
-                        [sequelize.col('actividad.elemento.id'), 'elemento_id'],
-                        [sequelize.col('actividad.elemento.nombre'), 'elemento_nombre'],
-                        // Total valid (not NA)
-                        [sequelize.literal(`SUM(CASE WHEN cumple != 2 THEN 1 ELSE 0 END)`), 'total_declarado'],
-                        [sequelize.literal(`SUM(CASE WHEN cumple_auditor != 2 AND cumple_auditor IS NOT NULL THEN 1 ELSE 0 END)`), 'total_auditado'],
-                        // Numerator: count those that are 1 (declared)
-                        [sequelize.literal(`SUM(CASE WHEN cumple = 1 THEN 1 ELSE 0 END)`), 'cumplidas_declarado'],
-                        // Numerator: count those that are 1 (audited)
-                        [sequelize.literal(`SUM(CASE WHEN cumple_auditor = 1 THEN 1 ELSE 0 END)`), 'cumplidas_auditado']
-                    ],
-                    include: [{
-                        model: Actividad,
-                        as: 'actividad',
-                        attributes: [],
-                        include: [{
-                            model: Elemento,
-                            as: 'elemento',
-                            attributes: ['id', 'nombre']
-                        }]
-                    }],
-                    where: { registro_id: registroIds },
-                    group: ['actividad.elemento.id', 'actividad.elemento.nombre'],
-                    raw: true
-                });
-
-                // Format
-                elementosStats = elementosStats.map(e => ({
-                    id: e.elemento_id,
-                    name: e.elemento_nombre,
-                    declarado: parseInt(e.total_declarado) > 0 ? Math.round((parseInt(e.cumplidas_declarado) / parseInt(e.total_declarado)) * 100) : 0,
-                    auditado: parseInt(e.total_auditado) > 0 ? Math.round((parseInt(e.cumplidas_auditado) / parseInt(e.total_auditado)) * 100) : null
-                }));
-            }
-
-            // Fill with all elements if needed (optional, for now show only what has data)
-            // If we want to show ALL elements even with 0 data, we'd query Elemento.findAll and merge.
-            // Let's stick to showing data for now.
-
+            const stats = await module.exports._getStats(req, req.query.periodo);
             res.json({
                 success: true,
-                data: {
-                    elementos: elementosStats,
-                    registros: registros.map(r => ({
-                        id: r.id,
-                        periodo: r.periodo,
-                        eecc: r.eecc_nombre || 'N/A',
-                        cumplimiento: parseFloat(r.porcentaje_cumplimiento),
-                        estado: parseFloat(r.porcentaje_cumplimiento) >= 85 ? 'Cumple meta' : 'Bajo meta',
-                        statusClass: parseFloat(r.porcentaje_cumplimiento) >= 85 ? 'ok' : 'bad'
-                    }))
-                }
+                data: stats
             });
-
         } catch (error) {
             console.error('Reporte Cumplimiento Error:', error);
             res.status(500).json({ message: 'Error al obtener reporte' });
@@ -686,21 +574,100 @@ module.exports = {
     },
 
     // Internal helper to avoid code duplication
-    async _getStats(req, periodo) {
-        // This logic is mostly copied from cumplimientoGeneral for this demo
+    async _getStats(req, periodoParam) {
         const user = req.user;
-        // Unified scope logic (Filtro Universal por Rol)
         const whereRegistro = await buildScopeWhere(user);
-        
-        if (req.query.periodo_desde || req.query.periodo_hasta || periodo) {
-            const startDate = new Date((req.query.periodo_desde || periodo) + '-01');
-            const endMonthDate = req.query.periodo_hasta ? new Date(req.query.periodo_hasta + '-01') : startDate;
-            const endDate = new Date(new Date(endMonthDate).setMonth(endMonthDate.getMonth() + 1));
-            whereRegistro.periodo = { [Op.gte]: startDate, [Op.lt]: endDate };
+        const { fecha_inicio, fecha_fin, periodo_desde, periodo_hasta, programa_id, servicio_id, dependencia_id, search, gerencia_id, subgerencia_id, adc_id } = req.query;
+
+        // 1. Filtro ADC
+        if (adc_id && adc_id !== 'todos') {
+            const adminRecords = await Administracion.findAll({
+                where: { administrador_contrato_id: adc_id, activo: 1 },
+                attributes: ['vinculacion_id']
+            });
+            const vincIdsFromADC = adminRecords.map(a => a.vinculacion_id);
+            if (whereRegistro.contratista_asignacion_id) {
+                const existingIds = whereRegistro.contratista_asignacion_id[Op.in] || [];
+                const intersection = existingIds.filter(id => vincIdsFromADC.includes(id));
+                whereRegistro.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+            } else {
+                whereRegistro.contratista_asignacion_id = { [Op.in]: vincIdsFromADC.length > 0 ? vincIdsFromADC : [-1] };
+            }
         }
 
-        // Filtro global (todos los roles, sin excepción, incluido admin/oval): solo
-        // registros cuya vinculación tiene Programa asignado en su servicio.
+        // 2. Filtro Gerencia / Subgerencia
+        if ((gerencia_id && gerencia_id !== 'todas') || (subgerencia_id && subgerencia_id !== 'todas')) {
+            const vincWhere = { activo: 1 };
+            if (subgerencia_id && subgerencia_id !== 'todas') {
+                vincWhere.subgerencia_id = subgerencia_id;
+            } else if (gerencia_id && gerencia_id !== 'todas') {
+                const subgs = await Subgerencia.findAll({
+                    where: { gerencia_id: gerencia_id, activo: 1 },
+                    attributes: ['id']
+                });
+                const subgIds = subgs.map(s => s.id);
+                vincWhere.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
+            }
+
+            const vincsInHierarchy = await Vinculacion.findAll({
+                where: vincWhere,
+                attributes: ['id']
+            });
+            const vincIdsFromHierarchy = vincsInHierarchy.map(v => v.id);
+
+            if (whereRegistro.contratista_asignacion_id) {
+                const existingIds = whereRegistro.contratista_asignacion_id[Op.in] || [];
+                const intersection = existingIds.filter(id => vincIdsFromHierarchy.includes(id));
+                whereRegistro.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+            } else {
+                whereRegistro.contratista_asignacion_id = { [Op.in]: vincIdsFromHierarchy.length > 0 ? vincIdsFromHierarchy : [-1] };
+            }
+        }
+
+        // 3. Filtro Servicio
+        if (servicio_id && servicio_id !== 'todos') {
+            const vincsWithService = await Vinculacion.findAll({
+                where: { servicio_id: servicio_id, activo: 1 },
+                attributes: ['id']
+            });
+            const serviceVincIds = vincsWithService.map(v => v.id);
+
+            if (whereRegistro.contratista_asignacion_id) {
+                const existingIds = whereRegistro.contratista_asignacion_id[Op.in] || [];
+                const intersection = existingIds.filter(id => serviceVincIds.includes(id));
+                whereRegistro.contratista_asignacion_id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+            } else {
+                whereRegistro.contratista_asignacion_id = { [Op.in]: serviceVincIds.length > 0 ? serviceVincIds : [-1] };
+            }
+        }
+
+        // 4. Filtros Atributos Directos
+        if (programa_id && programa_id !== 'todos') whereRegistro.programa_id = programa_id;
+        if (dependencia_id && dependencia_id !== 'todas') whereRegistro.dependencia_id = dependencia_id;
+        if (search) whereRegistro.eecc_nombre = { [Op.like]: `%${search}%` };
+
+        // 5. Filtro de Rango de Fechas / Periodo
+        const startStr = fecha_inicio || periodo_desde || (periodoParam || req.query.periodo || null);
+        const endStr = fecha_fin || periodo_hasta || null;
+
+        if (startStr || endStr) {
+            const dateFilter = {};
+            if (startStr) {
+                dateFilter[Op.gte] = new Date(startStr + '-01');
+            }
+            if (endStr) {
+                const d = new Date(endStr + '-01');
+                d.setMonth(d.getMonth() + 1);
+                dateFilter[Op.lt] = d;
+            } else if (startStr && !endStr && (periodoParam || req.query.periodo || periodo_desde)) {
+                const d = new Date(startStr + '-01');
+                d.setMonth(d.getMonth() + 1);
+                dateFilter[Op.lt] = d;
+            }
+            whereRegistro.periodo = dateFilter;
+        }
+
+        // 6. Filtro global programa scope
         const soloHuerfanosStats = req.query.solo_huerfanos === 'true';
         const programaScopeStats = await getProgramaScope();
         whereRegistro.contratista_asignacion_id = intersectWithProgramaScope(
@@ -745,10 +712,11 @@ module.exports = {
             elementos: elementosStats,
             registros: registros.map(r => ({
                 id: r.id,
-                periodo: r.periodo,
+                periodo: String(r.periodo).slice(0, 7),
                 eecc: r.eecc_nombre || 'N/A',
-                cumplimiento: parseFloat(r.porcentaje_cumplimiento),
-                estado: parseFloat(r.porcentaje_cumplimiento) >= 85 ? 'Cumple meta' : 'Bajo meta'
+                cumplimiento: parseFloat(r.porcentaje_cumplimiento || 0),
+                estado: parseFloat(r.porcentaje_cumplimiento || 0) >= 85 ? 'Cumple meta' : 'Bajo meta',
+                statusClass: parseFloat(r.porcentaje_cumplimiento || 0) >= 85 ? 'ok' : 'bad'
             }))
         };
     },

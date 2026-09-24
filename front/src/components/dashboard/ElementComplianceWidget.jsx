@@ -16,10 +16,7 @@ export default function ElementComplianceWidget({ filters }) {
 
             const params = new URLSearchParams();
             if (filters.fecha_inicio) params.append('fecha_inicio', filters.fecha_inicio);
-            
-            // Period is historically fecha_fin or current month
-            const queryPeriod = filters.fecha_fin || new Date().toISOString().slice(0, 7);
-            params.append('periodo', queryPeriod);
+            if (filters.fecha_fin) params.append('fecha_fin', filters.fecha_fin);
 
             if (filters.programa_id && filters.programa_id !== 'todos') params.append('programa_id', filters.programa_id);
             if (filters.servicio_id && filters.servicio_id !== 'todos') params.append('servicio_id', filters.servicio_id);
@@ -27,6 +24,8 @@ export default function ElementComplianceWidget({ filters }) {
             if (filters.gerencia_id && filters.gerencia_id !== 'todas') params.append('gerencia_id', filters.gerencia_id);
             if (filters.subgerencia_id && filters.subgerencia_id !== 'todas') params.append('subgerencia_id', filters.subgerencia_id);
             if (filters.adc_id && filters.adc_id !== 'todos') params.append('adc_id', filters.adc_id);
+            if (filters.search) params.append('search', filters.search);
+            if (filters.solo_huerfanos) params.append('solo_huerfanos', 'true');
 
             const response = await api.get(`/reportes/cumplimiento?${params.toString()}`);
 
