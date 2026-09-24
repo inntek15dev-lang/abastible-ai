@@ -21,10 +21,22 @@ const { TipoContratista, Vinculacion, Subgerencia } = require('../database/model
 // la asignación de programa_id puede cambiar en cualquier momento vía ServicioForm.
 const getProgramaScope = async () => {
     const serviciosConPrograma = await TipoContratista.findAll({
-        where: { programa_id: { [Op.not]: null } },
-        attributes: ['id', 'subgerencia_id']
+        where: {
+            programa_id: {
+                [Op.and]: [
+                    { [Op.not]: null },
+                    { [Op.ne]: '' },
+                    { [Op.ne]: 0 },
+                    { [Op.ne]: 'null' }
+                ]
+            }
+        },
+        attributes: ['id', 'programa_id', 'subgerencia_id']
     });
-    const servicioIds = serviciosConPrograma.map(s => s.id);
+
+    const servicioIds = serviciosConPrograma
+        .map(s => s.id)
+        .filter(id => id !== null && id !== undefined && id !== '' && id !== 0 && String(id) !== 'null');
 
     if (servicioIds.length === 0) {
         return {
@@ -58,30 +70,29 @@ const getProgramaScope = async () => {
 // Helper de conveniencia: arma el operador Sequelize correcto según se pida el set
 // "programado" (comportamiento por defecto en todo el sistema) o su inverso "huérfano"
 // (solo_huerfanos=true, para revisión/limpieza — ver RN de retroactividad).
-// Un array vacío de ids con Op.in siempre da 0 filas (correcto: nada programado aún);
-// Op.notIn con array vacío da "todo" (correcto: todo es huérfano si no hay ids).
 const scopeWhereClause = (ids, soloHuerfanos) => {
     return soloHuerfanos ? { [Op.notIn]: ids } : { [Op.in]: ids };
 };
 
 // Combina (AND lógico) una condición existente de un campo vinculacion_id/contratista_
-// asignacion_id — que en este código base viene en 3 formas posibles: undefined (sin
-// restricción previa), un valor único (ej. contratista_user con su única vinculación), o
-// { [Op.in]: [...] } (el resto de roles/filtros) — con el set de ids elegibles por el
-// filtro global de programa (o su complemento en modo huérfanos). Preserva el mismo
-// patrón de intersección "tomar ids existentes, filtrar, reasignar" que ya usan los
-// controllers, para poder componerse con cualquier filtro de rol/query previo sin
-// tener que reescribir esa lógica existente.
+// asignacion_id con el set de ids elegibles por el filtro global de programa.
 const intersectWithProgramaScope = (existingCondition, eligibleIds, soloHuerfanos) => {
     const eligibleSet = new Set(eligibleIds.map(Number));
     const passes = (v) => soloHuerfanos ? !eligibleSet.has(Number(v)) : eligibleSet.has(Number(v));
+    const scopeCond = scopeWhereClause(eligibleIds, soloHuerfanos);
 
     if (existingCondition === undefined || existingCondition === null) {
-        return scopeWhereClause(eligibleIds, soloHuerfanos);
+        return scopeCond;
     }
-    if (typeof existingCondition === 'object' && existingCondition[Op.in]) {
-        const filtered = existingCondition[Op.in].filter(passes);
-        return { [Op.in]: filtered.length > 0 ? filtered : [-1] };
+    if (typeof existingCondition === 'object') {
+        if (existingCondition[Op.in]) {
+            const filtered = existingCondition[Op.in].filter(passes);
+            return { [Op.in]: filtered.length > 0 ? filtered : [-1] };
+        }
+        if (existingCondition[Op.and]) {
+            return { [Op.and]: [...existingCondition[Op.and], scopeCond] };
+        }
+        return { [Op.and]: [existingCondition, scopeCond] };
     }
     // Valor único (number/string)
     return passes(existingCondition) ? existingCondition : -1;

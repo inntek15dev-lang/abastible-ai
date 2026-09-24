@@ -788,7 +788,17 @@ const dashboardController = {
                     {
                         model: TipoContratista,
                         as: 'servicio',
-                        required: false,
+                        required: !soloHuerfanosMatrix,
+                        where: !soloHuerfanosMatrix ? {
+                            programa_id: {
+                                [Op.and]: [
+                                    { [Op.not]: null },
+                                    { [Op.ne]: '' },
+                                    { [Op.ne]: 0 },
+                                    { [Op.ne]: 'null' }
+                                ]
+                            }
+                        } : undefined,
                         attributes: ['id', 'nombre', 'programa_id'],
                         include: [{
                             model: Programa,

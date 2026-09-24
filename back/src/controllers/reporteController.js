@@ -523,6 +523,17 @@ module.exports = {
                 { model: Contratista, as: 'contratista', attributes: ['nombre', 'rut'] },
                 {
                     model: TipoContratista, as: 'servicio',
+                    required: !soloHuerfanosMatrixData,
+                    where: !soloHuerfanosMatrixData ? {
+                        programa_id: {
+                            [Op.and]: [
+                                { [Op.not]: null },
+                                { [Op.ne]: '' },
+                                { [Op.ne]: 0 },
+                                { [Op.ne]: 'null' }
+                            ]
+                        }
+                    } : undefined,
                     include: [{
                         model: Programa, as: 'programa',
                         where: (programa_id && programa_id !== 'todos') ? { id: programa_id } : undefined

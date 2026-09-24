@@ -72,20 +72,10 @@ const vinculacionController = {
             // Filtro global (todos los roles, sin excepción, incluido admin/oval): solo
             // vinculaciones cuyo servicio tiene un Programa asignado. solo_huerfanos=true
             // invierte el filtro para revisión/limpieza de lo que quedó sin programar.
+            const { intersectWithProgramaScope } = require('../utils/programaScopeHelper');
             const soloHuerfanos = solo_huerfanos === 'true';
             const scope = await getProgramaScope();
-            const programaCondition = scopeWhereClause(scope.vinculacionIds, soloHuerfanos);
-
-            if (where.id !== undefined) {
-                const { Op } = require('sequelize');
-                where[Op.and] = [
-                    { id: where.id },
-                    { id: programaCondition }
-                ];
-                delete where.id;
-            } else {
-                where.id = programaCondition;
-            }
+            where.id = intersectWithProgramaScope(where.id, scope.vinculacionIds, soloHuerfanos);
 
             const vinculaciones = await Vinculacion.findAll({
                 where,
