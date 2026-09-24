@@ -1,15 +1,17 @@
-﻿import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getVisibleModules } from '../config/navigation';
-import { LogOut, ChevronDown, UserCircle, Menu as MenuIcon, HelpCircle } from 'lucide-react';
-import { Menu, MenuTrigger, Popover, Button, MenuItem } from 'react-aria-components';
-import { Fragment, useState, useEffect, useCallback } from 'react';
+import { LogOut, ChevronDown, UserCircle, HelpCircle } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import './NavbarModule.css';
 
 export default function NavbarModule() {
     const { user, logout, canRead } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+
+    const [activeDropdown, setActiveDropdown] = useState(null); // module.id or 'user' or null
+    const navbarRef = useRef(null);
 
     // Color theme circles — only visible on registro form routes
     const isRegistroFormRoute = /^\/registros\/(new|\d+)/.test(location.pathname);
@@ -23,10 +25,25 @@ export default function NavbarModule() {
     // Reset theme when navigating away from registro form
     useEffect(() => {
         if (isRegistroFormRoute) {
-            // Dispatch default theme on mount
             window.dispatchEvent(new CustomEvent('registro-theme-change', { detail: { theme: registroTheme } }));
         }
     }, [isRegistroFormRoute]);
+
+    // Close dropdowns when clicking outside navbar
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (navbarRef.current && !navbarRef.current.contains(event.target)) {
+                setActiveDropdown(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Close dropdowns on route change
+    useEffect(() => {
+        setActiveDropdown(null);
+    }, [location.pathname]);
 
     const handleLogout = () => {
         logout();
@@ -43,8 +60,12 @@ export default function NavbarModule() {
         return false;
     };
 
+    const toggleDropdown = (id) => {
+        setActiveDropdown(prev => prev === id ? null : id);
+    };
+
     return (
-        <header className="main-navbar">
+        <header className="main-navbar" ref={navbarRef}>
             <div className="navbar-container">
                 {/* Brand */}
                 <div className="navbar-brand">
@@ -56,8 +77,11 @@ export default function NavbarModule() {
                     {modules.map((module) => (
                         <div key={module.id} className="module-item">
                             {module.items ? (
-                                <MenuTrigger>
-                                    <Button
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleDropdown(module.id)}
+                                        aria-expanded={activeDropdown === module.id}
                                         className={`module-link ${isModuleActive(module) ? 'active' : ''} outline-none`}
                                         style={{
                                             '--module-color': module.color
@@ -65,27 +89,28 @@ export default function NavbarModule() {
                                     >
                                         <module.icon size={18} />
                                         <span>{module.label}</span>
-                                        <ChevronDown size={14} className="ml-1" />
-                                    </Button>
-                                    <Popover placement="bottom start" className="dropdown-menu">
-                                        <Menu className="outline-none p-0">
+                                        <ChevronDown size={14} className={`ml-1 transition-transform ${activeDropdown === module.id ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    {activeDropdown === module.id && (
+                                        <div className="dropdown-menu">
                                             {module.items.map((item) => (
-                                                <MenuItem key={item.path} className="outline-none" textValue={item.label}>
-                                                    <NavLink
-                                                        to={item.path}
-                                                        className={({ isActive }) => `dropdown-item ${isActive ? 'active' : ''}`}
-                                                    >
-                                                        <item.icon size={16} />
-                                                        {item.label}
-                                                    </NavLink>
-                                                </MenuItem>
+                                                <NavLink
+                                                    key={item.path}
+                                                    to={item.path}
+                                                    onClick={() => setActiveDropdown(null)}
+                                                    className={({ isActive }) => `dropdown-item ${isActive ? 'active' : ''}`}
+                                                >
+                                                    <item.icon size={16} />
+                                                    {item.label}
+                                                </NavLink>
                                             ))}
-                                        </Menu>
-                                    </Popover>
-                                </MenuTrigger>
+                                        </div>
+                                    )}
+                                </>
                             ) : (
                                 <NavLink
                                     to={module.path}
+                                    onClick={() => setActiveDropdown(null)}
                                     className={({ isActive }) => `module-link ${isActive ? 'active' : ''}`}
                                     style={{
                                         '--module-color': module.color
@@ -136,32 +161,36 @@ export default function NavbarModule() {
 
                 {/* User Profile */}
                 <div className="navbar-user">
-                    <MenuTrigger>
-                        <Button className="user-btn outline-none">
-                            <div className="user-avatar">
-                                <UserCircle size={20} />
-                            </div>
-                            <div className="user-info-mini">
-                                <span className="name">{user?.name}</span>
-                                <span className="role">{user?.role}</span>
-                            </div>
-                            <ChevronDown size={14} />
-                        </Button>
-                        <Popover placement="bottom end" className="dropdown-menu right">
-                            <Menu className="outline-none p-0" onAction={(key) => {
-                                if (key === 'logout') handleLogout();
-                            }}>
-                                <MenuItem id="logout" className="outline-none" textValue="Cerrar Sesión">
-                                    {({ isFocused }) => (
-                                        <div className={`dropdown-item text-red-600 ${isFocused ? 'bg-red-50' : ''}`}>
-                                            <LogOut size={16} />
-                                            Cerrar Sesión
-                                        </div>
-                                    )}
-                                </MenuItem>
-                            </Menu>
-                        </Popover>
-                    </MenuTrigger>
+                    <button
+                        type="button"
+                        onClick={() => toggleDropdown('user')}
+                        aria-expanded={activeDropdown === 'user'}
+                        className="user-btn outline-none"
+                    >
+                        <div className="user-avatar">
+                            <UserCircle size={20} />
+                        </div>
+                        <div className="user-info-mini">
+                            <span className="name">{user?.name}</span>
+                            <span className="role">{user?.role}</span>
+                        </div>
+                        <ChevronDown size={14} className={`transition-transform ${activeDropdown === 'user' ? 'rotate-180' : ''}`} />
+                    </button>
+                    {activeDropdown === 'user' && (
+                        <div className="dropdown-menu right">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setActiveDropdown(null);
+                                    handleLogout();
+                                }}
+                                className="dropdown-item text-red-600 hover:bg-red-50 text-left w-full border-none bg-transparent cursor-pointer"
+                            >
+                                <LogOut size={16} />
+                                Cerrar Sesión
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </header>

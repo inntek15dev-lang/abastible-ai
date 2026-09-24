@@ -109,6 +109,23 @@ async function start() {
         await sequelize.authenticate();
         console.log('✅ Conexión a base de datos establecida');
 
+        // Self-healing schema migration for compromisos table
+        try {
+            const [columns] = await sequelize.query("SHOW COLUMNS FROM compromisos");
+            const colNames = columns.map(c => c.Field);
+
+            if (!colNames.includes('responsabilidad')) {
+                await sequelize.query("ALTER TABLE compromisos ADD COLUMN responsabilidad ENUM('abastible', 'contratista') NOT NULL DEFAULT 'contratista' AFTER hallazgo_id");
+                console.log('✅ Auto-migration: Added `responsabilidad` column to compromisos table');
+            }
+            if (!colNames.includes('responsable_cierre_id')) {
+                await sequelize.query("ALTER TABLE compromisos ADD COLUMN responsable_cierre_id BIGINT UNSIGNED NULL AFTER creado_por_id");
+                console.log('✅ Auto-migration: Added `responsable_cierre_id` column to compromisos table');
+            }
+        } catch (migErr) {
+            console.warn('⚠️ Auto-migration check warning:', migErr.message);
+        }
+
         app.listen(PORT, () => {
             console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
             console.log(`📋 Health check: http://localhost:${PORT}/health`);

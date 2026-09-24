@@ -245,19 +245,19 @@ a {
   border-color: transparent !important;
 }
 
-/* Sub-menu Dropdowns */
+/* Sub-menu Dropdowns (Positioned relative to navbar item) */
 .dropdown-menu {
   position: absolute;
-  top: 120%;
+  top: calc(100% + 0.5rem);
   left: 0;
+  margin-top: 0;
   width: 260px;
   background: white;
   border-radius: var(--border-radius-md);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   border: 1px solid var(--border-color);
   padding: 8px 0;
-  z-index: 50;
-  overflow: hidden;
+  z-index: 10000;
 }
 
 .dropdown-menu.right {

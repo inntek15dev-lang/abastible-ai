@@ -24,7 +24,7 @@ import {
     Calendar
 } from 'lucide-react';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import HallazgoModal from '../../components/forms/HallazgoModal';
 import ConfirmationModal from '../../components/modals/ConfirmationModal';
 import { toast } from 'react-hot-toast';
@@ -46,7 +46,7 @@ export default function RegistroAudit() {
 
     // Commitments State
     const [compromisos, setCompromisos] = useState([]);
-    const [nuevoCompromiso, setNuevoCompromiso] = useState({ descripcion: '', fecha_compromiso: '' });
+    const [nuevoCompromiso, setNuevoCompromiso] = useState({ descripcion: '', fecha_compromiso: '', responsabilidad: 'contratista' });
     const [loadingCompromisos, setLoadingCompromisos] = useState(false);
     const [hallazgoModal, setHallazgoModal] = useState({ show: false, actividad: null, hallazgo: null });
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', action: null });
@@ -115,12 +115,14 @@ export default function RegistroAudit() {
                 registro_id: id,
                 descripcion: nuevoCompromiso.descripcion,
                 fecha_compromiso: nuevoCompromiso.fecha_compromiso,
+                responsabilidad: nuevoCompromiso.responsabilidad || 'contratista',
                 contratista_asignacion_id: registro.contratista_asignacion_id
             });
-            setNuevoCompromiso({ descripcion: '', fecha_compromiso: '' });
+            setNuevoCompromiso({ descripcion: '', fecha_compromiso: '', responsabilidad: 'contratista' });
             fetchCompromisos();
         } catch (err) {
-            alert('Error al guardar compromiso');
+            console.error('Error al guardar compromiso:', err);
+            alert(err.response?.data?.message || 'Error al guardar compromiso');
         }
     };
 
@@ -776,85 +778,109 @@ export default function RegistroAudit() {
                                 </div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    {compromisos.map((comp) => (
-                                        <div
-                                            key={comp.id}
-                                            style={{
-                                                background: '#fff',
-                                                border: '1px solid #e2e8f0',
-                                                padding: '12px 16px',
-                                                borderRadius: '10px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-                                            }}
-                                        >
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ fontWeight: 600, color: '#1f2937', fontSize: '0.9rem' }}>{comp.descripcion}</div>
-                                                <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                                                    <Calendar size={12} /> <span>Vence: {new Date(comp.fecha_compromiso).toLocaleDateString('es-CL')}</span>
+                                    {compromisos.map((comp) => {
+                                        const respMarca = (comp.responsabilidad || 'contratista').toLowerCase();
+                                        return (
+                                            <div
+                                                key={comp.id}
+                                                style={{
+                                                    background: '#fff',
+                                                    border: '1px solid #e2e8f0',
+                                                    padding: '12px 16px',
+                                                    borderRadius: '10px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                                                }}
+                                            >
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontWeight: 600, color: '#1f2937', fontSize: '0.9rem' }}>{comp.descripcion}</div>
+                                                    <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            <Calendar size={12} /> Vence: {new Date(comp.fecha_compromiso).toLocaleDateString('es-CL')}
+                                                        </span>
+                                                        <span style={{
+                                                            fontSize: '0.7rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px',
+                                                            background: respMarca === 'abastible' ? '#e0f2fe' : '#f3e8ff',
+                                                            color: respMarca === 'abastible' ? '#0369a1' : '#6b21a8',
+                                                            border: `1px solid ${respMarca === 'abastible' ? '#bae6fd' : '#e9d5ff'}`
+                                                        }}>
+                                                            {respMarca === 'abastible' ? 'Abastible' : 'Contratista'}
+                                                        </span>
+                                                    </div>
                                                 </div>
+                                                {(isAuditando || isEnRevision) && canWrite('Auditoria') && (
+                                                    <button
+                                                        onClick={() => handleDeleteCompromiso(comp.id)}
+                                                        style={{ color: '#ef4444', background: '#fef2f2', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '8px', marginLeft: '12px' }}
+                                                    >
+                                                        <Trash size={14} />
+                                                    </button>
+                                                )}
                                             </div>
-                                            {(isAuditando || isEnRevision) && canWrite('Auditoria') && (
-                                                <button
-                                                    onClick={() => handleDeleteCompromiso(comp.id)}
-                                                    style={{ color: '#ef4444', background: '#fef2f2', border: 'none', cursor: 'pointer', padding: '8px', borderRadius: '8px', marginLeft: '12px' }}
-                                                >
-                                                    <Trash size={14} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
 
-
-                            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', marginTop: '20px', border: '1px solid #e2e8f0' }}>
-                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                    <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            placeholder="¿Qué acción se compromete?..."
-                                            style={{ fontSize: '0.9rem', borderRadius: '8px', width: '100%' }}
-                                            value={nuevoCompromiso.descripcion}
-                                            onChange={(e) => setNuevoCompromiso(prev => ({ ...prev, descripcion: e.target.value }))}
-                                        />
-                                    </div>
-                                    <div style={{ flex: '0 0 145px' }}>
-                                        <input
-                                            type="date"
-                                            className="form-control"
-                                            style={{ fontSize: '0.9rem', borderRadius: '8px', width: '100%' }}
-                                            value={nuevoCompromiso.fecha_compromiso}
-                                            onChange={(e) => setNuevoCompromiso(prev => ({ ...prev, fecha_compromiso: e.target.value }))}
-                                            min={new Date().toISOString().split('T')[0]}
-                                            max={new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-                                        />
-                                    </div>
-                                    <div style={{ flex: '0 0 auto' }}>
-                                        <button
-                                            className="btn-primary"
-                                            onClick={handleAddCompromiso}
-                                            style={{
-                                                height: '38px',
-                                                width: '42px',
-                                                padding: 0,
-                                                borderRadius: '8px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                background: '#003594',
-                                                border: 'none'
-                                            }}
-                                        >
-                                            <Plus size={18} />
-                                        </button>
-                                    </div>
+                        <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', marginTop: '20px', border: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        placeholder="¿Qué acción se compromete?..."
+                                        style={{ fontSize: '0.9rem', borderRadius: '8px', width: '100%' }}
+                                        value={nuevoCompromiso.descripcion}
+                                        onChange={(e) => setNuevoCompromiso(prev => ({ ...prev, descripcion: e.target.value }))}
+                                    />
                                 </div>
-                    </div>
+                                <div style={{ flex: '0 0 135px' }}>
+                                    <select
+                                        className="form-control"
+                                        style={{ fontSize: '0.85rem', borderRadius: '8px', width: '100%', height: '38px', padding: '4px 8px' }}
+                                        value={nuevoCompromiso.responsabilidad}
+                                        onChange={(e) => setNuevoCompromiso(prev => ({ ...prev, responsabilidad: e.target.value }))}
+                                        title="Marca de Responsabilidad"
+                                    >
+                                        <option value="contratista">Contratista</option>
+                                        <option value="abastible">Abastible</option>
+                                    </select>
+                                </div>
+                                <div style={{ flex: '0 0 135px' }}>
+                                    <input
+                                        type="date"
+                                        className="form-control"
+                                        style={{ fontSize: '0.9rem', borderRadius: '8px', width: '100%' }}
+                                        value={nuevoCompromiso.fecha_compromiso}
+                                        onChange={(e) => setNuevoCompromiso(prev => ({ ...prev, fecha_compromiso: e.target.value }))}
+                                        min={new Date().toISOString().split('T')[0]}
+                                        max={new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                                    />
+                                </div>
+                                <div style={{ flex: '0 0 auto' }}>
+                                    <button
+                                        className="btn-primary"
+                                        onClick={handleAddCompromiso}
+                                        style={{
+                                            height: '38px',
+                                            width: '42px',
+                                            padding: 0,
+                                            borderRadius: '8px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            background: '#003594',
+                                            border: 'none'
+                                        }}
+                                    >
+                                        <Plus size={18} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                 </div>
             </div>
             )}

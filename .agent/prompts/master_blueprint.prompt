@@ -257,7 +257,8 @@
           "acceptance_criteria": [
             "AC-01: KPIs, histórico y actividad reciente respetan el mismo scoping de vinculacion_id que el resto del sistema",
             "AC-02: dashboard/matrix soporta filtros por contratista_id, servicio_id, dependencia_id, programa_id, tiene_registros y rango de periodo (periodo_desde/periodo_hasta)",
-            "AC-03-SEC: Solo usuarios autenticados acceden (sin requirePrivilege adicional en las rutas de /dashboard/*, cualquier rol autenticado puede leer, filtrado internamente por controller)"
+            "AC-03-SEC: Solo usuarios autenticados acceden (sin requirePrivilege adicional en las rutas de /dashboard/*, cualquier rol autenticado puede leer, filtrado internamente por controller)",
+            "AC-04-SCOPE: Filtro Universal de Programa (RN-UNIVERSAL-PROGRAMA): Toda vinculación, empresa o registro cuyo servicio no tenga un Programa asignado (programa_id NULL, 0, '' o 'null') queda excluida incondicionalmente de todas las vistas operativas y de reporte (Pendientes, Matriz de Cumplimiento, KPIs, Dropdowns) salvo al activar el filtro de huérfanos (solo_huerfanos=true)"
           ],
           "security_tag": "Internal"
         },
