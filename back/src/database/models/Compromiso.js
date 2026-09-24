@@ -24,6 +24,15 @@ const Compromiso = sequelize.define('Compromiso', {
         type: DataTypes.BIGINT.UNSIGNED,
         allowNull: false
     },
+    responsable_cierre_id: {
+        type: DataTypes.BIGINT.UNSIGNED,
+        allowNull: true
+    },
+    responsabilidad: {
+        type: DataTypes.ENUM('abastible', 'contratista'),
+        allowNull: false,
+        defaultValue: 'contratista'
+    },
 
     descripcion: {
         type: DataTypes.TEXT,

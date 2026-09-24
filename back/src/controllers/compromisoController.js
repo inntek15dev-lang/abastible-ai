@@ -10,13 +10,53 @@ const compromisoController = {
     // GET /api/compromisos
     async index(req, res) {
         try {
-            const { registro_id, hallazgo_id, estado, responsable_id, contratista_id, servicio_id, dependencia_id } = req.query;
+            const {
+                registro_id,
+                hallazgo_id,
+                estado,
+                vencidos,
+                responsabilidad,
+                responsable_id,
+                contratista_id,
+                servicio_id,
+                dependencia_id,
+                fecha_creacion_desde,
+                fecha_creacion_hasta,
+                fecha_compromiso_desde,
+                fecha_compromiso_hasta
+            } = req.query;
+
             let where = {};
 
             if (registro_id) where.registro_id = registro_id;
             if (hallazgo_id) where.hallazgo_id = hallazgo_id;
-            if (estado) where.estado = estado;
             if (responsable_id) where.responsable_id = responsable_id;
+            if (responsabilidad && ['abastible', 'contratista'].includes(responsabilidad)) {
+                where.responsabilidad = responsabilidad;
+            }
+
+            // High precision status filter
+            const todayStr = new Date().toISOString().split('T')[0];
+            if (estado === 'vencido' || vencidos === 'true') {
+                where.estado = { [Op.ne]: 'cumplido' };
+                where.fecha_compromiso = { [Op.lt]: todayStr };
+            } else if (estado && estado !== 'all') {
+                where.estado = estado;
+            }
+
+            // Period Filters: Creation Date
+            if (fecha_creacion_desde || fecha_creacion_hasta) {
+                where.created_at = {};
+                if (fecha_creacion_desde) where.created_at[Op.gte] = new Date(`${fecha_creacion_desde}T00:00:00`);
+                if (fecha_creacion_hasta) where.created_at[Op.lte] = new Date(`${fecha_creacion_hasta}T23:59:59`);
+            }
+
+            // Period Filters: Commitment Target Date
+            if (fecha_compromiso_desde || fecha_compromiso_hasta) {
+                where.fecha_compromiso = where.fecha_compromiso || {};
+                if (fecha_compromiso_desde) where.fecha_compromiso[Op.gte] = fecha_compromiso_desde;
+                if (fecha_compromiso_hasta) where.fecha_compromiso[Op.lte] = fecha_compromiso_hasta;
+            }
 
             // Prepare includes for filtering
             const includeRegistro = {
@@ -40,9 +80,7 @@ const compromisoController = {
                 includeRegistro.include.push(includeVinculacion);
             }
 
-            // Role-based filtering (Security). getAllowedVinculacionIds cubre los 3 roles
-            // restringidos de forma uniforme (antes faltaba la rama administrador_contrato
-            // por completo: veía TODOS los compromisos del sistema sin filtrar).
+            // Role-based filtering (Security).
             const user = req.user;
             const allowedVincIds = await getAllowedVinculacionIds(user);
             if (allowedVincIds !== null) {
@@ -57,15 +95,10 @@ const compromisoController = {
                     includeRegistro.include.push(vincInclude);
                 }
                 includeRegistro.required = true;
-                // AND con cualquier filtro de query ya presente (contratista_id/servicio_id/
-                // dependencia_id): solo puede acotar más, nunca ampliar el scope, porque
-                // "id" ya fija el conjunto exacto de vinculaciones permitidas.
                 vincInclude.where = { ...vincInclude.where, id: { [Op.in]: allowedVincIds.length > 0 ? allowedVincIds : [-1] } };
             }
 
-            // Filtro global (todos los roles, sin excepción): un compromiso solo es visible
-            // si el registro al que pertenece tiene una vinculación con Programa asignado.
-            // solo_huerfanos=true invierte el filtro para revisión/limpieza.
+            // Filtro global
             const soloHuerfanos = req.query.solo_huerfanos === 'true';
             const programaScope = await getProgramaScope();
             includeRegistro.where = {
@@ -77,10 +110,11 @@ const compromisoController = {
             const compromisos = await Compromiso.findAll({
                 where,
                 include: [
-                    includeRegistro, // Added for filtering
+                    includeRegistro,
                     { model: Hallazgo, as: 'hallazgo', attributes: ['id', 'descripcion', 'tipo'] },
                     { model: User, as: 'responsable', attributes: ['id', 'name'] },
-                    { model: User, as: 'creadoPor', attributes: ['id', 'name'] }
+                    { model: User, as: 'creadoPor', attributes: ['id', 'name'] },
+                    { model: User, as: 'responsableCierre', attributes: ['id', 'name'] }
                 ],
                 order: [['fecha_compromiso', 'ASC']]
             });
@@ -93,14 +127,14 @@ const compromisoController = {
     },
 
     // POST /api/compromisos
-    // POST /api/compromisos
     async store(req, res) {
         try {
             const {
                 registro_id,
                 hallazgo_id,
                 descripcion,
-                fecha_compromiso
+                fecha_compromiso,
+                responsabilidad
             } = req.body;
 
             if (!registro_id || !descripcion || !fecha_compromiso) {
@@ -110,29 +144,28 @@ const compromisoController = {
                 });
             }
 
-            // SECURITY: IDOR — sin esto, cualquier usuario autenticado podía crear un
-            // compromiso sobre el registro de otra empresa/contrato con solo enviar su id.
+            // SECURITY: IDOR
             if (!(await isRegistroInScope(req.user, registro_id))) {
                 return res.status(403).json({ success: false, message: 'No tiene permiso para crear un compromiso sobre este registro' });
             }
 
-            // Filtro global de completitud de datos: no se puede crear un compromiso sobre
-            // un registro cuya vinculación no tiene Programa asignado.
+            // Filtro global de completitud de datos
             const registroParaCompromiso = await Registro.findByPk(registro_id, { attributes: ['id', 'contratista_asignacion_id'] });
             const programaScopeStore = await getProgramaScope();
             if (!programaScopeStore.vinculacionIds.map(Number).includes(Number(registroParaCompromiso?.contratista_asignacion_id))) {
                 return res.status(400).json({ success: false, message: 'El servicio de la vinculación de este registro no tiene un Programa asignado.' });
             }
 
-            // Determine responsable (usually the logged in user or the assigned contractor)
             const responsable_id = req.user.id;
             const creado_por_id = req.user.id;
+            const respValue = (responsabilidad && ['abastible', 'contratista'].includes(responsabilidad)) ? responsabilidad : 'contratista';
 
             const compromiso = await Compromiso.create({
                 registro_id,
                 hallazgo_id: hallazgo_id || null,
                 responsable_id,
                 creado_por_id,
+                responsabilidad: respValue,
 
                 descripcion,
                 fecha_compromiso,
@@ -152,7 +185,9 @@ const compromisoController = {
             const compromiso = await Compromiso.findByPk(req.params.id, {
                 include: [
                     { model: Hallazgo, as: 'hallazgo' },
-                    { model: User, as: 'responsable', attributes: ['id', 'name'] }
+                    { model: User, as: 'responsable', attributes: ['id', 'name'] },
+                    { model: User, as: 'creadoPor', attributes: ['id', 'name'] },
+                    { model: User, as: 'responsableCierre', attributes: ['id', 'name'] }
                 ]
             });
 
@@ -160,12 +195,10 @@ const compromisoController = {
                 return res.status(404).json({ success: false, message: 'Compromiso no encontrado' });
             }
 
-            // SECURITY: IDOR — mismo hueco que cargarEvidencia, en el mismo recurso.
             if (!(await isRegistroInScope(req.user, compromiso.registro_id))) {
                 return res.status(403).json({ success: false, message: 'No tiene permiso para ver este compromiso' });
             }
 
-            // Filtro global de completitud de datos (ver registroController.show).
             const registroDeCompromiso = await Registro.findByPk(compromiso.registro_id, { attributes: ['id', 'contratista_asignacion_id'] });
             const programaScopeShow = await getProgramaScope();
             if (!programaScopeShow.vinculacionIds.map(Number).includes(Number(registroDeCompromiso?.contratista_asignacion_id))) {
@@ -192,13 +225,18 @@ const compromisoController = {
                 return res.status(403).json({ success: false, message: 'No tiene permiso para modificar este compromiso' });
             }
 
-            const { estado, observacion_cumplimiento } = req.body;
+            const { estado, observacion_cumplimiento, descripcion, fecha_compromiso, responsabilidad } = req.body;
 
-            // Only update specific fields
             if (estado) compromiso.estado = estado;
+            if (descripcion) compromiso.descripcion = descripcion;
+            if (fecha_compromiso) compromiso.fecha_compromiso = fecha_compromiso;
+            if (responsabilidad && ['abastible', 'contratista'].includes(responsabilidad)) {
+                compromiso.responsabilidad = responsabilidad;
+            }
             if (observacion_cumplimiento) compromiso.observacion_cumplimiento = observacion_cumplimiento;
-            if (estado === 'cumplido' && !compromiso.fecha_cumplimiento) {
-                compromiso.fecha_cumplimiento = new Date();
+            if (estado === 'cumplido') {
+                if (!compromiso.fecha_cumplimiento) compromiso.fecha_cumplimiento = new Date();
+                compromiso.responsable_cierre_id = req.user.id;
             }
 
             await compromiso.save();
@@ -266,6 +304,7 @@ const compromisoController = {
 
             compromiso.estado = 'cumplido';
             compromiso.fecha_cumplimiento = new Date();
+            compromiso.responsable_cierre_id = req.user.id;
             if (dbPath) compromiso.ruta_evidencia = dbPath;
             if (req.body.comentario_evidencia) compromiso.comentario_evidencia = req.body.comentario_evidencia;
             if (req.body.observacion_cumplimiento) compromiso.observacion_cumplimiento = req.body.observacion_cumplimiento;

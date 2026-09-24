@@ -166,6 +166,9 @@ Compromiso.belongsTo(User, { foreignKey: 'responsable_id', as: 'responsable' });
 // Compromiso -> User (creador)
 Compromiso.belongsTo(User, { foreignKey: 'creado_por_id', as: 'creadoPor' });
 
+// Compromiso -> User (responsable del cierre)
+Compromiso.belongsTo(User, { foreignKey: 'responsable_cierre_id', as: 'responsableCierre' });
+
 
 // AuditoriaComentario -> Registro
 AuditoriaComentario.belongsTo(Registro, { foreignKey: 'registro_id', as: 'registro' });

@@ -6,6 +6,7 @@ import Modal from '../ui/Modal';
 export default function CompromisoModal({ isOpen, onClose, onSuccess, registroId, hallazgo }) {
     const [descripcion, setDescripcion] = useState('');
     const [fechaCompromiso, setFechaCompromiso] = useState('');
+    const [responsabilidad, setResponsabilidad] = useState('contratista');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -21,7 +22,8 @@ export default function CompromisoModal({ isOpen, onClose, onSuccess, registroId
                 registro_id: registroId,
                 hallazgo_id: hallazgo?.id,
                 descripcion,
-                fecha_compromiso: fechaCompromiso
+                fecha_compromiso: fechaCompromiso,
+                responsabilidad
             };
 
             const response = await api.post('/compromisos', payload);
@@ -150,6 +152,28 @@ export default function CompromisoModal({ isOpen, onClose, onSuccess, registroId
                             minHeight: '100px'
                         }}
                     />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '20px' }}>
+                    <label htmlFor="comp-responsabilidad" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Shield size={16} /> Marca de Responsabilidad
+                    </label>
+                    <select
+                        id="comp-responsabilidad"
+                        className="form-control"
+                        value={responsabilidad}
+                        onChange={(e) => setResponsabilidad(e.target.value)}
+                        style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            borderRadius: '8px',
+                            border: '1px solid #cbd5e1',
+                            fontSize: '0.9rem'
+                        }}
+                    >
+                        <option value="contratista">Contratista</option>
+                        <option value="abastible">Abastible</option>
+                    </select>
                 </div>
 
                 <div className="form-group">
