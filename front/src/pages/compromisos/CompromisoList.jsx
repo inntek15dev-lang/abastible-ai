@@ -6,6 +6,7 @@ import api from '../../api';
 import { CheckCircle, Clock, AlertCircle, Calendar, User, Edit, X, Save, Shield, Trash2, TrendingUp, Download, FileText, Filter, CheckSquare } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { generateExecutiveCompromisosPDF } from '../../utils/compromisosPdfReport';
 import './CompromisoList.css';
 
 export default function CompromisoList() {
@@ -273,72 +274,29 @@ export default function CompromisoList() {
     };
 
     // Export PDF Function
-    const handleExportPDF = () => {
+    const handleExportPDF = async () => {
         if (!compromisos || compromisos.length === 0) {
             alert('No hay compromisos para exportar');
             return;
         }
 
-        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const activeFilters = {
+            empresa: selectedContratista ? (contratistas.find(c => String(c.id) === String(selectedContratista))?.razon_social || 'Todas') : 'Todas',
+            servicio: selectedServicio ? (servicios.find(s => String(s.id) === String(selectedServicio))?.nombre || 'Todos') : 'Todos',
+            dependencia: selectedDependencia ? (dependencias.find(d => String(d.id) === String(selectedDependencia))?.nombre || 'Todas') : 'Todas',
+            responsabilidad: selectedResponsabilidad ? (selectedResponsabilidad === 'abastible' ? 'Abastible' : 'Contratista') : 'Todas',
+            contrato: contratoNumero || 'Todos',
+            estado: filter === 'all' ? 'Todos' : filter.toUpperCase().replace('_', ' '),
+            periodoCreacion: (fechaCreacionDesde || fechaCreacionHasta) ? `${fechaCreacionDesde || 'Inicio'} al ${fechaCreacionHasta || 'Hoy'}` : 'Todo el Histórico',
+            periodoCompromiso: (fechaCompromisoDesde || fechaCompromisoHasta) ? `${fechaCompromisoDesde || 'Inicio'} al ${fechaCompromisoHasta || 'Hoy'}` : 'Todo el Histórico'
+        };
 
-        // Header Banner
-        doc.setFillColor(0, 53, 148);
-        doc.rect(0, 0, 297, 22, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text('REPORTE GENERAL DE COMPROMISOS', 14, 14);
-
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Fecha emisión: ${new Date().toLocaleDateString('es-CL')}`, 235, 14);
-
-        // KPI Summary Line
-        const totalCount = compromisos.length;
-        const cumplidosCount = compromisos.filter(c => c.estado === 'cumplido').length;
-        const vencidosCount = compromisos.filter(c => isVencido(c.fecha_compromiso, c.estado)).length;
-        const pendientesCount = totalCount - cumplidosCount - vencidosCount;
-
-        doc.setTextColor(30, 41, 59);
-        doc.setFontSize(9.5);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Total: ${totalCount}   |   Cumplidos: ${cumplidosCount}   |   Pendientes / En Proceso: ${pendientesCount}   |   Vencidos: ${vencidosCount}`, 14, 29);
-
-        const tableHeaders = [
-            ['ID', 'Empresa / Servicio', 'Descripción', 'Marca Resp.', 'F. Compromiso', 'Estado', 'Registrado Por', 'Resp. Cierre']
-        ];
-
-        const tableData = compromisos.map(c => [
-            `#${c.id}`,
-            `${c.registro?.eecc_nombre || 'N/A'}\n${c.registro?.servicio_nombre || ''}`,
-            c.descripcion?.length > 60 ? c.descripcion.substring(0, 57) + '...' : c.descripcion,
-            (c.responsabilidad || 'contratista').toUpperCase(),
-            c.fecha_compromiso ? new Date(c.fecha_compromiso).toLocaleDateString('es-CL') : 'N/A',
-            isVencido(c.fecha_compromiso, c.estado) ? 'VENCIDO' : c.estado.toUpperCase().replace('_', ' '),
-            c.creadoPor?.name || c.responsable?.name || 'N/A',
-            c.responsableCierre?.name || (c.estado === 'cumplido' ? 'Administrador' : '-')
-        ]);
-
-        autoTable(doc, {
-            startY: 33,
-            head: tableHeaders,
-            body: tableData,
-            theme: 'grid',
-            headStyles: { fillColor: [0, 53, 148], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8.5 },
-            styles: { fontSize: 8, cellPadding: 2.5 },
-            columnStyles: {
-                0: { cellWidth: 15 },
-                1: { cellWidth: 45 },
-                2: { cellWidth: 80 },
-                3: { cellWidth: 26 },
-                4: { cellWidth: 24 },
-                5: { cellWidth: 24 },
-                6: { cellWidth: 28 },
-                7: { cellWidth: 28 }
-            }
-        });
-
-        doc.save(`Reporte_Compromisos_${new Date().toISOString().split('T')[0]}.pdf`);
+        try {
+            await generateExecutiveCompromisosPDF(compromisos, user, activeFilters);
+        } catch (err) {
+            console.error('Error al generar PDF de compromisos:', err);
+            alert('Ocurrió un error al generar el reporte PDF. Por favor intente nuevamente.');
+        }
     };
 
     const getEstadoIcon = (estado) => {
