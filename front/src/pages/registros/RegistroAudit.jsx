@@ -597,39 +597,116 @@ export default function RegistroAudit() {
                                                         );
 
                                                         return (
-                                                            <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '4px 0' }}>
+                                                            <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '4px 0', flexWrap: 'wrap' }}>
                                                                 <span style={{ fontWeight: 600, color: '#94a3b8', fontSize: '0.8rem', minWidth: '15px' }}>{index + 1}.</span>
 
                                                                 <FileThumbnail />
 
-                                                                <button
-                                                                    onClick={() => downloadEvidencia(ev.id, fileName)}
-                                                                    className="btn-action"
-                                                                    style={{
-                                                                        fontSize: '0.75rem',
-                                                                        background: '#fff',
-                                                                        color: '#334155',
-                                                                        border: '1px solid #cbd5e1',
-                                                                        padding: '4px 12px',
-                                                                        borderRadius: '20px',
-                                                                        display: 'flex',
-                                                                        alignItems: 'center',
-                                                                        gap: '6px',
-                                                                        cursor: 'pointer',
-                                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                                                                        transition: 'all 0.2s'
-                                                                    }}
-                                                                    onMouseOver={(e) => e.currentTarget.style.borderColor = '#94a3b8'}
-                                                                    onMouseOut={(e) => e.currentTarget.style.borderColor = '#cbd5e1'}
-                                                                >
-                                                                    <Download size={12} /> Ver Evidencia
-                                                                </button>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                                                    <button
+                                                                        onClick={() => downloadEvidencia(ev.id, fileName)}
+                                                                        className="btn-action"
+                                                                        style={{
+                                                                            fontSize: '0.75rem',
+                                                                            background: '#fff',
+                                                                            color: '#334155',
+                                                                            border: '1px solid #cbd5e1',
+                                                                            padding: '4px 12px',
+                                                                            borderRadius: '20px',
+                                                                            display: 'inline-flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '6px',
+                                                                            cursor: 'pointer',
+                                                                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                                                            transition: 'all 0.2s'
+                                                                        }}
+                                                                        onMouseOver={(e) => e.currentTarget.style.borderColor = '#94a3b8'}
+                                                                        onMouseOut={(e) => e.currentTarget.style.borderColor = '#cbd5e1'}
+                                                                    >
+                                                                        <Download size={12} /> Ver Evidencia
+                                                                    </button>
+
+                                                                    {act.actividad?.template_url && (
+                                                                        <a
+                                                                            href={`${api.defaults.baseURL}/${act.actividad.template_url}`}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            download
+                                                                            className="btn-action"
+                                                                            title="Descargar plantilla de evidencia oficial de esta actividad"
+                                                                            style={{
+                                                                                fontSize: '0.75rem',
+                                                                                background: '#eff6ff',
+                                                                                color: '#003594',
+                                                                                border: '1px solid #bfdbfe',
+                                                                                padding: '4px 12px',
+                                                                                borderRadius: '20px',
+                                                                                display: 'inline-flex',
+                                                                                alignItems: 'center',
+                                                                                gap: '6px',
+                                                                                cursor: 'pointer',
+                                                                                textDecoration: 'none',
+                                                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                                                                transition: 'all 0.2s',
+                                                                                fontWeight: 600
+                                                                            }}
+                                                                            onMouseOver={(e) => {
+                                                                                e.currentTarget.style.borderColor = '#60a5fa';
+                                                                                e.currentTarget.style.backgroundColor = '#dbeafe';
+                                                                            }}
+                                                                            onMouseOut={(e) => {
+                                                                                e.currentTarget.style.borderColor = '#bfdbfe';
+                                                                                e.currentTarget.style.backgroundColor = '#eff6ff';
+                                                                            }}
+                                                                        >
+                                                                            <FileText size={12} color="#003594" /> Ver Plantilla
+                                                                        </a>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         );
                                                     })}
                                                 </div>
                                             ) : (
-                                                <span style={{ fontSize: '0.75rem', color: '#9ca3af', fontStyle: 'italic' }}>-</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                    <span style={{ fontSize: '0.75rem', color: '#9ca3af', fontStyle: 'italic' }}>Sin Evidencia</span>
+                                                    {act.actividad?.template_url && (
+                                                        <a
+                                                            href={`${api.defaults.baseURL}/${act.actividad.template_url}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            download
+                                                            className="btn-action"
+                                                            title="Descargar plantilla de evidencia oficial de esta actividad"
+                                                            style={{
+                                                                fontSize: '0.75rem',
+                                                                background: '#eff6ff',
+                                                                color: '#003594',
+                                                                border: '1px solid #bfdbfe',
+                                                                padding: '4px 12px',
+                                                                borderRadius: '20px',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '6px',
+                                                                cursor: 'pointer',
+                                                                textDecoration: 'none',
+                                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                                                transition: 'all 0.2s',
+                                                                fontWeight: 600
+                                                            }}
+                                                            onMouseOver={(e) => {
+                                                                e.currentTarget.style.borderColor = '#60a5fa';
+                                                                e.currentTarget.style.backgroundColor = '#dbeafe';
+                                                            }}
+                                                            onMouseOut={(e) => {
+                                                                e.currentTarget.style.borderColor = '#bfdbfe';
+                                                                e.currentTarget.style.backgroundColor = '#eff6ff';
+                                                            }}
+                                                        >
+                                                            <FileText size={12} color="#003594" /> Ver Plantilla
+                                                        </a>
+                                                    )}
+                                                </div>
                                             )}
                                         </td>
 
