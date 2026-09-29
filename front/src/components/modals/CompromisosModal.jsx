@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { X, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
+import { X, Calendar, CheckCircle, AlertCircle, Eye } from 'lucide-react';
 import api from '../../api';
+import DocumentViewerModal from './DocumentViewerModal';
 
 export default function CompromisosModal({ registroId, onClose }) {
     const [compromisos, setCompromisos] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [viewerState, setViewerState] = useState({ isOpen: false, fileUrl: '', fileName: '', fileTitle: '' });
 
     useEffect(() => {
         if (registroId) {
@@ -57,9 +59,32 @@ export default function CompromisosModal({ registroId, onClose }) {
                                     <div style={{ fontWeight: 500, color: '#374151', marginBottom: '6px' }}>
                                         {comp.descripcion}
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: '#6b7280' }}>
-                                        <Calendar size={14} />
-                                        <span>Fecha: {new Date(comp.fecha_compromiso).toLocaleDateString('es-CL')}</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.85rem', color: '#6b7280' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <Calendar size={14} />
+                                            <span>Fecha: {new Date(comp.fecha_compromiso).toLocaleDateString('es-CL')}</span>
+                                        </div>
+                                        {comp.ruta_evidencia && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const url = comp.ruta_evidencia.startsWith('http') || comp.ruta_evidencia.startsWith('/api') 
+                                                        ? comp.ruta_evidencia 
+                                                        : `/${comp.ruta_evidencia}`;
+                                                    const fileName = comp.ruta_evidencia.split('/').pop() || 'evidencia.pdf';
+                                                    setViewerState({
+                                                        isOpen: true,
+                                                        fileUrl: url,
+                                                        fileName: fileName,
+                                                        fileTitle: `Evidencia Compromiso #${comp.id}`
+                                                    });
+                                                }}
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#003594', display: 'flex', alignItems: 'center', gap: '4px', padding: 0, fontWeight: 600, fontSize: '0.8rem' }}
+                                                title="Ver evidencia en modo cine"
+                                            >
+                                                <Eye size={14} /> Ver Evidencia
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -79,6 +104,13 @@ export default function CompromisosModal({ registroId, onClose }) {
                     </button>
                 </div>
             </div>
+            <DocumentViewerModal
+                isOpen={viewerState.isOpen}
+                onClose={() => setViewerState({ ...viewerState, isOpen: false })}
+                fileUrl={viewerState.fileUrl}
+                fileName={viewerState.fileName}
+                fileTitle={viewerState.fileTitle}
+            />
         </div>
     );
 }
