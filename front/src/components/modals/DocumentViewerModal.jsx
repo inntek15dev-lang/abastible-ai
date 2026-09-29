@@ -1,7 +1,8 @@
 // IEEE Trace: REQ-005 | components/modals/DocumentViewerModal.jsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
+import * as pdfjsLib from 'pdfjs-dist';
 import api from '../../api';
 import {
     X,
@@ -21,6 +22,135 @@ import {
 } from 'lucide-react';
 import './DocumentViewerModal.css';
 
+// PDF Sub-component using pdfjs-dist Canvas rendering
+function PdfViewer({ pdfBuffer }) {
+    const canvasRef = useRef(null);
+    const [pdfDoc, setPdfDoc] = useState(null);
+    const [pageNum, setPageNum] = useState(1);
+    const [numPages, setNumPages] = useState(0);
+    const [scale, setScale] = useState(1.25);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        if (!pdfBuffer) return;
+        let isMounted = true;
+        setLoading(true);
+        setError('');
+
+        const loadPdf = async () => {
+            try {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+                const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBuffer) });
+                const pdf = await loadingTask.promise;
+                if (isMounted) {
+                    setPdfDoc(pdf);
+                    setNumPages(pdf.numPages);
+                    setPageNum(1);
+                }
+            } catch (err) {
+                console.error('PDFjs load error:', err);
+                if (isMounted) setError('No se pudo renderizar la vista previa del PDF.');
+            } finally {
+                if (isMounted) setLoading(false);
+            }
+        };
+
+        loadPdf();
+        return () => { isMounted = false; };
+    }, [pdfBuffer]);
+
+    useEffect(() => {
+        if (!pdfDoc || !canvasRef.current) return;
+        let isMounted = true;
+
+        const renderPage = async () => {
+            try {
+                const page = await pdfDoc.getPage(pageNum);
+                if (!isMounted || !canvasRef.current) return;
+
+                const viewport = page.getViewport({ scale });
+                const canvas = canvasRef.current;
+                const context = canvas.getContext('2d');
+
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                const renderContext = {
+                    canvasContext: context,
+                    viewport: viewport
+                };
+
+                await page.render(renderContext).promise;
+            } catch (err) {
+                console.error('PDF page render error:', err);
+            }
+        };
+
+        renderPage();
+        return () => { isMounted = false; };
+    }, [pdfDoc, pageNum, scale]);
+
+    if (loading) {
+        return (
+            <div className="cinema-loading-state">
+                <Loader2 className="spin" size={36} color="#ef4444" />
+                <span>Cargando documento PDF de alta fidelidad...</span>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="cinema-error-state">
+                <AlertCircle size={36} color="#ef4444" />
+                <p>{error}</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="pdf-viewer-container">
+            {/* PDF Control Bar */}
+            <div className="pdf-controls">
+                <div className="pdf-nav-controls">
+                    <button
+                        className="btn-pdf-control"
+                        disabled={pageNum <= 1}
+                        onClick={() => setPageNum(p => Math.max(1, p - 1))}
+                    >
+                        ◀ Anterior
+                    </button>
+                    <span className="pdf-page-info">
+                        Página <strong>{pageNum}</strong> de <strong>{numPages}</strong>
+                    </span>
+                    <button
+                        className="btn-pdf-control"
+                        disabled={pageNum >= numPages}
+                        onClick={() => setPageNum(p => Math.min(numPages, p + 1))}
+                    >
+                        Siguiente ▶
+                    </button>
+                </div>
+                <div className="pdf-zoom-controls">
+                    <button className="btn-pdf-control" onClick={() => setScale(s => Math.max(0.5, s - 0.25))} title="Alejar">
+                        <ZoomOut size={14} />
+                    </button>
+                    <span className="pdf-scale-info">{Math.round(scale * 100)}%</span>
+                    <button className="btn-pdf-control" onClick={() => setScale(s => Math.min(3, s + 0.25))} title="Acercar">
+                        <ZoomIn size={14} />
+                    </button>
+                </div>
+            </div>
+
+            {/* Canvas Scroll Wrapper */}
+            <div className="pdf-canvas-scroll">
+                <canvas ref={canvasRef} className="pdf-canvas" />
+            </div>
+        </div>
+    );
+}
+
 export default function DocumentViewerModal({
     isOpen,
     onClose,
@@ -31,7 +161,8 @@ export default function DocumentViewerModal({
     // Image Viewer state
     const [zoom, setZoom] = useState(1);
 
-    // Generic Blob State (for PDF, Images, Media)
+    // Generic Buffer & Blob State
+    const [fileBuffer, setFileBuffer] = useState(null);
     const [blobUrl, setBlobUrl] = useState('');
     const [loadingFile, setLoadingFile] = useState(false);
     const [fileError, setFileError] = useState('');
@@ -72,6 +203,7 @@ export default function DocumentViewerModal({
     useEffect(() => {
         if (!isOpen || !fileUrl) {
             setZoom(1);
+            setFileBuffer(null);
             setBlobUrl('');
             setLoadingFile(false);
             setFileError('');
@@ -104,6 +236,7 @@ export default function DocumentViewerModal({
                 // Always fetch binary ArrayBuffer with Axios auth headers
                 const response = await api.get(fetchUrl, { responseType: 'arraybuffer' });
                 const buffer = response.data;
+                setFileBuffer(buffer);
 
                 // Handle DOCX conversion via mammoth
                 if (['docx', 'doc'].includes(fileExt)) {
@@ -132,7 +265,7 @@ export default function DocumentViewerModal({
                 } else if (['mp4', 'webm'].includes(fileExt)) mimeType = `video/${fileExt}`;
                 else if (['mp3', 'wav'].includes(fileExt)) mimeType = `audio/${fileExt}`;
 
-                // Create Blob from ArrayBuffer
+                // Create Blob from ArrayBuffer for images, video, audio, download
                 const blob = new Blob([buffer], { type: mimeType });
                 activeBlobUrl = URL.createObjectURL(blob);
                 setBlobUrl(activeBlobUrl);
@@ -177,7 +310,7 @@ export default function DocumentViewerModal({
             }
         } catch (err) {
             console.error('Error loading Excel file:', err);
-            setExcelError('No se pudo procesar la planilla de cálculo en el visor. Puedes descargar el archivo directamente.');
+            setExcelError('No se pudo procesar la plantilla de cálculo en el visor. Puedes descargar el archivo directamente.');
         } finally {
             setLoadingExcel(false);
         }
@@ -302,24 +435,9 @@ export default function DocumentViewerModal({
                                 </div>
                             )}
 
-                            {/* 2. PDF VIEWER */}
+                            {/* 2. PDF VIEWER (PDFjs Canvas Engine) */}
                             {category === 'pdf' && (
-                                <div className="cinema-pdf-wrapper">
-                                    {blobUrl ? (
-                                        <object
-                                            data={blobUrl}
-                                            type="application/pdf"
-                                            className="cinema-pdf-iframe"
-                                        >
-                                            <embed src={blobUrl} type="application/pdf" className="cinema-pdf-iframe" />
-                                        </object>
-                                    ) : (
-                                        <div className="cinema-loading-state">
-                                            <Loader2 className="spin" size={32} color="#ef4444" />
-                                            <span>Generando visor PDF...</span>
-                                        </div>
-                                    )}
-                                </div>
+                                <PdfViewer pdfBuffer={fileBuffer} />
                             )}
 
                             {/* 3. EXCEL / SPREADSHEET VIEWER */}
