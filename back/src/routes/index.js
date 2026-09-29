@@ -264,6 +264,7 @@ router.delete('/elementos/:id', auth, requirePrivilege('Programas', 'excec'), el
  *         description: Created
  */
 router.get('/actividades', auth, actividadController.index);
+router.get('/actividades/:id/plantilla', auth, actividadController.downloadPlantilla);
 router.post('/actividades', auth, requirePrivilege('Gestion_Configuracion', 'write'), upload.single('plantilla'), actividadController.store);
 router.put('/actividades/:id', auth, requirePrivilege('Gestion_Configuracion', 'write'), upload.single('plantilla'), actividadController.update);
 router.delete('/actividades/:id', auth, requirePrivilege('Gestion_Configuracion', 'excec'), actividadController.destroy);

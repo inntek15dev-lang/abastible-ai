@@ -1,8 +1,9 @@
 // IEEE Trace: REQ-005 | components/forms/FileUpload.jsx
 import { useState, useRef } from 'react';
 import api from '../../api';
-import { Upload, X, File, Image, FileText } from 'lucide-react';
+import { Upload, X, File, Image, FileText, Eye } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import DocumentViewerModal from '../modals/DocumentViewerModal';
 
 export default function FileUpload({
     registroActividadId,
@@ -19,6 +20,7 @@ export default function FileUpload({
     const [error, setError] = useState('');
     const [preview, setPreview] = useState(null);
     const fileInputRef = useRef(null);
+    const [viewerState, setViewerState] = useState({ isOpen: false, fileUrl: '', fileName: '', fileTitle: '' });
 
     const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -126,14 +128,23 @@ export default function FileUpload({
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
-                        {/* Template Download Button */}
+                        {/* Template Download / View Button */}
                         {!isADC && (
-                            <a
-                                href={templateUrl ? `${api.defaults.baseURL}/${templateUrl}` : '#'}
-                                target={templateUrl ? "_blank" : undefined}
-                                rel={templateUrl ? "noopener noreferrer" : undefined}
+                            <button
+                                type="button"
                                 className={`template-download-btn ${!templateUrl ? 'disabled' : ''}`}
-                                onClick={(e) => !templateUrl && e.preventDefault()}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    if (!templateUrl) return;
+                                    const cleanName = templateUrl.split('/').pop() || 'plantilla.xlsx';
+                                    const viewUrl = templateUrl.startsWith('http') ? templateUrl : (templateUrl.startsWith('/') ? templateUrl : `/${templateUrl}`);
+                                    setViewerState({
+                                        isOpen: true,
+                                        fileUrl: viewUrl,
+                                        fileName: cleanName,
+                                        fileTitle: 'Plantilla de Evidencia Oficial'
+                                    });
+                                }}
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -160,15 +171,15 @@ export default function FileUpload({
                                 onMouseLeave={(e) => {
                                     if (templateUrl) e.currentTarget.style.backgroundColor = '#eff6ff';
                                 }}
-                                title={!templateUrl ? "Sin plantilla disponible" : "Descargar Plantilla"}
+                                title={!templateUrl ? "Sin plantilla disponible" : "Ver Plantilla en modo cine"}
                             >
                                 <FileText size={14} />
                                 <div style={{ textAlign: 'center' }}>
                                     {templateUrl ? (
-                                        <>Descargar<br/>Plantilla</>
+                                        <>Ver / Descargar<br/>Plantilla</>
                                     ) : 'Sin Plantilla'}
                                 </div>
-                            </a>
+                            </button>
                         )}
 
                         {!isADC && (
@@ -223,6 +234,14 @@ export default function FileUpload({
                     {existingCount}/{maxFiles} archivos
                 </span>
             </div>
+
+            <DocumentViewerModal
+                isOpen={viewerState.isOpen}
+                onClose={() => setViewerState({ ...viewerState, isOpen: false })}
+                fileUrl={viewerState.fileUrl}
+                fileName={viewerState.fileName}
+                fileTitle={viewerState.fileTitle}
+            />
         </div>
     );
 }

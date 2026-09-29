@@ -179,6 +179,64 @@ const actividadController = {
             console.error('Actividad destroy error:', error);
             res.status(500).json({ success: false, message: 'Error al eliminar actividad' });
         }
+    },
+
+    // GET /api/actividades/:id/plantilla
+    async downloadPlantilla(req, res) {
+        try {
+            const { id } = req.params;
+            const actividad = await Actividad.findByPk(id);
+
+            if (!actividad || !actividad.template_url) {
+                return res.status(404).json({ success: false, message: 'La actividad no posee una plantilla configurada.' });
+            }
+
+            let rawPath = actividad.template_url.replace(/\\/g, '/');
+            if (rawPath.startsWith('/')) rawPath = rawPath.slice(1);
+            if (rawPath.startsWith('storage/')) rawPath = rawPath.slice(8);
+
+            const storageRoot = path.resolve(__dirname, '../../../storage');
+            let targetPath = path.join(storageRoot, rawPath);
+
+            if (!fs.existsSync(targetPath)) {
+                const fileName = path.basename(rawPath);
+                const templatesEvidenciaDir = path.join(storageRoot, 'templates_evidencia');
+                let foundPath = null;
+
+                if (fs.existsSync(templatesEvidenciaDir)) {
+                    const searchFile = (dir) => {
+                        const entries = fs.readdirSync(dir, { withFileTypes: true });
+                        for (const entry of entries) {
+                            const fullPath = path.join(dir, entry.name);
+                            if (entry.isDirectory()) {
+                                searchFile(fullPath);
+                                if (foundPath) return;
+                            } else if (entry.name.toLowerCase() === fileName.toLowerCase()) {
+                                foundPath = fullPath;
+                                return;
+                            }
+                        }
+                    };
+                    searchFile(templatesEvidenciaDir);
+                }
+
+                if (foundPath) {
+                    targetPath = foundPath;
+                } else {
+                    console.error(`Plantilla file not found on server at: ${targetPath}`);
+                    return res.status(404).json({
+                        success: false,
+                        message: 'El archivo de la plantilla no fue encontrado en el servidor.'
+                    });
+                }
+            }
+
+            const downloadName = path.basename(targetPath);
+            return res.download(targetPath, downloadName);
+        } catch (error) {
+            console.error('Actividad downloadPlantilla error:', error);
+            res.status(500).json({ success: false, message: 'Error al descargar la plantilla' });
+        }
     }
 };
 
