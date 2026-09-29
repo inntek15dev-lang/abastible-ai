@@ -4,6 +4,7 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
 import { Plus, Edit, Trash2, ArrowLeft, FolderOpen, Pencil, Paperclip } from 'lucide-react';
+import DocumentViewerModal from '../../components/modals/DocumentViewerModal';
 import './ElementoList.css';
 
 export default function ElementoList() {
@@ -15,6 +16,7 @@ export default function ElementoList() {
     const [elementos, setElementos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [viewerState, setViewerState] = useState({ isOpen: false, fileUrl: '', fileName: '', fileTitle: '' });
     const { user, canWrite, canExec } = useAuth();
     const isADC = user?.role === 'administrador_contrato';
 
@@ -200,22 +202,31 @@ export default function ElementoList() {
                                                     <td>{act.frecuencia}</td>
                                                     <td style={{ textAlign: 'center' }}>
                                                         {!isADC && act.template_url ? (
-                                                            <a
-                                                                href={`${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${act.template_url}`}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const url = act.id ? `/actividades/${act.id}/plantilla` : `/${act.template_url}`;
+                                                                    setViewerState({
+                                                                        isOpen: true,
+                                                                        fileUrl: url,
+                                                                        fileName: `Plantilla_${act.codigo || 'Oficial'}.xlsx`,
+                                                                        fileTitle: `Plantilla Oficial - Actividad ${act.codigo || ''}`
+                                                                    });
+                                                                }}
                                                                 className="btn-icon-only"
-                                                                title="Descargar plantilla"
+                                                                title="Ver plantilla en modo cine"
                                                                 style={{
                                                                     display: 'inline-flex',
                                                                     alignItems: 'center',
                                                                     justifyContent: 'center',
                                                                     color: '#003594',
-                                                                    textDecoration: 'none'
+                                                                    background: 'none',
+                                                                    border: 'none',
+                                                                    cursor: 'pointer'
                                                                 }}
                                                             >
                                                                 <Paperclip size={16} />
-                                                            </a>
+                                                            </button>
                                                         ) : (
                                                             <span style={{ color: '#9ca3af' }}>-</span>
                                                         )}
@@ -251,6 +262,13 @@ export default function ElementoList() {
                 )}
             </div>
             {/* Activity Modal Removed - Moved to separate view per Parko */}
+            <DocumentViewerModal
+                isOpen={viewerState.isOpen}
+                onClose={() => setViewerState({ ...viewerState, isOpen: false })}
+                fileUrl={viewerState.fileUrl}
+                fileName={viewerState.fileName}
+                fileTitle={viewerState.fileTitle}
+            />
         </div >
     );
 }

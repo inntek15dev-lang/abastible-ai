@@ -3,10 +3,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
-import { CheckCircle, Clock, AlertCircle, Calendar, User, Edit, X, Save, Shield, Trash2, TrendingUp, Download, FileText, Filter, CheckSquare } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, Calendar, User, Edit, X, Save, Shield, Trash2, TrendingUp, Download, FileText, Filter, CheckSquare, Eye } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { generateExecutiveCompromisosPDF } from '../../utils/compromisosPdfReport';
+import DocumentViewerModal from '../../components/modals/DocumentViewerModal';
 import './CompromisoList.css';
 
 export default function CompromisoList() {
@@ -15,6 +16,7 @@ export default function CompromisoList() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [filter, setFilter] = useState('all');
+    const [viewerState, setViewerState] = useState({ isOpen: false, fileUrl: '', fileName: '', fileTitle: '' });
 
     // Hierarchy Filters
     const [contratistas, setContratistas] = useState([]);
@@ -748,15 +750,25 @@ export default function CompromisoList() {
                                     <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '10px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                         <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                             <span>Evidencia Cargada:</span>
-                                            <a
-                                                href={`${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${c.ruta_evidencia}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                style={{ color: '#2563eb', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: 700 }}
-                                                title="Ver/Descargar Evidencia"
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const url = c.ruta_evidencia.startsWith('http') || c.ruta_evidencia.startsWith('/api') 
+                                                        ? c.ruta_evidencia 
+                                                        : `/${c.ruta_evidencia}`;
+                                                    const fileName = c.ruta_evidencia.split('/').pop() || 'evidencia.pdf';
+                                                    setViewerState({
+                                                        isOpen: true,
+                                                        fileUrl: url,
+                                                        fileName: fileName,
+                                                        fileTitle: `Evidencia Compromiso #${c.id}`
+                                                    });
+                                                }}
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563eb', display: 'flex', alignItems: 'center', gap: '4px', padding: 0, fontWeight: 700 }}
+                                                title="Ver Evidencia de Compromiso en modo cine"
                                             >
-                                                <Download size={14} /> Ver Archivo
-                                            </a>
+                                                <Eye size={14} /> Ver Archivo
+                                            </button>
                                         </div>
                                         {c.comentario_evidencia && (
                                             <div style={{ fontSize: '0.75rem', color: '#64748b', background: '#f8fafc', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontStyle: 'italic' }}>
@@ -860,6 +872,13 @@ export default function CompromisoList() {
                     </div>
                 </div>
             )}
+            <DocumentViewerModal
+                isOpen={viewerState.isOpen}
+                onClose={() => setViewerState({ ...viewerState, isOpen: false })}
+                fileUrl={viewerState.fileUrl}
+                fileName={viewerState.fileName}
+                fileTitle={viewerState.fileTitle}
+            />
         </div>
     );
 }

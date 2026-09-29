@@ -5,12 +5,14 @@ import api from '../../api';
 import { FileText, Search, Filter, Eye, Download, CreditCard, Building, Calendar, FolderOpen } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
+import DocumentViewerModal from '../../components/modals/DocumentViewerModal';
 
 export default function EvidenciaList() {
     const { user } = useAuth();
     const [evidencias, setEvidencias] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [viewerState, setViewerState] = useState({ isOpen: false, fileUrl: '', fileName: '', fileTitle: '' });
     const [filters, setFilters] = useState({ 
         search: '',
         periodo: '',
@@ -330,16 +332,22 @@ export default function EvidenciaList() {
                                     </td>
                                     <td className="actions-cell">
                                         <div className="btn-icon-group">
-                                            <a 
-                                                href={`${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${e.ruta}`} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer" 
+                                            <button 
+                                                type="button"
+                                                onClick={() => {
+                                                    setViewerState({
+                                                        isOpen: true,
+                                                        fileUrl: `/evidencias/${e.id}/download`,
+                                                        fileName: e.nombre_archivo,
+                                                        fileTitle: `Evidencia: ${e.nombre_archivo}`
+                                                    });
+                                                }}
                                                 className="btn-icon" 
-                                                title="Ver / Descargar"
-                                                style={{ color: 'var(--color-brand-primary)' }}
+                                                title="Ver Evidencia en modo cine"
+                                                style={{ color: 'var(--color-brand-primary)', background: 'none', border: 'none', cursor: 'pointer' }}
                                             >
-                                                <Download size={16} />
-                                            </a>
+                                                <Eye size={16} />
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -348,6 +356,13 @@ export default function EvidenciaList() {
                     </tbody>
                 </table>
             </div>
+            <DocumentViewerModal
+                isOpen={viewerState.isOpen}
+                onClose={() => setViewerState({ ...viewerState, isOpen: false })}
+                fileUrl={viewerState.fileUrl}
+                fileName={viewerState.fileName}
+                fileTitle={viewerState.fileTitle}
+            />
         </div>
     );
 }

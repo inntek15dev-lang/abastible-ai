@@ -21,12 +21,14 @@ import {
     FileVideo,
     FileAudio,
     FileBox,
-    Calendar
+    Calendar,
+    Eye
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import HallazgoModal from '../../components/forms/HallazgoModal';
 import ConfirmationModal from '../../components/modals/ConfirmationModal';
+import DocumentViewerModal from '../../components/modals/DocumentViewerModal';
 import { toast } from 'react-hot-toast';
 import { formatPeriodo } from '../../utils/dateUtils';
 
@@ -50,6 +52,23 @@ export default function RegistroAudit() {
     const [loadingCompromisos, setLoadingCompromisos] = useState(false);
     const [hallazgoModal, setHallazgoModal] = useState({ show: false, actividad: null, hallazgo: null });
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', action: null });
+
+    // Document Viewer Modal State
+    const [viewerState, setViewerState] = useState({
+        isOpen: false,
+        fileUrl: '',
+        fileName: '',
+        fileTitle: ''
+    });
+
+    const openViewer = (url, name, title = '') => {
+        setViewerState({
+            isOpen: true,
+            fileUrl: url,
+            fileName: name || 'archivo.dat',
+            fileTitle: title
+        });
+    };
 
     // Participants State
     const [participantes, setParticipantes] = useState([]);
@@ -604,8 +623,9 @@ export default function RegistroAudit() {
 
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                                                     <button
-                                                                        onClick={() => downloadEvidencia(ev.id, fileName)}
+                                                                        onClick={() => openViewer(`/evidencias/${ev.id}/download`, fileName, `Evidencia - Actividad ${act.actividad?.codigo || ''}`)}
                                                                         className="btn-action"
+                                                                        title="Visualizar evidencia en modo cine"
                                                                         style={{
                                                                             fontSize: '0.75rem',
                                                                             background: '#fff',
@@ -623,17 +643,18 @@ export default function RegistroAudit() {
                                                                         onMouseOver={(e) => e.currentTarget.style.borderColor = '#94a3b8'}
                                                                         onMouseOut={(e) => e.currentTarget.style.borderColor = '#cbd5e1'}
                                                                     >
-                                                                        <Download size={12} /> Ver Evidencia
+                                                                        <Eye size={12} /> Ver Evidencia
                                                                     </button>
 
                                                                     {act.actividad?.template_url && (
-                                                                        <a
-                                                                            href={`${api.defaults.baseURL}/${act.actividad.template_url}`}
-                                                                            target="_blank"
-                                                                            rel="noopener noreferrer"
-                                                                            download
+                                                                        <button
+                                                                            onClick={() => openViewer(
+                                                                                act.actividad?.id ? `/actividades/${act.actividad.id}/plantilla` : `/${act.actividad.template_url}`,
+                                                                                `Plantilla_${act.actividad?.codigo || 'Oficial'}.xlsx`,
+                                                                                `Plantilla Oficial - Actividad ${act.actividad?.codigo || ''}`
+                                                                            )}
                                                                             className="btn-action"
-                                                                            title="Descargar plantilla de evidencia oficial de esta actividad"
+                                                                            title="Visualizar plantilla de evidencia oficial en modo cine"
                                                                             style={{
                                                                                 fontSize: '0.75rem',
                                                                                 background: '#eff6ff',
@@ -645,7 +666,6 @@ export default function RegistroAudit() {
                                                                                 alignItems: 'center',
                                                                                 gap: '6px',
                                                                                 cursor: 'pointer',
-                                                                                textDecoration: 'none',
                                                                                 boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                                                                                 transition: 'all 0.2s',
                                                                                 fontWeight: 600
@@ -660,7 +680,7 @@ export default function RegistroAudit() {
                                                                             }}
                                                                         >
                                                                             <FileText size={12} color="#003594" /> Ver Plantilla
-                                                                        </a>
+                                                                        </button>
                                                                     )}
                                                                 </div>
                                                             </div>
@@ -671,13 +691,14 @@ export default function RegistroAudit() {
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                                     <span style={{ fontSize: '0.75rem', color: '#9ca3af', fontStyle: 'italic' }}>Sin Evidencia</span>
                                                     {act.actividad?.template_url && (
-                                                        <a
-                                                            href={`${api.defaults.baseURL}/${act.actividad.template_url}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            download
+                                                        <button
+                                                            onClick={() => openViewer(
+                                                                act.actividad?.id ? `/actividades/${act.actividad.id}/plantilla` : `/${act.actividad.template_url}`,
+                                                                `Plantilla_${act.actividad?.codigo || 'Oficial'}.xlsx`,
+                                                                `Plantilla Oficial - Actividad ${act.actividad?.codigo || ''}`
+                                                            )}
                                                             className="btn-action"
-                                                            title="Descargar plantilla de evidencia oficial de esta actividad"
+                                                            title="Visualizar plantilla de evidencia oficial en modo cine"
                                                             style={{
                                                                 fontSize: '0.75rem',
                                                                 background: '#eff6ff',
@@ -689,7 +710,6 @@ export default function RegistroAudit() {
                                                                 alignItems: 'center',
                                                                 gap: '6px',
                                                                 cursor: 'pointer',
-                                                                textDecoration: 'none',
                                                                 boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                                                                 transition: 'all 0.2s',
                                                                 fontWeight: 600
@@ -704,7 +724,7 @@ export default function RegistroAudit() {
                                                             }}
                                                         >
                                                             <FileText size={12} color="#003594" /> Ver Plantilla
-                                                        </a>
+                                                        </button>
                                                     )}
                                                 </div>
                                             )}
@@ -1120,6 +1140,14 @@ export default function RegistroAudit() {
                 title={confirmModal.title}
                 message={confirmModal.message}
                 onConfirm={confirmModal.action}
+            />
+
+            <DocumentViewerModal
+                isOpen={viewerState.isOpen}
+                onClose={() => setViewerState({ ...viewerState, isOpen: false })}
+                fileUrl={viewerState.fileUrl}
+                fileName={viewerState.fileName}
+                fileTitle={viewerState.fileTitle}
             />
         </div>
     );

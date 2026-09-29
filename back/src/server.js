@@ -51,6 +51,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve Storage
 app.use('/api/storage', express.static(path.join(__dirname, '../../storage')));
+app.use('/storage', express.static(path.join(__dirname, '../../storage')));
 
 // Health check
 app.get('/health', async (req, res) => {

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
 import { Plus, Edit, Trash2, ChevronDown, ChevronRight, FileText, List } from 'lucide-react';
+import DocumentViewerModal from '../../components/modals/DocumentViewerModal';
 import './ProgramaList.css';
 
 export default function ProgramaList() {
@@ -11,6 +12,7 @@ export default function ProgramaList() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [expanded, setExpanded] = useState({});
+    const [viewerState, setViewerState] = useState({ isOpen: false, fileUrl: '', fileName: '', fileTitle: '' });
     const { user, canWrite, canExec } = useAuth();
     const isADC = user?.role === 'administrador_contrato';
 
@@ -242,15 +244,22 @@ export default function ProgramaList() {
                                                     <span title={act.descripcion}>{act.codigo} - {act.actividad || act.descripcion?.substring(0, 30)}</span>
                                                     <div style={{ display: 'flex', gap: '5px' }}>
                                                         {act.template_url && !isADC && (
-                                                            <a
-                                                                href={`${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${act.template_url}`}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                title="Descargar plantilla"
-                                                                style={{ textDecoration: 'none', cursor: 'pointer', marginRight: '4px', fontSize: '1rem' }}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const url = act.id ? `/actividades/${act.id}/plantilla` : `/${act.template_url}`;
+                                                                    setViewerState({
+                                                                        isOpen: true,
+                                                                        fileUrl: url,
+                                                                        fileName: `Plantilla_${act.codigo || 'Oficial'}.xlsx`,
+                                                                        fileTitle: `Plantilla Oficial - Actividad ${act.codigo || ''}`
+                                                                    });
+                                                                }}
+                                                                title="Ver plantilla en modo cine"
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '4px', fontSize: '1rem', padding: 0 }}
                                                             >
                                                                 📎
-                                                            </a>
+                                                            </button>
                                                         )}
                                                         {canWrite('Programas') && !isADC && <Edit size={12} className="text-primary cursor-pointer" onClick={() => openEditActModal(act)} />}
                                                         {canExec('Programas') && !isADC && <Trash2 size={12} className="text-danger cursor-pointer" onClick={() => handleDeleteActivity(act.id)} />}

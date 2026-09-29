@@ -4,12 +4,14 @@ import api from '../../api';
 import { Save, ArrowLeft, Paperclip, Pencil, Upload } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
+import DocumentViewerModal from '../../components/modals/DocumentViewerModal';
 
 export default function ActividadForm() {
     const { id } = useParams();
     const { user } = useAuth();
     const navigate = useNavigate();
     const isEdit = Boolean(id);
+    const [viewerState, setViewerState] = useState({ isOpen: false, fileUrl: '', fileName: '', fileTitle: '' });
 
     useEffect(() => {
         if (user?.role === 'administrador_contrato') {
@@ -340,14 +342,21 @@ export default function ActividadForm() {
                         {form.template_url && (
                             <div style={{ marginTop: '8px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 <span>📎</span>
-                                <a
-                                    href={`${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${form.template_url}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{ color: '#003594', fontWeight: '600', textDecoration: 'underline' }}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const url = id ? `/actividades/${id}/plantilla` : `/${form.template_url}`;
+                                        setViewerState({
+                                            isOpen: true,
+                                            fileUrl: url,
+                                            fileName: `Plantilla_${form.codigo || 'Oficial'}.xlsx`,
+                                            fileTitle: `Plantilla Oficial - Actividad ${form.codigo || ''}`
+                                        });
+                                    }}
+                                    style={{ background: 'none', border: 'none', color: '#003594', fontWeight: '600', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}
                                 >
                                     Ver plantilla previa
-                                </a>
+                                </button>
                             </div>
                         )}
                         {plantillaFile && (
@@ -418,6 +427,13 @@ export default function ActividadForm() {
                     </div>
                 </div>
             </form>
+            <DocumentViewerModal
+                isOpen={viewerState.isOpen}
+                onClose={() => setViewerState({ ...viewerState, isOpen: false })}
+                fileUrl={viewerState.fileUrl}
+                fileName={viewerState.fileName}
+                fileTitle={viewerState.fileTitle}
+            />
         </div>
     );
 }
