@@ -23,7 +23,7 @@ import {
 import './DocumentViewerModal.css';
 
 // PDF Sub-component using pdfjs-dist Canvas rendering
-function PdfViewer({ pdfBuffer }) {
+function PdfViewer({ pdfBuffer, downloadUrl, fileName }) {
     const canvasRef = useRef(null);
     const [pdfDoc, setPdfDoc] = useState(null);
     const [pageNum, setPageNum] = useState(1);
@@ -33,7 +33,7 @@ function PdfViewer({ pdfBuffer }) {
     const [error, setError] = useState('');
 
     useEffect(() => {
-        if (!pdfBuffer) return;
+        if (!pdfBuffer || pdfBuffer.byteLength === 0) return;
         let isMounted = true;
         setLoading(true);
         setError('');
@@ -41,8 +41,12 @@ function PdfViewer({ pdfBuffer }) {
         const loadPdf = async () => {
             try {
                 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-                const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBuffer) });
+                
+                // Copy ArrayBuffer so PDF.js worker doesn't detach original buffer
+                const copyBuffer = pdfBuffer.slice(0);
+                const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(copyBuffer) });
                 const pdf = await loadingTask.promise;
+                
                 if (isMounted) {
                     setPdfDoc(pdf);
                     setNumPages(pdf.numPages);
@@ -50,7 +54,9 @@ function PdfViewer({ pdfBuffer }) {
                 }
             } catch (err) {
                 console.error('PDFjs load error:', err);
-                if (isMounted) setError('No se pudo renderizar la vista previa del PDF.');
+                if (isMounted) {
+                    setError('El archivo PDF posee una estructura no válida o corrupta. Puedes descargarlo directamente con el botón a continuación.');
+                }
             } finally {
                 if (isMounted) setLoading(false);
             }
@@ -94,7 +100,7 @@ function PdfViewer({ pdfBuffer }) {
     if (loading) {
         return (
             <div className="cinema-loading-state">
-                <Loader2 className="spin" size={36} color="#ef4444" />
+                <Loader2 className="spin" size={36} color="#003594" />
                 <span>Cargando documento PDF de alta fidelidad...</span>
             </div>
         );
@@ -102,9 +108,13 @@ function PdfViewer({ pdfBuffer }) {
 
     if (error) {
         return (
-            <div className="cinema-error-state">
-                <AlertCircle size={36} color="#ef4444" />
-                <p>{error}</p>
+            <div className="cinema-fallback-card">
+                <AlertCircle size={64} color="#ef4444" />
+                <h3>No se pudo previsualizar el PDF</h3>
+                <p style={{ maxWidth: '400px', margin: '0 auto 16px auto', color: '#475569' }}>{error}</p>
+                <a href={downloadUrl} download={fileName} className="btn-cinema-download-large">
+                    <Download size={18} /> Descargar {fileName}
+                </a>
             </div>
         );
     }
@@ -242,7 +252,7 @@ export default function DocumentViewerModal({
                 if (['docx', 'doc'].includes(fileExt)) {
                     try {
                         setLoadingDocx(true);
-                        const result = await mammoth.convertToHtml({ arrayBuffer: buffer });
+                        const result = await mammoth.convertToHtml({ arrayBuffer: buffer.slice(0) });
                         setDocxHtml(result.value || '<p><em>Documento sin contenido de texto reconocible.</em></p>');
                     } catch (docxErr) {
                         console.warn('Mammoth docx conversion warning:', docxErr);
@@ -437,7 +447,7 @@ export default function DocumentViewerModal({
 
                             {/* 2. PDF VIEWER (PDFjs Canvas Engine) */}
                             {category === 'pdf' && (
-                                <PdfViewer pdfBuffer={fileBuffer} />
+                                <PdfViewer pdfBuffer={fileBuffer} downloadUrl={downloadUrl} fileName={fileName} />
                             )}
 
                             {/* 3. EXCEL / SPREADSHEET VIEWER */}
