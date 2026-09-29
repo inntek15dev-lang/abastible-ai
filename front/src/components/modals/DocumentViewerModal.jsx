@@ -31,6 +31,11 @@ export default function DocumentViewerModal({
     // Image Viewer state
     const [zoom, setZoom] = useState(1);
 
+    // Generic Blob State (for PDF, Images, Media, Docs)
+    const [blobUrl, setBlobUrl] = useState('');
+    const [loadingBlob, setLoadingBlob] = useState(false);
+    const [blobError, setBlobError] = useState('');
+
     // Excel Viewer state
     const [workbook, setWorkbook] = useState(null);
     const [activeSheet, setActiveSheet] = useState('');
@@ -41,34 +46,6 @@ export default function DocumentViewerModal({
     // Text File state
     const [textContent, setTextContent] = useState('');
     const [loadingText, setLoadingText] = useState(false);
-
-    // Reset states on open/url change
-    useEffect(() => {
-        if (!isOpen) {
-            setZoom(1);
-            setWorkbook(null);
-            setActiveSheet('');
-            setExcelSearch('');
-            setExcelError('');
-            setTextContent('');
-            return;
-        }
-
-        const handleKeyDown = (e) => {
-            if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-
-        // Load data based on file extension
-        const ext = getFileExtension(fileName);
-        if (['xls', 'xlsx', 'csv', 'ods'].includes(ext) && fileUrl) {
-            loadExcelFile(fileUrl);
-        } else if (['txt', 'log', 'json', 'csv'].includes(ext) && fileUrl) {
-            loadTextFile(fileUrl);
-        }
-
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, fileUrl, fileName]);
 
     const getFileExtension = (name) => {
         if (!name) return '';
@@ -88,19 +65,91 @@ export default function DocumentViewerModal({
         return 'other';
     }, [fileExt]);
 
+    // Reset and Load files
+    useEffect(() => {
+        if (!isOpen || !fileUrl) {
+            setZoom(1);
+            setBlobUrl('');
+            setLoadingBlob(false);
+            setBlobError('');
+            setWorkbook(null);
+            setActiveSheet('');
+            setExcelSearch('');
+            setExcelError('');
+            setTextContent('');
+            return;
+        }
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+
+        let activeBlobUrl = null;
+
+        const fetchFileBlob = async () => {
+            try {
+                setLoadingBlob(true);
+                setBlobError('');
+
+                const fetchUrl = fileUrl.startsWith('http')
+                    ? fileUrl
+                    : (fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`);
+
+                const response = await api.get(fetchUrl, { responseType: 'blob' });
+
+                let mimeType = response.headers['content-type'] || '';
+                const ext = getFileExtension(fileName);
+
+                if (ext === 'pdf') mimeType = 'application/pdf';
+                else if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
+                    mimeType = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+                } else if (['mp4', 'webm'].includes(ext)) {
+                    mimeType = `video/${ext}`;
+                } else if (['mp3', 'wav'].includes(ext)) {
+                    mimeType = `audio/${ext}`;
+                }
+
+                const blob = new Blob([response.data], { type: mimeType });
+                activeBlobUrl = URL.createObjectURL(blob);
+                setBlobUrl(activeBlobUrl);
+            } catch (err) {
+                console.error('Error fetching file for viewer:', err);
+                setBlobError('No se pudo cargar la vista previa directa. Puedes descargar el archivo desde la barra superior.');
+            } finally {
+                setLoadingBlob(false);
+            }
+        };
+
+        if (category === 'excel') {
+            loadExcelFile(fileUrl);
+        } else if (['txt', 'log', 'json', 'csv'].includes(fileExt)) {
+            loadTextFile(fileUrl);
+            fetchFileBlob();
+        } else {
+            fetchFileBlob();
+        }
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            if (activeBlobUrl) {
+                URL.revokeObjectURL(activeBlobUrl);
+            }
+        };
+    }, [isOpen, fileUrl, fileName, category, fileExt]);
+
     // Load Excel File using SheetJS
     const loadExcelFile = async (url) => {
         try {
             setLoadingExcel(true);
             setExcelError('');
-            
-            // Handle absolute vs relative URL
+
             const fetchUrl = url.startsWith('http') ? url : (url.startsWith('/') ? url : `/${url}`);
             const response = await api.get(fetchUrl, { responseType: 'arraybuffer' });
-            
+
             const data = new Uint8Array(response.data);
             const wb = XLSX.read(data, { type: 'array' });
-            
+
             setWorkbook(wb);
             if (wb.SheetNames && wb.SheetNames.length > 0) {
                 setActiveSheet(wb.SheetNames[0]);
@@ -150,7 +199,7 @@ export default function DocumentViewerModal({
     if (!isOpen) return null;
 
     // Direct Download URL
-    const downloadUrl = fileUrl ? (fileUrl.startsWith('http') ? fileUrl : (fileUrl.startsWith('/') ? `${api.defaults.baseURL}${fileUrl}` : `${api.defaults.baseURL}/${fileUrl}`)) : '#';
+    const downloadUrl = blobUrl || (fileUrl ? (fileUrl.startsWith('http') ? fileUrl : (fileUrl.startsWith('/') ? `${api.defaults.baseURL}${fileUrl}` : `${api.defaults.baseURL}/${fileUrl}`)) : '#');
 
     return (
         <div className="cinema-modal-overlay" onClick={onClose}>
@@ -213,165 +262,187 @@ export default function DocumentViewerModal({
 
                 {/* Main Content Body */}
                 <div className="cinema-body">
-                    {/* 1. IMAGE VIEWER */}
-                    {category === 'image' && (
-                        <div className="cinema-image-wrapper">
-                            <img
-                                src={fileUrl}
-                                alt={fileName}
-                                className="cinema-image"
-                                style={{ transform: `scale(${zoom})` }}
-                            />
+                    {loadingBlob && category !== 'excel' ? (
+                        <div className="cinema-loading-state">
+                            <Loader2 className="spin" size={36} color="#003594" />
+                            <span>Cargando vista previa del archivo...</span>
                         </div>
-                    )}
-
-                    {/* 2. PDF VIEWER */}
-                    {category === 'pdf' && (
-                        <div className="cinema-pdf-wrapper">
-                            <iframe
-                                src={`${fileUrl}#toolbar=1&navpanes=0&view=FitH`}
-                                title={fileName}
-                                className="cinema-pdf-iframe"
-                            />
-                        </div>
-                    )}
-
-                    {/* 3. EXCEL / SPREADSHEET VIEWER */}
-                    {category === 'excel' && (
-                        <div className="cinema-excel-wrapper">
-                            {loadingExcel ? (
-                                <div className="cinema-loading-state">
-                                    <Loader2 className="spin" size={32} color="#3b82f6" />
-                                    <span>Cargando y procesando la plantilla de cálculo...</span>
-                                </div>
-                            ) : excelError ? (
-                                <div className="cinema-error-state">
-                                    <AlertCircle size={36} color="#ef4444" />
-                                    <p>{excelError}</p>
-                                    <a href={downloadUrl} download={fileName} className="btn-cinema-download-large">
-                                        <Download size={18} /> Descargar {fileName}
-                                    </a>
-                                </div>
-                            ) : (
-                                <div className="cinema-excel-container">
-                                    {/* Excel Toolbar */}
-                                    <div className="excel-toolbar">
-                                        {/* Sheet Tabs */}
-                                        <div className="excel-tabs">
-                                            {workbook?.SheetNames?.map(sheetName => (
-                                                <button
-                                                    key={sheetName}
-                                                    className={`excel-tab ${activeSheet === sheetName ? 'active' : ''}`}
-                                                    onClick={() => setActiveSheet(sheetName)}
-                                                >
-                                                    <FileSpreadsheet size={13} />
-                                                    {sheetName}
-                                                </button>
-                                            ))}
-                                        </div>
-
-                                        {/* Search Box */}
-                                        <div className="excel-search-box">
-                                            <Search size={14} className="search-icon" />
-                                            <input
-                                                type="text"
-                                                placeholder="Buscar en la planilla..."
-                                                value={excelSearch}
-                                                onChange={(e) => setExcelSearch(e.target.value)}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Excel Table View */}
-                                    <div className="excel-table-scroll">
-                                        {filteredRows.length > 0 ? (
-                                            <table className="excel-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th className="row-number-header">#</th>
-                                                        {(filteredRows[0] || []).map((col, cIdx) => (
-                                                            <th key={cIdx}>{col || `Col ${cIdx + 1}`}</th>
-                                                        ))}
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {filteredRows.slice(1).map((row, rIdx) => (
-                                                        <tr key={rIdx}>
-                                                            <td className="row-number-cell">{rIdx + 1}</td>
-                                                            {(filteredRows[0] || []).map((_, cIdx) => (
-                                                                <td key={cIdx}>{row[cIdx] !== undefined ? String(row[cIdx]) : ''}</td>
-                                                            ))}
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        ) : (
-                                            <div className="excel-empty-state">
-                                                <span>No se encontraron filas coincidentes en esta hoja.</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* 4. DOCUMENT / TEXT VIEWER */}
-                    {category === 'document' && (
-                        <div className="cinema-doc-wrapper">
-                            {fileExt === 'txt' ? (
-                                loadingText ? (
-                                    <div className="cinema-loading-state">
-                                        <Loader2 className="spin" size={32} color="#3b82f6" />
-                                        <span>Cargando contenido del documento...</span>
-                                    </div>
-                                ) : (
-                                    <pre className="cinema-text-reader">{textContent}</pre>
-                                )
-                            ) : (
-                                <div className="cinema-office-container">
-                                    <iframe
-                                        src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(downloadUrl)}`}
-                                        title={fileName}
-                                        className="cinema-doc-iframe"
-                                        onError={(e) => console.warn('Office iframe error', e)}
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* 5. VIDEO VIEWER */}
-                    {category === 'video' && (
-                        <div className="cinema-media-wrapper">
-                            <video controls autoPlay className="cinema-video-player">
-                                <source src={fileUrl} />
-                                Tu navegador no soporta la reproducción de video.
-                            </video>
-                        </div>
-                    )}
-
-                    {/* 6. AUDIO VIEWER */}
-                    {category === 'audio' && (
-                        <div className="cinema-media-wrapper audio">
-                            <FileAudio size={64} color="#8b5cf6" />
-                            <audio controls autoPlay className="cinema-audio-player">
-                                <source src={fileUrl} />
-                                Tu navegador no soporta la reproducción de audio.
-                            </audio>
-                        </div>
-                    )}
-
-                    {/* 7. OTHER / ARCHIVE / BINARY FALLBACK */}
-                    {category === 'other' && (
-                        <div className="cinema-fallback-card">
-                            <FileBox size={64} color="#0284c7" />
-                            <h3>{fileName}</h3>
-                            <p>Vista previa no disponible directamente para este tipo de archivo (.${fileExt}).</p>
+                    ) : blobError && category !== 'excel' ? (
+                        <div className="cinema-error-state">
+                            <AlertCircle size={36} color="#ef4444" />
+                            <p>{blobError}</p>
                             <a href={downloadUrl} download={fileName} className="btn-cinema-download-large">
                                 <Download size={18} /> Descargar {fileName}
                             </a>
                         </div>
+                    ) : (
+                        <>
+                            {/* 1. IMAGE VIEWER */}
+                            {category === 'image' && (
+                                <div className="cinema-image-wrapper">
+                                    <img
+                                        src={blobUrl || fileUrl}
+                                        alt={fileName}
+                                        className="cinema-image"
+                                        style={{ transform: `scale(${zoom})` }}
+                                        onError={(e) => {
+                                            console.error("Image load error:", e);
+                                        }}
+                                    />
+                                </div>
+                            )}
+
+                            {/* 2. PDF VIEWER */}
+                            {category === 'pdf' && (
+                                <div className="cinema-pdf-wrapper">
+                                    <iframe
+                                        src={`${blobUrl}#toolbar=1&navpanes=0&view=FitH`}
+                                        title={fileName}
+                                        className="cinema-pdf-iframe"
+                                    />
+                                </div>
+                            )}
+
+                            {/* 3. EXCEL / SPREADSHEET VIEWER */}
+                            {category === 'excel' && (
+                                <div className="cinema-excel-wrapper">
+                                    {loadingExcel ? (
+                                        <div className="cinema-loading-state">
+                                            <Loader2 className="spin" size={32} color="#3b82f6" />
+                                            <span>Cargando y procesando la plantilla de cálculo...</span>
+                                        </div>
+                                    ) : excelError ? (
+                                        <div className="cinema-error-state">
+                                            <AlertCircle size={36} color="#ef4444" />
+                                            <p>{excelError}</p>
+                                            <a href={downloadUrl} download={fileName} className="btn-cinema-download-large">
+                                                <Download size={18} /> Descargar {fileName}
+                                            </a>
+                                        </div>
+                                    ) : (
+                                        <div className="cinema-excel-container">
+                                            {/* Excel Toolbar */}
+                                            <div className="excel-toolbar">
+                                                {/* Sheet Tabs */}
+                                                <div className="excel-tabs">
+                                                    {workbook?.SheetNames?.map(sheetName => (
+                                                        <button
+                                                            key={sheetName}
+                                                            className={`excel-tab ${activeSheet === sheetName ? 'active' : ''}`}
+                                                            onClick={() => setActiveSheet(sheetName)}
+                                                        >
+                                                            <FileSpreadsheet size={13} />
+                                                            {sheetName}
+                                                        </button>
+                                                    ))}
+                                                </div>
+
+                                                {/* Search Box */}
+                                                <div className="excel-search-box">
+                                                    <Search size={14} className="search-icon" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Buscar en la planilla..."
+                                                        value={excelSearch}
+                                                        onChange={(e) => setExcelSearch(e.target.value)}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Excel Table View */}
+                                            <div className="excel-table-scroll">
+                                                {filteredRows.length > 0 ? (
+                                                    <table className="excel-table">
+                                                        <thead>
+                                                            <tr>
+                                                                <th className="row-number-header">#</th>
+                                                                {(filteredRows[0] || []).map((col, cIdx) => (
+                                                                    <th key={cIdx}>{col || `Col ${cIdx + 1}`}</th>
+                                                                ))}
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {filteredRows.slice(1).map((row, rIdx) => (
+                                                                <tr key={rIdx}>
+                                                                    <td className="row-number-cell">{rIdx + 1}</td>
+                                                                    {(filteredRows[0] || []).map((_, cIdx) => (
+                                                                        <td key={cIdx}>{row[cIdx] !== undefined ? String(row[cIdx]) : ''}</td>
+                                                                    ))}
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                ) : (
+                                                    <div className="excel-empty-state">
+                                                        <span>No se encontraron filas coincidentes en esta hoja.</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* 4. DOCUMENT / TEXT VIEWER */}
+                            {category === 'document' && (
+                                <div className="cinema-doc-wrapper">
+                                    {['txt', 'log', 'json', 'csv'].includes(fileExt) ? (
+                                        loadingText ? (
+                                            <div className="cinema-loading-state">
+                                                <Loader2 className="spin" size={32} color="#3b82f6" />
+                                                <span>Cargando contenido del documento...</span>
+                                            </div>
+                                        ) : (
+                                            <pre className="cinema-text-reader">{textContent}</pre>
+                                        )
+                                    ) : (
+                                        <div className="cinema-fallback-card">
+                                            <FileText size={64} color="#003594" />
+                                            <h3>{fileName}</h3>
+                                            <p style={{ maxWidth: '400px', margin: '0 auto 16px auto', color: '#64748b' }}>
+                                                Documento Microsoft Word ({fileExt.toUpperCase()}). Puedes abrirlo o descargarlo directamente.
+                                            </p>
+                                            <a href={downloadUrl} download={fileName} className="btn-cinema-download-large">
+                                                <Download size={18} /> Descargar {fileName}
+                                            </a>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* 5. VIDEO VIEWER */}
+                            {category === 'video' && (
+                                <div className="cinema-media-wrapper">
+                                    <video controls autoPlay className="cinema-video-player">
+                                        <source src={blobUrl || fileUrl} />
+                                        Tu navegador no soporta la reproducción de video.
+                                    </video>
+                                </div>
+                            )}
+
+                            {/* 6. AUDIO VIEWER */}
+                            {category === 'audio' && (
+                                <div className="cinema-media-wrapper audio">
+                                    <FileAudio size={64} color="#8b5cf6" />
+                                    <audio controls autoPlay className="cinema-audio-player">
+                                        <source src={blobUrl || fileUrl} />
+                                        Tu navegador no soporta la reproducción de audio.
+                                    </audio>
+                                </div>
+                            )}
+
+                            {/* 7. OTHER / ARCHIVE / BINARY FALLBACK */}
+                            {category === 'other' && (
+                                <div className="cinema-fallback-card">
+                                    <FileBox size={64} color="#0284c7" />
+                                    <h3>{fileName}</h3>
+                                    <p>Vista previa no disponible directamente para este tipo de archivo (.${fileExt}).</p>
+                                    <a href={downloadUrl} download={fileName} className="btn-cinema-download-large">
+                                        <Download size={18} /> Descargar {fileName}
+                                    </a>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </div>
