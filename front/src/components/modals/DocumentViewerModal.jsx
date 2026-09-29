@@ -1,6 +1,7 @@
 // IEEE Trace: REQ-005 | components/modals/DocumentViewerModal.jsx
 import { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
+import mammoth from 'mammoth';
 import api from '../../api';
 import {
     X,
@@ -16,8 +17,7 @@ import {
     RotateCcw,
     Search,
     AlertCircle,
-    Loader2,
-    Eye
+    Loader2
 } from 'lucide-react';
 import './DocumentViewerModal.css';
 
@@ -31,10 +31,14 @@ export default function DocumentViewerModal({
     // Image Viewer state
     const [zoom, setZoom] = useState(1);
 
-    // Generic Blob State (for PDF, Images, Media, Docs)
+    // Generic Blob State (for PDF, Images, Media)
     const [blobUrl, setBlobUrl] = useState('');
-    const [loadingBlob, setLoadingBlob] = useState(false);
-    const [blobError, setBlobError] = useState('');
+    const [loadingFile, setLoadingFile] = useState(false);
+    const [fileError, setFileError] = useState('');
+
+    // DOCX Viewer state
+    const [docxHtml, setDocxHtml] = useState('');
+    const [loadingDocx, setLoadingDocx] = useState(false);
 
     // Excel Viewer state
     const [workbook, setWorkbook] = useState(null);
@@ -45,7 +49,6 @@ export default function DocumentViewerModal({
 
     // Text File state
     const [textContent, setTextContent] = useState('');
-    const [loadingText, setLoadingText] = useState(false);
 
     const getFileExtension = (name) => {
         if (!name) return '';
@@ -65,13 +68,15 @@ export default function DocumentViewerModal({
         return 'other';
     }, [fileExt]);
 
-    // Reset and Load files
+    // Main loader effect
     useEffect(() => {
         if (!isOpen || !fileUrl) {
             setZoom(1);
             setBlobUrl('');
-            setLoadingBlob(false);
-            setBlobError('');
+            setLoadingFile(false);
+            setFileError('');
+            setDocxHtml('');
+            setLoadingDocx(false);
             setWorkbook(null);
             setActiveSheet('');
             setExcelSearch('');
@@ -87,47 +92,63 @@ export default function DocumentViewerModal({
 
         let activeBlobUrl = null;
 
-        const fetchFileBlob = async () => {
+        const loadAuthenticatedBinary = async () => {
             try {
-                setLoadingBlob(true);
-                setBlobError('');
+                setLoadingFile(true);
+                setFileError('');
 
                 const fetchUrl = fileUrl.startsWith('http')
                     ? fileUrl
                     : (fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`);
 
-                const response = await api.get(fetchUrl, { responseType: 'blob' });
+                // Always fetch binary ArrayBuffer with Axios auth headers
+                const response = await api.get(fetchUrl, { responseType: 'arraybuffer' });
+                const buffer = response.data;
 
-                let mimeType = response.headers['content-type'] || '';
-                const ext = getFileExtension(fileName);
-
-                if (ext === 'pdf') mimeType = 'application/pdf';
-                else if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
-                    mimeType = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
-                } else if (['mp4', 'webm'].includes(ext)) {
-                    mimeType = `video/${ext}`;
-                } else if (['mp3', 'wav'].includes(ext)) {
-                    mimeType = `audio/${ext}`;
+                // Handle DOCX conversion via mammoth
+                if (['docx', 'doc'].includes(fileExt)) {
+                    try {
+                        setLoadingDocx(true);
+                        const result = await mammoth.convertToHtml({ arrayBuffer: buffer });
+                        setDocxHtml(result.value || '<p><em>Documento sin contenido de texto reconocible.</em></p>');
+                    } catch (docxErr) {
+                        console.warn('Mammoth docx conversion warning:', docxErr);
+                    } finally {
+                        setLoadingDocx(false);
+                    }
                 }
 
-                const blob = new Blob([response.data], { type: mimeType });
+                // Handle TXT / Log / JSON
+                if (['txt', 'log', 'json'].includes(fileExt)) {
+                    const decoder = new TextDecoder('utf-8');
+                    setTextContent(decoder.decode(buffer));
+                }
+
+                // Determine Mime Type
+                let mimeType = 'application/octet-stream';
+                if (fileExt === 'pdf') mimeType = 'application/pdf';
+                else if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(fileExt)) {
+                    mimeType = fileExt === 'svg' ? 'image/svg+xml' : `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
+                } else if (['mp4', 'webm'].includes(fileExt)) mimeType = `video/${fileExt}`;
+                else if (['mp3', 'wav'].includes(fileExt)) mimeType = `audio/${fileExt}`;
+
+                // Create Blob from ArrayBuffer
+                const blob = new Blob([buffer], { type: mimeType });
                 activeBlobUrl = URL.createObjectURL(blob);
                 setBlobUrl(activeBlobUrl);
+
             } catch (err) {
-                console.error('Error fetching file for viewer:', err);
-                setBlobError('No se pudo cargar la vista previa directa. Puedes descargar el archivo desde la barra superior.');
+                console.error('Error fetching file binary:', err);
+                setFileError('No se pudo cargar la vista previa directa. Puedes descargar el archivo desde el botón superior.');
             } finally {
-                setLoadingBlob(false);
+                setLoadingFile(false);
             }
         };
 
         if (category === 'excel') {
             loadExcelFile(fileUrl);
-        } else if (['txt', 'log', 'json', 'csv'].includes(fileExt)) {
-            loadTextFile(fileUrl);
-            fetchFileBlob();
         } else {
-            fetchFileBlob();
+            loadAuthenticatedBinary();
         }
 
         return () => {
@@ -162,26 +183,11 @@ export default function DocumentViewerModal({
         }
     };
 
-    // Load Raw Text File
-    const loadTextFile = async (url) => {
-        try {
-            setLoadingText(true);
-            const fetchUrl = url.startsWith('http') ? url : (url.startsWith('/') ? url : `/${url}`);
-            const response = await api.get(fetchUrl, { responseType: 'text' });
-            setTextContent(typeof response.data === 'string' ? response.data : JSON.stringify(response.data, null, 2));
-        } catch (err) {
-            console.error('Error loading text file:', err);
-        } finally {
-            setLoadingText(false);
-        }
-    };
-
     // Convert Active Excel Sheet to Table Data
     const sheetData = useMemo(() => {
         if (!workbook || !activeSheet || !workbook.Sheets[activeSheet]) return [];
         const worksheet = workbook.Sheets[activeSheet];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-        return jsonData;
+        return XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
     }, [workbook, activeSheet]);
 
     // Filtered Sheet Rows
@@ -262,15 +268,15 @@ export default function DocumentViewerModal({
 
                 {/* Main Content Body */}
                 <div className="cinema-body">
-                    {loadingBlob && category !== 'excel' ? (
+                    {loadingFile && category !== 'excel' ? (
                         <div className="cinema-loading-state">
                             <Loader2 className="spin" size={36} color="#003594" />
-                            <span>Cargando vista previa del archivo...</span>
+                            <span>Cargando documento en alta resolución...</span>
                         </div>
-                    ) : blobError && category !== 'excel' ? (
+                    ) : fileError && category !== 'excel' ? (
                         <div className="cinema-error-state">
                             <AlertCircle size={36} color="#ef4444" />
-                            <p>{blobError}</p>
+                            <p>{fileError}</p>
                             <a href={downloadUrl} download={fileName} className="btn-cinema-download-large">
                                 <Download size={18} /> Descargar {fileName}
                             </a>
@@ -280,26 +286,39 @@ export default function DocumentViewerModal({
                             {/* 1. IMAGE VIEWER */}
                             {category === 'image' && (
                                 <div className="cinema-image-wrapper">
-                                    <img
-                                        src={blobUrl || fileUrl}
-                                        alt={fileName}
-                                        className="cinema-image"
-                                        style={{ transform: `scale(${zoom})` }}
-                                        onError={(e) => {
-                                            console.error("Image load error:", e);
-                                        }}
-                                    />
+                                    {blobUrl ? (
+                                        <img
+                                            src={blobUrl}
+                                            alt={fileName}
+                                            className="cinema-image"
+                                            style={{ transform: `scale(${zoom})` }}
+                                        />
+                                    ) : (
+                                        <div className="cinema-loading-state">
+                                            <Loader2 className="spin" size={32} color="#3b82f6" />
+                                            <span>Procesando imagen...</span>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
                             {/* 2. PDF VIEWER */}
                             {category === 'pdf' && (
                                 <div className="cinema-pdf-wrapper">
-                                    <iframe
-                                        src={`${blobUrl}#toolbar=1&navpanes=0&view=FitH`}
-                                        title={fileName}
-                                        className="cinema-pdf-iframe"
-                                    />
+                                    {blobUrl ? (
+                                        <object
+                                            data={blobUrl}
+                                            type="application/pdf"
+                                            className="cinema-pdf-iframe"
+                                        >
+                                            <embed src={blobUrl} type="application/pdf" className="cinema-pdf-iframe" />
+                                        </object>
+                                    ) : (
+                                        <div className="cinema-loading-state">
+                                            <Loader2 className="spin" size={32} color="#ef4444" />
+                                            <span>Generando visor PDF...</span>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -386,21 +405,26 @@ export default function DocumentViewerModal({
                             {/* 4. DOCUMENT / TEXT VIEWER */}
                             {category === 'document' && (
                                 <div className="cinema-doc-wrapper">
-                                    {['txt', 'log', 'json', 'csv'].includes(fileExt) ? (
-                                        loadingText ? (
-                                            <div className="cinema-loading-state">
-                                                <Loader2 className="spin" size={32} color="#3b82f6" />
-                                                <span>Cargando contenido del documento...</span>
-                                            </div>
-                                        ) : (
-                                            <pre className="cinema-text-reader">{textContent}</pre>
-                                        )
+                                    {['txt', 'log', 'json'].includes(fileExt) ? (
+                                        <pre className="cinema-text-reader">{textContent}</pre>
+                                    ) : loadingDocx ? (
+                                        <div className="cinema-loading-state">
+                                            <Loader2 className="spin" size={32} color="#003594" />
+                                            <span>Procesando vista de lectura Word (.docx)...</span>
+                                        </div>
+                                    ) : docxHtml ? (
+                                        <div className="cinema-docx-container">
+                                            <div
+                                                className="cinema-docx-paper"
+                                                dangerouslySetInnerHTML={{ __html: docxHtml }}
+                                            />
+                                        </div>
                                     ) : (
                                         <div className="cinema-fallback-card">
                                             <FileText size={64} color="#003594" />
                                             <h3>{fileName}</h3>
                                             <p style={{ maxWidth: '400px', margin: '0 auto 16px auto', color: '#64748b' }}>
-                                                Documento Microsoft Word ({fileExt.toUpperCase()}). Puedes abrirlo o descargarlo directamente.
+                                                Documento Microsoft Word ({fileExt.toUpperCase()}). Haz clic en el botón a continuación para descargarlo.
                                             </p>
                                             <a href={downloadUrl} download={fileName} className="btn-cinema-download-large">
                                                 <Download size={18} /> Descargar {fileName}
@@ -414,7 +438,7 @@ export default function DocumentViewerModal({
                             {category === 'video' && (
                                 <div className="cinema-media-wrapper">
                                     <video controls autoPlay className="cinema-video-player">
-                                        <source src={blobUrl || fileUrl} />
+                                        <source src={blobUrl} />
                                         Tu navegador no soporta la reproducción de video.
                                     </video>
                                 </div>
@@ -425,7 +449,7 @@ export default function DocumentViewerModal({
                                 <div className="cinema-media-wrapper audio">
                                     <FileAudio size={64} color="#8b5cf6" />
                                     <audio controls autoPlay className="cinema-audio-player">
-                                        <source src={blobUrl || fileUrl} />
+                                        <source src={blobUrl} />
                                         Tu navegador no soporta la reproducción de audio.
                                     </audio>
                                 </div>
