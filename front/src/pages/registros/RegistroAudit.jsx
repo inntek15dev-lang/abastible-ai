@@ -21,7 +21,8 @@ import {
     FileVideo,
     FileAudio,
     FileBox,
-    Calendar
+    Calendar,
+    Eye
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
