@@ -10,6 +10,7 @@ import HallazgoList from '../../components/forms/HallazgoList';
 import CompromisoModal from '../../components/forms/CompromisoModal';
 import SolicitudReaperturaModal from '../../components/forms/SolicitudReaperturaModal';
 import ConfirmationModal from '../../components/modals/ConfirmationModal';
+import DocumentViewerModal from '../../components/modals/DocumentViewerModal';
 import { toast } from 'react-hot-toast';
 import '../compromisos/CompromisoList.css';
 
@@ -21,6 +22,7 @@ export default function RegistroForm() {
     const location = useLocation();
     const isEdit = Boolean(id);
     const isReadOnly = location.state?.readonly || false;
+    const [viewerState, setViewerState] = useState({ isOpen: false, fileUrl: '', fileName: '', fileTitle: '' });
 
     const isContractor = ['contratista_admin', 'contratista_user'].includes(user?.role);
     const isAdminOrADC = isAdmin || user?.role === 'administrador_contrato';
@@ -1431,15 +1433,21 @@ export default function RegistroForm() {
                                                                 {act.evidencias.map(e => (
                                                                     <div key={e.id} style={{ border: '1px solid #e5e7eb', padding: '8px', borderRadius: '6px', background: '#f8fafc' }}>
                                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'space-between' }}>
-                                                                            <a
-                                                                                href={`${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${e.ruta}`}
-                                                                                target="_blank"
-                                                                                rel="noopener noreferrer"
-                                                                                style={{ fontSize: '0.7rem', color: '#3b82f6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0 }}
-                                                                                title={e.nombre_archivo}
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    setViewerState({
+                                                                                        isOpen: true,
+                                                                                        fileUrl: `/evidencias/${e.id}/download`,
+                                                                                        fileName: e.nombre_archivo,
+                                                                                        fileTitle: `Evidencia: ${e.nombre_archivo}`
+                                                                                    });
+                                                                                }}
+                                                                                style={{ fontSize: '0.7rem', color: '#003594', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left', fontWeight: 600 }}
+                                                                                title={`Ver evidencia ${e.nombre_archivo} en modo cine`}
                                                                             >
                                                                                 📄 {e.nombre_archivo.length > 20 ? e.nombre_archivo.substring(0, 20) + '...' : e.nombre_archivo}
-                                                                            </a>
+                                                                            </button>
                                                                             {!isLocked && !(isContractor && form.estado_auditoria === 'pendiente_subsanacion') && (
                                                                                 <button
                                                                                     type="button"
@@ -1662,15 +1670,25 @@ export default function RegistroForm() {
                                                     <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                                         <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                             <span>Evidencia Cargada:</span>
-                                                            <a 
-                                                                href={`${(window.ENV && window.ENV.VITE_API_URL) ? window.ENV.VITE_API_URL : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api')}/${comp.ruta_evidencia}`}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                style={{ color: '#2563eb', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontWeight: 700 }}
-                                                                title="Ver/Descargar Evidencia"
+                                                            <button 
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const url = comp.ruta_evidencia.startsWith('http') || comp.ruta_evidencia.startsWith('/api') 
+                                                                        ? comp.ruta_evidencia 
+                                                                        : `/${comp.ruta_evidencia}`;
+                                                                    const fileName = comp.ruta_evidencia.split('/').pop() || 'evidencia.pdf';
+                                                                    setViewerState({
+                                                                        isOpen: true,
+                                                                        fileUrl: url,
+                                                                        fileName: fileName,
+                                                                        fileTitle: `Evidencia Compromiso #${comp.id}`
+                                                                    });
+                                                                }}
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563eb', display: 'flex', alignItems: 'center', gap: '4px', padding: 0, fontWeight: 700 }}
+                                                                title="Ver Evidencia de Compromiso en modo cine"
                                                             >
                                                                 <Download size={14} /> Ver Archivo
-                                                            </a>
+                                                            </button>
                                                         </div>
                                                         {comp.comentario_evidencia && (
                                                             <div style={{ background: '#f8fafc', padding: '8px', borderRadius: '6px', fontSize: '0.75rem', color: '#475569', fontStyle: 'italic', borderLeft: '3px solid #cbd5e1', marginTop: '2px' }}>
@@ -1852,6 +1870,14 @@ export default function RegistroForm() {
                 message={confirmModal.message}
                 confirmText="Confirmar"
                 cancelText="Cancelar"
+            />
+
+            <DocumentViewerModal
+                isOpen={viewerState.isOpen}
+                onClose={() => setViewerState({ ...viewerState, isOpen: false })}
+                fileUrl={viewerState.fileUrl}
+                fileName={viewerState.fileName}
+                fileTitle={viewerState.fileTitle}
             />
         </div >
     );
