@@ -658,6 +658,22 @@ const reaperturaController = require('../controllers/reaperturaController');
  *     tags: [Reaperturas]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: estado
+ *         schema:
+ *           type: string
+ *         description: Estado de la solicitud (pendiente, aprobada, rechazada)
+ *       - in: query
+ *         name: adc_id
+ *         schema:
+ *           type: string
+ *         description: ID del Administrador de Contrato
+ *       - in: query
+ *         name: periodo
+ *         schema:
+ *           type: string
+ *         description: Periodo mensual (YYYY-MM)
  *     responses:
  *       200:
  *         description: List of requests
@@ -739,12 +755,43 @@ const reaperturaController = require('../controllers/reaperturaController');
  *     responses:
  *       200:
  *         description: Register reopened
+
+ *
+ * /reaperturas/notificar-adc:
+ *   post:
+ *     summary: Enviar correo con tabla de solicitudes pendientes al Administrador de Contrato
+ *     tags: [Reaperturas]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - adc_id
+ *             properties:
+ *               adc_id:
+ *                 type: integer
+ *               periodo:
+ *                 type: string
+ *               mensaje:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Correo enviado exitosamente
+ *       400:
+ *         description: Error en los datos o sin solicitudes pendientes
+ *       404:
+ *         description: Administrador de Contrato no encontrado
  */
 router.get('/reaperturas', auth, reaperturaController.index);
 router.post('/reaperturas', auth, reaperturaController.store);
 router.put('/reaperturas/:id/aprobar', auth, requirePrivilege('Auditoria', 'write'), reaperturaController.aprobar);
 router.put('/reaperturas/:id/rechazar', auth, requirePrivilege('Auditoria', 'write'), reaperturaController.rechazar);
 router.post('/reaperturas/directa', auth, requirePrivilege('Reaperturas', 'excec'), reaperturaController.reabrirDirectamente);
+router.post('/reaperturas/notificar-adc', auth, requirePrivilege('Reaperturas', 'write'), reaperturaController.notificarPendientesAdc);
 
 // ============= SPRINT 4: DASHBOARD & REPORTES =============
 const dashboardController = require('../controllers/dashboardController');

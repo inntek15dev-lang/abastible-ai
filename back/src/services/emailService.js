@@ -151,6 +151,115 @@ const emailService = {
             <p style="font-size: 12px; color: #64748b; margin-top: 20px;">Si usted no solicitó este cambio, puede ignorar este correo — su contraseña actual seguirá funcionando.</p>
         `;
         return this.sendMail({ to: usuario.email, subject, html });
+    },
+
+    // 9. Resumen de solicitudes de reapertura pendientes para Administrador de Contrato
+    async notifyResumenReaperturasPendientesADC({ adcUser, solicitudes, periodo, mensaje }) {
+        const periodoStr = periodo && periodo !== "todos" ? ` - Periodo ${periodo}` : "";
+        const subject = `[OVAL Control] Solicitudes de Reapertura Pendientes${periodoStr}`;
+
+        const rowsHtml = solicitudes.map((s, index) => {
+            const r = s.registro || {};
+            const v = r.vinculacionEntidad || {};
+            const gerencia = v.gerencia?.nombre || v.dependencia?.subgerencia?.gerencia?.nombre || "-";
+            const subgerencia = v.subgerencia?.nombre || v.dependencia?.subgerencia?.nombre || "-";
+            const servicio = v.servicio?.nombre || "-";
+            const planta = v.dependencia?.nombre || "-";
+            const contratista = r.eecc_nombre || v.contratista?.nombre || "-";
+            const fecha = s.created_at ? new Date(s.created_at).toLocaleDateString("es-CL") : "-";
+            const solicitante = s.solicitante ? `${s.solicitante.name || ""} (${s.solicitante.email || ""})` : "-";
+            const motivo = s.motivo || "-";
+
+            const bg = index % 2 === 0 ? "#ffffff" : "#f8fafc";
+
+            return `
+                <tr style="background-color: ${bg}; border-bottom: 1px solid #e2e8f0;">
+                    <td style="padding: 10px 12px; font-weight: bold; color: #1e293b; font-size: 13px;">${r.periodo || "-"}</td>
+                    <td style="padding: 10px 12px; color: #334155; font-size: 13px;">${contratista}</td>
+                    <td style="padding: 10px 12px; color: #334155; font-size: 13px;">${gerencia}</td>
+                    <td style="padding: 10px 12px; color: #334155; font-size: 13px;">${subgerencia}</td>
+                    <td style="padding: 10px 12px; color: #334155; font-size: 13px;">${servicio}</td>
+                    <td style="padding: 10px 12px; color: #334155; font-size: 13px;">${planta}</td>
+                    <td style="padding: 10px 12px; color: #334155; font-size: 13px;">${solicitante}</td>
+                    <td style="padding: 10px 12px; color: #64748b; font-size: 12px; white-space: nowrap;">${fecha}</td>
+                    <td style="padding: 10px 12px; color: #1e293b; font-size: 13px; max-width: 250px;">${motivo}</td>
+                </tr>
+            `;
+        }).join("");
+
+        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1e293b; margin: 0; padding: 20px; background-color: #f1f5f9; }
+                    .card { background-color: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; max-width: 1050px; margin: 0 auto; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+                    .header { background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%); color: #ffffff; padding: 24px; text-align: left; }
+                    .content { padding: 24px; }
+                    .table-wrapper { width: 100%; overflow-x: auto; margin-top: 16px; margin-bottom: 24px; border: 1px solid #cbd5e1; border-radius: 6px; }
+                    table { width: 100%; border-collapse: collapse; text-align: left; }
+                    th { background-color: #0f172a; color: #ffffff; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 12px; }
+                    .btn { display: inline-block; background-color: #2563eb; color: #ffffff !important; font-weight: 600; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-size: 14px; }
+                    .footer { padding: 16px 24px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; }
+                </style>
+            </head>
+            <body>
+                <div class="card">
+                    <div class="header">
+                        <h2 style="margin: 0; font-size: 20px; font-weight: 700;">OVAL Control &mdash; Plataforma de Cumplimiento</h2>
+                        <p style="margin: 4px 0 0 0; opacity: 0.9; font-size: 14px;">Resumen de Solicitudes de Reapertura Pendientes</p>
+                    </div>
+                    <div class="content">
+                        <p style="font-size: 15px; margin-top: 0;">Estimado(a) <strong>${adcUser.name}</strong>,</p>
+                        <p style="font-size: 14px; line-height: 1.5; color: #334155;">
+                            Se informa que actualmente existen <strong>${solicitudes.length}</strong> solicitud(es) de reapertura en estado <strong style="color: #b45309;">PENDIENTE</strong> asociadas a los contratos y vinculaciones bajo su administración${periodoStr}.
+                        </p>
+                        ${mensaje ? `
+                        <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px;">
+                            <strong style="color: #1e40af; font-size: 13px;">Mensaje de coordinación:</strong>
+                            <p style="margin: 4px 0 0 0; font-size: 14px; color: #1e293b;">${mensaje.replace(/\n/g, "<br>")}</p>
+                        </div>
+                        ` : ""}
+
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Periodo</th>
+                                        <th>Contratista</th>
+                                        <th>Gerencia</th>
+                                        <th>Subgerencia</th>
+                                        <th>Servicio</th>
+                                        <th>Planta</th>
+                                        <th>Solicitante</th>
+                                        <th>Fecha</th>
+                                        <th>Motivo</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${rowsHtml}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div style="text-align: center; margin: 30px 0 10px 0;">
+                            <a href="${frontendUrl}/reaperturas" class="btn">
+                                Ingresar a Gestión de Solicitudes
+                            </a>
+                        </div>
+                    </div>
+                    <div class="footer">
+                        Este es un correo automático enviado desde la plataforma OVAL Control. Por favor no responda directamente a este mensaje.
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+
+        return this.sendMail({ to: adcUser.email, subject, html });
     }
 };
 

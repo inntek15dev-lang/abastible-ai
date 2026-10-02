@@ -4,9 +4,14 @@ const {
     SolicitudReapertura,
     Registro,
     RegistroLog,
-
     User,
-    Administracion
+    Administracion,
+    Vinculacion,
+    Contratista,
+    TipoContratista,
+    Dependencia,
+    Subgerencia,
+    Gerencia
 } = require('../database/models');
 const { getAllowedVinculacionIds } = require('../utils/scopeHelper');
 const emailService = require('../services/emailService');
@@ -15,7 +20,7 @@ const reaperturaController = {
     // GET /api/reaperturas
     async index(req, res) {
         try {
-            const { estado, adc_id } = req.query;
+            const { estado, adc_id, periodo } = req.query;
             const where = {};
 
             if (estado) where.estado = estado;
@@ -25,12 +30,10 @@ const reaperturaController = {
             // vinculaciones que administra, contratista_user por sus contratos.
             const allowedVincIds = await getAllowedVinculacionIds(req.user);
 
-            const registroInclude = {
-                model: Registro,
-                as: 'registro',
-                attributes: ['id', 'periodo', 'eecc_nombre', 'contratista_asignacion_id'],
-                required: true
-            };
+            const registroWhere = {};
+            if (periodo && periodo !== 'todos') {
+                registroWhere.periodo = { [Op.like]: `${periodo}%` };
+            }
 
             let vincFilterIds = allowedVincIds;
 
@@ -50,17 +53,58 @@ const reaperturaController = {
             }
 
             if (vincFilterIds !== null) {
-                registroInclude.where = {
-                    contratista_asignacion_id: { [Op.in]: vincFilterIds.length > 0 ? vincFilterIds : [-1] }
+                registroWhere.contratista_asignacion_id = {
+                    [Op.in]: vincFilterIds.length > 0 ? vincFilterIds : [-1]
                 };
             }
+
+            const registroInclude = {
+                model: Registro,
+                as: 'registro',
+                attributes: ['id', 'periodo', 'eecc_nombre', 'contratista_asignacion_id'],
+                where: Object.keys(registroWhere).length > 0 ? registroWhere : undefined,
+                required: true,
+                include: [
+                    {
+                        model: Vinculacion,
+                        as: 'vinculacionEntidad',
+                        required: false,
+                        include: [
+                            { model: Contratista, as: 'contratista', attributes: ['id', 'nombre', 'rut'] },
+                            { model: Gerencia, as: 'gerencia', attributes: ['id', 'nombre'] },
+                            { model: Subgerencia, as: 'subgerencia', attributes: ['id', 'nombre'] },
+                            { model: TipoContratista, as: 'servicio', attributes: ['id', 'nombre'] },
+                            {
+                                model: Dependencia,
+                                as: 'dependencia',
+                                attributes: ['id', 'nombre'],
+                                include: [{
+                                    model: Subgerencia,
+                                    as: 'subgerencia',
+                                    attributes: ['id', 'nombre'],
+                                    include: [{ model: Gerencia, as: 'gerencia', attributes: ['id', 'nombre'] }]
+                                }]
+                            },
+                            {
+                                model: Administracion,
+                                as: 'administraciones',
+                                where: { activo: 1 },
+                                required: false,
+                                include: [
+                                    { model: User, as: 'administradorContrato', attributes: [['usu_id', 'id'], 'name', 'email'] }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            };
 
             const solicitudes = await SolicitudReapertura.findAll({
                 where,
                 include: [
                     registroInclude,
-                    { model: User, as: 'solicitante', attributes: ['id', 'name', 'email'] },
-                    { model: User, as: 'aprobador', attributes: ['id', 'name'] }
+                    { model: User, as: 'solicitante', attributes: [['usu_id', 'id'], 'name', 'email'] },
+                    { model: User, as: 'aprobador', attributes: [['usu_id', 'id'], 'name'] }
                 ],
                 order: [['created_at', 'DESC']]
             });
@@ -319,6 +363,145 @@ const reaperturaController = {
         } catch (error) {
             console.error('Reapertura directa error:', error);
             res.status(500).json({ success: false, message: 'Error al reabrir registro' });
+        }
+    },
+
+    // POST /api/reaperturas/notificar-adc
+    async notificarPendientesAdc(req, res) {
+        try {
+            const { adc_id, periodo, mensaje } = req.body;
+
+            if (!adc_id || adc_id === 'todos') {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Debe seleccionar un Administrador de Contrato válido.'
+                });
+            }
+
+            // Buscar usuario ADC
+            const adcUser = await User.findOne({
+                where: {
+                    [Op.or]: [{ usu_id: adc_id }, { id: adc_id }]
+                },
+                attributes: [['usu_id', 'id'], 'name', 'email', 'role']
+            });
+
+            if (!adcUser) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Administrador de Contrato no encontrado.'
+                });
+            }
+
+            if (!adcUser.email) {
+                return res.status(400).json({
+                    success: false,
+                    message: `El Administrador de Contrato ${adcUser.name} no posee un correo electrónico registrado.`
+                });
+            }
+
+            // Obtener vinculaciones administradas activas
+            const adminRecords = await Administracion.findAll({
+                where: {
+                    [Op.or]: [
+                        { administrador_contrato_id: adc_id },
+                        { administrador_contrato_id: adcUser.id || adcUser.usu_id }
+                    ],
+                    activo: 1
+                },
+                attributes: ['vinculacion_id']
+            });
+
+            const adcVincIds = adminRecords.map(a => Number(a.vinculacion_id));
+            if (adcVincIds.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: `El Administrador de Contrato ${adcUser.name} no tiene vinculaciones activas asignadas.`
+                });
+            }
+
+            // Filtro de registro
+            const registroWhere = {
+                contratista_asignacion_id: { [Op.in]: adcVincIds }
+            };
+
+            if (periodo && periodo !== 'todos') {
+                registroWhere.periodo = { [Op.like]: `${periodo}%` };
+            }
+
+            // Buscar solicitudes pendientes
+            const solicitudes = await SolicitudReapertura.findAll({
+                where: { estado: 'pendiente' },
+                include: [
+                    {
+                        model: Registro,
+                        as: 'registro',
+                        where: registroWhere,
+                        required: true,
+                        include: [
+                            {
+                                model: Vinculacion,
+                                as: 'vinculacionEntidad',
+                                required: false,
+                                include: [
+                                    { model: Contratista, as: 'contratista', attributes: ['id', 'nombre', 'rut'] },
+                                    { model: Gerencia, as: 'gerencia', attributes: ['id', 'nombre'] },
+                                    { model: Subgerencia, as: 'subgerencia', attributes: ['id', 'nombre'] },
+                                    { model: TipoContratista, as: 'servicio', attributes: ['id', 'nombre'] },
+                                    {
+                                        model: Dependencia,
+                                        as: 'dependencia',
+                                        attributes: ['id', 'nombre'],
+                                        include: [{
+                                            model: Subgerencia,
+                                            as: 'subgerencia',
+                                            attributes: ['id', 'nombre'],
+                                            include: [{ model: Gerencia, as: 'gerencia', attributes: ['id', 'nombre'] }]
+                                        }]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    { model: User, as: 'solicitante', attributes: [['usu_id', 'id'], 'name', 'email'] }
+                ],
+                order: [['created_at', 'DESC']]
+            });
+
+            if (solicitudes.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: `No existen solicitudes de reapertura pendientes para ${adcUser.name}${periodo && periodo !== 'todos' ? ` en el periodo ${periodo}` : ''}.`
+                });
+            }
+
+            // Enviar correo mediante emailService
+            const sent = await emailService.notifyResumenReaperturasPendientesADC({
+                adcUser,
+                solicitudes,
+                periodo,
+                mensaje
+            });
+
+            if (!sent) {
+                return res.status(500).json({
+                    success: false,
+                    message: 'Error al enviar el correo al Administrador de Contrato.'
+                });
+            }
+
+            res.json({
+                success: true,
+                message: `Correo enviado exitosamente a ${adcUser.name} (${adcUser.email}) con ${solicitudes.length} solicitud(es) pendiente(s).`,
+                data: {
+                    total_solicitudes: solicitudes.length,
+                    destinatario: adcUser.email,
+                    adc_nombre: adcUser.name
+                }
+            });
+        } catch (error) {
+            console.error('Error notificarPendientesAdc:', error);
+            res.status(500).json({ success: false, message: 'Error al notificar al Administrador de Contrato' });
         }
     }
 };
