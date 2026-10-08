@@ -271,7 +271,8 @@
             "AC-01: Puedo exportar el detalle de un registro a PDF (reportes/registro/:id/pdf)",
             "AC-02: Puedo generar el reporte de cumplimiento general y la matriz en PDF y Excel",
             "AC-03: El módulo de Facturación OVAL tiene su propia exportación PDF/Excel, exclusiva de rol oval",
-            "AC-04-SEC: Solo exporto lo que puedo ver según mi scope"
+            "AC-04-SEC: Solo exporto lo que puedo ver según mi scope",
+            "AC-05: El reporte PDF de Matriz de Cumplimiento renderiza sin solapamiento en encabezados de periodo, con altura dinámica multilínea para empresas contratistas y programas sin omisión de caracteres ni truncamiento con puntos suspensivos, y alineación vertical óptima de celdas."
           ],
           "security_tag": "Internal"
         },

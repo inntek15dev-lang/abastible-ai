@@ -316,83 +316,114 @@ module.exports = {
             const matrixData = await module.exports._getMatrixData(req);
             const { columns, rows } = matrixData;
 
-            const doc = new PDFDocument({ margin: 30, layout: 'landscape', bufferPages: true });
+            // Use exact A4 landscape dimensions (841.89 x 595.28 pt) with 18pt margins for maximum width
+            const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 18, bufferPages: true });
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `attachment; filename=matriz-cumplimiento-${new Date().toISOString().slice(0, 10)}.pdf`);
             doc.pipe(res);
 
-            const startX = 30;
-            const totalWidth = 732; // landscape A4 is 792 - margins (30+30)
-            const baseColsWidth = 350; // 130 + 130 + 90
-            const monthColWidth = Math.max(30, (totalWidth - baseColsWidth) / Math.max(1, columns.length));
+            const startX = 18;
+            const totalWidth = 805; // 841.89 - (18 * 2) = ~805.89 pt
+            const baseColsWidth = 365; // 140 (Contratista) + 140 (Programa) + 85 (Dependencia)
+            const numMonths = Math.max(1, columns.length);
+            const monthColWidth = Math.max(28, (totalWidth - baseColsWidth) / numMonths);
 
-            const drawPageHeader = (pageNumber) => {
-                // Top Corporate Bar
-                doc.rect(0, 0, 792, 6).fill('#003594');
-                doc.rect(0, 6, 792, 3).fill('#FE5000');
+            const drawPageHeader = () => {
+                // Top Corporate Bars (Abastible Blue & Orange)
+                doc.rect(0, 0, 842, 5).fill('#003594');
+                doc.rect(0, 5, 842, 2).fill('#FE5000');
 
                 // Header Titles
-                doc.fillColor('#003594').font('Helvetica-Bold').fontSize(14).text('MATRIZ DE CUMPLIMIENTO OIEM', startX, 22);
-                doc.fillColor('#64748b').font('Helvetica').fontSize(8).text('Visión consolidada por vinculación: servicios con programa asignado', startX, 38);
-                doc.fontSize(7.5).text(`Fecha emisión: ${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}  |  Total contratos: ${rows.length}`, 450, 25, { align: 'right', width: 312 });
+                doc.fillColor('#003594').font('Helvetica-Bold').fontSize(13).text('MATRIZ DE CUMPLIMIENTO OIEM', startX, 16);
+                doc.fillColor('#64748b').font('Helvetica').fontSize(8).text('Visión consolidada por vinculación: servicios con programa asignado', startX, 31);
+                
+                const nowFormatted = `${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`;
+                doc.fontSize(7.5).text(`Fecha emisión: ${nowFormatted}  |  Total contratos: ${rows.length}`, 480, 18, { align: 'right', width: 343 });
             };
 
+            const headerHeight = 32; // Generous 32pt height with clean vertical clearance
             const drawTableHeader = (y) => {
-                doc.rect(startX, y, totalWidth, 24).fill('#f8fafc');
-                doc.rect(startX, y, totalWidth, 24).stroke('#e2e8f0');
+                doc.rect(startX, y, totalWidth, headerHeight).fill('#f8fafc');
+                doc.rect(startX, y, totalWidth, headerHeight).stroke('#e2e8f0');
 
                 let cx = startX;
                 doc.fillColor('#475569').font('Helvetica-Bold').fontSize(7.5);
-                doc.text('CONTRATISTA / RUT', cx + 6, y + 8, { width: 124 });
-                cx += 130;
-                doc.text('PROGRAMA / SERVICIO', cx + 6, y + 8, { width: 124 });
-                cx += 130;
-                doc.text('DEPENDENCIA', cx + 6, y + 8, { width: 84, align: 'center' });
-                cx += 90;
+                doc.text('CONTRATISTA / RUT', cx + 6, y + 11, { width: 130 });
+                cx += 140;
+                doc.text('PROGRAMA / SERVICIO', cx + 6, y + 11, { width: 130 });
+                cx += 140;
+                doc.text('DEPENDENCIA', cx, y + 11, { width: 85, align: 'center' });
+                cx += 85;
 
+                // Month header: Month name on line 1 (y+5), subheader on line 2 (y+19) -> 14pt vertical separation guarantees NO text overlap!
                 columns.forEach(col => {
-                    doc.text(`${col.label}`, cx, y + 4, { width: monthColWidth, align: 'center' });
-                    doc.font('Helvetica').fontSize(6).fillColor('#94a3b8').text('DECL. | AUDIT.', cx, y + 14, { width: monthColWidth, align: 'center' });
-                    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#475569');
+                    const cleanLabel = (col.label || '').replace(/SEPT/gi, 'SEP').replace(/DIC\./gi, 'DIC');
+                    const monthFontSize = numMonths > 10 ? 5.8 : (numMonths > 8 ? 6.2 : 6.8);
+                    const subFontSize = numMonths > 10 ? 4.6 : 5.0;
+                    
+                    doc.font('Helvetica-Bold').fontSize(monthFontSize).fillColor('#475569');
+                    doc.text(cleanLabel, cx, y + 5, { width: monthColWidth, align: 'center', lineBreak: false });
+                    
+                    doc.font('Helvetica').fontSize(subFontSize).fillColor('#94a3b8');
+                    const subLabel = monthColWidth < 38 ? 'DECL | AUD' : 'DECL. | AUDIT.';
+                    doc.text(subLabel, cx, y + 19, { width: monthColWidth, align: 'center', lineBreak: false });
                     cx += monthColWidth;
                 });
-                return y + 24;
+
+                return y + headerHeight;
             };
 
-            drawPageHeader(1);
-            let currentY = drawTableHeader(52);
+            drawPageHeader();
+            let currentY = drawTableHeader(42);
 
             rows.forEach((row, rowIdx) => {
-                if (currentY > 500) {
-                    doc.addPage({ layout: 'landscape', margin: 30 });
+                // Pre-calculate needed text heights so no text is ever truncated with ellipsis
+                doc.font('Helvetica-Bold').fontSize(6.8);
+                const contratistaH = doc.heightOfString(row.contratista || 'N/A', { width: 130 });
+                const programaH = doc.heightOfString(row.programa || 'Sin Programa', { width: 130 });
+                
+                doc.font('Helvetica').fontSize(6.0);
+                const rutH = doc.heightOfString(row.rut || '-', { width: 130 });
+                const servicioH = doc.heightOfString(row.servicio || '-', { width: 130 });
+
+                // Dynamic row height accommodates complete multi-line text for both contractor & program
+                const totalCol1H = contratistaH + rutH + 10;
+                const totalCol2H = programaH + servicioH + 10;
+                const rowHeight = Math.max(34, totalCol1H, totalCol2H);
+
+                // Page break with automatic header repetition
+                if (currentY + rowHeight > 550) {
+                    doc.addPage({ size: 'A4', layout: 'landscape', margin: 18 });
                     drawPageHeader();
-                    currentY = drawTableHeader(52);
+                    currentY = drawTableHeader(42);
                 }
 
-                const rowHeight = 30;
                 let x = startX;
 
-                // Alternate row background
+                // Subtle alternating row background for high readability
                 if (rowIdx % 2 === 1) {
-                    doc.rect(startX, currentY, totalWidth, rowHeight).fill('#fafafa');
+                    doc.rect(startX, currentY, totalWidth, rowHeight).fill('#fafbfc');
                 }
 
-                // 1. Contratista / RUT
-                doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(7.5).text(row.contratista, x + 6, currentY + 5, { width: 124, height: 12, ellipsis: true });
-                doc.fillColor('#64748b').font('Helvetica').fontSize(6.5).text(row.rut || '-', x + 6, currentY + 17, { width: 124 });
-                x += 130;
+                // 1. Contratista / RUT (Full text, wrapped onto multiple lines, NO ellipsis!)
+                doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(6.8).text(row.contratista || 'N/A', x + 5, currentY + 4, { width: 130 });
+                doc.fillColor('#64748b').font('Helvetica').fontSize(6.0).text(row.rut || '-', x + 5, currentY + 4 + contratistaH + 2, { width: 130 });
+                x += 140;
 
-                // 2. Programa / Servicio
-                doc.fillColor('#003594').font('Helvetica-Bold').fontSize(7.5).text(row.programa, x + 6, currentY + 5, { width: 124, height: 12, ellipsis: true });
-                doc.fillColor('#64748b').font('Helvetica').fontSize(6.5).text(row.servicio || '-', x + 6, currentY + 17, { width: 124, height: 10, ellipsis: true });
-                x += 130;
+                // 2. Programa / Servicio (Full text, wrapped onto multiple lines, NO ellipsis!)
+                doc.fillColor('#003594').font('Helvetica-Bold').fontSize(6.8).text(row.programa || 'Sin Programa', x + 5, currentY + 4, { width: 130 });
+                doc.fillColor('#64748b').font('Helvetica').fontSize(6.0).text(row.servicio || '-', x + 5, currentY + 4 + programaH + 2, { width: 130 });
+                x += 140;
 
-                // 3. Dependencia
-                doc.rect(x + 4, currentY + 7, 82, 16).fill('#f1f5f9');
-                doc.fillColor('#475569').font('Helvetica').fontSize(6.5).text(row.dependencia || '-', x + 6, currentY + 11, { width: 78, align: 'center', ellipsis: true });
-                x += 90;
+                // 3. Dependencia (Vertically centered badge)
+                const depBadgeH = Math.min(rowHeight - 8, 22);
+                const depY = currentY + (rowHeight - depBadgeH) / 2;
+                doc.rect(x + 3, depY, 79, depBadgeH).fill('#f1f5f9');
+                doc.fillColor('#475569').font('Helvetica').fontSize(6.2).text(row.dependencia || '-', x + 5, depY + (depBadgeH - 8) / 2, { width: 75, align: 'center' });
+                x += 85;
 
-                // 4. Period Columns
+                // 4. Period Columns (Vertically centered cells with UI compliance colors)
+                const centerY = currentY + (rowHeight - 20) / 2;
                 columns.forEach(col => {
                     const cell = row.data[col.key];
                     if (cell) {
@@ -411,15 +442,21 @@ module.exports = {
                             textColor = '#dc2626';
                         }
 
-                        doc.rect(x + 1, currentY + 2, monthColWidth - 2, rowHeight - 4).fill(cellBg);
+                        // Background tinted box
+                        doc.rect(x + 1, currentY + 1, monthColWidth - 2, rowHeight - 2).fill(cellBg);
 
+                        // Declared & Audited %
                         const decStr = `${cell.declarado}%` + (cell.auditado !== null && cell.auditado !== undefined ? ` | ${cell.auditado}%` : '');
-                        doc.fillColor(textColor).font('Helvetica-Bold').fontSize(7).text(decStr, x, currentY + 6, { width: monthColWidth, align: 'center' });
+                        doc.fillColor(textColor).font('Helvetica-Bold').fontSize(numMonths > 8 ? 6.2 : 6.8);
+                        doc.text(decStr, x, centerY + 1, { width: monthColWidth, align: 'center' });
 
+                        // Status Badge Text
                         const estStr = (cell.estado || '').replace(/_/g, ' ').toUpperCase();
-                        doc.fillColor(textColor).font('Helvetica').fontSize(5.5).text(estStr, x, currentY + 17, { width: monthColWidth, align: 'center' });
+                        doc.fillColor(textColor).font('Helvetica').fontSize(numMonths > 8 ? 4.8 : 5.2);
+                        doc.text(estStr, x, centerY + 11, { width: monthColWidth, align: 'center' });
                     } else {
-                        doc.fillColor('#cbd5e1').font('Helvetica').fontSize(8).text('-', x, currentY + 10, { width: monthColWidth, align: 'center' });
+                        doc.fillColor('#cbd5e1').font('Helvetica').fontSize(8);
+                        doc.text('-', x, currentY + (rowHeight - 8) / 2, { width: monthColWidth, align: 'center' });
                     }
                     x += monthColWidth;
                 });
@@ -428,14 +465,14 @@ module.exports = {
                 doc.moveTo(startX, currentY).lineTo(startX + totalWidth, currentY).stroke('#e2e8f0');
             });
 
-            // Footer on all pages
+            // Footers with numbering on all pages
             const pages = doc.bufferedPageRange();
             for (let i = 0; i < pages.count; i++) {
                 doc.switchToPage(i);
-                doc.moveTo(startX, 560).lineTo(startX + totalWidth, 560).stroke('#e2e8f0');
+                doc.moveTo(startX, 568).lineTo(startX + totalWidth, 568).stroke('#e2e8f0');
                 doc.fontSize(7).fillColor('#94a3b8').font('Helvetica')
-                   .text('Abastible S.A. | Sistema de Gestión de Cumplimiento OIEM - Matriz Ejecutiva', startX, 566);
-                doc.text(`Página ${i + 1} de ${pages.count}`, startX, 566, { align: 'right', width: totalWidth });
+                   .text('Abastible S.A. | Sistema de Gestión de Cumplimiento OIEM - Matriz Ejecutiva', startX, 574);
+                doc.text(`Página ${i + 1} de ${pages.count}`, startX, 574, { align: 'right', width: totalWidth });
             }
 
             doc.end();
@@ -675,10 +712,10 @@ module.exports = {
         let curColY = desdeY;
         let curColM = desdeM;
 
+        const monthNames = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
         while (curColY < hastaY || (curColY === hastaY && curColM <= hastaM)) {
             const key = `${curColY}-${pad(curColM)}`;
-            const d = new Date(curColY, curColM - 1, 1);
-            const label = d.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }).toUpperCase().replace('.', '');
+            const label = `${monthNames[curColM - 1]} ${curColY}`;
             columns.push({ key, label });
             curColM++;
             if (curColM > 12) {
