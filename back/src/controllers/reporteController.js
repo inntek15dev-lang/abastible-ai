@@ -316,86 +316,127 @@ module.exports = {
             const matrixData = await module.exports._getMatrixData(req);
             const { columns, rows } = matrixData;
 
-            const doc = new PDFDocument({ margin: 30, layout: 'landscape' });
+            const doc = new PDFDocument({ margin: 30, layout: 'landscape', bufferPages: true });
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `attachment; filename=matriz-cumplimiento-${new Date().toISOString().slice(0, 10)}.pdf`);
             doc.pipe(res);
 
-            // Header
-            doc.fontSize(18).text('Matriz de Cumplimiento OIEM', { align: 'center' });
-            doc.fontSize(10).text(`Fecha de Reporte: ${new Date().toLocaleDateString()}`, { align: 'center' });
-            doc.moveDown();
-
-            // Table Header Settings
             const startX = 30;
-            let currentY = doc.y;
-            const colWidths = [150, 150, 80]; // Empresa, Programa, Dependencia
-            const totalWidth = 732; // landscape A4 is 792 - margins
-            const monthColWidth = (totalWidth - 380) / columns.length;
+            const totalWidth = 732; // landscape A4 is 792 - margins (30+30)
+            const baseColsWidth = 350; // 130 + 130 + 90
+            const monthColWidth = Math.max(30, (totalWidth - baseColsWidth) / Math.max(1, columns.length));
 
-            // Draw header backgrounds
-            doc.rect(startX, currentY, totalWidth, 25).fill('#f8fafc');
-            doc.fillColor('#475569').fontSize(8);
+            const drawPageHeader = (pageNumber) => {
+                // Top Corporate Bar
+                doc.rect(0, 0, 792, 6).fill('#003594');
+                doc.rect(0, 6, 792, 3).fill('#FE5000');
 
-            // Header Text
-            let currentX = startX;
-            doc.text('EMPRESA / CONTRATISTA', currentX + 5, currentY + 8, { width: 140 });
-            currentX += 150;
-            doc.text('PROGRAMA / SERVICIO', currentX + 5, currentY + 8, { width: 140 });
-            currentX += 150;
-            doc.text('DEPENDENCIA', currentX + 5, currentY + 8, { width: 70 });
-            currentX += 80;
+                // Header Titles
+                doc.fillColor('#003594').font('Helvetica-Bold').fontSize(14).text('MATRIZ DE CUMPLIMIENTO OIEM', startX, 22);
+                doc.fillColor('#64748b').font('Helvetica').fontSize(8).text('Visión consolidada por vinculación: servicios con programa asignado', startX, 38);
+                doc.fontSize(7.5).text(`Fecha emisión: ${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}  |  Total contratos: ${rows.length}`, 450, 25, { align: 'right', width: 312 });
+            };
 
-            columns.forEach(col => {
-                doc.text(col.label, currentX + 5, currentY + 8, { width: monthColWidth, align: 'center' });
-                currentX += monthColWidth;
-            });
+            const drawTableHeader = (y) => {
+                doc.rect(startX, y, totalWidth, 24).fill('#f8fafc');
+                doc.rect(startX, y, totalWidth, 24).stroke('#e2e8f0');
 
-            doc.moveDown();
-            currentY += 25;
+                let cx = startX;
+                doc.fillColor('#475569').font('Helvetica-Bold').fontSize(7.5);
+                doc.text('CONTRATISTA / RUT', cx + 6, y + 8, { width: 124 });
+                cx += 130;
+                doc.text('PROGRAMA / SERVICIO', cx + 6, y + 8, { width: 124 });
+                cx += 130;
+                doc.text('DEPENDENCIA', cx + 6, y + 8, { width: 84, align: 'center' });
+                cx += 90;
 
-            // Draw Rows
-            rows.forEach(row => {
-                if (currentY > 500) { // New page if near bottom
-                    doc.addPage({ layout: 'landscape' });
-                    currentY = 30;
+                columns.forEach(col => {
+                    doc.text(`${col.label}`, cx, y + 4, { width: monthColWidth, align: 'center' });
+                    doc.font('Helvetica').fontSize(6).fillColor('#94a3b8').text('DECL. | AUDIT.', cx, y + 14, { width: monthColWidth, align: 'center' });
+                    doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#475569');
+                    cx += monthColWidth;
+                });
+                return y + 24;
+            };
+
+            drawPageHeader(1);
+            let currentY = drawTableHeader(52);
+
+            rows.forEach((row, rowIdx) => {
+                if (currentY > 500) {
+                    doc.addPage({ layout: 'landscape', margin: 30 });
+                    drawPageHeader();
+                    currentY = drawTableHeader(52);
                 }
 
-                doc.fillColor('#1e293b').fontSize(7);
+                const rowHeight = 30;
                 let x = startX;
 
-                // Empresa
-                doc.font('Helvetica-Bold').text(row.contratista, x + 5, currentY + 5, { width: 140 });
-                doc.font('Helvetica').fontSize(6).text(row.rut, x + 5, currentY + 15);
-                x += 150;
+                // Alternate row background
+                if (rowIdx % 2 === 1) {
+                    doc.rect(startX, currentY, totalWidth, rowHeight).fill('#fafafa');
+                }
 
-                // Programa
-                doc.fontSize(7).font('Helvetica-Bold').text(row.programa, x + 5, currentY + 5, { width: 140 });
-                doc.font('Helvetica').fontSize(6).text(row.servicio, x + 5, currentY + 15);
-                x += 150;
+                // 1. Contratista / RUT
+                doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(7.5).text(row.contratista, x + 6, currentY + 5, { width: 124, height: 12, ellipsis: true });
+                doc.fillColor('#64748b').font('Helvetica').fontSize(6.5).text(row.rut || '-', x + 6, currentY + 17, { width: 124 });
+                x += 130;
 
-                // Dependencia
-                doc.fontSize(7).text(row.dependencia, x + 5, currentY + 10, { width: 70 });
-                x += 80;
+                // 2. Programa / Servicio
+                doc.fillColor('#003594').font('Helvetica-Bold').fontSize(7.5).text(row.programa, x + 6, currentY + 5, { width: 124, height: 12, ellipsis: true });
+                doc.fillColor('#64748b').font('Helvetica').fontSize(6.5).text(row.servicio || '-', x + 6, currentY + 17, { width: 124, height: 10, ellipsis: true });
+                x += 130;
 
-                // Data Cells
+                // 3. Dependencia
+                doc.rect(x + 4, currentY + 7, 82, 16).fill('#f1f5f9');
+                doc.fillColor('#475569').font('Helvetica').fontSize(6.5).text(row.dependencia || '-', x + 6, currentY + 11, { width: 78, align: 'center', ellipsis: true });
+                x += 90;
+
+                // 4. Period Columns
                 columns.forEach(col => {
                     const cell = row.data[col.key];
                     if (cell) {
-                        const val = `${cell.declarado}%` + (cell.auditado !== null ? `|${cell.auditado}%` : '');
-                        doc.text(val, x, currentY + 5, { width: monthColWidth, align: 'center' });
-                        doc.fontSize(5).text(cell.estado ? cell.estado.replace('_', ' ').toUpperCase() : '', x, currentY + 15, { width: monthColWidth, align: 'center' });
-                        doc.fontSize(7);
+                        const val = parseFloat(cell.declarado || 0);
+                        let cellBg = '#f0fdf4';
+                        let textColor = '#059669';
+
+                        if (val >= 85) {
+                            cellBg = '#f0fdf4';
+                            textColor = '#059669';
+                        } else if (val >= 70) {
+                            cellBg = '#fefce8';
+                            textColor = '#d97706';
+                        } else {
+                            cellBg = '#fef2f2';
+                            textColor = '#dc2626';
+                        }
+
+                        doc.rect(x + 1, currentY + 2, monthColWidth - 2, rowHeight - 4).fill(cellBg);
+
+                        const decStr = `${cell.declarado}%` + (cell.auditado !== null && cell.auditado !== undefined ? ` | ${cell.auditado}%` : '');
+                        doc.fillColor(textColor).font('Helvetica-Bold').fontSize(7).text(decStr, x, currentY + 6, { width: monthColWidth, align: 'center' });
+
+                        const estStr = (cell.estado || '').replace(/_/g, ' ').toUpperCase();
+                        doc.fillColor(textColor).font('Helvetica').fontSize(5.5).text(estStr, x, currentY + 17, { width: monthColWidth, align: 'center' });
                     } else {
-                        doc.text('-', x, currentY + 10, { width: monthColWidth, align: 'center' });
+                        doc.fillColor('#cbd5e1').font('Helvetica').fontSize(8).text('-', x, currentY + 10, { width: monthColWidth, align: 'center' });
                     }
                     x += monthColWidth;
                 });
 
-                // Line separator
-                currentY += 30;
+                currentY += rowHeight;
                 doc.moveTo(startX, currentY).lineTo(startX + totalWidth, currentY).stroke('#e2e8f0');
             });
+
+            // Footer on all pages
+            const pages = doc.bufferedPageRange();
+            for (let i = 0; i < pages.count; i++) {
+                doc.switchToPage(i);
+                doc.moveTo(startX, 560).lineTo(startX + totalWidth, 560).stroke('#e2e8f0');
+                doc.fontSize(7).fillColor('#94a3b8').font('Helvetica')
+                   .text('Abastible S.A. | Sistema de Gestión de Cumplimiento OIEM - Matriz Ejecutiva', startX, 566);
+                doc.text(`Página ${i + 1} de ${pages.count}`, startX, 566, { align: 'right', width: totalWidth });
+            }
 
             doc.end();
         } catch (error) {
@@ -475,7 +516,7 @@ module.exports = {
 
     async _getMatrixData(req) {
         const user = req.user;
-        const { contratista_id, servicio_id, dependencia_id, programa_id, periodo, periodo_desde, periodo_hasta } = req.query;
+        const { contratista_id, servicio_id, dependencia_id, programa_id, periodo, periodo_desde, periodo_hasta, adc_id, tiene_registros, gerencia_id, subgerencia_id } = req.query;
 
         const whereVinculacion = { activo: 1 };
         let allowedContratistaIds = null; // null = sin restricción (admin/oval)
@@ -499,15 +540,71 @@ module.exports = {
             if (dependencia_id && String(dependencia_id).toLowerCase() !== 'todas') whereVinculacion.dependencia_id = dependencia_id;
         }
 
+        // ADC filter
+        if (adc_id && adc_id !== 'todos') {
+            const adminRecords = await Administracion.findAll({
+                where: { administrador_contrato_id: adc_id, activo: 1 },
+                attributes: ['vinculacion_id']
+            });
+            const vincIdsFromADC = adminRecords.map(a => a.vinculacion_id);
+            if (whereVinculacion.id) {
+                const existingIds = whereVinculacion.id[Op.in] || [];
+                const intersection = existingIds.filter(id => vincIdsFromADC.includes(id));
+                whereVinculacion.id = { [Op.in]: intersection.length > 0 ? intersection : [-1] };
+            } else {
+                whereVinculacion.id = { [Op.in]: vincIdsFromADC.length > 0 ? vincIdsFromADC : [-1] };
+            }
+        }
+
+        // Gerencia / Subgerencia
+        if ((gerencia_id && gerencia_id !== 'todas') || (subgerencia_id && subgerencia_id !== 'todas')) {
+            if (subgerencia_id && subgerencia_id !== 'todas') {
+                whereVinculacion.subgerencia_id = subgerencia_id;
+            } else if (gerencia_id && gerencia_id !== 'todas') {
+                const subgs = await Subgerencia.findAll({
+                    where: { gerencia_id: gerencia_id, activo: 1 },
+                    attributes: ['id']
+                });
+                const subgIds = subgs.map(s => s.id);
+                whereVinculacion.subgerencia_id = { [Op.in]: subgIds.length > 0 ? subgIds : [-1] };
+            }
+        }
+
         // 3. Date Range
-        let startMonth, endMonth;
+        const pad = (n) => String(n).padStart(2, '0');
+        let startIsoMonth, endIsoMonth;
         if (periodo_desde && periodo_hasta) {
-            startMonth = new Date(periodo_desde + '-01');
-            endMonth = new Date(new Date(periodo_hasta + '-01').setMonth(new Date(periodo_hasta + '-01').getMonth() + 1, 0));
+            startIsoMonth = periodo_desde;
+            endIsoMonth = periodo_hasta;
         } else {
-            const today = periodo ? new Date(periodo + '-01') : new Date();
-            startMonth = new Date(today.getFullYear(), today.getMonth() - 5, 1);
-            endMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            const now = periodo ? new Date(periodo + '-01') : new Date();
+            const curY = now.getFullYear();
+            const curM = now.getMonth();
+            const startD = new Date(curY, curM - 5, 1);
+            startIsoMonth = `${startD.getFullYear()}-${pad(startD.getMonth() + 1)}`;
+            endIsoMonth = `${curY}-${pad(curM + 1)}`;
+        }
+
+        const startMonth = new Date(startIsoMonth + '-01');
+        const [endY, endM] = endIsoMonth.split('-').map(Number);
+        const endMonth = new Date(endY, endM, 0);
+
+        // Subquery for tiene_registros
+        if (tiene_registros === 'si' || tiene_registros === 'no') {
+            const subquerySql = `(
+                SELECT DISTINCT contratista_asignacion_id 
+                FROM registros 
+                WHERE periodo BETWEEN '${startMonth.toISOString().slice(0, 10)}' AND '${endMonth.toISOString().slice(0, 10)}'
+            )`;
+            if (tiene_registros === 'si') {
+                whereVinculacion.id = whereVinculacion.id
+                    ? { [Op.and]: [whereVinculacion.id, { [Op.in]: sequelize.literal(subquerySql) }] }
+                    : { [Op.in]: sequelize.literal(subquerySql) };
+            } else {
+                whereVinculacion.id = whereVinculacion.id
+                    ? { [Op.and]: [whereVinculacion.id, { [Op.notIn]: sequelize.literal(subquerySql) }] }
+                    : { [Op.notIn]: sequelize.literal(subquerySql) };
+            }
         }
 
         // Filtro global (todos los roles, sin excepción, incluido admin/oval): solo
@@ -572,13 +669,22 @@ module.exports = {
 
         // 6. Columns
         const columns = [];
-        let curr = new Date(startMonth);
-        while (curr <= endMonth) {
-            columns.push({
-                key: curr.toISOString().slice(0, 7),
-                label: curr.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }).toUpperCase()
-            });
-            curr.setMonth(curr.getMonth() + 1);
+        const [desdeY, desdeM] = startIsoMonth.split('-').map(Number);
+        const [hastaY, hastaM] = endIsoMonth.split('-').map(Number);
+
+        let curColY = desdeY;
+        let curColM = desdeM;
+
+        while (curColY < hastaY || (curColY === hastaY && curColM <= hastaM)) {
+            const key = `${curColY}-${pad(curColM)}`;
+            const d = new Date(curColY, curColM - 1, 1);
+            const label = d.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }).toUpperCase().replace('.', '');
+            columns.push({ key, label });
+            curColM++;
+            if (curColM > 12) {
+                curColM = 1;
+                curColY++;
+            }
         }
 
         return { columns, rows };
