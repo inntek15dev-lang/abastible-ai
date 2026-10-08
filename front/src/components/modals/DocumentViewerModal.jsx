@@ -23,7 +23,7 @@ import {
 import './DocumentViewerModal.css';
 
 // PDF Sub-component using pdfjs-dist Canvas rendering
-function PdfViewer({ pdfBuffer, downloadUrl, fileName }) {
+function PdfViewer({ pdfBuffer, downloadUrl, fileName, onDownload }) {
     const canvasRef = useRef(null);
     const [pdfDoc, setPdfDoc] = useState(null);
     const [pageNum, setPageNum] = useState(1);
@@ -112,7 +112,7 @@ function PdfViewer({ pdfBuffer, downloadUrl, fileName }) {
                 <AlertCircle size={64} color="#ef4444" />
                 <h3>No se pudo previsualizar el PDF</h3>
                 <p style={{ maxWidth: '400px', margin: '0 auto 16px auto', color: '#475569' }}>{error}</p>
-                <a href={downloadUrl} download={fileName} className="btn-cinema-download-large">
+                <a href={downloadUrl} download={fileName} onClick={onDownload} className="btn-cinema-download-large">
                     <Download size={18} /> Descargar {fileName}
                 </a>
             </div>
@@ -274,25 +274,46 @@ export default function DocumentViewerModal({
                     mimeType = fileExt === 'svg' ? 'image/svg+xml' : `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
                 } else if (['mp4', 'webm'].includes(fileExt)) mimeType = `video/${fileExt}`;
                 else if (['mp3', 'wav'].includes(fileExt)) mimeType = `audio/${fileExt}`;
+                else if (['xls', 'xlsx'].includes(fileExt)) mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+                else if (fileExt === 'csv') mimeType = 'text/csv';
+                else if (['doc', 'docx'].includes(fileExt)) mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-                // Create Blob from ArrayBuffer for images, video, audio, download
+                // Create Blob from ArrayBuffer for images, video, audio, excel, download
                 const blob = new Blob([buffer], { type: mimeType });
                 activeBlobUrl = URL.createObjectURL(blob);
                 setBlobUrl(activeBlobUrl);
 
+                // Handle Excel parsing via SheetJS
+                if (category === 'excel') {
+                    try {
+                        setLoadingExcel(true);
+                        setExcelError('');
+                        const data = new Uint8Array(buffer);
+                        const wb = XLSX.read(data, { type: 'array' });
+                        setWorkbook(wb);
+                        if (wb.SheetNames && wb.SheetNames.length > 0) {
+                            setActiveSheet(wb.SheetNames[0]);
+                        }
+                    } catch (excelErr) {
+                        console.error('Error parsing Excel file in viewer:', excelErr);
+                        setExcelError('No se pudo procesar la plantilla de cálculo en el visor. Puedes descargar el archivo directamente.');
+                    } finally {
+                        setLoadingExcel(false);
+                    }
+                }
+
             } catch (err) {
                 console.error('Error fetching file binary:', err);
                 setFileError('No se pudo cargar la vista previa directa. Puedes descargar el archivo desde el botón superior.');
+                if (category === 'excel') {
+                    setExcelError('No se pudo cargar el archivo Excel. Puedes descargarlo directamente.');
+                }
             } finally {
                 setLoadingFile(false);
             }
         };
 
-        if (category === 'excel') {
-            loadExcelFile(fileUrl);
-        } else {
-            loadAuthenticatedBinary();
-        }
+        loadAuthenticatedBinary();
 
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
@@ -301,30 +322,6 @@ export default function DocumentViewerModal({
             }
         };
     }, [isOpen, fileUrl, fileName, category, fileExt]);
-
-    // Load Excel File using SheetJS
-    const loadExcelFile = async (url) => {
-        try {
-            setLoadingExcel(true);
-            setExcelError('');
-
-            const fetchUrl = url.startsWith('http') ? url : (url.startsWith('/') ? url : `/${url}`);
-            const response = await api.get(fetchUrl, { responseType: 'arraybuffer' });
-
-            const data = new Uint8Array(response.data);
-            const wb = XLSX.read(data, { type: 'array' });
-
-            setWorkbook(wb);
-            if (wb.SheetNames && wb.SheetNames.length > 0) {
-                setActiveSheet(wb.SheetNames[0]);
-            }
-        } catch (err) {
-            console.error('Error loading Excel file:', err);
-            setExcelError('No se pudo procesar la plantilla de cálculo en el visor. Puedes descargar el archivo directamente.');
-        } finally {
-            setLoadingExcel(false);
-        }
-    };
 
     // Convert Active Excel Sheet to Table Data
     const sheetData = useMemo(() => {
@@ -347,8 +344,47 @@ export default function DocumentViewerModal({
 
     if (!isOpen) return null;
 
-    // Direct Download URL
-    const downloadUrl = blobUrl || (fileUrl ? (fileUrl.startsWith('http') ? fileUrl : (fileUrl.startsWith('/') ? `${api.defaults.baseURL}${fileUrl}` : `${api.defaults.baseURL}/${fileUrl}`)) : '#');
+    // Helper to build authenticated download URL with token query parameter as fallback
+    const getAuthenticatedUrl = (rawUrl) => {
+        if (!rawUrl || rawUrl === '#') return '#';
+        let base = rawUrl.startsWith('http')
+            ? rawUrl
+            : (rawUrl.startsWith('/') ? `${api.defaults.baseURL}${rawUrl}` : `${api.defaults.baseURL}/${rawUrl}`);
+        const token = localStorage.getItem('token');
+        if (token && !base.includes('token=')) {
+            base += (base.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
+        }
+        return base;
+    };
+
+    // Direct Download URL: prefer in-memory Blob URL, otherwise authenticated API URL
+    const downloadUrl = blobUrl || getAuthenticatedUrl(fileUrl);
+
+    // Robust download handler that uses blobUrl or fetches authenticated blob
+    const handleDownload = async (e) => {
+        if (blobUrl) {
+            return;
+        }
+        if (e) e.preventDefault();
+        try {
+            const fetchUrl = fileUrl.startsWith('http')
+                ? fileUrl
+                : (fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`);
+            const response = await api.get(fetchUrl, { responseType: 'blob' });
+            const blob = new Blob([response.data]);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Error downloading file via api:', err);
+            window.open(getAuthenticatedUrl(fileUrl), '_blank');
+        }
+    };
 
     return (
         <div className="cinema-modal-overlay" onClick={onClose}>
@@ -394,6 +430,7 @@ export default function DocumentViewerModal({
                         <a
                             href={downloadUrl}
                             download={fileName}
+                            onClick={handleDownload}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="btn-cinema-download"
@@ -420,7 +457,7 @@ export default function DocumentViewerModal({
                         <div className="cinema-error-state">
                             <AlertCircle size={36} color="#ef4444" />
                             <p>{fileError}</p>
-                            <a href={downloadUrl} download={fileName} className="btn-cinema-download-large">
+                            <a href={downloadUrl} download={fileName} onClick={handleDownload} className="btn-cinema-download-large">
                                 <Download size={18} /> Descargar {fileName}
                             </a>
                         </div>
@@ -447,22 +484,22 @@ export default function DocumentViewerModal({
 
                             {/* 2. PDF VIEWER (PDFjs Canvas Engine) */}
                             {category === 'pdf' && (
-                                <PdfViewer pdfBuffer={fileBuffer} downloadUrl={downloadUrl} fileName={fileName} />
+                                <PdfViewer pdfBuffer={fileBuffer} downloadUrl={downloadUrl} fileName={fileName} onDownload={handleDownload} />
                             )}
 
                             {/* 3. EXCEL / SPREADSHEET VIEWER */}
                             {category === 'excel' && (
                                 <div className="cinema-excel-wrapper">
-                                    {loadingExcel ? (
+                                    {(loadingFile || loadingExcel) ? (
                                         <div className="cinema-loading-state">
-                                            <Loader2 className="spin" size={32} color="#3b82f6" />
+                                            <Loader2 className="spin" size={32} color="#10b981" />
                                             <span>Cargando y procesando la plantilla de cálculo...</span>
                                         </div>
-                                    ) : excelError ? (
+                                    ) : (fileError || excelError) ? (
                                         <div className="cinema-error-state">
                                             <AlertCircle size={36} color="#ef4444" />
-                                            <p>{excelError}</p>
-                                            <a href={downloadUrl} download={fileName} className="btn-cinema-download-large">
+                                            <p>{excelError || fileError}</p>
+                                            <a href={downloadUrl} download={fileName} onClick={handleDownload} className="btn-cinema-download-large">
                                                 <Download size={18} /> Descargar {fileName}
                                             </a>
                                         </div>
@@ -554,7 +591,7 @@ export default function DocumentViewerModal({
                                             <p style={{ maxWidth: '400px', margin: '0 auto 16px auto', color: '#64748b' }}>
                                                 Documento Microsoft Word ({fileExt.toUpperCase()}). Haz clic en el botón a continuación para descargarlo.
                                             </p>
-                                            <a href={downloadUrl} download={fileName} className="btn-cinema-download-large">
+                                            <a href={downloadUrl} download={fileName} onClick={handleDownload} className="btn-cinema-download-large">
                                                 <Download size={18} /> Descargar {fileName}
                                             </a>
                                         </div>
@@ -589,7 +626,7 @@ export default function DocumentViewerModal({
                                     <FileBox size={64} color="#0284c7" />
                                     <h3>{fileName}</h3>
                                     <p>Vista previa no disponible directamente para este tipo de archivo (.${fileExt}).</p>
-                                    <a href={downloadUrl} download={fileName} className="btn-cinema-download-large">
+                                    <a href={downloadUrl} download={fileName} onClick={handleDownload} className="btn-cinema-download-large">
                                         <Download size={18} /> Descargar {fileName}
                                     </a>
                                 </div>
