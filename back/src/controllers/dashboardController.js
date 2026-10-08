@@ -738,18 +738,25 @@ const dashboardController = {
             const programaScopeMatrix = await getProgramaScope();
             whereVinculacion.id = intersectWithProgramaScope(whereVinculacion.id, programaScopeMatrix.vinculacionIds, soloHuerfanosMatrix);
 
-            // --- Date range for registros: rango explícito (periodo_desde/hasta) si se
-            // envía, si no 6 meses terminando en 'periodo' o en el mes actual ---
-            // 'today' también se usa más abajo para generar las columnas (últimos 6 meses).
-            const today = req.query.periodo ? new Date(req.query.periodo + '-01') : new Date();
-            let startMonth, endMonth;
+            // --- Date range for registros: rango explícito (periodo_desde/hasta) o ventana por defecto de 6 meses ---
+            const pad = (n) => String(n).padStart(2, '0');
+            let startIsoMonth, endIsoMonth;
+
             if (periodo_desde && periodo_hasta) {
-                startMonth = new Date(periodo_desde + '-01');
-                endMonth = new Date(new Date(periodo_hasta + '-01').setMonth(new Date(periodo_hasta + '-01').getMonth() + 1, 0));
+                startIsoMonth = periodo_desde;
+                endIsoMonth = periodo_hasta;
             } else {
-                endMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-                startMonth = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+                const now = req.query.periodo ? new Date(req.query.periodo + '-01') : new Date();
+                const curY = now.getFullYear();
+                const curM = now.getMonth(); // 0-based
+                const startD = new Date(curY, curM - 5, 1);
+                startIsoMonth = `${startD.getFullYear()}-${pad(startD.getMonth() + 1)}`;
+                endIsoMonth = `${curY}-${pad(curM + 1)}`;
             }
+
+            const startMonth = new Date(startIsoMonth + '-01');
+            const [endY, endM] = endIsoMonth.split('-').map(Number);
+            const endMonth = new Date(endY, endM, 0);
 
             // --- Tiene Registros filter via Subquery (for accurate pagination) ---
             if (tiene_registros === 'si' || tiene_registros === 'no') {
@@ -826,8 +833,10 @@ const dashboardController = {
                 order: [
                     ['id', 'ASC']
                 ],
-                limit: parseInt(limit),
-                offset: parseInt(offset),
+                ...(req.query.sin_paginar === 'true' || parseInt(limit) >= 1000 ? {} : {
+                    limit: parseInt(limit),
+                    offset: parseInt(offset)
+                }),
                 distinct: true // Important when using includes with limit
             });
 
@@ -868,13 +877,24 @@ const dashboardController = {
                 return row;
             });
 
-            // 5. Generate columns (last 6 months)
+            // 5. Generate columns dynamically from startIsoMonth to endIsoMonth
             const columns = [];
-            for (let i = 5; i >= 0; i--) {
-                const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-                const iso = d.toISOString().slice(0, 7);
-                const label = d.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }).toUpperCase();
+            const [desdeY, desdeM] = startIsoMonth.split('-').map(Number);
+            const [hastaY, hastaM] = endIsoMonth.split('-').map(Number);
+
+            let curColY = desdeY;
+            let curColM = desdeM;
+
+            while (curColY < hastaY || (curColY === hastaY && curColM <= hastaM)) {
+                const iso = `${curColY}-${pad(curColM)}`;
+                const d = new Date(curColY, curColM - 1, 1);
+                const label = d.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }).toUpperCase().replace('.', '');
                 columns.push({ key: iso, label });
+                curColM++;
+                if (curColM > 12) {
+                    curColM = 1;
+                    curColY++;
+                }
             }
 
             res.json({
@@ -884,9 +904,9 @@ const dashboardController = {
                     rows: matrixRows,
                     pagination: {
                         total: count,
-                        page: parseInt(page),
-                        limit: parseInt(limit),
-                        totalPages: Math.ceil(count / limit)
+                        page: (req.query.sin_paginar === 'true' || parseInt(limit) >= 1000) ? 1 : parseInt(page),
+                        limit: (req.query.sin_paginar === 'true' || parseInt(limit) >= 1000) ? count : parseInt(limit),
+                        totalPages: (req.query.sin_paginar === 'true' || parseInt(limit) >= 1000) ? 1 : Math.ceil(count / limit)
                     }
                 }
             });

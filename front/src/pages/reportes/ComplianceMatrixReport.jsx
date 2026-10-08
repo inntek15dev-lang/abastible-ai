@@ -4,6 +4,20 @@ import { Link } from 'react-router-dom';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import SearchableSelect from '../../components/common/SearchableSelect';
+import { generateComplianceMatrixPDF } from '../../utils/matrixPdfReport';
+import { toast } from 'react-hot-toast';
+
+const getDefaultPeriodWindow = () => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-based
+    const startObj = new Date(currentYear, currentMonth - 5, 1);
+    const pad = (n) => String(n).padStart(2, '0');
+    return {
+        periodo_desde: `${startObj.getFullYear()}-${pad(startObj.getMonth() + 1)}`,
+        periodo_hasta: `${currentYear}-${pad(currentMonth + 1)}`
+    };
+};
 
 export default function ComplianceMatrixReport() {
     const { user } = useAuth();
@@ -11,18 +25,22 @@ export default function ComplianceMatrixReport() {
     const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 5, totalPages: 0 });
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
+    const [exportingPdf, setExportingPdf] = useState(false);
 
-    // Filters State
-    const [filters, setFilters] = useState({
-        contratista_id: 'todos',
-        servicio_id: 'todos',
-        dependencia_id: 'todas',
-        programa_id: 'todos',
-        tiene_registros: 'todos',
-        periodo_desde: new Date().toISOString().slice(0, 7),
-        periodo_hasta: new Date().toISOString().slice(0, 7),
-        adc_id: 'todos',
-        solo_huerfanos: false
+    // Filters State (default: last 6 months including current month)
+    const [filters, setFilters] = useState(() => {
+        const def = getDefaultPeriodWindow();
+        return {
+            contratista_id: 'todos',
+            servicio_id: 'todos',
+            dependencia_id: 'todas',
+            programa_id: 'todos',
+            tiene_registros: 'todos',
+            periodo_desde: def.periodo_desde,
+            periodo_hasta: def.periodo_hasta,
+            adc_id: 'todos',
+            solo_huerfanos: false
+        };
     });
 
     // Options for filters
@@ -78,14 +96,15 @@ export default function ComplianceMatrixReport() {
     }, [filters]);
 
     const handleClearFilters = () => {
+        const def = getDefaultPeriodWindow();
         setFilters({
             contratista_id: ['contratista_admin', 'contratista_user'].includes(user?.role) ? (user.contratista_id || 'todos') : 'todos',
             servicio_id: user?.role === 'contratista_user' ? (user.tipo_contratista_id || 'todos') : 'todos',
             dependencia_id: user?.role === 'contratista_user' ? (user.dependencia_id || 'todas') : 'todas',
             programa_id: 'todos',
             tiene_registros: 'todos',
-            periodo_desde: new Date().toISOString().slice(0, 7),
-            periodo_hasta: new Date().toISOString().slice(0, 7),
+            periodo_desde: def.periodo_desde,
+            periodo_hasta: def.periodo_hasta,
             adc_id: 'todos',
             solo_huerfanos: false
         });
@@ -144,17 +163,42 @@ export default function ComplianceMatrixReport() {
         fetchMatrix();
     };
 
-    const handleExportPdf = () => {
-        const params = new URLSearchParams();
-        if (filters.contratista_id !== 'todos') params.append('contratista_id', filters.contratista_id);
-        if (filters.servicio_id !== 'todos') params.append('servicio_id', filters.servicio_id);
-        if (filters.dependencia_id !== 'todas') params.append('dependencia_id', filters.dependencia_id);
-        if (filters.programa_id !== 'todos') params.append('programa_id', filters.programa_id);
-        if (filters.periodo_desde) params.append('periodo_desde', filters.periodo_desde);
-        if (filters.periodo_hasta) params.append('periodo_hasta', filters.periodo_hasta);
-        if (filters.solo_huerfanos) params.append('solo_huerfanos', 'true');
-        params.append('token', localStorage.getItem('token'));
-        window.open(`${api.defaults.baseURL}/reportes/matrix/pdf?${params.toString()}`, '_blank');
+    const handleExportPdf = async () => {
+        if (exportingPdf) return;
+        setExportingPdf(true);
+        const toastId = toast.loading('Generando reporte PDF de Matriz de Cumplimiento...');
+        try {
+            const exportParams = new URLSearchParams();
+            if (filters.contratista_id !== 'todos') exportParams.append('contratista_id', filters.contratista_id);
+            if (filters.servicio_id !== 'todos') exportParams.append('servicio_id', filters.servicio_id);
+            if (filters.dependencia_id !== 'todas') exportParams.append('dependencia_id', filters.dependencia_id);
+            if (filters.programa_id !== 'todos') exportParams.append('programa_id', filters.programa_id);
+            if (filters.tiene_registros !== 'todos') exportParams.append('tiene_registros', filters.tiene_registros);
+            if (filters.periodo_desde) exportParams.append('periodo_desde', filters.periodo_desde);
+            if (filters.periodo_hasta) exportParams.append('periodo_hasta', filters.periodo_hasta);
+            if (filters.adc_id && filters.adc_id !== 'todos') exportParams.append('adc_id', filters.adc_id);
+            if (filters.solo_huerfanos) exportParams.append('solo_huerfanos', 'true');
+            exportParams.append('sin_paginar', 'true');
+
+            const response = await api.get(`/dashboard/matrix?${exportParams.toString()}`);
+            if (response.data?.success) {
+                await generateComplianceMatrixPDF({
+                    columns: response.data.data.columns,
+                    rows: response.data.data.rows,
+                    filters,
+                    options,
+                    user
+                });
+                toast.success('Reporte PDF descargado con éxito', { id: toastId });
+            } else {
+                toast.error('No se pudieron obtener los datos para el reporte', { id: toastId });
+            }
+        } catch (err) {
+            console.error('Error exportando PDF de matriz:', err);
+            toast.error('Error al generar el reporte PDF', { id: toastId });
+        } finally {
+            setExportingPdf(false);
+        }
     };
 
     const handleExportExcel = () => {
@@ -332,7 +376,7 @@ export default function ComplianceMatrixReport() {
                     <input
                         type="month"
                         value={filters.periodo_desde}
-                        onChange={(e) => setFilters(f => ({ ...f, periodo_desde: e.target.value, periodo_hasta: e.target.value }))}
+                        onChange={(e) => setFilters(f => ({ ...f, periodo_desde: e.target.value }))}
                         style={{
                             width: '100%',
                             padding: '8px 12px',
@@ -446,26 +490,31 @@ export default function ComplianceMatrixReport() {
 
                     <button
                         onClick={handleExportPdf}
+                        disabled={exportingPdf}
                         style={{
                             display: 'flex',
                             alignItems: 'center',
                             gap: '8px',
                             padding: '10px 16px',
-                            background: '#fff',
+                            background: exportingPdf ? '#f8fafc' : '#fff',
                             border: '1px solid #fee2e2',
                             borderRadius: '10px',
-                            color: '#dc2626',
+                            color: exportingPdf ? '#94a3b8' : '#dc2626',
                             fontSize: '13px',
                             fontWeight: 600,
-                            cursor: 'pointer',
+                            cursor: exportingPdf ? 'not-allowed' : 'pointer',
                             transition: 'all 0.2s ease',
                             height: '42px'
                         }}
-                        onMouseOver={(e) => e.currentTarget.style.background = '#fef2f2'}
-                        onMouseOut={(e) => e.currentTarget.style.background = '#fff'}
+                        onMouseOver={(e) => {
+                            if (!exportingPdf) e.currentTarget.style.background = '#fef2f2';
+                        }}
+                        onMouseOut={(e) => {
+                            if (!exportingPdf) e.currentTarget.style.background = '#fff';
+                        }}
                     >
                         <FileText size={16} />
-                        PDF
+                        {exportingPdf ? 'Generando...' : 'PDF'}
                     </button>
 
                     <button
