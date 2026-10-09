@@ -181,7 +181,8 @@ const auditoriaController = {
             await registro.update({
                 estado_auditoria: 'finalizado',
                 porcentaje_cumplimiento_auditor: porcentaje,
-                fecha_auditoria: new Date()
+                fecha_auditoria: new Date(),
+                ...(comentario_general ? { observaciones_auditoria: comentario_general } : {})
             });
 
             // Fetch contractor email
@@ -280,7 +281,8 @@ const auditoriaController = {
             await registro.update({
                 estado_auditoria: estadoFinal,
                 porcentaje_cumplimiento_auditor: porcentaje,
-                fecha_auditoria: new Date()
+                fecha_auditoria: new Date(),
+                ...(comentario_general ? { observaciones_auditoria: comentario_general } : {})
             });
 
             // Fetch contractor email
@@ -324,7 +326,7 @@ const auditoriaController = {
     async guardarAvance(req, res) {
         try {
             const { id } = req.params;
-            const { comentario_general } = req.body;
+            const { comentario_general, participantes } = req.body;
 
             const registro = await Registro.findByPk(id);
             if (!registro) {
@@ -340,39 +342,102 @@ const auditoriaController = {
                 });
             }
 
-            await registro.update({
-                comentario_general
-            });
+            const currentUserId = req.user ? (req.user.id || req.user.usu_id) : null;
 
-            if (req.body.participantes) {
-                const existingComment = await AuditoriaComentario.findOne({
-                    where: { registro_id: id, tipo: 'participantes' }
+            // 1. Guardar comentario general en registro y en auditoria_comentarios
+            if (comentario_general !== undefined) {
+                await registro.update({
+                    observaciones_auditoria: comentario_general,
+                    comentario_general
                 });
-                if (existingComment) {
-                    await existingComment.update({ comentario: req.body.participantes });
-                } else {
-                    await AuditoriaComentario.create({
-                        registro_id: id,
-                        user_id: req.user.id,
-                        comentario: req.body.participantes,
-                        tipo: 'participantes'
+
+                if (currentUserId) {
+                    const existingGeneral = await AuditoriaComentario.findOne({
+                        where: { registro_id: id, tipo: 'general' },
+                        order: [['created_at', 'DESC']]
                     });
+                    if (existingGeneral) {
+                        await existingGeneral.update({ comentario: comentario_general });
+                    } else if (comentario_general) {
+                        await AuditoriaComentario.create({
+                            registro_id: id,
+                            user_id: currentUserId,
+                            comentario: comentario_general,
+                            tipo: 'general'
+                        });
+                    }
                 }
             }
 
-            // Log save activity (optional but good for traceability)
-            await RegistroLog.create({
-                registro_id: registro.id,
-                user_id: req.user.id,
-                accion: 'GUARDAR_AVANCE_AUDITORIA',
-                descripcion: 'Avance de auditoría guardado (comentario general)',
-                ip_address: req.ip
-            });
+            // 2. Guardar participantes en auditoria_comentarios con tipo 'participantes'
+            if (participantes !== undefined && participantes !== null) {
+                const participantesStr = typeof participantes === 'string'
+                    ? participantes
+                    : JSON.stringify(participantes);
+
+                if (currentUserId) {
+                    try {
+                        const existingComment = await AuditoriaComentario.findOne({
+                            where: { registro_id: id, tipo: 'participantes' }
+                        });
+                        if (existingComment) {
+                            await existingComment.update({ comentario: participantesStr });
+                        } else {
+                            await AuditoriaComentario.create({
+                                registro_id: id,
+                                user_id: currentUserId,
+                                comentario: participantesStr,
+                                tipo: 'participantes'
+                            });
+                        }
+                    } catch (enumErr) {
+                        console.warn('Enum warning on participantes, attempting on-the-fly ALTER TABLE:', enumErr.message);
+                        try {
+                            const sequelize = require('../database');
+                            await sequelize.query("ALTER TABLE auditoria_comentarios MODIFY COLUMN tipo ENUM('general', 'actividad', 'evidencia', 'participantes') NOT NULL DEFAULT 'general'");
+                            const existingComment = await AuditoriaComentario.findOne({
+                                where: { registro_id: id, tipo: 'participantes' }
+                            });
+                            if (existingComment) {
+                                await existingComment.update({ comentario: participantesStr });
+                            } else {
+                                await AuditoriaComentario.create({
+                                    registro_id: id,
+                                    user_id: currentUserId,
+                                    comentario: participantesStr,
+                                    tipo: 'participantes'
+                                });
+                            }
+                        } catch (retryErr) {
+                            console.error('Critical: could not persist participantes even after alter table retry:', retryErr);
+                            throw retryErr;
+                        }
+                    }
+                }
+            }
+
+            // Log save activity (safe try/catch so logging never breaks auto-save)
+            try {
+                if (currentUserId) {
+                    await RegistroLog.create({
+                        registro_id: registro.id,
+                        user_id: currentUserId,
+                        accion: 'GUARDAR_AVANCE_AUDITORIA',
+                        descripcion: 'Avance de auditoría guardado (comentarios y participantes)',
+                        ip_address: req.ip
+                    });
+                }
+            } catch (logErr) {
+                console.warn('RegistroLog warning in guardarAvance:', logErr.message);
+            }
 
             res.json({ success: true, data: registro, message: 'Avance guardado correctamente' });
         } catch (error) {
             console.error('Guardar avance auditoria error:', error);
-            res.status(500).json({ success: false, message: 'Error al guardar avance de auditoría' });
+            res.status(500).json({ 
+                success: false, 
+                message: error.message || 'Error al guardar avance de auditoría' 
+            });
         }
     },
 

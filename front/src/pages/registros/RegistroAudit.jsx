@@ -100,9 +100,8 @@ export default function RegistroAudit() {
         try {
             const response = await api.get(`/registros/${id}`);
             setRegistro(response.data.data);
-            setComentarioGeneral(response.data.data.comentario_general || '');
-
-            const loadedComentario = response.data.data.comentario_general || '';
+            const loadedComentario = response.data.data.comentario_general || response.data.data.observaciones_auditoria || '';
+            setComentarioGeneral(loadedComentario);
             let loadedParticipantes = [];
             const participantsComment = response.data.data.comentarios?.find(c => c.tipo === 'participantes');
             if (participantsComment) {
