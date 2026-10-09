@@ -1,5 +1,5 @@
 // IEEE Trace: REQ-003 | US-003 | pages/registros/RegistroAudit.jsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
@@ -22,7 +22,10 @@ import {
     FileAudio,
     FileBox,
     Calendar,
-    Eye
+    Eye,
+    RefreshCw,
+    CheckCircle2,
+    Clock
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -74,6 +77,21 @@ export default function RegistroAudit() {
     const [participantes, setParticipantes] = useState([]);
     const [nuevoParticipante, setNuevoParticipante] = useState({ nombre: '', rut: '', cargo: '', empresa: '' });
 
+    // Auto-save State & Refs for Comentarios and Participantes (every 1 minute)
+    const [autoSaveStatus, setAutoSaveStatus] = useState({ status: 'idle', lastSavedAt: null });
+    const comentarioGeneralRef = useRef(comentarioGeneral);
+    const participantesRef = useRef(participantes);
+    const lastSavedRef = useRef({ comentarioGeneral: '', participantesJson: '[]' });
+    const isSavingRef = useRef(false);
+
+    useEffect(() => {
+        comentarioGeneralRef.current = comentarioGeneral;
+    }, [comentarioGeneral]);
+
+    useEffect(() => {
+        participantesRef.current = participantes;
+    }, [participantes]);
+
     useEffect(() => {
         fetchRegistro();
     }, [id]);
@@ -84,14 +102,22 @@ export default function RegistroAudit() {
             setRegistro(response.data.data);
             setComentarioGeneral(response.data.data.comentario_general || '');
 
+            const loadedComentario = response.data.data.comentario_general || '';
+            let loadedParticipantes = [];
             const participantsComment = response.data.data.comentarios?.find(c => c.tipo === 'participantes');
             if (participantsComment) {
                 try {
-                    setParticipantes(JSON.parse(participantsComment.comentario));
+                    loadedParticipantes = JSON.parse(participantsComment.comentario);
+                    setParticipantes(loadedParticipantes);
                 } catch (e) {
                     console.error('Error parsing participants:', e);
                 }
             }
+
+            lastSavedRef.current = {
+                comentarioGeneral: loadedComentario,
+                participantesJson: JSON.stringify(loadedParticipantes)
+            };
 
             // Initialize local audit state
             const initialAuditState = {};
@@ -227,20 +253,88 @@ export default function RegistroAudit() {
         }
     };
 
-    const handleSaveProgress = async () => {
-        setSaving(true);
+    const executeSaveProgress = async (isAutoSave = false) => {
+        if (isSavingRef.current) return;
+        if (!canWrite('Auditoria')) return;
+        if (!registro) return;
+        const auditando = registro.estado_auditoria === 'auditando';
+        const enRevision = registro.estado_auditoria === 'en_revision';
+        if (!auditando && !enRevision) return;
+
+        const currentComentario = comentarioGeneralRef.current || '';
+        const currentParticipantesJson = JSON.stringify(participantesRef.current || []);
+
+        const hasChanges = (
+            currentComentario !== lastSavedRef.current.comentarioGeneral ||
+            currentParticipantesJson !== lastSavedRef.current.participantesJson
+        );
+
+        if (!hasChanges) {
+            return;
+        }
+
+        isSavingRef.current = true;
+        if (!isAutoSave) setSaving(true);
+        setAutoSaveStatus(prev => ({ ...prev, status: 'saving' }));
+
         try {
             await api.put(`/registros/${id}/guardar-avance-auditoria`, {
-                comentario_general: comentarioGeneral,
-                participantes: JSON.stringify(participantes)
+                comentario_general: currentComentario,
+                participantes: currentParticipantesJson
             });
-            toast.success('Progreso guardado correctamente');
+
+            lastSavedRef.current = {
+                comentarioGeneral: currentComentario,
+                participantesJson: currentParticipantesJson
+            };
+
+            const now = new Date();
+            setAutoSaveStatus({
+                status: 'saved',
+                lastSavedAt: now
+            });
+
+            if (!isAutoSave) {
+                toast.success('Progreso guardado correctamente');
+            } else {
+                toast.success('Auto-guardado: Comentarios y Participantes sincronizados', {
+                    id: 'auto-save-toast',
+                    duration: 3000,
+                    icon: '💾'
+                });
+            }
         } catch (err) {
-            toast.error('Error al guardar progreso');
+            console.error('Error al guardar avance de auditoría:', err);
+            setAutoSaveStatus(prev => ({ ...prev, status: 'error' }));
+            if (!isAutoSave) {
+                toast.error('Error al guardar progreso');
+            }
         } finally {
-            setSaving(false);
+            isSavingRef.current = false;
+            if (!isAutoSave) setSaving(false);
         }
     };
+
+    const handleSaveProgress = () => {
+        executeSaveProgress(false);
+    };
+
+    // Auto-save interval: triggers every 1 minute (60,000 ms)
+    useEffect(() => {
+        if (!registro) return;
+        const auditando = registro.estado_auditoria === 'auditando';
+        const enRevision = registro.estado_auditoria === 'en_revision';
+
+        if (!canWrite('Auditoria') || (!auditando && !enRevision)) {
+            return;
+        }
+
+        const intervalId = setInterval(() => {
+            executeSaveProgress(true);
+        }, 60000); // 1 minute
+
+        return () => clearInterval(intervalId);
+    }, [id, registro?.estado_auditoria]);
 
     const handleHallazgoSuccess = (newHallazgo) => {
         toast.success('Hallazgo registrado exitosamente');
@@ -302,6 +396,45 @@ export default function RegistroAudit() {
         });
         return groups;
     }, [registro]);
+
+    const renderAutoSaveBadge = () => {
+        if (!canWrite('Auditoria') || !(isAuditando || isEnRevision)) return null;
+
+        if (autoSaveStatus.status === 'saving') {
+            return (
+                <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    fontSize: '0.75rem', fontWeight: 600, color: '#003594',
+                    background: '#eff6ff', padding: '3px 10px', borderRadius: '12px', border: '1px solid #bfdbfe'
+                }}>
+                    <RefreshCw size={12} className="animate-spin" /> Auto-guardando...
+                </span>
+            );
+        }
+
+        if (autoSaveStatus.lastSavedAt) {
+            const timeStr = autoSaveStatus.lastSavedAt.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            return (
+                <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    fontSize: '0.75rem', fontWeight: 600, color: '#15803d',
+                    background: '#f0fdf4', padding: '3px 10px', borderRadius: '12px', border: '1px solid #bbf7d0'
+                }} title="Guardado automáticamente cada 1 minuto al detectar cambios">
+                    <CheckCircle2 size={12} color="#16a34a" /> Auto-guardado ({timeStr})
+                </span>
+            );
+        }
+
+        return (
+            <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                fontSize: '0.75rem', fontWeight: 500, color: '#64748b',
+                background: '#f8fafc', padding: '3px 10px', borderRadius: '12px', border: '1px solid #e2e8f0'
+            }} title="Auto-guardado activo cada 1 minuto para Comentarios y Participantes">
+                <Clock size={12} color="#94a3b8" /> Auto-guardado cada 1 min
+            </span>
+        );
+    };
 
     if (loading) return <div className="loading">Cargando...</div>;
     if (!registro) return <div className="error-message">Registro no encontrado</div>;
@@ -828,8 +961,11 @@ export default function RegistroAudit() {
 
                     {/* Comments Section */}
                     <div className="form-card" style={{ padding: '24px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#1e40af', fontWeight: 700, marginBottom: '20px' }}>
-                            <FileText size={20} /> <span style={{ fontSize: '1.1rem' }}>Comentarios de Auditoría</span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#1e40af', fontWeight: 700 }}>
+                                <FileText size={20} /> <span style={{ fontSize: '1.1rem' }}>Comentarios de Auditoría</span>
+                            </div>
+                            {renderAutoSaveBadge()}
                         </div>
                         <div className="form-group">
                             <label style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '8px', display: 'block', fontWeight: 500 }}>
@@ -985,8 +1121,11 @@ export default function RegistroAudit() {
             {/* Participants Section */}
             {(isAuditando || isEnRevision) && (
                 <div className="form-card" style={{ marginTop: '32px', padding: '24px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#1e40af', fontWeight: 700, marginBottom: '20px' }}>
-                        <FileText size={20} /> <span style={{ fontSize: '1.1rem' }}>Participantes de la Reunión de Accounting</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#1e40af', fontWeight: 700 }}>
+                            <FileText size={20} /> <span style={{ fontSize: '1.1rem' }}>Participantes de la Reunión de Accounting</span>
+                        </div>
+                        {renderAutoSaveBadge()}
                     </div>
                     
                     <div style={{ overflowX: 'auto', marginBottom: '20px' }}>
@@ -1096,6 +1235,9 @@ export default function RegistroAudit() {
             {/* Final Actions */}
             {(isAuditando || isEnRevision) && canWrite('Auditoria') &&
                 <div style={{ marginTop: '32px', padding: '24px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginRight: 'auto' }}>
+                        {renderAutoSaveBadge()}
+                    </div>
                     <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Revise los datos antes de finalizar el proceso oficial.</span>
                     <button
                         id="btn-save-progress"
