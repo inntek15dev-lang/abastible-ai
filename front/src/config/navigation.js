@@ -62,7 +62,8 @@ export const MODULES = [
         items: [
             { path: '/registros', label: 'Registros y Cumplimiento', icon: FileText, module: 'Registros' },
             { path: '/reaperturas', label: 'Solicitudes de Reapertura', icon: RefreshCw, module: 'Reaperturas' },
-            { path: '/compromisos', label: 'Compromisos', icon: CheckSquare, module: 'Compromisos' }
+            { path: '/compromisos', label: 'Compromisos', icon: CheckSquare, module: 'Compromisos' },
+            { path: '/hallazgos', label: 'Gestión de Hallazgos', icon: AlertTriangle, module: 'Registros' }
         ]
     },
 

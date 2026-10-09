@@ -167,24 +167,27 @@ export async function generateComplianceMatrixPDF({ columns = [], rows = [], fil
     // ==========================================
     // 3. TABLE DATA WITH AUTOTABLE
     // ==========================================
+    const numPeriodCols = Math.max(1, columns.length);
+    const subHeaderLabel = numPeriodCols > 9 ? 'DECL|AUD' : 'DECL. | AUDIT.';
+
     const tableHeaders = [
         [
             '#',
             'CONTRATISTA / RUT',
             'PROGRAMA / SERVICIO',
             'DEPENDENCIA',
-            ...columns.map(c => `${c.label}
-DECL. | AUDIT.`)
+            ...columns.map(c => {
+                const cleanLabel = (c.label || '').replace(/SEPT/gi, 'SEP').replace(/DIC\./gi, 'DIC');
+                return `${cleanLabel}\n${subHeaderLabel}`;
+            })
         ]
     ];
 
     const tableData = rows.map((r, idx) => {
         const rowCells = [
             `${idx + 1}`,
-            `${r.contratista || 'N/A'}
-${r.rut || '-'}`,
-            `${r.programa || 'Sin Programa'}
-${r.servicio || '-'}`,
+            `${r.contratista || 'N/A'}\n${r.rut || '-'}`,
+            `${r.programa || 'Sin Programa'}\n${r.servicio || '-'}`,
             r.dependencia || '-'
         ];
 
@@ -194,8 +197,7 @@ ${r.servicio || '-'}`,
                 const dec = cell.declarado !== undefined && cell.declarado !== null ? `${cell.declarado}%` : '-';
                 const aud = (cell.auditado !== null && cell.auditado !== undefined) ? ` | ${cell.auditado}%` : '';
                 const est = (cell.estado || '').replace(/_/g, ' ').toUpperCase();
-                rowCells.push(`${dec}${aud}
-${est}`);
+                rowCells.push(`${dec}${aud}\n${est}`);
             } else {
                 rowCells.push('-');
             }
@@ -204,16 +206,18 @@ ${est}`);
         return rowCells;
     });
 
-    // Calculate dynamic column widths
-    const baseWidth0 = 8;   // #
-    const baseWidth1 = 46;  // Contratista / RUT
-    const baseWidth2 = 46;  // Programa / Servicio
-    const baseWidth3 = 27;  // Dependencia
-    const fixedWidthTotal = baseWidth0 + baseWidth1 + baseWidth2 + baseWidth3; // 127mm
+    // Calculate dynamic column widths fitted to printableWidth (269mm)
+    const baseWidth0 = 7;   // #
+    const baseWidth1 = 50;  // Contratista / RUT (ampliado para nombres completos)
+    const baseWidth2 = 48;  // Programa / Servicio (ampliado para nombres completos)
+    const baseWidth3 = 26;  // Dependencia
+    const fixedWidthTotal = baseWidth0 + baseWidth1 + baseWidth2 + baseWidth3; // 131mm
 
-    const remainingWidth = printableWidth - fixedWidthTotal; // 142mm
-    const numPeriodCols = Math.max(1, columns.length);
-    const monthColWidth = Math.max(15, remainingWidth / numPeriodCols);
+    const remainingWidth = Math.max(20, printableWidth - fixedWidthTotal); // ~138mm
+    const monthColWidth = Number((remainingWidth / numPeriodCols).toFixed(2));
+
+    const headFontSize = numPeriodCols > 10 ? 5.2 : (numPeriodCols > 7 ? 6.0 : 6.8);
+    const bodyFontSize = numPeriodCols > 10 ? 5.4 : (numPeriodCols > 7 ? 5.9 : 6.6);
 
     const columnStylesConfig = {
         0: { cellWidth: baseWidth0, halign: 'center' },
@@ -239,17 +243,17 @@ ${est}`);
         headStyles: {
             fillColor: [248, 250, 252], // #f8fafc
             textColor: [71, 85, 105],   // #475569
-            fontSize: numPeriodCols > 8 ? 6.5 : 7.2,
+            fontSize: headFontSize,
             fontStyle: 'bold',
             halign: 'center',
             valign: 'middle',
-            cellPadding: 2,
+            cellPadding: numPeriodCols > 8 ? 1.5 : 2,
             lineWidth: 0.2,
             lineColor: [226, 232, 240]
         },
         styles: {
-            fontSize: numPeriodCols > 8 ? 6.0 : 6.8,
-            cellPadding: 2,
+            fontSize: bodyFontSize,
+            cellPadding: numPeriodCols > 8 ? 1.5 : 2,
             valign: 'middle',
             overflow: 'linebreak',
             lineColor: [241, 245, 249],

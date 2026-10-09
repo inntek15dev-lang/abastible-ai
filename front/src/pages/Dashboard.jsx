@@ -292,6 +292,7 @@ export default function Dashboard() {
             subtitle: 'Alertas críticas detectadas',
             color: '#ef4444',
             bg: '#fef2f2',
+            link: '/hallazgos',
             icon: <AlertTriangle size={20} color="#ef4444" title="Puntos críticos que requieren atención inmediata" />
         }
     ] : [];
@@ -470,7 +471,13 @@ export default function Dashboard() {
             {/* KPI Cards Section */}
             <div className="kpi-grid">
                 {kpiCards.map((kpi, index) => (
-                    <div id={kpi.id} key={index} className="kpi-card-polished">
+                    <div
+                        id={kpi.id}
+                        key={index}
+                        className="kpi-card-polished"
+                        style={{ cursor: kpi.link ? 'pointer' : 'default' }}
+                        onClick={() => kpi.link && navigate(kpi.link)}
+                    >
                         <div className="kpi-card-icon-wrapper" style={{ backgroundColor: kpi.bg }}>
                             {kpi.icon}
                         </div>
@@ -738,7 +745,11 @@ export default function Dashboard() {
                         </div>
                     ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
-                            <div style={{ padding: '1.5rem', borderRadius: '12px', background: '#fef2f2', border: '1px solid #fecaca' }}>
+                            <div
+                                onClick={() => navigate('/hallazgos')}
+                                style={{ padding: '1.5rem', borderRadius: '12px', background: '#fef2f2', border: '1px solid #fecaca', cursor: 'pointer' }}
+                                title="Clic para ir a Gestión de Hallazgos"
+                            >
                                 <h4 style={{ color: '#b91c1c', fontWeight: 700, margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                     <AlertTriangle size={20} /> Hallazgos Abiertos
                                 </h4>

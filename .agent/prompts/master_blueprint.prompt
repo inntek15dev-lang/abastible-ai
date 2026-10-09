@@ -271,7 +271,8 @@
             "AC-01: Puedo exportar el detalle de un registro a PDF (reportes/registro/:id/pdf)",
             "AC-02: Puedo generar el reporte de cumplimiento general y la matriz en PDF y Excel",
             "AC-03: El módulo de Facturación OVAL tiene su propia exportación PDF/Excel, exclusiva de rol oval",
-            "AC-04-SEC: Solo exporto lo que puedo ver según mi scope"
+            "AC-04-SEC: Solo exporto lo que puedo ver según mi scope",
+            "AC-05: El reporte PDF de Matriz de Cumplimiento renderiza sin solapamiento en encabezados de periodo, con altura dinámica multilínea para empresas contratistas y programas sin omisión de caracteres ni truncamiento con puntos suspensivos, y alineación vertical óptima de celdas."
           ],
           "security_tag": "Internal"
         },
@@ -284,7 +285,8 @@
             "AC-01: Puedo crear un compromiso ligado opcionalmente a un hallazgo, con descripción y fecha_compromiso",
             "AC-02: Puedo cargar evidencia de avance (PATCH /compromisos/:id/evidencia) sin cambiar el estado",
             "AC-03: Solo admin/administrador_contrato pueden marcar un compromiso como 'cumplido' (PATCH /compromisos/:id/cumplir)",
-            "AC-04-SEC: index() unifica el scoping de los 3 roles restringidos vía getAllowedVinculacionIds (corregido esta iteración; antes administrador_contrato no estaba cubierto y podía ver todos los compromisos)"
+            "AC-04-SEC: index() unifica el scoping de los 3 roles restringidos vía getAllowedVinculacionIds (corregido esta iteración; antes administrador_contrato no estaba cubierto y podía ver todos los compromisos)",
+            "AC-05-HALLAZGOS: Módulo completo de Gestión de Hallazgos (/hallazgos) accesible como submenú en Operaciones para todos los roles, con filtros idénticos al dashboard, KPIs de estado y tiempos de mitigación, gráficos de barra reactivos (por empresa, planta y vinculación), vista jerárquica colapsable Programas -> Elementos -> Actividades -> Hallazgos, cambio rápido de estado directo para admin/administrador_contrato, modal Ficha Técnica y exportación oficial en Excel y PDF corporativo Abastible."
           ],
           "security_tag": "Confidential"
         },
@@ -781,7 +783,7 @@ users, vinculaciones, programas, dependencias ──< registros
 `GET /dashboard/kpis`, `GET /dashboard/cumplimiento`, `GET /dashboard/historico`, `GET /dashboard/actividad`, `GET /dashboard/matrix` (matriz dinámica de cumplimiento con columnas por periodo según rango periodo_desde/hasta o últimos 6 meses por defecto; soporte `sin_paginar=true` para exportación ejecutiva)
 
 **Reportes (11)** — los 6 de `/reportes/oval/*` exigen `requirePrivilege('OVAL', read|write)`; el resto solo `auth`
-`GET /reportes/registro/:id/pdf`, `GET /reportes/cumplimiento`, `GET /reportes/cumplimiento/pdf`, `GET /reportes/cumplimiento/excel`, `GET /reportes/matrix/pdf` (reporte PDF paisaje de alta fidelidad, todos los contratos sin paginar y columnas dinámicas), `GET /reportes/matrix/excel`, `GET /reportes/oval/billing`, `POST /reportes/oval/config`, `GET /reportes/oval/billing/pdf`, `GET /reportes/oval/billing/excel`, `POST /reportes/oval/billing/send`
+`GET /reportes/registro/:id/pdf`, `GET /reportes/cumplimiento`, `GET /reportes/cumplimiento/pdf`, `GET /reportes/cumplimiento/excel`, `GET /reportes/matrix/pdf` (reporte PDF paisaje de alta fidelidad, todos los contratos sin paginar y columnas dinámicas), , , `GET /reportes/matrix/excel`, `GET /reportes/oval/billing`, `POST /reportes/oval/config`, `GET /reportes/oval/billing/pdf`, `GET /reportes/oval/billing/excel`, `POST /reportes/oval/billing/send`
 
 **Documentos (2)** — solo `auth`; **`upload` roto (ver RN-002.32)**
 `POST /documentos/upload`, `GET /documentos`

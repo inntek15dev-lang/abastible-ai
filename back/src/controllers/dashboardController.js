@@ -885,10 +885,10 @@ const dashboardController = {
             let curColY = desdeY;
             let curColM = desdeM;
 
+            const monthNames = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
             while (curColY < hastaY || (curColY === hastaY && curColM <= hastaM)) {
                 const iso = `${curColY}-${pad(curColM)}`;
-                const d = new Date(curColY, curColM - 1, 1);
-                const label = d.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' }).toUpperCase().replace('.', '');
+                const label = `${monthNames[curColM - 1]} ${curColY}`;
                 columns.push({ key: iso, label });
                 curColM++;
                 if (curColM > 12) {
