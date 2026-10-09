@@ -192,7 +192,8 @@
             "AC-02: Puedo iniciar auditoría solo si el registro está en 'pendiente' o 'auditable'",
             "AC-03: No puedo finalizar la auditoría si falta evidencia obligatoria en alguna actividad marcada como cumplida",
             "AC-04: Puedo guardar avance parcial (comentario general, participantes) sin cambiar el estado del registro",
-            "AC-05-SEC: auditarActividad no valida el estado del Registro padre — puede ejecutarse aunque el registro no esté en 'auditando' (gap confirmado, documentado, no explotable fuera del rol ya autorizado)"
+            "AC-05-SEC: auditarActividad no valida el estado del Registro padre — puede ejecutarse aunque el registro no esté en 'auditando' (gap confirmado, documentado, no explotable fuera del rol ya autorizado)",
+            "AC-06-AUTOSAVE: En la vista de auditoría (RegistroAudit.jsx), los Comentarios de Auditoría y los Participantes de la Reunión de Accounting cuentan con auto-guardado periódico cada 1 minuto (60.000 ms) condicionado a cambios reales (dirty check), con indicadores visuales de sincronización y salvaguarda continua de avance sin pérdida de datos."
           ],
           "security_tag": "Internal"
         },
