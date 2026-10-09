@@ -1308,5 +1308,322 @@ module.exports = {
             console.error('Send Billing Report Error:', error);
             res.status(500).json({ success: false, message: 'Error al procesar el envío del reporte' });
         }
+    },
+
+    async _getHallazgosReportData(req) {
+        const {
+            estado,
+            tipo,
+            contratista_id,
+            servicio_id,
+            dependencia_id,
+            gerencia_id,
+            subgerencia_id,
+            programa_id,
+            periodo_desde,
+            periodo_hasta,
+            search
+        } = req.query;
+
+        const where = {};
+        if (estado && estado !== 'todos' && estado !== 'all') where.estado = estado;
+        if (tipo && tipo !== 'todos' && tipo !== 'all') where.tipo = tipo;
+
+        if (search && search.trim()) {
+            const term = `%${search.trim()}%`;
+            where[Op.or] = [
+                { descripcion: { [Op.like]: term } },
+                { accion_correctiva: { [Op.like]: term } }
+            ];
+        }
+
+        const allowedVincIds = await getAllowedVinculacionIds(req.user);
+        if (allowedVincIds !== null && allowedVincIds.length === 0) return [];
+
+        const vincWhere = {};
+        if (contratista_id && contratista_id !== 'todos') vincWhere.contratista_id = contratista_id;
+        if (servicio_id && servicio_id !== 'todos') vincWhere.servicio_id = servicio_id;
+        if (dependencia_id && dependencia_id !== 'todas') vincWhere.dependencia_id = dependencia_id;
+        if (gerencia_id && gerencia_id !== 'todas') vincWhere.gerencia_id = gerencia_id;
+        if (subgerencia_id && subgerencia_id !== 'todas') vincWhere.subgerencia_id = subgerencia_id;
+
+        const registroWhere = {};
+        if (allowedVincIds !== null) {
+            registroWhere.contratista_asignacion_id = { [Op.in]: allowedVincIds };
+        }
+        if (programa_id && programa_id !== 'todos') {
+            registroWhere.programa_id = programa_id;
+        }
+        if (periodo_desde && periodo_hasta) {
+            registroWhere.periodo = { [Op.between]: [periodo_desde, periodo_hasta] };
+        } else if (periodo_desde) {
+            registroWhere.periodo = { [Op.gte]: periodo_desde };
+        } else if (periodo_hasta) {
+            registroWhere.periodo = { [Op.lte]: periodo_hasta };
+        }
+
+        return await Hallazgo.findAll({
+            where,
+            include: [
+                { model: User, as: 'auditor', attributes: ['id', 'name', 'email'] },
+                { model: Compromiso, as: 'compromisos' },
+                {
+                    model: RegistroActividad,
+                    as: 'registroActividad',
+                    include: [
+                        {
+                            model: Actividad,
+                            as: 'actividad',
+                            include: [
+                                {
+                                    model: Elemento,
+                                    as: 'elemento',
+                                    include: [{ model: Programa, as: 'programa' }]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    model: Registro,
+                    as: 'registro',
+                    where: registroWhere,
+                    required: true,
+                    include: [
+                        {
+                            model: Vinculacion,
+                            as: 'vinculacionEntidad',
+                            where: Object.keys(vincWhere).length > 0 ? vincWhere : undefined,
+                            required: Object.keys(vincWhere).length > 0,
+                            include: [
+                                { model: Contratista, as: 'contratista' },
+                                { model: TipoContratista, as: 'servicio' },
+                                { model: Dependencia, as: 'dependencia' },
+                                { model: Gerencia, as: 'gerencia' },
+                                { model: Subgerencia, as: 'subgerencia' }
+                            ]
+                        },
+                        { model: Programa, as: 'programa' }
+                    ]
+                }
+            ],
+            order: [['created_at', 'DESC']]
+        });
+    },
+
+    async hallazgosExcel(req, res) {
+        try {
+            const hallazgos = await module.exports._getHallazgosReportData(req);
+
+            const workbook = new ExcelJS.Workbook();
+            const sheet = workbook.addWorksheet('Reporte de Hallazgos', {
+                views: [{ showGridLines: true }]
+            });
+
+            // Corporate Header Style
+            sheet.mergeCells('A1:J1');
+            const titleCell = sheet.getCell('A1');
+            titleCell.value = 'ABASTIBLE S.A. - REPORTE OFICIAL DE GESTIÓN DE HALLAZGOS OIEM';
+            titleCell.font = { name: 'Helvetica', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+            titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF003594' } };
+            titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+            sheet.getRow(1).height = 30;
+
+            sheet.mergeCells('A2:J2');
+            const metaCell = sheet.getCell('A2');
+            metaCell.value = `Fecha Emisión: ${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL')} | Total Hallazgos: ${hallazgos.length}`;
+            metaCell.font = { size: 10, italic: true, color: { argb: 'FF475569' } };
+            metaCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+            metaCell.alignment = { vertical: 'middle', horizontal: 'center' };
+            sheet.getRow(2).height = 20;
+
+            sheet.addRow([]);
+
+            // Headers
+            const headers = [
+                'ID',
+                'Programa',
+                'Elemento',
+                'Actividad',
+                'Empresa Contratista',
+                'Planta / Dependencia',
+                'Servicio',
+                'Período',
+                'Clasificación',
+                'Estado',
+                'Fecha Detección',
+                'Fecha Límite',
+                'Fecha Cierre',
+                'Auditor',
+                'Descripción del Hallazgo',
+                'Plan de Acción'
+            ];
+
+            const headerRow = sheet.addRow(headers);
+            headerRow.height = 25;
+            headerRow.eachCell((cell) => {
+                cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 9 };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+                cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    bottom: { style: 'medium', color: { argb: 'FFFE5000' } }
+                };
+            });
+
+            hallazgos.forEach((h) => {
+                const act = h.registroActividad?.actividad;
+                const elem = act?.elemento;
+                const prog = elem?.programa || h.registro?.programa;
+                const vinc = h.registro?.vinculacionEntidad;
+
+                const row = sheet.addRow([
+                    `#${h.id}`,
+                    prog?.nombre || 'General',
+                    elem ? `${elem.codigo || ''} - ${elem.nombre || ''}` : '-',
+                    act ? `${act.codigo || ''} - ${act.nombre || ''}` : '-',
+                    vinc?.contratista?.nombre || h.registro?.eecc_nombre || 'N/A',
+                    vinc?.dependencia?.nombre || '-',
+                    vinc?.servicio?.nombre || '-',
+                    h.registro?.periodo || '-',
+                    (h.tipo || '').replace(/_/g, ' ').toUpperCase(),
+                    (h.estado || '').replace(/_/g, ' ').toUpperCase(),
+                    h.created_at ? new Date(h.created_at).toLocaleDateString('es-CL') : '-',
+                    h.fecha_limite || '-',
+                    h.fecha_cierre ? new Date(h.fecha_cierre).toLocaleDateString('es-CL') : '-',
+                    h.auditor?.name || '-',
+                    h.descripcion || '',
+                    h.accion_correctiva || '-'
+                ]);
+
+                row.alignment = { vertical: 'middle', wrapText: true };
+            });
+
+            sheet.columns.forEach((col, idx) => {
+                col.width = [8, 22, 22, 24, 26, 20, 20, 12, 16, 14, 14, 14, 14, 18, 35, 30][idx] || 15;
+            });
+
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', `attachment; filename=reporte-hallazgos-${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+            await workbook.xlsx.write(res);
+            res.end();
+        } catch (error) {
+            console.error('Hallazgos Excel Error:', error);
+            res.status(500).json({ success: false, message: 'Error generando Excel de hallazgos' });
+        }
+    },
+
+    async hallazgosPdf(req, res) {
+        try {
+            const hallazgos = await module.exports._getHallazgosReportData(req);
+
+            const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 18, bufferPages: true });
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=reporte-hallazgos-${new Date().toISOString().slice(0, 10)}.pdf`);
+            doc.pipe(res);
+
+            const startX = 18;
+            const totalWidth = 805;
+
+            const drawPageHeader = () => {
+                doc.rect(0, 0, 842, 5).fill('#003594');
+                doc.rect(0, 5, 842, 2).fill('#FE5000');
+                doc.fillColor('#003594').font('Helvetica-Bold').fontSize(13).text('ABASTIBLE S.A. | REPORTE OFICIAL DE GESTIÓN DE HALLAZGOS', startX, 16);
+                doc.fillColor('#64748b').font('Helvetica').fontSize(8).text('No conformidades, desviaciones y observaciones de auditoría operacional OIEM', startX, 31);
+                const nowFormatted = `${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`;
+                doc.fontSize(7.5).text(`Fecha emisión: ${nowFormatted}  |  Total hallazgos: ${hallazgos.length}`, 480, 18, { align: 'right', width: 343 });
+            };
+
+            const headerHeight = 22;
+            const drawTableHeader = (y) => {
+                doc.rect(startX, y, totalWidth, headerHeight).fill('#f8fafc');
+                doc.rect(startX, y, totalWidth, headerHeight).stroke('#e2e8f0');
+                doc.fillColor('#475569').font('Helvetica-Bold').fontSize(6.8);
+
+                let cx = startX;
+                doc.text('ID', cx + 4, y + 7, { width: 30 }); cx += 32;
+                doc.text('PROGRAMA / ELEMENTO', cx + 4, y + 7, { width: 140 }); cx += 145;
+                doc.text('ACTIVIDAD EVALUADA', cx + 4, y + 7, { width: 140 }); cx += 145;
+                doc.text('CONTRATISTA / PLANTA', cx + 4, y + 7, { width: 130 }); cx += 135;
+                doc.text('TIPO', cx + 4, y + 7, { width: 70, align: 'center' }); cx += 75;
+                doc.text('ESTADO', cx + 4, y + 7, { width: 65, align: 'center' }); cx += 70;
+                doc.text('DESCRIPCIÓN / HALLAZGO', cx + 4, y + 7, { width: 200 });
+
+                return y + headerHeight;
+            };
+
+            drawPageHeader();
+            let currentY = drawTableHeader(44);
+
+            hallazgos.forEach((h, idx) => {
+                const act = h.registroActividad?.actividad;
+                const elem = act?.elemento;
+                const prog = elem?.programa || h.registro?.programa;
+                const vinc = h.registro?.vinculacionEntidad;
+
+                const descH = doc.heightOfString(h.descripcion || '-', { width: 195 });
+                const rowHeight = Math.max(28, descH + 12);
+
+                if (currentY + rowHeight > 550) {
+                    doc.addPage({ size: 'A4', layout: 'landscape', margin: 18 });
+                    drawPageHeader();
+                    currentY = drawTableHeader(44);
+                }
+
+                if (idx % 2 === 1) {
+                    doc.rect(startX, currentY, totalWidth, rowHeight).fill('#fafbfc');
+                }
+
+                let x = startX;
+                doc.fillColor('#64748b').font('Helvetica').fontSize(6.5).text(`#${h.id}`, x + 4, currentY + 6, { width: 30 }); x += 32;
+
+                doc.fillColor('#003594').font('Helvetica-Bold').fontSize(6.5).text(prog?.nombre || 'General', x + 4, currentY + 5, { width: 135 });
+                doc.fillColor('#64748b').font('Helvetica').fontSize(5.8).text(elem ? `${elem.codigo} ${elem.nombre}` : '-', x + 4, currentY + 14, { width: 135 });
+                x += 145;
+
+                doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(6.2).text(act?.codigo || '-', x + 4, currentY + 5, { width: 135 });
+                doc.fillColor('#64748b').font('Helvetica').fontSize(5.8).text(act?.nombre || '-', x + 4, currentY + 14, { width: 135 });
+                x += 145;
+
+                doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(6.5).text(vinc?.contratista?.nombre || h.registro?.eecc_nombre || '-', x + 4, currentY + 5, { width: 125 });
+                doc.fillColor('#64748b').font('Helvetica').fontSize(5.8).text(vinc?.dependencia?.nombre || '-', x + 4, currentY + 14, { width: 125 });
+                x += 135;
+
+                // Tipo Badge
+                doc.rect(x + 2, currentY + 5, 68, 14).fill('#f1f5f9');
+                doc.fillColor('#475569').font('Helvetica-Bold').fontSize(5.5).text((h.tipo || '').replace(/_/g, ' ').toUpperCase(), x + 2, currentY + 8, { width: 68, align: 'center' });
+                x += 75;
+
+                // Estado Badge
+                const isCerrado = h.estado === 'cerrado';
+                const isProceso = h.estado === 'en_proceso';
+                const stBg = isCerrado ? '#f0fdf4' : (isProceso ? '#fefce8' : '#fef2f2');
+                const stTx = isCerrado ? '#059669' : (isProceso ? '#d97706' : '#dc2626');
+                doc.rect(x + 2, currentY + 5, 62, 14).fill(stBg);
+                doc.fillColor(stTx).font('Helvetica-Bold').fontSize(5.8).text((h.estado || '').replace(/_/g, ' ').toUpperCase(), x + 2, currentY + 8, { width: 62, align: 'center' });
+                x += 70;
+
+                doc.fillColor('#334155').font('Helvetica').fontSize(6.0).text(h.descripcion || '-', x + 4, currentY + 5, { width: 195 });
+
+                currentY += rowHeight;
+                doc.moveTo(startX, currentY).lineTo(startX + totalWidth, currentY).stroke('#e2e8f0');
+            });
+
+            const pages = doc.bufferedPageRange();
+            for (let i = 0; i < pages.count; i++) {
+                doc.switchToPage(i);
+                doc.moveTo(startX, 568).lineTo(startX + totalWidth, 568).stroke('#e2e8f0');
+                doc.fontSize(7).fillColor('#94a3b8').font('Helvetica')
+                   .text('Abastible S.A. | Sistema de Gestión de Auditoría y Cumplimiento OIEM', startX, 574);
+                doc.text(`Página ${i + 1} de ${pages.count}`, startX, 574, { align: 'right', width: totalWidth });
+            }
+
+            doc.end();
+        } catch (error) {
+            console.error('Hallazgos PDF Error:', error);
+            res.status(500).json({ success: false, message: 'Error generando PDF de hallazgos' });
+        }
     }
+
 };

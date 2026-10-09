@@ -983,6 +983,8 @@ router.get('/reportes/cumplimiento/pdf', auth, reporteController.cumplimientoGen
 router.get('/reportes/cumplimiento/excel', auth, reporteController.cumplimientoGeneralExcel);
 router.get('/reportes/matrix/pdf', auth, reporteController.matrixPdf);
 router.get('/reportes/matrix/excel', auth, reporteController.matrixExcel);
+router.get('/reportes/hallazgos/excel', auth, reporteController.hallazgosExcel);
+router.get('/reportes/hallazgos/pdf', auth, reporteController.hallazgosPdf);
 
 // OVAL Billing
 router.get('/reportes/oval/billing', auth, requirePrivilege('OVAL', 'read'), reporteController.billingReport);
