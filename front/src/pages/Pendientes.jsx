@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
@@ -34,6 +34,10 @@ export default function Pendientes() {
     const [porRevisar, setPorRevisar] = useState([]);
     const [potentialAdmins, setPotentialAdmins] = useState([]);
     const [selectedAdc, setSelectedAdc] = useState('todos');
+    const [filterEstadoCreacion, setFilterEstadoCreacion] = useState('todos');
+    const [filterEstadoAuditoria, setFilterEstadoAuditoria] = useState('todos');
+    const [filterEstadoRevision, setFilterEstadoRevision] = useState('todos');
+    const [filterEstadoSolicitud, setFilterEstadoSolicitud] = useState('todos');
 
     const fetchAdmins = async () => {
         try {
@@ -134,6 +138,31 @@ export default function Pendientes() {
         setPendientesCreacion(pending);
     };
 
+    const filteredPendientesCreacion = useMemo(() => {
+        if (filterEstadoCreacion === 'todos') return pendientesCreacion;
+        return pendientesCreacion.filter(item => item.action === filterEstadoCreacion);
+    }, [pendientesCreacion, filterEstadoCreacion]);
+
+    const filteredPorAuditar = useMemo(() => {
+        if (filterEstadoAuditoria === 'todos') return porAuditar;
+        return porAuditar.filter(reg => {
+            if (filterEstadoAuditoria === 'auditable') {
+                return ['auditable', 'pendiente'].includes(reg.estado_auditoria);
+            }
+            return reg.estado_auditoria === filterEstadoAuditoria;
+        });
+    }, [porAuditar, filterEstadoAuditoria]);
+
+    const filteredPorRevisar = useMemo(() => {
+        if (filterEstadoRevision === 'todos') return porRevisar;
+        return porRevisar.filter(reg => reg.estado_auditoria === filterEstadoRevision);
+    }, [porRevisar, filterEstadoRevision]);
+
+    const filteredSolicitudes = useMemo(() => {
+        if (filterEstadoSolicitud === 'todos') return solicitudes;
+        return solicitudes.filter(sol => sol.estado === filterEstadoSolicitud);
+    }, [solicitudes, filterEstadoSolicitud]);
+
     useEffect(() => {
         fetchAllData();
         if (user?.role === 'admin' && potentialAdmins.length === 0) {
@@ -175,7 +204,7 @@ export default function Pendientes() {
 
             const promises = [
                 safeGet(`/dashboard/kpis${queryStrFirst}`, {}),
-                safeGet(`/reaperturas?estado=pendiente${queryStr}`, []),
+                safeGet(`/reaperturas${queryStrFirst}`, []),
                 safeGet(`/registros?estado_auditoria=${auditParams}${queryStr}`, []),
                 safeGet(`/registros?estado_auditoria=${reviewParams}${queryStr}`, []),
                 safeGet(`/vinculaciones?${vincParams.toString()}`, []),
@@ -293,7 +322,7 @@ export default function Pendientes() {
                     </div>
                     <div className="kpi-card-content">
                         <span className="kpi-card-title">SOLICITUDES REAPERTURA</span>
-                        <span className="kpi-card-value" style={{ color: '#f59e0b' }}>{solicitudes.length}</span>
+                        <span className="kpi-card-value" style={{ color: '#f59e0b' }}>{solicitudes.filter(s => s.estado === 'pendiente').length}</span>
                         <span className="kpi-card-subtitle">Pendientes de aprobación</span>
                     </div>
                 </div>
@@ -339,53 +368,117 @@ export default function Pendientes() {
                 {isAdminOrADC && (
                     <section className="dashboard-section-card" style={{ padding: '1.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '1rem' }}>
-                            <div style={{ backgroundColor: '#fffbeb', p: '8px', borderRadius: '8px' }}>
+                            <div style={{ backgroundColor: '#fffbeb', padding: '8px', borderRadius: '8px' }}>
                                 <Clock size={20} color="#f59e0b" />
                             </div>
                             <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#374151' }}>Solicitudes de Reapertura</h3>
+                            <span style={{ backgroundColor: '#f59e0b', color: 'white', borderRadius: '12px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }}>{filteredSolicitudes.length}</span>
                         </div>
 
-                        {solicitudes.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>No hay solicitudes pendientes.</div>
+                        {filteredSolicitudes.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>
+                                {solicitudes.length === 0 ? 'No hay solicitudes de reapertura.' : 'No hay solicitudes coincidentes con el estado seleccionado.'}
+                            </div>
                         ) : (
-                            <div style={{ display: 'grid', gap: '1rem' }}>
-                                {solicitudes.map(sol => (
-                                    <div key={sol.id} style={{ 
-                                        padding: '1.25rem', borderRadius: '12px', backgroundColor: '#fff', border: '1px solid #e5e7eb',
-                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-                                    }}>
-                                        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>EECC</span>
-                                                <span style={{ fontWeight: 600, color: '#111827' }}>{sol.registro?.eecc_nombre}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>Periodo</span>
-                                                <span style={{ color: '#374151' }}>{formatPeriodo(sol.registro?.periodo)}</span>
-                                            </div>
-                                            <div style={{ maxWidth: '300px' }}>
-                                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>Motivo</span>
-                                                <p style={{ margin: 0, fontSize: '0.85rem', color: '#4b5563', lineHeight: 1.4 }}>{sol.motivo}</p>
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                            <button 
-                                                onClick={() => setActionModal({ show: true, solicitud: sol, type: 'aprobar' })}
-                                                className="btn-success" 
-                                                style={{ backgroundColor: '#10b981', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
-                                            >
-                                                <Check size={16} /> Aprobar
-                                            </button>
-                                            <button 
-                                                onClick={() => setActionModal({ show: true, solicitud: sol, type: 'rechazar' })}
-                                                className="btn-danger" 
-                                                style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
-                                            >
-                                                <X size={16} /> Rechazar
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
+                            <div className="table-container" style={{ overflowX: 'auto' }}>
+                                <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                        <tr style={{ textAlign: 'left', borderBottom: '2px solid #f3f4f6' }}>
+                                            <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>EECC / CONTRATISTA</th>
+                                            <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>Nº CONTRATO / SERVICIO / DEPENDENCIA</th>
+                                            <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>PERIODO</th>
+                                            <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>MOTIVO</th>
+                                            <th style={{ padding: '0.5rem 0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700, textAlign: 'center' }}>
+                                                <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                                    <span>ESTADO</span>
+                                                    <select
+                                                        value={filterEstadoSolicitud}
+                                                        onChange={e => setFilterEstadoSolicitud(e.target.value)}
+                                                        style={{
+                                                            fontSize: '0.72rem',
+                                                            padding: '3px 6px',
+                                                            borderRadius: '6px',
+                                                            border: '1px solid #d1d5db',
+                                                            backgroundColor: '#ffffff',
+                                                            color: '#1f2937',
+                                                            fontWeight: 600,
+                                                            cursor: 'pointer',
+                                                            outline: 'none',
+                                                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                                        }}
+                                                    >
+                                                        <option value="todos">Todos</option>
+                                                        <option value="pendiente">Pendiente</option>
+                                                        <option value="aprobada">Aprobada</option>
+                                                        <option value="rechazada">Rechazada</option>
+                                                    </select>
+                                                </div>
+                                            </th>
+                                            <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700, textAlign: 'right' }}>ACCIÓN</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredSolicitudes.map(sol => {
+                                            const vinc = sol.registro?.vinculacionEntidad || sol.registro?.asignacion;
+                                            return (
+                                                <tr key={sol.id} style={{ borderBottom: '1px solid #f9fafb' }}>
+                                                    <td style={{ padding: '1rem 0.75rem' }}>
+                                                        <div style={{ fontWeight: 600, color: '#111827' }}>{sol.registro?.eecc_nombre || vinc?.contratista?.nombre || '-'}</div>
+                                                        <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>ID Registro: #{sol.registro_id}</div>
+                                                    </td>
+                                                    <td style={{ padding: '1rem 0.75rem' }}>
+                                                        <div style={{ color: '#374151', fontWeight: 600 }}>
+                                                            {vinc?.numero_contrato ? `Contrato N° ${vinc.numero_contrato}` : (vinc?.servicio?.nombre || 'Servicio')}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                                                            {vinc?.servicio?.nombre || 'N/A'} • {vinc?.dependencia?.nombre || 'N/A'}
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ padding: '1rem 0.75rem' }}>
+                                                        <span style={{ color: '#374151', fontWeight: 500 }}>{formatPeriodo(sol.registro?.periodo)}</span>
+                                                    </td>
+                                                    <td style={{ padding: '1rem 0.75rem', maxWidth: '300px' }}>
+                                                        <p style={{ margin: 0, fontSize: '0.85rem', color: '#4b5563', lineHeight: 1.4 }}>{sol.motivo}</p>
+                                                    </td>
+                                                    <td style={{ padding: '1rem 0.75rem', textAlign: 'center' }}>
+                                                        <span style={{ 
+                                                            padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600,
+                                                            backgroundColor: sol.estado === 'pendiente' ? '#fef9c3' : (sol.estado === 'aprobada' ? '#dcfce7' : '#fee2e2'),
+                                                            color: sol.estado === 'pendiente' ? '#854d0e' : (sol.estado === 'aprobada' ? '#166534' : '#991b1b'),
+                                                            border: `1px solid ${sol.estado === 'pendiente' ? '#fde047' : (sol.estado === 'aprobada' ? '#bbf7d0' : '#fecaca')}`
+                                                        }}>
+                                                            {sol.estado === 'pendiente' ? 'Pendiente' : (sol.estado === 'aprobada' ? 'Aprobada' : 'Rechazada')}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ padding: '1rem 0.75rem', textAlign: 'right' }}>
+                                                        {sol.estado === 'pendiente' ? (
+                                                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                                                <button 
+                                                                    onClick={() => setActionModal({ show: true, solicitud: sol, type: 'aprobar' })}
+                                                                    className="btn-success" 
+                                                                    style={{ backgroundColor: '#10b981', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
+                                                                >
+                                                                    <Check size={16} /> Aprobar
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => setActionModal({ show: true, solicitud: sol, type: 'rechazar' })}
+                                                                    className="btn-danger" 
+                                                                    style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
+                                                                >
+                                                                    <X size={16} /> Rechazar
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                                                                {sol.estado === 'aprobada' ? 'Procesada' : 'Finalizada'}
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             </div>
                         )}
                     </section>
@@ -395,239 +488,403 @@ export default function Pendientes() {
                 {pendientesCreacion.length > 0 && (
                     <section className="dashboard-section-card" style={{ padding: '1.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '1rem' }}>
-                            <div style={{ backgroundColor: '#fff7ed', p: '8px', borderRadius: '8px' }}>
+                            <div style={{ backgroundColor: '#fff7ed', padding: '8px', borderRadius: '8px' }}>
                                 <AlertCircle size={20} color="#f97316" />
                             </div>
                             <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#374151' }}>Registros Pendientes de Creación</h3>
-                            <span style={{ backgroundColor: '#f97316', color: 'white', borderRadius: '12px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }}>{pendientesCreacion.length}</span>
+                            <span style={{ backgroundColor: '#f97316', color: 'white', borderRadius: '12px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }}>{filteredPendientesCreacion.length}</span>
                         </div>
 
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                <thead>
-                                    <tr style={{ textAlign: 'left', borderBottom: '2px solid #f3f4f6' }}>
-                                        <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>EMPRESA CONTRATISTA</th>
-                                        <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>Nº CONTRATO / SERVICIO / DEPENDENCIA</th>
-                                        <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>PERIODO</th>
-                                        <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700, textAlign: 'right' }}>ACCIÓN</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {pendientesCreacion.map((item, idx) => (
-                                        <tr key={`${item.periodo}-${idx}`} style={{ borderBottom: '1px solid #f9fafb', backgroundColor: item.isCurrentMonth ? '#f0fdfa' : 'transparent' }}>
-                                            <td style={{ padding: '1rem 0.75rem' }}>
-                                                <div style={{ fontWeight: 700, color: '#111827' }}>
-                                                    {item.vinculacion?.contratista?.nombre || item.vinculacion?.eecc_nombre || 'N/A'}
-                                                </div>
-                                                {item.vinculacion?.contratista?.rut && (
-                                                    <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>RUT: {item.vinculacion.contratista.rut}</div>
-                                                )}
-                                            </td>
-                                            <td style={{ padding: '1rem 0.75rem' }}>
-                                                <div style={{ color: '#374151', fontWeight: 600 }}>
-                                                    {item.vinculacion?.numero_contrato ? `Contrato N° ${item.vinculacion.numero_contrato}` : (item.vinculacion?.servicio?.nombre || 'Servicio')}
-                                                </div>
-                                                <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                                                    {item.vinculacion?.servicio?.nombre} • {item.vinculacion?.dependencia?.nombre}
-                                                </div>
-                                            </td>
-                                            <td style={{ padding: '1rem 0.75rem' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <span style={{ 
-                                                        fontWeight: 600, 
-                                                        color: item.isCurrentMonth ? '#0d9488' : (item.action === 'create' ? '#f97316' : '#3b82f6'), 
-                                                        textTransform: 'capitalize' 
-                                                    }}>
-                                                        {item.date.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}
-                                                    </span>
-                                                    {item.isCurrentMonth && (
-                                                        <span style={{
-                                                            backgroundColor: '#0d9488', color: 'white',
-                                                            borderRadius: '10px', padding: '2px 8px',
-                                                            fontSize: '0.65rem', fontWeight: 700,
-                                                            letterSpacing: '0.5px', whiteSpace: 'nowrap'
-                                                        }}>MES ACTUAL</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td style={{ padding: '1rem 0.75rem', textAlign: 'right' }}>
-                                                {item.action === 'complete' ? (
-                                                    <button 
-                                                        onClick={() => navigate(`/registros/${item.recordId}/edit`)}
-                                                        style={{ 
-                                                            backgroundColor: '#3b82f6', color: 'white', border: 'none', 
-                                                            padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
-                                                            display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600
+                        {filteredPendientesCreacion.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>
+                                No hay registros coincidentes con el estado seleccionado.
+                            </div>
+                        ) : (
+                            <div className="table-container" style={{ overflowX: 'auto' }}>
+                                <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                        <tr style={{ textAlign: 'left', borderBottom: '2px solid #f3f4f6' }}>
+                                            <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>EMPRESA CONTRATISTA</th>
+                                            <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>Nº CONTRATO / SERVICIO / DEPENDENCIA</th>
+                                            <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>PERIODO</th>
+                                            <th style={{ padding: '0.5rem 0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700, textAlign: 'center' }}>
+                                                <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                                    <span>ESTADO</span>
+                                                    <select
+                                                        value={filterEstadoCreacion}
+                                                        onChange={e => setFilterEstadoCreacion(e.target.value)}
+                                                        style={{
+                                                            fontSize: '0.72rem',
+                                                            padding: '3px 6px',
+                                                            borderRadius: '6px',
+                                                            border: '1px solid #d1d5db',
+                                                            backgroundColor: '#ffffff',
+                                                            color: '#1f2937',
+                                                            fontWeight: 600,
+                                                            cursor: 'pointer',
+                                                            outline: 'none',
+                                                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                                                         }}
                                                     >
-                                                        <ArrowRight size={14} /> Completar Registro
-                                                    </button>
-                                                ) : (
-                                                    <button 
-                                                        onClick={() => navigate(`/registros/new?periodo=${item.periodo}&vinculacion_id=${item.vinculacion.id}`)}
-                                                        style={{ 
-                                                            backgroundColor: item.isCurrentMonth ? '#0d9488' : '#f97316', color: 'white', border: 'none', 
-                                                            padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
-                                                            display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600
-                                                        }}
-                                                    >
-                                                        <PlusCircle size={14} /> Crear Registro
-                                                    </button>
-                                                )}
-                                            </td>
+                                                        <option value="todos">Todos</option>
+                                                        <option value="create">Por Crear</option>
+                                                        <option value="complete">En Borrador</option>
+                                                    </select>
+                                                </div>
+                                            </th>
+                                            <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700, textAlign: 'right' }}>ACCIÓN</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        {filteredPendientesCreacion.map((item, idx) => (
+                                            <tr key={`${item.periodo}-${idx}`} style={{ borderBottom: '1px solid #f9fafb', backgroundColor: item.isCurrentMonth ? '#f0fdfa' : 'transparent' }}>
+                                                <td style={{ padding: '1rem 0.75rem' }}>
+                                                    <div style={{ fontWeight: 700, color: '#111827' }}>
+                                                        {item.vinculacion?.contratista?.nombre || item.vinculacion?.eecc_nombre || 'N/A'}
+                                                    </div>
+                                                    {item.vinculacion?.contratista?.rut && (
+                                                        <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>RUT: {item.vinculacion.contratista.rut}</div>
+                                                    )}
+                                                </td>
+                                                <td style={{ padding: '1rem 0.75rem' }}>
+                                                    <div style={{ color: '#374151', fontWeight: 600 }}>
+                                                        {item.vinculacion?.numero_contrato ? `Contrato N° ${item.vinculacion.numero_contrato}` : (item.vinculacion?.servicio?.nombre || 'Servicio')}
+                                                    </div>
+                                                    <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                                                        {item.vinculacion?.servicio?.nombre} • {item.vinculacion?.dependencia?.nombre}
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '1rem 0.75rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <span style={{ 
+                                                            fontWeight: 600, 
+                                                            color: item.isCurrentMonth ? '#0d9488' : (item.action === 'create' ? '#f97316' : '#3b82f6'), 
+                                                            textTransform: 'capitalize' 
+                                                        }}>
+                                                            {item.date.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}
+                                                        </span>
+                                                        {item.isCurrentMonth && (
+                                                            <span style={{
+                                                                backgroundColor: '#0d9488', color: 'white',
+                                                                borderRadius: '10px', padding: '2px 8px',
+                                                                fontSize: '0.65rem', fontWeight: 700,
+                                                                letterSpacing: '0.5px', whiteSpace: 'nowrap'
+                                                            }}>MES ACTUAL</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '1rem 0.75rem', textAlign: 'center' }}>
+                                                    {item.action === 'complete' ? (
+                                                        <span style={{ 
+                                                            padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600,
+                                                            backgroundColor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe'
+                                                        }}>
+                                                            En Borrador
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ 
+                                                            padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600,
+                                                            backgroundColor: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa'
+                                                        }}>
+                                                            Por Crear
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td style={{ padding: '1rem 0.75rem', textAlign: 'right' }}>
+                                                    {item.action === 'complete' ? (
+                                                        <button 
+                                                            onClick={() => navigate(`/registros/${item.recordId}/edit`)}
+                                                            style={{ 
+                                                                backgroundColor: '#3b82f6', color: 'white', border: 'none', 
+                                                                padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
+                                                                display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600
+                                                            }}
+                                                        >
+                                                            <ArrowRight size={14} /> Completar Registro
+                                                        </button>
+                                                    ) : (
+                                                        <button 
+                                                            onClick={() => navigate(`/registros/new?periodo=${item.periodo}&vinculacion_id=${item.vinculacion.id}`)}
+                                                            style={{ 
+                                                                backgroundColor: item.isCurrentMonth ? '#0d9488' : '#f97316', color: 'white', border: 'none', 
+                                                                padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
+                                                                display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600
+                                                            }}
+                                                        >
+                                                            <PlusCircle size={14} /> Crear Registro
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </section>
                 )}
 
+                {/* 3. Registros Pendientes de Auditoría */}
                 <section className="dashboard-section-card" style={{ padding: '1.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '1rem' }}>
                         <div style={{ backgroundColor: '#eff6ff', padding: '8px', borderRadius: '8px' }}>
                             <FileText size={20} color="#3b82f6" />
                         </div>
                         <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#374151' }}>Registros Pendientes de Auditoría</h3>
+                        <span style={{ backgroundColor: '#3b82f6', color: 'white', borderRadius: '12px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }}>{filteredPorAuditar.length}</span>
                     </div>
 
                     {porAuditar.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>No hay registros por auditar.</div>
+                    ) : filteredPorAuditar.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>No hay registros coincidentes con el estado seleccionado.</div>
                     ) : (
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <div className="table-container" style={{ overflowX: 'auto' }}>
+                            <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <thead>
                                     <tr style={{ textAlign: 'left', borderBottom: '2px solid #f3f4f6' }}>
                                         <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>EECC / NOMBRE</th>
+                                        <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>Nº CONTRATO / SERVICIO / DEPENDENCIA</th>
                                         <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>PERIODO / PROGRAMA</th>
-                                        <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700, textAlign: 'center' }}>ESTADO</th>
+                                        <th style={{ padding: '0.5rem 0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700, textAlign: 'center' }}>
+                                            <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                                <span>ESTADO</span>
+                                                <select
+                                                    value={filterEstadoAuditoria}
+                                                    onChange={e => setFilterEstadoAuditoria(e.target.value)}
+                                                    style={{
+                                                        fontSize: '0.72rem',
+                                                        padding: '3px 6px',
+                                                        borderRadius: '6px',
+                                                        border: '1px solid #d1d5db',
+                                                        backgroundColor: '#ffffff',
+                                                        color: '#1f2937',
+                                                        fontWeight: 600,
+                                                        cursor: 'pointer',
+                                                        outline: 'none',
+                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                                    }}
+                                                >
+                                                    <option value="todos">Todos</option>
+                                                    <option value="auditable">Auditable</option>
+                                                    <option value="auditando">En Auditoría</option>
+                                                    <option value="abierto">Abierto</option>
+                                                    <option value="reabierto">Reabierto</option>
+                                                </select>
+                                            </div>
+                                        </th>
                                         <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700, textAlign: 'right' }}>ACCIÓN</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {porAuditar.map(reg => (
-                                        <tr key={reg.id} style={{ borderBottom: '1px solid #f9fafb', transition: 'background-color 0.2s' }}>
-                                            <td style={{ padding: '1rem 0.75rem' }}>
-                                                <div style={{ fontWeight: 600, color: '#111827' }}>{reg.eecc_nombre}</div>
-                                                <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>ID: #{reg.id}</div>
-                                            </td>
-                                            <td style={{ padding: '1rem 0.75rem' }}>
-                                                <div style={{ color: '#374151' }}>{formatPeriodoStr(reg.periodo)}</div>
-                                                <div style={{ fontSize: '0.8rem', color: '#6366f1' }}>{reg.programa?.nombre}</div>
-                                            </td>
-                                            <td style={{ padding: '1rem 0.75rem', textAlign: 'center' }}>
-                                                <span style={{ 
-                                                    padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600,
-                                                    backgroundColor: reg.estado_auditoria === 'auditando' ? '#fef3c7' : '#f0f9ff',
-                                                    color: reg.estado_auditoria === 'auditando' ? '#92400e' : '#0284c7'
-                                                }}>
-                                                    {reg.estado_auditoria === 'auditando' ? 'EN PROCESO' : 
-                                                     ['abierto', 'reabierto'].includes(reg.estado_auditoria) ? 'PENDIENTE CARGA' : 'POR AUDITAR'}
-                                                </span>
-                                            </td>
-                                            <td style={{ padding: '1rem 0.75rem', textAlign: 'right' }}>
-                                                {isAdminOrADC ? (
-                                                    <button 
-                                                        onClick={() => navigate(`/registros/${reg.id}/auditar`)}
-                                                        style={{ 
-                                                            backgroundColor: '#f8fafc', color: '#475569', border: '1px solid #e2e8f0', 
-                                                            padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
-                                                            display: 'inline-flex', alignItems: 'center', gap: '4px'
-                                                        }}
-                                                    >
-                                                        Iniciar Auditoría <ArrowUpRight size={14} />
-                                                    </button>
-                                                ) : (
-                                                    <button 
-                                                        onClick={() => {
-                                                            const isEditable = ['abierto', 'reabierto'].includes(reg.estado_auditoria);
-                                                            navigate(`/registros/${reg.id}`, { state: isEditable ? {} : { readonly: true } });
-                                                        }}
-                                                        style={{ 
-                                                            backgroundColor: '#eff6ff', color: '#3b82f6', border: '1px solid #bfdbfe', 
-                                                            padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
-                                                            display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600
-                                                        }}
-                                                    >
-                                                        {['abierto', 'reabierto'].includes(reg.estado_auditoria) ? <>Editar <ArrowRight size={14} /></> : <>Ver <ArrowRight size={14} /></>}
-                                                    </button>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {filteredPorAuditar.map(reg => {
+                                        const vinc = reg.vinculacionEntidad || reg.asignacion || reg.vinculacion;
+                                        return (
+                                            <tr key={reg.id} style={{ borderBottom: '1px solid #f9fafb', transition: 'background-color 0.2s' }}>
+                                                <td style={{ padding: '1rem 0.75rem' }}>
+                                                    <div style={{ fontWeight: 600, color: '#111827' }}>{reg.eecc_nombre}</div>
+                                                    <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>ID: #{reg.id}</div>
+                                                </td>
+                                                <td style={{ padding: '1rem 0.75rem' }}>
+                                                    <div style={{ color: '#374151', fontWeight: 600 }}>
+                                                        {vinc?.numero_contrato ? `Contrato N° ${vinc.numero_contrato}` : (vinc?.servicio?.nombre || 'Servicio')}
+                                                    </div>
+                                                    <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                                                        {vinc?.servicio?.nombre || 'N/A'} • {vinc?.dependencia?.nombre || reg.dependencia || 'N/A'}
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '1rem 0.75rem' }}>
+                                                    <div style={{ color: '#374151' }}>{formatPeriodoStr(reg.periodo)}</div>
+                                                    <div style={{ fontSize: '0.8rem', color: '#6366f1' }}>{reg.programa?.nombre}</div>
+                                                </td>
+                                                <td style={{ padding: '1rem 0.75rem', textAlign: 'center' }}>
+                                                    <span style={{ 
+                                                        padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600,
+                                                        backgroundColor: reg.estado_auditoria === 'auditando' ? '#eff6ff' : (reg.estado_auditoria === 'reabierto' ? '#fff7ed' : '#fef9c3'),
+                                                        color: reg.estado_auditoria === 'auditando' ? '#1d4ed8' : (reg.estado_auditoria === 'reabierto' ? '#ea580c' : '#854d0e'),
+                                                        border: `1px solid ${reg.estado_auditoria === 'auditando' ? '#bfdbfe' : (reg.estado_auditoria === 'reabierto' ? '#fed7aa' : '#fef08a')}`
+                                                    }}>
+                                                        {reg.estado_auditoria === 'auditando' ? 'En Auditoría' : (reg.estado_auditoria === 'reabierto' ? 'Reabierto' : (reg.estado_auditoria === 'abierto' ? 'Abierto' : 'Auditable'))}
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '1rem 0.75rem', textAlign: 'right' }}>
+                                                    {isAdminOrADC ? (
+                                                        <button 
+                                                            onClick={() => navigate(`/registros/${reg.id}/auditar`)}
+                                                            style={{ 
+                                                                backgroundColor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', 
+                                                                padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
+                                                                display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600
+                                                            }}
+                                                        >
+                                                            Iniciar Auditoría <ArrowUpRight size={14} />
+                                                        </button>
+                                                    ) : (
+                                                        <button 
+                                                            onClick={() => {
+                                                                const isEditable = ['abierto', 'reabierto'].includes(reg.estado_auditoria);
+                                                                navigate(`/registros/${reg.id}`, { state: isEditable ? {} : { readonly: true } });
+                                                            }}
+                                                            style={{ 
+                                                                backgroundColor: '#eff6ff', color: '#3b82f6', border: '1px solid #bfdbfe', 
+                                                                padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
+                                                                display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600
+                                                            }}
+                                                        >
+                                                            {['abierto', 'reabierto'].includes(reg.estado_auditoria) ? <>Editar <ArrowRight size={14} /></> : <>Ver <ArrowRight size={14} /></>}
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
                     )}
                 </section>
 
-                {/* 3. Revisión de Subsanación */}
+                {/* 4. Revisión de Subsanación */}
                 <section className="dashboard-section-card" style={{ padding: '1.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '1rem' }}>
-                        <div style={{ backgroundColor: '#f5f3ff', p: '8px', borderRadius: '8px' }}>
+                        <div style={{ backgroundColor: '#f5f3ff', padding: '8px', borderRadius: '8px' }}>
                             <CheckCircle2 size={20} color="#8b5cf6" />
                         </div>
                         <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#374151' }}>Pendientes de Revisión (Subsanados)</h3>
+                        <span style={{ backgroundColor: '#8b5cf6', color: 'white', borderRadius: '12px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }}>{filteredPorRevisar.length}</span>
                     </div>
 
                     {porRevisar.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>No hay registros por revisar.</div>
+                    ) : filteredPorRevisar.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>No hay registros coincidentes con el estado seleccionado.</div>
                     ) : (
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <div className="table-container" style={{ overflowX: 'auto' }}>
+                            <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <thead>
                                     <tr style={{ textAlign: 'left', borderBottom: '2px solid #f3f4f6' }}>
                                         <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>EECC / NOMBRE</th>
+                                        <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>Nº CONTRATO / SERVICIO / DEPENDENCIA</th>
                                         <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>PERIODO / PROGRAMA</th>
+                                        <th style={{ padding: '0.5rem 0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700, textAlign: 'center' }}>
+                                            <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                                <span>ESTADO</span>
+                                                <select
+                                                    value={filterEstadoRevision}
+                                                    onChange={e => setFilterEstadoRevision(e.target.value)}
+                                                    style={{
+                                                        fontSize: '0.72rem',
+                                                        padding: '3px 6px',
+                                                        borderRadius: '6px',
+                                                        border: '1px solid #d1d5db',
+                                                        backgroundColor: '#ffffff',
+                                                        color: '#1f2937',
+                                                        fontWeight: 600,
+                                                        cursor: 'pointer',
+                                                        outline: 'none',
+                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                                    }}
+                                                >
+                                                    <option value="todos">Todos</option>
+                                                    <option value="subsanado">Subsanado</option>
+                                                    <option value="en_revision">En Revisión</option>
+                                                    <option value="pendiente_subsanacion">Pendiente Subsanación</option>
+                                                </select>
+                                            </div>
+                                        </th>
                                         <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700, textAlign: 'center' }}>AVANCE</th>
                                         <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700, textAlign: 'right' }}>ACCIÓN</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {porRevisar.map(reg => (
-                                        <tr key={reg.id} style={{ borderBottom: '1px solid #f9fafb' }}>
-                                            <td style={{ padding: '1rem 0.75rem' }}>
-                                                <div style={{ fontWeight: 600, color: '#111827' }}>{reg.eecc_nombre}</div>
-                                                <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>ID: #{reg.id}</div>
-                                            </td>
-                                            <td style={{ padding: '1rem 0.75rem' }}>
-                                                <div style={{ color: '#374151' }}>{formatPeriodoStr(reg.periodo)}</div>
-                                                <div style={{ fontSize: '0.8rem', color: '#6366f1' }}>{reg.programa?.nombre}</div>
-                                            </td>
-                                            <td style={{ padding: '1rem 0.75rem', textAlign: 'center' }}>
-                                                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#8b5cf6' }}>{reg.porcentaje_cumplimiento}%</div>
-                                                <div style={{ fontSize: '0.65rem', color: '#6b7280' }}>DECLARADO</div>
-                                            </td>
-                                            <td style={{ padding: '1rem 0.75rem', textAlign: 'right' }}>
-                                                {isAdminOrADC ? (
-                                                    <button 
-                                                        onClick={() => navigate(`/registros/${reg.id}/auditar`)}
-                                                        style={{ 
-                                                            backgroundColor: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe', 
-                                                            padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
-                                                            display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600
-                                                        }}
-                                                    >
-                                                        Revisar <CheckCircle2 size={14} />
-                                                    </button>
-                                                ) : (
-                                                    <button 
-                                                        onClick={() => {
-                                                            const isEditable = reg.estado_auditoria === 'pendiente_subsanacion';
-                                                            navigate(`/registros/${reg.id}`, { state: isEditable ? {} : { readonly: true } });
-                                                        }}
-                                                        style={{ 
-                                                            backgroundColor: '#eff6ff', color: '#3b82f6', border: '1px solid #bfdbfe', 
-                                                            padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
-                                                            display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600
-                                                        }}
-                                                    >
-                                                        {reg.estado_auditoria === 'pendiente_subsanacion' ? <>Editar <ArrowRight size={14} /></> : <>Ver <ArrowRight size={14} /></>}
-                                                    </button>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
+                                    {filteredPorRevisar.map(reg => {
+                                        const vinc = reg.vinculacionEntidad || reg.asignacion || reg.vinculacion;
+                                        return (
+                                            <tr key={reg.id} style={{ borderBottom: '1px solid #f9fafb' }}>
+                                                <td style={{ padding: '1rem 0.75rem' }}>
+                                                    <div style={{ fontWeight: 600, color: '#111827' }}>{reg.eecc_nombre}</div>
+                                                    <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>ID: #{reg.id}</div>
+                                                </td>
+                                                <td style={{ padding: '1rem 0.75rem' }}>
+                                                    <div style={{ color: '#374151', fontWeight: 600 }}>
+                                                        {vinc?.numero_contrato ? `Contrato N° ${vinc.numero_contrato}` : (vinc?.servicio?.nombre || 'Servicio')}
+                                                    </div>
+                                                    <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                                                        {vinc?.servicio?.nombre || 'N/A'} • {vinc?.dependencia?.nombre || reg.dependencia || 'N/A'}
+                                                    </div>
+                                                </td>
+                                                <td style={{ padding: '1rem 0.75rem' }}>
+                                                    <div style={{ color: '#374151' }}>{formatPeriodoStr(reg.periodo)}</div>
+                                                    <div style={{ fontSize: '0.8rem', color: '#6366f1' }}>{reg.programa?.nombre}</div>
+                                                </td>
+                                                <td style={{ padding: '1rem 0.75rem', textAlign: 'center' }}>
+                                                    {(() => {
+                                                        const st = reg.estado_auditoria;
+                                                        if (st === 'en_revision') {
+                                                            return (
+                                                                <span style={{ 
+                                                                    padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600,
+                                                                    backgroundColor: '#eff6ff', color: '#0284c7', border: '1px solid #bae6fd'
+                                                                }}>
+                                                                    En Revisión
+                                                                </span>
+                                                            );
+                                                        }
+                                                        if (st === 'subsanado') {
+                                                            return (
+                                                                <span style={{ 
+                                                                    padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600,
+                                                                    backgroundColor: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe'
+                                                                }}>
+                                                                    Subsanado
+                                                                </span>
+                                                            );
+                                                        }
+                                                        return (
+                                                            <span style={{ 
+                                                                padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600,
+                                                                backgroundColor: '#fff7ed', color: '#ea580c', border: '1px solid #ffedd5'
+                                                            }}>
+                                                                Pendiente Subsanación
+                                                            </span>
+                                                        );
+                                                    })()}
+                                                </td>
+                                                <td style={{ padding: '1rem 0.75rem', textAlign: 'center' }}>
+                                                    <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#8b5cf6' }}>{reg.porcentaje_cumplimiento}%</div>
+                                                    <div style={{ fontSize: '0.65rem', color: '#6b7280' }}>DECLARADO</div>
+                                                </td>
+                                                <td style={{ padding: '1rem 0.75rem', textAlign: 'right' }}>
+                                                    {isAdminOrADC ? (
+                                                        <button 
+                                                            onClick={() => navigate(`/registros/${reg.id}/auditar`)}
+                                                            style={{ 
+                                                                backgroundColor: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe', 
+                                                                padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
+                                                                display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600
+                                                            }}
+                                                        >
+                                                            Revisar <CheckCircle2 size={14} />
+                                                        </button>
+                                                    ) : (
+                                                        <button 
+                                                            onClick={() => {
+                                                                const isEditable = reg.estado_auditoria === 'pendiente_subsanacion';
+                                                                navigate(`/registros/${reg.id}`, { state: isEditable ? {} : { readonly: true } });
+                                                            }}
+                                                            style={{ 
+                                                                backgroundColor: '#eff6ff', color: '#3b82f6', border: '1px solid #bfdbfe', 
+                                                                padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem',
+                                                                display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600
+                                                            }}
+                                                        >
+                                                            {reg.estado_auditoria === 'pendiente_subsanacion' ? <>Editar <ArrowRight size={14} /></> : <>Ver <ArrowRight size={14} /></>}
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
