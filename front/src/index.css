@@ -583,6 +583,15 @@ a {
   white-space: nowrap;
 }
 
+.table-registros td.actions-cell,
+.table-registros td:last-child,
+.data-table td.actions-cell,
+.data-table td:last-child {
+  display: table-cell !important;
+  vertical-align: middle !important;
+  box-sizing: border-box;
+}
+
 .table-registros th:last-child {
   background: #F9FAFB;
   z-index: 3;
