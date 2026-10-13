@@ -13,6 +13,7 @@ import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import FichaHallazgoModal from '../../components/forms/FichaHallazgoModal';
+import { generateHallazgosPDF } from '../../utils/hallazgosPdfReport';
 
 const SEVERIDAD_CONFIG = {
     critico: { label: 'Crítico', bg: '#fef2f2', text: '#dc2626', border: '#fecaca' },
@@ -356,22 +357,41 @@ export default function HallazgoList() {
         window.open(`${api.defaults.baseURL}/reportes/hallazgos/excel?${params.toString()}`, '_blank');
     };
 
-    const handleExportPdf = () => {
-        const params = new URLSearchParams();
-        if (filters.contratista_id !== 'todos') params.append('contratista_id', filters.contratista_id);
-        if (filters.gerencia_id !== 'todas') params.append('gerencia_id', filters.gerencia_id);
-        if (filters.subgerencia_id !== 'todas') params.append('subgerencia_id', filters.subgerencia_id);
-        if (filters.servicio_id !== 'todos') params.append('servicio_id', filters.servicio_id);
-        if (filters.dependencia_id !== 'todas') params.append('dependencia_id', filters.dependencia_id);
-        if (filters.programa_id !== 'todos') params.append('programa_id', filters.programa_id);
-        if (filters.periodo_desde) params.append('periodo_desde', filters.periodo_desde);
-        if (filters.periodo_hasta) params.append('periodo_hasta', filters.periodo_hasta);
-        if (filters.estado !== 'todos') params.append('estado', filters.estado);
-        if (filters.tipo !== 'todos') params.append('tipo', filters.tipo);
-        if (filters.search) params.append('search', filters.search);
-        params.append('token', localStorage.getItem('token'));
+    const handleExportPdf = async () => {
+        if (!hallazgos || hallazgos.length === 0) {
+            toast.error('No hay hallazgos disponibles para exportar con los filtros seleccionados');
+            return;
+        }
 
-        window.open(`${api.defaults.baseURL}/reportes/hallazgos/pdf?${params.toString()}`, '_blank');
+        const toastId = toast.loading('Generando reporte PDF corporativo de hallazgos...');
+        try {
+            await generateHallazgosPDF({
+                hallazgos,
+                filters,
+                options,
+                user,
+                kpis
+            });
+            toast.success('Reporte PDF descargado con éxito', { id: toastId });
+        } catch (err) {
+            console.error('Error generando PDF de hallazgos:', err);
+            toast.error('Error local al generar PDF. Descargando desde el servidor...', { id: toastId });
+            const params = new URLSearchParams();
+            if (filters.contratista_id !== 'todos') params.append('contratista_id', filters.contratista_id);
+            if (filters.gerencia_id !== 'todas') params.append('gerencia_id', filters.gerencia_id);
+            if (filters.subgerencia_id !== 'todas') params.append('subgerencia_id', filters.subgerencia_id);
+            if (filters.servicio_id !== 'todos') params.append('servicio_id', filters.servicio_id);
+            if (filters.dependencia_id !== 'todas') params.append('dependencia_id', filters.dependencia_id);
+            if (filters.programa_id !== 'todos') params.append('programa_id', filters.programa_id);
+            if (filters.periodo_desde) params.append('periodo_desde', filters.periodo_desde);
+            if (filters.periodo_hasta) params.append('periodo_hasta', filters.periodo_hasta);
+            if (filters.estado !== 'todos') params.append('estado', filters.estado);
+            if (filters.tipo !== 'todos') params.append('tipo', filters.tipo);
+            if (filters.search) params.append('search', filters.search);
+            params.append('token', localStorage.getItem('token'));
+
+            window.open(`${api.defaults.baseURL}/reportes/hallazgos/pdf?${params.toString()}`, '_blank');
+        }
     };
 
     return (
