@@ -947,11 +947,11 @@ export default function RegistroList() {
             )}
 
             {/* Data Table */}
-            <div className="table-container">
-                <table className="data-table">
+            <div className="table-container table-registros-container">
+                <table className="data-table table-registros">
                     <thead>
                         <tr>
-                            <th style={{ width: '40px' }}>#</th>
+                            <th style={{ width: '28px', textAlign: 'center' }}>#</th>
                             <th onClick={() => handleSort('periodo')} style={{ cursor: 'pointer' }}>MES INFORMADO {sortConfig.key === 'periodo' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
                             <th onClick={() => handleSort('eecc_nombre')} style={{ cursor: 'pointer' }}>CONTRATISTA {sortConfig.key === 'eecc_nombre' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
                             <th onClick={() => handleSort('rut')} style={{ cursor: 'pointer' }}>RUT {sortConfig.key === 'rut' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
@@ -1008,16 +1008,16 @@ export default function RegistroList() {
                                             {registro.eecc_nombre || registro.usuario?.eecc_nombre || '-'}
                                         </div>
                                     </td>
-                                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#6b7280', borderBottom: '3px solid var(--color-brand-primary)' }}>
+                                    <td style={{ fontFamily: 'monospace', color: '#6b7280', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {registro.usuario?.rut || '-'}
                                     </td>
-                                    <td style={{ fontSize: '0.85rem', borderBottom: '3px solid var(--color-brand-primary)' }}>
+                                    <td style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {registro.programa?.nombre || 'Sin Programa'}
                                     </td>
-                                    <td style={{ fontSize: '0.85rem', borderBottom: '3px solid var(--color-brand-primary)' }}>
+                                    <td style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {registro.vinculacionEntidad?.servicio?.nombre || 'N/A'}
                                     </td>
-                                    <td style={{ fontSize: '0.85rem', borderBottom: '3px solid var(--color-brand-primary)' }}>{registro.dependencia || '-'}</td>
+                                    <td style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>{registro.dependencia || '-'}</td>
                                     <td style={{ textAlign: 'center', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {registro.dotacion_total || 0}
                                     </td>
@@ -1058,11 +1058,11 @@ export default function RegistroList() {
                                             {getAnnualAverage(registro)}%
                                         </span>
                                     </td>
-                                    <td style={{ fontSize: '0.8rem', color: '#6b7280', borderBottom: '3px solid var(--color-brand-primary)' }}>
+                                    <td style={{ color: '#6b7280', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {new Date(registro.created_at).toLocaleDateString('es-CL')} <br />
                                         {new Date(registro.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
                                     </td>
-                                    <td style={{ fontSize: '0.8rem', borderBottom: '3px solid var(--color-brand-primary)' }}>
+                                    <td style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <span style={{ color: '#6366f1', fontWeight: 500 }}>
                                             {registro.vinculacionEntidad?.administraciones?.map(a => a.administradorContrato?.name).filter(Boolean).join(', ') || '-'}
                                         </span>
@@ -1109,7 +1109,7 @@ export default function RegistroList() {
                                             }
 
                                             return (
-                                                <span className="badge" style={{ ...style, fontSize: '0.75rem', padding: '4px 8px' }}>
+                                                <span className="badge" style={style}>
                                                     {label}
                                                 </span>
                                             );
