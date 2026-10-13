@@ -6,13 +6,25 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api';
 import './Reportes.css';
 
+const getDefaultPeriodRange = () => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-based
+    const startObj = new Date(currentYear, currentMonth - 5, 1);
+    const pad = (n) => String(n).padStart(2, '0');
+    return {
+        desde: `${startObj.getFullYear()}-${pad(startObj.getMonth() + 1)}`,
+        hasta: `${currentYear}-${pad(currentMonth + 1)}`
+    };
+};
+
 export default function ReporteList() {
     const { canRead } = useAuth();
     const navigate = useNavigate();
 
     const [loading, setLoading] = useState(true);
-    const [periodoDesde, setPeriodoDesde] = useState(new Date().toISOString().slice(0, 7));
-    const [periodoHasta, setPeriodoHasta] = useState(new Date().toISOString().slice(0, 7));
+    const [periodoDesde, setPeriodoDesde] = useState(() => getDefaultPeriodRange().desde);
+    const [periodoHasta, setPeriodoHasta] = useState(() => getDefaultPeriodRange().hasta);
     const [reportData, setReportData] = useState({ elementos: [], registros: [] });
 
     useEffect(() => {
@@ -47,7 +59,9 @@ export default function ReporteList() {
 
     const handleDesdeChange = (val) => {
         setPeriodoDesde(val);
-        setPeriodoHasta(val); // Automatic replication
+        if (periodoHasta && val > periodoHasta) {
+            setPeriodoHasta(val);
+        }
     };
 
     const viewRegistroPdf = (id) => {
@@ -69,7 +83,7 @@ export default function ReporteList() {
                         <TrendingUp size={24} />
                     </div>
                     <div>
-                        <h1>Dashboard de Reportes</h1>
+                        <h1>Reportes consolidados</h1>
                         <p>Consolidado de cumplimiento y gestión de registros</p>
                     </div>
                 </div>
