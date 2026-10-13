@@ -1,14 +1,19 @@
 /* ServicioList.css */
 
 .organization-page {
-    padding: 2rem;
+    padding: clamp(1rem, 1.5vw, 2rem);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     background-color: #f8fafc;
     min-height: 100vh;
 }
 
 .tree-container {
-    max-width: 1200px;
-    margin: 0 auto;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    box-sizing: border-box;
     background: white;
     border-radius: 1rem;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);

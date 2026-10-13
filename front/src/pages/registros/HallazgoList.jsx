@@ -395,7 +395,7 @@ export default function HallazgoList() {
     };
 
     return (
-        <div style={{ padding: '24px', maxWidth: '1440px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ padding: 'clamp(12px, 1.5vw, 24px)', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px', boxSizing: 'border-box' }}>
             {/* Header Corporativo */}
             <div style={{
                 background: '#ffffff', borderRadius: '16px', padding: '24px',

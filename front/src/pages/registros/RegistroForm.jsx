@@ -834,7 +834,7 @@ export default function RegistroForm() {
     };
 
     return (
-        <div className="page-container" style={{ maxWidth: '1180px', margin: '0 auto', padding: '16px', backgroundColor: themeColors.pageBg, minHeight: '100vh', transition: 'background-color 0.3s ease' }}>
+        <div className="page-container" style={{ width: '100%', margin: '0 auto', padding: '16px', backgroundColor: themeColors.pageBg, minHeight: '100vh', transition: 'background-color 0.3s ease', boxSizing: 'border-box' }}>
 
             {/* Header Title */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: `1px solid ${themeColors.border}`, paddingBottom: '1rem' }}>

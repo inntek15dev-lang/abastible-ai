@@ -193,7 +193,7 @@ export default function ReaperturaList() {
     }, [solicitudes]);
 
     return (
-        <div className="page-container" style={{ padding: '24px', maxWidth: '1600px', margin: '0 auto' }}>
+        <div className="page-container" style={{ padding: 'clamp(12px, 1.5vw, 24px)', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
             <header className="page-header" style={{ marginBottom: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                     <div>

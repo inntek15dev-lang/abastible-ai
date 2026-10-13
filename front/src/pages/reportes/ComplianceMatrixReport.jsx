@@ -247,7 +247,7 @@ export default function ComplianceMatrixReport() {
     const isContratistaUser = user?.role === 'contratista_user';
 
     return (
-        <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '0 1rem' }}>
+        <div style={{ width: '100%', margin: '0 auto', padding: '0 clamp(4px, 1vw, 1rem)' }}>
             {/* Header & Title */}
             <div style={{ marginBottom: '2rem', marginTop: '1.5rem', display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <div style={{
