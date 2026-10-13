@@ -145,7 +145,11 @@ module.exports = {
             });
         } catch (error) {
             console.error('Reporte Cumplimiento Error:', error);
-            res.status(500).json({ message: 'Error al obtener reporte' });
+            res.status(500).json({ 
+                success: false, 
+                message: 'Error al obtener reporte',
+                error: error.message 
+            });
         }
     },
 
@@ -807,16 +811,29 @@ module.exports = {
         if (startStr || endStr) {
             const dateFilter = {};
             if (startStr) {
-                dateFilter[Op.gte] = new Date(startStr + '-01');
+                const cleanStart = String(startStr).length === 7 ? `${startStr}-01` : String(startStr);
+                dateFilter[Op.gte] = cleanStart;
             }
             if (endStr) {
-                const d = new Date(endStr + '-01');
-                d.setMonth(d.getMonth() + 1);
-                dateFilter[Op.lt] = d;
+                const parts = String(endStr).split('-');
+                if (parts.length >= 2) {
+                    const y = parseInt(parts[0], 10);
+                    const m = parseInt(parts[1], 10);
+                    const nextM = m === 12 ? 1 : m + 1;
+                    const nextY = m === 12 ? y + 1 : y;
+                    dateFilter[Op.lt] = `${nextY}-${String(nextM).padStart(2, '0')}-01`;
+                } else {
+                    dateFilter[Op.lte] = String(endStr);
+                }
             } else if (startStr && !endStr && (periodoParam || req.query.periodo || periodo_desde)) {
-                const d = new Date(startStr + '-01');
-                d.setMonth(d.getMonth() + 1);
-                dateFilter[Op.lt] = d;
+                const parts = String(startStr).split('-');
+                if (parts.length >= 2) {
+                    const y = parseInt(parts[0], 10);
+                    const m = parseInt(parts[1], 10);
+                    const nextM = m === 12 ? 1 : m + 1;
+                    const nextY = m === 12 ? y + 1 : y;
+                    dateFilter[Op.lt] = `${nextY}-${String(nextM).padStart(2, '0')}-01`;
+                }
             }
             whereRegistro.periodo = dateFilter;
         }
@@ -848,18 +865,31 @@ module.exports = {
                     [sequelize.literal(`SUM(CASE WHEN cumple_auditor != 2 AND cumple_auditor IS NOT NULL THEN 1 ELSE 0 END)`), 'total_auditado'],
                     [sequelize.literal(`SUM(CASE WHEN cumple_auditor = 1 THEN 1 ELSE 0 END)`), 'cumplidas_auditado']
                 ],
-                include: [{ model: Actividad, as: 'actividad', include: [{ model: Elemento, as: 'elemento' }] }],
+                include: [{
+                    model: Actividad,
+                    as: 'actividad',
+                    attributes: [],
+                    required: true,
+                    include: [{
+                        model: Elemento,
+                        as: 'elemento',
+                        attributes: [],
+                        required: true
+                    }]
+                }],
                 where: { registro_id: registroIds },
                 group: ['actividad.elemento.id', 'actividad.elemento.nombre'],
                 raw: true
             });
 
-            elementosStats = elementosStats.map(e => ({
-                id: e['elemento_id'],
-                name: e['elemento_nombre'],
-                declarado: parseInt(e.total_declarado) > 0 ? Math.round((parseInt(e.cumplidas_declarado) / parseInt(e.total_declarado)) * 100) : 0,
-                auditado: parseInt(e.total_auditado) > 0 ? Math.round((parseInt(e.cumplidas_auditado) / parseInt(e.total_auditado)) * 100) : null
-            }));
+            elementosStats = elementosStats
+                .filter(e => (e.elemento_id || e['elemento_id']))
+                .map(e => ({
+                    id: e.elemento_id || e['elemento_id'],
+                    name: e.elemento_nombre || e['elemento_nombre'] || 'Elemento',
+                    declarado: parseInt(e.total_declarado, 10) > 0 ? Math.round((parseInt(e.cumplidas_declarado, 10) / parseInt(e.total_declarado, 10)) * 100) : 0,
+                    auditado: parseInt(e.total_auditado, 10) > 0 ? Math.round((parseInt(e.cumplidas_auditado, 10) / parseInt(e.total_auditado, 10)) * 100) : null
+                }));
         }
 
         return {
