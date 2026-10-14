@@ -803,7 +803,7 @@ export default function RegistroList() {
                 marginBottom: '20px',
                 border: '1px solid #e5e7eb' 
             }}>
-                <div className="form-group" style={{ width: '180px' }}>
+                <div className="form-group" style={{ flex: '1 1 140px', minWidth: '120px' }}>
                     <label>Gerencia</label>
                     <select id="filter-gerencia" className="form-control" value={filters.gerencia} onChange={e => setFilters({ ...filters, gerencia: e.target.value, subgerencia: 'Todas' })}>
                         <option value="Todas">Todas</option>
@@ -812,7 +812,7 @@ export default function RegistroList() {
                         ))}
                     </select>
                 </div>
-                <div className="form-group" style={{ width: '180px' }}>
+                <div className="form-group" style={{ flex: '1 1 140px', minWidth: '120px' }}>
                     <label>Subgerencia</label>
                     <select id="filter-subgerencia" className="form-control" value={filters.subgerencia} onChange={e => setFilters({ ...filters, subgerencia: e.target.value })}>
                         <option value="Todas">Todas</option>
@@ -821,7 +821,7 @@ export default function RegistroList() {
                         ))}
                     </select>
                 </div>
-                <div className="form-group" style={{ flex: '1 1 200px' }}>
+                <div className="form-group" style={{ flex: '2 1 180px', minWidth: '150px' }}>
                     <label>Contratista / RUT</label>
                     <input
                         id="filter-search"
@@ -834,7 +834,7 @@ export default function RegistroList() {
                 </div>
 
 
-                <div className="form-group" style={{ width: '150px' }}>
+                <div className="form-group" style={{ flex: '1 1 140px', minWidth: '120px' }}>
                     <label>Servicio</label>
                     <select id="filter-servicio" className="form-control" value={filters.servicio || 'Todos'}
                         onChange={e => {
@@ -849,7 +849,7 @@ export default function RegistroList() {
                     </select>
                 </div>
 
-                <div className="form-group" style={{ width: '180px' }}>
+                <div className="form-group" style={{ flex: '1 1 140px', minWidth: '120px' }}>
                     <label>Dependencia</label>
                     <select id="filter-dependencia" className="form-control" value={filters.dependencia || 'Todas'} onChange={e => setFilters({ ...filters, dependencia: e.target.value })}>
                         <option value="Todas">Todas</option>
@@ -859,7 +859,7 @@ export default function RegistroList() {
                     </select>
                 </div>
 
-                <div className="form-group" style={{ width: '150px' }}>
+                <div className="form-group" style={{ flex: '1 1 140px', minWidth: '120px' }}>
                     <label>Programa</label>
                     <select id="filter-programa" className="form-control" value={filters.programa || 'Todos'} onChange={e => setFilters({ ...filters, programa: e.target.value })}>
                         <option value="Todos">Todos</option>
@@ -868,7 +868,7 @@ export default function RegistroList() {
                         ))}
                     </select>
                 </div>
-                <div className="form-group" style={{ width: '140px' }}>
+                <div className="form-group" style={{ flex: '1 1 140px', minWidth: '120px' }}>
                     <label>Estado Auditoría</label>
                     <select id="filter-status" className="form-control" value={filters.status || 'all'} onChange={e => setFilters({ ...filters, status: e.target.value })}>
                         <option value="all">Todos</option>
@@ -885,7 +885,7 @@ export default function RegistroList() {
                     </select>
                 </div>
 
-                <div className="form-group" style={{ width: '160px' }}>
+                <div className="form-group" style={{ flex: '1 1 130px', minWidth: '110px' }}>
                     <label>Periodo</label>
                     <input
                         id="filter-period"
@@ -895,7 +895,7 @@ export default function RegistroList() {
                         onChange={(e) => setFilters({ ...filters, period: e.target.value })}
                     />
                 </div>
-                <div className="form-group" style={{ width: '140px' }}>
+                <div className="form-group" style={{ flex: '1 1 140px', minWidth: '120px' }}>
                     <label>Admin Contrato</label>
                     <select id="filter-admin" className="form-control" value={filters.admin_contrato || 'Todos'} onChange={e => setFilters({ ...filters, admin_contrato: e.target.value })}>
                         <option value="Todos">Todos</option>
@@ -947,11 +947,11 @@ export default function RegistroList() {
             )}
 
             {/* Data Table */}
-            <div className="table-container">
-                <table className="data-table">
+            <div className="table-container table-registros-container">
+                <table className="data-table table-registros">
                     <thead>
                         <tr>
-                            <th style={{ width: '40px' }}>#</th>
+                            <th style={{ width: '28px', textAlign: 'center' }}>#</th>
                             <th onClick={() => handleSort('periodo')} style={{ cursor: 'pointer' }}>MES INFORMADO {sortConfig.key === 'periodo' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
                             <th onClick={() => handleSort('eecc_nombre')} style={{ cursor: 'pointer' }}>CONTRATISTA {sortConfig.key === 'eecc_nombre' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
                             <th onClick={() => handleSort('rut')} style={{ cursor: 'pointer' }}>RUT {sortConfig.key === 'rut' && (sortConfig.direction === 'asc' ? '▲' : '▼')}</th>
@@ -1008,16 +1008,16 @@ export default function RegistroList() {
                                             {registro.eecc_nombre || registro.usuario?.eecc_nombre || '-'}
                                         </div>
                                     </td>
-                                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#6b7280', borderBottom: '3px solid var(--color-brand-primary)' }}>
+                                    <td style={{ fontFamily: 'monospace', color: '#6b7280', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {registro.usuario?.rut || '-'}
                                     </td>
-                                    <td style={{ fontSize: '0.85rem', borderBottom: '3px solid var(--color-brand-primary)' }}>
+                                    <td style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {registro.programa?.nombre || 'Sin Programa'}
                                     </td>
-                                    <td style={{ fontSize: '0.85rem', borderBottom: '3px solid var(--color-brand-primary)' }}>
+                                    <td style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {registro.vinculacionEntidad?.servicio?.nombre || 'N/A'}
                                     </td>
-                                    <td style={{ fontSize: '0.85rem', borderBottom: '3px solid var(--color-brand-primary)' }}>{registro.dependencia || '-'}</td>
+                                    <td style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>{registro.dependencia || '-'}</td>
                                     <td style={{ textAlign: 'center', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {registro.dotacion_total || 0}
                                     </td>
@@ -1058,11 +1058,11 @@ export default function RegistroList() {
                                             {getAnnualAverage(registro)}%
                                         </span>
                                     </td>
-                                    <td style={{ fontSize: '0.8rem', color: '#6b7280', borderBottom: '3px solid var(--color-brand-primary)' }}>
+                                    <td style={{ color: '#6b7280', borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         {new Date(registro.created_at).toLocaleDateString('es-CL')} <br />
                                         {new Date(registro.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
                                     </td>
-                                    <td style={{ fontSize: '0.8rem', borderBottom: '3px solid var(--color-brand-primary)' }}>
+                                    <td style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <span style={{ color: '#6366f1', fontWeight: 500 }}>
                                             {registro.vinculacionEntidad?.administraciones?.map(a => a.administradorContrato?.name).filter(Boolean).join(', ') || '-'}
                                         </span>
@@ -1109,14 +1109,14 @@ export default function RegistroList() {
                                             }
 
                                             return (
-                                                <span className="badge" style={{ ...style, fontSize: '0.75rem', padding: '4px 8px' }}>
+                                                <span className="badge" style={style}>
                                                     {label}
                                                 </span>
                                             );
                                         })()}
                                     </td>
                                     <td className="actions-cell" style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
-                                        <div className="flex flex-col gap-1 items-end">
+                                        <div className="btn-action-group" style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '4px', maxWidth: '300px', marginLeft: 'auto' }}>
                                             {/* Action: Audit (US-003) - Admin Contrato / Admin Only & Auditable Status (PARKO) */}
                                             {(isAdmin || user?.role === 'administrador_contrato') && ['auditable', 'auditando'].includes(registro.estado_auditoria) && (
                                                 <Link id={`btn-audit-${registro.id}`} to={`/registros/${registro.id}/auditar`} className="btn-action btn-auditar" title="Auditar Registro">

@@ -73,7 +73,7 @@ export default function ServicioList() {
     return (
         <div className="organization-page">
             {/* Header Section */}
-            <header className="page-header" style={{ maxWidth: '1200px', margin: '0 auto 2rem auto' }}>
+            <header className="page-header" style={{ width: '100%', margin: '0 auto 2rem auto' }}>
                 <div>
                     <h1 className="page-title">
                         Gerencias, Subgerencias & Servicios

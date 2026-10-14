@@ -192,7 +192,8 @@
             "AC-02: Puedo iniciar auditoría solo si el registro está en 'pendiente' o 'auditable'",
             "AC-03: No puedo finalizar la auditoría si falta evidencia obligatoria en alguna actividad marcada como cumplida",
             "AC-04: Puedo guardar avance parcial (comentario general, participantes) sin cambiar el estado del registro",
-            "AC-05-SEC: auditarActividad no valida el estado del Registro padre — puede ejecutarse aunque el registro no esté en 'auditando' (gap confirmado, documentado, no explotable fuera del rol ya autorizado)"
+            "AC-05-SEC: auditarActividad no valida el estado del Registro padre — puede ejecutarse aunque el registro no esté en 'auditando' (gap confirmado, documentado, no explotable fuera del rol ya autorizado)",
+            "AC-06-AUTOSAVE: En la vista de auditoría (RegistroAudit.jsx), los Comentarios de Auditoría y los Participantes de la Reunión de Accounting cuentan con auto-guardado periódico cada 1 minuto (60.000 ms) condicionado a cambios reales (dirty check), con indicadores visuales de sincronización y salvaguarda continua de avance sin pérdida de datos."
           ],
           "security_tag": "Internal"
         },
@@ -272,7 +273,8 @@
             "AC-02: Puedo generar el reporte de cumplimiento general y la matriz en PDF y Excel",
             "AC-03: El módulo de Facturación OVAL tiene su propia exportación PDF/Excel, exclusiva de rol oval",
             "AC-04-SEC: Solo exporto lo que puedo ver según mi scope",
-            "AC-05: El reporte PDF de Matriz de Cumplimiento renderiza sin solapamiento en encabezados de periodo, con altura dinámica multilínea para empresas contratistas y programas sin omisión de caracteres ni truncamiento con puntos suspensivos, y alineación vertical óptima de celdas."
+            "AC-05: El reporte PDF de Matriz de Cumplimiento renderiza sin solapamiento en encabezados de periodo, con altura dinámica multilínea para empresas contratistas y programas sin omisión de caracteres ni truncamiento con puntos suspensivos, y alineación vertical óptima de celdas.",
+            "AC-06: El reporte descargable en PDF de Gestión de Hallazgos cuenta con formato corporativo idéntico a la Matriz de Cumplimiento (franja superior azul/naranja, logotipo Abastible, caja de metadatos/chips de filtros y KPIs de estados, tabla AutoTable y pie de página institucional con foliación)."
           ],
           "security_tag": "Internal"
         },

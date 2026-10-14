@@ -145,7 +145,11 @@ module.exports = {
             });
         } catch (error) {
             console.error('Reporte Cumplimiento Error:', error);
-            res.status(500).json({ message: 'Error al obtener reporte' });
+            res.status(500).json({ 
+                success: false, 
+                message: 'Error al obtener reporte',
+                error: error.message 
+            });
         }
     },
 
@@ -807,16 +811,29 @@ module.exports = {
         if (startStr || endStr) {
             const dateFilter = {};
             if (startStr) {
-                dateFilter[Op.gte] = new Date(startStr + '-01');
+                const cleanStart = String(startStr).length === 7 ? `${startStr}-01` : String(startStr);
+                dateFilter[Op.gte] = cleanStart;
             }
             if (endStr) {
-                const d = new Date(endStr + '-01');
-                d.setMonth(d.getMonth() + 1);
-                dateFilter[Op.lt] = d;
+                const parts = String(endStr).split('-');
+                if (parts.length >= 2) {
+                    const y = parseInt(parts[0], 10);
+                    const m = parseInt(parts[1], 10);
+                    const nextM = m === 12 ? 1 : m + 1;
+                    const nextY = m === 12 ? y + 1 : y;
+                    dateFilter[Op.lt] = `${nextY}-${String(nextM).padStart(2, '0')}-01`;
+                } else {
+                    dateFilter[Op.lte] = String(endStr);
+                }
             } else if (startStr && !endStr && (periodoParam || req.query.periodo || periodo_desde)) {
-                const d = new Date(startStr + '-01');
-                d.setMonth(d.getMonth() + 1);
-                dateFilter[Op.lt] = d;
+                const parts = String(startStr).split('-');
+                if (parts.length >= 2) {
+                    const y = parseInt(parts[0], 10);
+                    const m = parseInt(parts[1], 10);
+                    const nextM = m === 12 ? 1 : m + 1;
+                    const nextY = m === 12 ? y + 1 : y;
+                    dateFilter[Op.lt] = `${nextY}-${String(nextM).padStart(2, '0')}-01`;
+                }
             }
             whereRegistro.periodo = dateFilter;
         }
@@ -848,18 +865,31 @@ module.exports = {
                     [sequelize.literal(`SUM(CASE WHEN cumple_auditor != 2 AND cumple_auditor IS NOT NULL THEN 1 ELSE 0 END)`), 'total_auditado'],
                     [sequelize.literal(`SUM(CASE WHEN cumple_auditor = 1 THEN 1 ELSE 0 END)`), 'cumplidas_auditado']
                 ],
-                include: [{ model: Actividad, as: 'actividad', include: [{ model: Elemento, as: 'elemento' }] }],
+                include: [{
+                    model: Actividad,
+                    as: 'actividad',
+                    attributes: [],
+                    required: true,
+                    include: [{
+                        model: Elemento,
+                        as: 'elemento',
+                        attributes: [],
+                        required: true
+                    }]
+                }],
                 where: { registro_id: registroIds },
                 group: ['actividad.elemento.id', 'actividad.elemento.nombre'],
                 raw: true
             });
 
-            elementosStats = elementosStats.map(e => ({
-                id: e['elemento_id'],
-                name: e['elemento_nombre'],
-                declarado: parseInt(e.total_declarado) > 0 ? Math.round((parseInt(e.cumplidas_declarado) / parseInt(e.total_declarado)) * 100) : 0,
-                auditado: parseInt(e.total_auditado) > 0 ? Math.round((parseInt(e.cumplidas_auditado) / parseInt(e.total_auditado)) * 100) : null
-            }));
+            elementosStats = elementosStats
+                .filter(e => (e.elemento_id || e['elemento_id']))
+                .map(e => ({
+                    id: e.elemento_id || e['elemento_id'],
+                    name: e.elemento_nombre || e['elemento_nombre'] || 'Elemento',
+                    declarado: parseInt(e.total_declarado, 10) > 0 ? Math.round((parseInt(e.cumplidas_declarado, 10) / parseInt(e.total_declarado, 10)) * 100) : 0,
+                    auditado: parseInt(e.total_auditado, 10) > 0 ? Math.round((parseInt(e.cumplidas_auditado, 10) / parseInt(e.total_auditado, 10)) * 100) : null
+                }));
         }
 
         return {
@@ -1526,13 +1556,84 @@ module.exports = {
             const startX = 18;
             const totalWidth = 805;
 
-            const drawPageHeader = () => {
+            const path = require('path');
+            const fs = require('fs');
+            const logoAbastible = path.join(__dirname, '../assets/logos/abastible.png');
+            const hasLogo = fs.existsSync(logoAbastible);
+
+            const nowFormatted = `${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`;
+            const userEmitter = req.user?.name || req.user?.email || 'Sistema OIEM';
+
+            // Counts for metadata box
+            const totalCount = hallazgos.length;
+            const abiertosCount = hallazgos.filter(h => h.estado === 'abierto').length;
+            const enProcesoCount = hallazgos.filter(h => h.estado === 'en_proceso').length;
+            const cerradosCount = hallazgos.filter(h => h.estado === 'cerrado').length;
+
+            const drawPageHeader = (isFirstPage = false) => {
+                // Top Corporate Bars (Abastible Blue & Orange)
                 doc.rect(0, 0, 842, 5).fill('#003594');
                 doc.rect(0, 5, 842, 2).fill('#FE5000');
-                doc.fillColor('#003594').font('Helvetica-Bold').fontSize(13).text('ABASTIBLE S.A. | REPORTE OFICIAL DE GESTIÓN DE HALLAZGOS', startX, 16);
-                doc.fillColor('#64748b').font('Helvetica').fontSize(8).text('No conformidades, desviaciones y observaciones de auditoría operacional OIEM', startX, 31);
-                const nowFormatted = `${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`;
-                doc.fontSize(7.5).text(`Fecha emisión: ${nowFormatted}  |  Total hallazgos: ${hallazgos.length}`, 480, 18, { align: 'right', width: 343 });
+
+                // Header Background Area
+                let titleX = startX;
+                if (hasLogo) {
+                    try {
+                        doc.image(logoAbastible, startX, 10, { height: 26 });
+                        titleX = startX + 96;
+                    } catch (e) {
+                        titleX = startX;
+                    }
+                }
+
+                // Titles
+                doc.fillColor('#003594').font('Helvetica-Bold').fontSize(13)
+                   .text('REPORTE OFICIAL DE GESTIÓN DE HALLAZGOS', titleX, 12);
+                doc.fillColor('#64748b').font('Helvetica').fontSize(8.5)
+                   .text('No conformidades, desviaciones y observaciones de auditoría operacional OIEM', titleX, 27);
+
+                // Emisión info right aligned
+                doc.fontSize(7.5).fillColor('#64748b').font('Helvetica')
+                   .text(`Fecha emisión: ${nowFormatted}`, 480, 12, { align: 'right', width: 343 });
+                doc.text(`Generado por: ${userEmitter}`, 480, 24, { align: 'right', width: 343 });
+
+                // Divider line below header
+                doc.moveTo(startX, 40).lineTo(startX + totalWidth, 40).stroke('#e2e8f0');
+
+                if (isFirstPage) {
+                    // Filters & Metadata Box
+                    const metaY = 44;
+                    const metaHeight = 22;
+                    doc.roundedRect(startX, metaY, totalWidth, metaHeight, 3).fill('#f8fafc');
+                    doc.roundedRect(startX, metaY, totalWidth, metaHeight, 3).stroke('#e2e8f0');
+
+                    // Line 1: KPI Metrics
+                    doc.fontSize(7).font('Helvetica-Bold').fillColor('#1e293b');
+                    doc.text('TOTAL EVALUADOS:', startX + 8, metaY + 5);
+                    doc.font('Helvetica').fillColor('#003594').text(`${totalCount} hallazgos`, startX + 88, metaY + 5);
+
+                    doc.font('Helvetica-Bold').fillColor('#dc2626').text('ABIERTOS:', startX + 175, metaY + 5);
+                    doc.font('Helvetica').text(`${abiertosCount}`, startX + 225, metaY + 5);
+
+                    doc.font('Helvetica-Bold').fillColor('#d97706').text('EN PROCESO:', startX + 265, metaY + 5);
+                    doc.font('Helvetica').text(`${enProcesoCount}`, startX + 325, metaY + 5);
+
+                    doc.font('Helvetica-Bold').fillColor('#059669').text('CERRADOS:', startX + 365, metaY + 5);
+                    doc.font('Helvetica').text(`${cerradosCount}`, startX + 415, metaY + 5);
+
+                    // Line 2: Active Filters
+                    const q = req.query || {};
+                    const estFilter = (q.estado && q.estado !== 'todos') ? q.estado.toUpperCase() : 'TODOS';
+                    const tipoFilter = (q.tipo && q.tipo !== 'todos') ? q.tipo.toUpperCase() : 'TODOS';
+                    const filterDesc = `Filtros Activos: Estado: ${estFilter}  |  Tipo: ${tipoFilter}${q.periodo_desde ? `  |  Desde: ${q.periodo_desde}` : ''}${q.periodo_hasta ? `  |  Hasta: ${q.periodo_hasta}` : ''}`;
+
+                    doc.font('Helvetica-Bold').fillColor('#64748b').text('FILTROS ACTIVOS:', startX + 8, metaY + 13);
+                    doc.font('Helvetica').fillColor('#475569').text(filterDesc, startX + 88, metaY + 13, { width: totalWidth - 96 });
+
+                    return metaY + metaHeight + 6; // ~72
+                }
+
+                return 44;
             };
 
             const headerHeight = 22;
@@ -1553,8 +1654,8 @@ module.exports = {
                 return y + headerHeight;
             };
 
-            drawPageHeader();
-            let currentY = drawTableHeader(44);
+            const tableStartY = drawPageHeader(true);
+            let currentY = drawTableHeader(tableStartY);
 
             hallazgos.forEach((h, idx) => {
                 const act = h.registroActividad?.actividad;
@@ -1567,8 +1668,8 @@ module.exports = {
 
                 if (currentY + rowHeight > 550) {
                     doc.addPage({ size: 'A4', layout: 'landscape', margin: 18 });
-                    drawPageHeader();
-                    currentY = drawTableHeader(44);
+                    const nextHeaderY = drawPageHeader(false);
+                    currentY = drawTableHeader(nextHeaderY + 4);
                 }
 
                 if (idx % 2 === 1) {

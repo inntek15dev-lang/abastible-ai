@@ -174,7 +174,7 @@
     background-color: #FAFAFA;
 }
 
-.actions-cell {
+.contratista-main-row .actions-cell {
     display: flex;
     flex-direction: column;
     align-items: center;

@@ -1,8 +1,10 @@
 /* Report Center Premium Styles */
 .report-center-wrapper {
-    padding: 2rem;
-    max-width: 1400px;
-    margin: 0 auto;
+    padding: clamp(1rem, 1.5vw, 2rem);
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    box-sizing: border-box;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     color: #1e293b;
 }

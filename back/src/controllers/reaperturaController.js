@@ -11,7 +11,8 @@ const {
     TipoContratista,
     Dependencia,
     Subgerencia,
-    Gerencia
+    Gerencia,
+    Programa
 } = require('../database/models');
 const { getAllowedVinculacionIds } = require('../utils/scopeHelper');
 const emailService = require('../services/emailService');
@@ -61,10 +62,16 @@ const reaperturaController = {
             const registroInclude = {
                 model: Registro,
                 as: 'registro',
-                attributes: ['id', 'periodo', 'eecc_nombre', 'contratista_asignacion_id'],
+                attributes: ['id', 'periodo', 'eecc_nombre', 'contratista_asignacion_id', 'numero_contrato', 'programa_id', 'dependencia'],
                 where: Object.keys(registroWhere).length > 0 ? registroWhere : undefined,
                 required: true,
                 include: [
+                    {
+                        model: Programa,
+                        as: 'programa',
+                        attributes: ['id', 'nombre'],
+                        required: false
+                    },
                     {
                         model: Vinculacion,
                         as: 'vinculacionEntidad',

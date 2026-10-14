@@ -21,7 +21,7 @@ const AuditoriaComentario = sequelize.define('AuditoriaComentario', {
         allowNull: false
     },
     tipo: {
-        type: DataTypes.ENUM('general', 'actividad', 'evidencia'),
+        type: DataTypes.ENUM('general', 'actividad', 'evidencia', 'participantes'),
         allowNull: false,
         defaultValue: 'general'
     },

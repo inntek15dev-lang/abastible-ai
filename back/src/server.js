@@ -127,6 +127,20 @@ async function start() {
             console.warn('⚠️ Auto-migration check warning:', migErr.message);
         }
 
+        // Self-healing schema migration for auditoria_comentarios (tipo ENUM includes participantes)
+        try {
+            const [columns] = await sequelize.query("SHOW COLUMNS FROM auditoria_comentarios WHERE Field = 'tipo'");
+            if (columns && columns.length > 0) {
+                const tipoType = (columns[0].Type || "").toLowerCase();
+                if (!tipoType.includes("participantes")) {
+                    await sequelize.query("ALTER TABLE auditoria_comentarios MODIFY COLUMN tipo ENUM('general', 'actividad', 'evidencia', 'participantes') NOT NULL DEFAULT 'general'");
+                    console.log("✅ Auto-migration: Added `participantes` to `tipo` ENUM in auditoria_comentarios table");
+                }
+            }
+        } catch (migErr) {
+            console.warn("⚠️ Auto-migration check warning (auditoria_comentarios):", migErr.message);
+        }
+
         app.listen(PORT, () => {
             console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
             console.log(`📋 Health check: http://localhost:${PORT}/health`);

@@ -101,6 +101,15 @@ const Registro = sequelize.define('Registro', {
         type: DataTypes.TEXT,
         allowNull: true
     },
+    comentario_general: {
+        type: DataTypes.VIRTUAL,
+        get() {
+            return this.getDataValue('observaciones_auditoria');
+        },
+        set(val) {
+            this.setDataValue('observaciones_auditoria', val);
+        }
+    },
     fecha_limite_subsanacion: {
         type: DataTypes.DATE,
         allowNull: true
