@@ -1,6 +1,6 @@
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
-const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso, Elemento, Vinculacion, Administracion, sequelize, Contratista, TipoContratista, Dependencia, Programa, Gerencia, Subgerencia } = require('../database/models');
+const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso, Elemento, Vinculacion, Administracion, sequelize, Contratista, TipoContratista, Dependencia, Programa, Gerencia, Subgerencia, Evidencia } = require('../database/models');
 const { Op } = require('sequelize');
 const { getProgramaScope, intersectWithProgramaScope } = require('../utils/programaScopeHelper');
 const { buildScopeWhere, getAllowedVinculacionIds } = require('../utils/scopeHelper');
