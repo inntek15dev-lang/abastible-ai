@@ -378,9 +378,7 @@ export default function RegistroAudit() {
     };
 
     const generatePDF = () => {
-        const doc = new jsPDF();
-        doc.text(`Auditoría - ${registro.eecc_nombre}`, 14, 15);
-        doc.save(`auditoria_${registro.id}.pdf`);
+        window.open(`${api.defaults.baseURL}/reportes/registro/${id}/pdf?token=${localStorage.getItem('token')}`, '_blank');
     };
 
     // Group Activities by First Number (Element) - Assumes code format "X.Y"
