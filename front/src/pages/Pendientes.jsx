@@ -50,6 +50,7 @@ export default function Pendientes() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [vinculaciones, setVinculaciones] = useState([]);
+    const [allRegistros, setAllRegistros] = useState([]);
     const [pendientesCreacion, setPendientesCreacion] = useState([]);
 
     const formatPeriodoStr = (periodoStr) => {
@@ -223,6 +224,7 @@ export default function Pendientes() {
             const vincs = vincRes.data.data || [];
             const allRegs = allRegsRes.data.data || [];
             setVinculaciones(vincs);
+            setAllRegistros(allRegs);
             calculatePendingPeriods(vincs, allRegs);
 
             setLoading(false);
@@ -386,7 +388,7 @@ export default function Pendientes() {
                                         <tr style={{ textAlign: 'left', borderBottom: '2px solid #f3f4f6' }}>
                                             <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>EECC / CONTRATISTA</th>
                                             <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>Nº CONTRATO / SERVICIO / DEPENDENCIA</th>
-                                            <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>PERIODO</th>
+                                            <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>PERIODO / PROGRAMA</th>
                                             <th style={{ padding: '0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700 }}>MOTIVO</th>
                                             <th style={{ padding: '0.5rem 0.75rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 700, textAlign: 'center' }}>
                                                 <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
@@ -419,23 +421,33 @@ export default function Pendientes() {
                                     </thead>
                                     <tbody>
                                         {filteredSolicitudes.map(sol => {
-                                            const vinc = sol.registro?.vinculacionEntidad || sol.registro?.asignacion;
+                                            const reg = sol.registro || allRegistros.find(r => r.id === sol.registro_id);
+                                            const vinc = reg?.vinculacionEntidad || reg?.asignacion || vinculaciones.find(v => v.id === reg?.contratista_asignacion_id);
+                                            const numContrato = vinc?.numero_contrato || reg?.numero_contrato;
+                                            const servicioNombre = vinc?.servicio?.nombre || reg?.vinculacionEntidad?.servicio?.nombre;
+                                            const dependenciaNombre = vinc?.dependencia?.nombre || reg?.dependencia || reg?.vinculacionEntidad?.dependencia?.nombre;
+                                            const periodoVal = reg?.periodo || sol.periodo;
+                                            const programaNombre = reg?.programa?.nombre;
+
                                             return (
                                                 <tr key={sol.id} style={{ borderBottom: '1px solid #f9fafb' }}>
                                                     <td style={{ padding: '1rem 0.75rem' }}>
-                                                        <div style={{ fontWeight: 600, color: '#111827' }}>{sol.registro?.eecc_nombre || vinc?.contratista?.nombre || '-'}</div>
+                                                        <div style={{ fontWeight: 600, color: '#111827' }}>{reg?.eecc_nombre || vinc?.contratista?.nombre || '-'}</div>
                                                         <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>ID Registro: #{sol.registro_id}</div>
                                                     </td>
                                                     <td style={{ padding: '1rem 0.75rem' }}>
                                                         <div style={{ color: '#374151', fontWeight: 600 }}>
-                                                            {vinc?.numero_contrato ? `Contrato N° ${vinc.numero_contrato}` : (vinc?.servicio?.nombre || 'Servicio')}
+                                                            {numContrato ? (String(numContrato).toLowerCase().startsWith('contrato') ? numContrato : `Contrato N° ${numContrato}`) : (servicioNombre || 'Servicio')}
                                                         </div>
                                                         <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                                                            {vinc?.servicio?.nombre || 'N/A'} • {vinc?.dependencia?.nombre || 'N/A'}
+                                                            {servicioNombre || 'N/A'} • {dependenciaNombre || 'N/A'}
                                                         </div>
                                                     </td>
                                                     <td style={{ padding: '1rem 0.75rem' }}>
-                                                        <span style={{ color: '#374151', fontWeight: 500 }}>{formatPeriodo(sol.registro?.periodo)}</span>
+                                                        <div style={{ color: '#374151', fontWeight: 600 }}>{formatPeriodo(periodoVal)}</div>
+                                                        {programaNombre && (
+                                                            <div style={{ fontSize: '0.8rem', color: '#6366f1' }}>{programaNombre}</div>
+                                                        )}
                                                     </td>
                                                     <td style={{ padding: '1rem 0.75rem', maxWidth: '300px' }}>
                                                         <p style={{ margin: 0, fontSize: '0.85rem', color: '#4b5563', lineHeight: 1.4 }}>{sol.motivo}</p>
