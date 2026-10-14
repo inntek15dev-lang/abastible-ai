@@ -974,9 +974,25 @@ router.get('/reportes/registro/:id/pdf', auth, reporteController.registroPdf);
  *     tags: [Reportes]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: periodo
+ *         schema:
+ *           type: string
+ *         description: Period filter (YYYY-MM)
+ *       - in: query
+ *         name: fecha_inicio
+ *         schema:
+ *           type: string
+ *         description: Start date (YYYY-MM-DD)
+ *       - in: query
+ *         name: fecha_fin
+ *         schema:
+ *           type: string
+ *         description: End date (YYYY-MM-DD)
  *     responses:
  *       200:
- *         description: Compliance report
+ *         description: Compliance report with elementos and registros (including numero_contrato, servicio, dependencia)
  */
 router.get('/reportes/cumplimiento', auth, reporteController.cumplimientoGeneral);
 router.get('/reportes/cumplimiento/pdf', auth, reporteController.cumplimientoGeneralPdf);

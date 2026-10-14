@@ -49,30 +49,51 @@ export default function RecordsSummaryWidget({ filters }) {
                         <tr>
                             <th>PERIODO</th>
                             <th>EECC</th>
+                            <th>Nº CONTRATO / SERVICIO / DEPENDENCIA</th>
                             <th>CUMPLIMIENTO</th>
                             <th>ESTADO</th>
                         </tr>
                     </thead>
                     <tbody>
                         {data.length === 0 ? (
-                            <tr><td colSpan="4" style={{ textAlign: 'center', color: '#9ca3af', fontStyle: 'italic' }}>No se encontraron registros.</td></tr>
+                            <tr><td colSpan="5" style={{ textAlign: 'center', color: '#9ca3af', fontStyle: 'italic' }}>No se encontraron registros.</td></tr>
                         ) : (
-                            data.map((record, index) => (
-                                <tr key={index}>
-                                    <td>{record.periodo}</td>
-                                    <td>{record.eecc}</td>
-                                    <td>
-                                        <span className={`badge-compliance ${record.cumplimiento >= 85 ? 'high' : 'low'}`}>
-                                            {Number(record.cumplimiento).toFixed(1)}%
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span className={`status-text ${record.statusClass}`}>
-                                            {record.statusClass === 'ok' ? '✓' : 'X'} {record.estado}
-                                        </span>
-                                    </td>
-                                </tr>
-                            ))
+                            data.map((record, index) => {
+                                const numContrato = record.numero_contrato;
+                                const contratoLabel = numContrato 
+                                    ? (String(numContrato).toLowerCase().startsWith('contrato') ? numContrato : `Contrato N° ${numContrato}`)
+                                    : (record.servicio || 'Sin Contrato');
+                                const subInfo = [record.servicio, record.dependencia].filter(Boolean).join(' • ');
+
+                                return (
+                                    <tr key={index}>
+                                        <td style={{ whiteSpace: 'nowrap' }}>{record.periodo}</td>
+                                        <td>
+                                            <div style={{ fontWeight: 600, color: '#111827' }}>{record.eecc}</div>
+                                        </td>
+                                        <td>
+                                            <div style={{ fontWeight: 600, color: '#374151', fontSize: '0.85rem' }}>
+                                                {contratoLabel}
+                                            </div>
+                                            {subInfo && (
+                                                <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '2px' }}>
+                                                    {subInfo}
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td style={{ whiteSpace: 'nowrap' }}>
+                                            <span className={`badge-compliance ${record.cumplimiento >= 85 ? 'high' : 'low'}`}>
+                                                {Number(record.cumplimiento).toFixed(1)}%
+                                            </span>
+                                        </td>
+                                        <td style={{ whiteSpace: 'nowrap' }}>
+                                            <span className={`status-text ${record.statusClass}`}>
+                                                {record.statusClass === 'ok' ? '✓' : 'X'} {record.estado}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                );
+                            })
                         )}
                     </tbody>
                 </table>

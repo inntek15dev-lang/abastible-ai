@@ -245,22 +245,31 @@ module.exports = {
             doc.moveDown();
 
             tableTop = doc.y;
-            doc.fontSize(10).fillColor('#475569');
+            doc.fontSize(9).fillColor('#475569');
             doc.text('Empresa (EECC)', 50, tableTop);
-            doc.text('Cumplimiento', 400, tableTop);
+            doc.text('Contrato / Servicio / Dependencia', 190, tableTop);
+            doc.text('Cumplimiento', 430, tableTop);
             doc.text('Estado', 500, tableTop);
             
             doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke('#cbd5e1');
             doc.moveDown();
 
             registros.forEach((r, index) => {
+                if (doc.y > 700) {
+                    doc.addPage();
+                }
                 const rowY = doc.y;
-                if (index % 2 === 0) doc.rect(50, rowY - 5, 500, 25).fill('#f1f5f9');
-                doc.fillColor('#1e293b').font('Helvetica');
-                doc.text(r.eecc, 50, rowY, { width: 340 });
-                doc.text(`${r.cumplimiento}%`, 400, rowY);
+                if (index % 2 === 0) doc.rect(50, rowY - 5, 500, 28).fill('#f1f5f9');
+                doc.fillColor('#1e293b').font('Helvetica').fontSize(8);
+                doc.text(r.eecc, 50, rowY, { width: 135 });
+                const contratoStr = r.numero_contrato 
+                    ? (String(r.numero_contrato).toLowerCase().startsWith('contrato') ? r.numero_contrato : `Contrato N° ${r.numero_contrato}`)
+                    : (r.servicio || '-');
+                const subStr = [r.servicio, r.dependencia].filter(Boolean).join(' • ') || '-';
+                doc.text(`${contratoStr}\n${subStr}`, 190, rowY, { width: 230 });
+                doc.text(`${r.cumplimiento}%`, 430, rowY);
                 doc.text(r.estado, 500, rowY);
-                doc.moveDown(1.5);
+                doc.moveDown(1.8);
             });
 
             // Footer
@@ -291,14 +300,22 @@ module.exports = {
             sheet.columns = [
                 { header: 'Periodo', key: 'periodo', width: 15 },
                 { header: 'Empresa (EECC)', key: 'eecc', width: 30 },
+                { header: 'Nº Contrato / Servicio / Dependencia', key: 'contrato_servicio_dependencia', width: 40 },
                 { header: 'Cumplimiento %', key: 'cumplimiento', width: 15 },
                 { header: 'Estado', key: 'estado', width: 20 }
             ];
 
             registros.forEach(r => {
+                const contratoStr = r.numero_contrato 
+                    ? (String(r.numero_contrato).toLowerCase().startsWith('contrato') ? r.numero_contrato : `Contrato N° ${r.numero_contrato}`)
+                    : (r.servicio || 'Sin Contrato');
+                const subStr = [r.servicio, r.dependencia].filter(Boolean).join(' • ');
+                const fullInfo = subStr ? `${contratoStr} (${subStr})` : contratoStr;
+
                 sheet.addRow({
                     periodo: r.periodo,
                     eecc: r.eecc,
+                    contrato_servicio_dependencia: fullInfo,
                     cumplimiento: r.cumplimiento,
                     estado: r.estado
                 });
@@ -849,7 +866,19 @@ module.exports = {
 
         const registros = await Registro.findAll({
             where: whereRegistro,
-            attributes: ['id', 'periodo', 'eecc_nombre', 'porcentaje_cumplimiento', 'estado_auditoria'],
+            attributes: ['id', 'periodo', 'eecc_nombre', 'porcentaje_cumplimiento', 'estado_auditoria', 'numero_contrato', 'dependencia', 'contratista_asignacion_id'],
+            include: [
+                {
+                    model: Vinculacion,
+                    as: 'vinculacionEntidad',
+                    attributes: ['id', 'numero_contrato'],
+                    required: false,
+                    include: [
+                        { model: TipoContratista, as: 'servicio', attributes: ['id', 'nombre'], required: false },
+                        { model: Dependencia, as: 'dependencia', attributes: ['id', 'nombre'], required: false }
+                    ]
+                }
+            ],
             order: [['periodo', 'DESC']]
         });
 
@@ -894,14 +923,24 @@ module.exports = {
 
         return {
             elementos: elementosStats,
-            registros: registros.map(r => ({
-                id: r.id,
-                periodo: String(r.periodo).slice(0, 7),
-                eecc: r.eecc_nombre || 'N/A',
-                cumplimiento: parseFloat(r.porcentaje_cumplimiento || 0),
-                estado: parseFloat(r.porcentaje_cumplimiento || 0) >= 85 ? 'Cumple meta' : 'Bajo meta',
-                statusClass: parseFloat(r.porcentaje_cumplimiento || 0) >= 85 ? 'ok' : 'bad'
-            }))
+            registros: registros.map(r => {
+                const vinc = r.vinculacionEntidad;
+                const numContrato = vinc?.numero_contrato || r.numero_contrato || null;
+                const servicio = vinc?.servicio?.nombre || null;
+                const dependencia = vinc?.dependencia?.nombre || r.dependencia || null;
+
+                return {
+                    id: r.id,
+                    periodo: String(r.periodo).slice(0, 7),
+                    eecc: r.eecc_nombre || 'N/A',
+                    numero_contrato: numContrato,
+                    servicio: servicio,
+                    dependencia: dependencia,
+                    cumplimiento: parseFloat(r.porcentaje_cumplimiento || 0),
+                    estado: parseFloat(r.porcentaje_cumplimiento || 0) >= 85 ? 'Cumple meta' : 'Bajo meta',
+                    statusClass: parseFloat(r.porcentaje_cumplimiento || 0) >= 85 ? 'ok' : 'bad'
+                };
+            })
         };
     },
 
