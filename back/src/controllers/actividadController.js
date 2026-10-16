@@ -3,12 +3,13 @@ const { Actividad, Elemento } = require('../database/models');
 const fs = require('fs');
 const path = require('path');
 const { safeMove } = require('../utils/fileHelper');
+const periodicidadService = require('../services/periodicidadService');
 
 const actividadController = {
     // GET /api/actividades
     async index(req, res) {
         try {
-            const { elemento_id, programa_id } = req.query;
+            const { elemento_id, programa_id, periodo, contratista_asignacion_id } = req.query;
             const where = elemento_id ? { elemento_id } : {};
 
             const elementoWhere = {};
@@ -19,6 +20,26 @@ const actividadController = {
                 include: [{ model: Elemento, as: 'elemento', where: Object.keys(elementoWhere).length ? elementoWhere : undefined, required: !!programa_id }],
                 order: [['orden', 'ASC']]
             });
+
+            // Si se pasa periodo y asignación, resolver periodicidad para inicializar el formulario de registro
+            if (periodo && contratista_asignacion_id) {
+                const plainActs = actividades.map(a => {
+                    const item = a.toJSON ? a.toJSON() : { ...a };
+                    item.actividad_id = item.id;
+                    item.cumple = false;
+                    item.cumple_auditor = null;
+                    item.evidencias = [];
+                    return item;
+                });
+
+                await periodicidadService.resolverPeriodicidadActividades({
+                    actividades: plainActs,
+                    periodo,
+                    contratistaAsignacionId: contratista_asignacion_id
+                });
+
+                return res.json({ success: true, data: plainActs });
+            }
 
             res.json({ success: true, data: actividades });
         } catch (error) {
@@ -32,31 +53,32 @@ const actividadController = {
         try {
             let { elemento_id, codigo, actividad, descripcion, criterios, frecuencia, requiere_evidencia = 1, orden = 0 } = req.body;
 
-            // Validate and default frequency
+            // Frequency default and validation
             const validFrecuencias = ['mensual', 'trimestral', 'semestral', 'anual', 'cuando_aplique'];
             if (!frecuencia || !validFrecuencias.includes(frecuencia)) {
                 frecuencia = 'mensual';
             }
 
+            // Normalización defensiva (MySQL TINYINT)
+            requiere_evidencia = (requiere_evidencia === true || requiere_evidencia === 'true' || requiere_evidencia == 1) ? 1 : 0;
+            orden = Number(orden) || 0;
+
             if (!elemento_id || !codigo || !actividad || !descripcion) {
-                // Cleanup upload if valid failed
                 if (req.file) fs.unlinkSync(req.file.path);
-                return res.status(400).json({
-                    success: false,
-                    message: 'elemento_id, codigo, actividad y descripcion son requeridos'
-                });
+                return res.status(400).json({ success: false, message: 'Faltan campos requeridos' });
             }
 
             let template_url = null;
+
+            // Handle file upload
             if (req.file) {
-                // Fetch Elemento to get Program ID and Number
                 const elemento = await Elemento.findByPk(elemento_id);
                 if (!elemento) {
                     fs.unlinkSync(req.file.path);
                     return res.status(404).json({ success: false, message: 'Elemento no encontrado' });
                 }
 
-                               const sanitize = (str) => str.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                const sanitize = (str) => str.replace(/[^a-z0-9]/gi, '_').toLowerCase();
                 const { Programa } = require('../database/models');
                 const programa = await Programa.findByPk(elemento.programa_id);
                 const programName = programa ? programa.nombre : `programa_${elemento.programa_id}`;
@@ -115,12 +137,7 @@ const actividadController = {
             }
 
             if (req.file) {
-                // Logic similar to store
-                // We use existing element info attached to activity
-                const elemento = actividad.elemento; // Should be loaded
-                // Wait, if element_id is changed in body, we need to fetch new element?
-                // Usually activity stays in element. If changed, we should use new element.
-
+                const elemento = actividad.elemento;
                 let targetElement = elemento;
                 if (req.body.elemento_id && req.body.elemento_id != actividad.elemento_id) {
                     targetElement = await Elemento.findByPk(req.body.elemento_id);
@@ -152,7 +169,6 @@ const actividadController = {
                 const targetPath = path.join(targetDir, req.file.filename);
                 safeMove(req.file.path, targetPath);
 
-                // Remove old template if exists? Maybe. For now, just setting new one.
                 updateData.template_url = path.posix.join('storage', storageRelativePath.split(path.sep).join('/'), req.file.filename);
             }
 

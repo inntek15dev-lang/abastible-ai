@@ -1,27 +1,48 @@
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
-const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso, Elemento, Vinculacion, Administracion, sequelize, Contratista, TipoContratista, Dependencia, Programa, Gerencia, Subgerencia } = require('../database/models');
+const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso, Elemento, Vinculacion, Administracion, sequelize, Contratista, TipoContratista, Dependencia, Programa, Gerencia, Subgerencia, Evidencia } = require('../database/models');
 const { Op } = require('sequelize');
 const { getProgramaScope, intersectWithProgramaScope } = require('../utils/programaScopeHelper');
 const { buildScopeWhere, getAllowedVinculacionIds } = require('../utils/scopeHelper');
 
 module.exports = {
-    async registroPdf(req, res) {
+async registroPdf(req, res) {
         try {
             const { id } = req.params;
+            const path = require('path');
+            const fs = require('fs');
+
             const registro = await Registro.findByPk(id, {
                 include: [
-                    { model: User, as: 'usuario', attributes: ['name', 'email', 'eecc_nombre'] },
+                    { model: User, as: 'usuario', attributes: ['id', 'name', 'email', 'eecc_nombre', 'rut'] },
+                    { model: User, as: 'auditor', attributes: ['id', 'name', 'email'] },
+                    { model: Programa, as: 'programa', attributes: ['id', 'nombre'] },
+                    {
+                        model: Vinculacion,
+                        as: 'vinculacionEntidad',
+                        attributes: ['id', 'numero_contrato'],
+                        include: [
+                            { model: TipoContratista, as: 'servicio', attributes: ['id', 'nombre'] },
+                            { model: Dependencia, as: 'dependencia', attributes: ['id', 'nombre'] }
+                        ]
+                    },
                     {
                         model: RegistroActividad,
                         as: 'actividades',
                         include: [
-                            { model: Actividad, as: 'actividad' },
-                            { model: Hallazgo, as: 'hallazgos', include: ['compromisos'] },
-                            { model: require('../database/models').Evidencia, as: 'evidencias' }
+                            {
+                                model: Actividad,
+                                as: 'actividad',
+                                include: [{ model: Elemento, as: 'elemento', attributes: ['id', 'numero', 'nombre'] }]
+                            },
+                            {
+                                model: Hallazgo,
+                                as: 'hallazgos',
+                                include: [{ model: Compromiso, as: 'compromisos' }]
+                            },
+                            { model: Evidencia, as: 'evidencias' }
                         ]
-                    },
-                    { model: User, as: 'auditor', attributes: ['name'] }
+                    }
                 ]
             });
 
@@ -29,103 +50,396 @@ module.exports = {
                 return res.status(404).json({ message: 'Registro no encontrado' });
             }
 
-            // Create PDF
-            const doc = new PDFDocument({ margin: 50 });
+            // Create A4 PDF with 36pt margins (0.5 in) and page buffering for total page counting
+            const doc = new PDFDocument({ 
+                size: 'A4', 
+                margin: 36, 
+                bufferPages: true,
+                info: {
+                    Title: `Informe de Cumplimiento OIEM #${registro.id}`,
+                    Author: 'Plataforma OVAL Control - Abastible S.A.',
+                    Subject: `Informe de Cumplimiento ${registro.eecc_nombre || ''} - ${registro.periodo}`
+                }
+            });
 
-            // Pipe to response
+            const fileName = `Informe_Cumplimiento_OIEM_${registro.id}_${registro.periodo || 'periodo'}.pdf`;
             res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `attachment; filename=registro-${registro.periodo}-${registro.id}.pdf`);
+            res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
             doc.pipe(res);
 
-            // -- HEADER --
-            doc.fontSize(20).text('Informe de Cumplimiento OIEM', { align: 'center' });
-            doc.moveDown();
+            const pageWidth = 595.28;
+            const pageHeight = 841.89;
+            const startX = 36;
+            const totalWidth = 523.28;
 
-            doc.fontSize(10).text(`Periodo: ${registro.periodo}`);
-            doc.text(`Empresa: ${registro.eecc_nombre || registro.usuario.eecc_nombre}`);
-            doc.text(`Responsable: ${registro.usuario.name}`);
-            doc.text(`Fecha Generación: ${new Date().toLocaleDateString()}`);
-            doc.moveDown();
+            const logoAbastible = path.join(__dirname, '../assets/logos/abastible.png');
+            const hasLogo = fs.existsSync(logoAbastible);
 
-            // -- DOTACIÓN --
-            doc.fontSize(14).text('Información de Dotación', { underline: true });
-            doc.fontSize(10);
-            doc.text(`Dotación Total: ${registro.dotacion_total || 0}`);
-            doc.text(`Personas Nuevas: ${registro.personas_nuevas || 0}`);
-            doc.text(`Supervisores: ${registro.supervisores || 0}`);
-            doc.text(`Prevencionistas: ${registro.prevencionistas || 0}`);
-            doc.moveDown();
+            // Period and dates formatting
+            const formatPeriodStr = (p) => {
+                if (!p) return 'N/A';
+                const parts = String(p).split('-');
+                if (parts.length < 2) return String(p);
+                const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+                const mIdx = parseInt(parts[1], 10) - 1;
+                return (mIdx >= 0 && mIdx < 12) ? `${months[mIdx]} ${parts[0]}` : String(p).slice(0, 7);
+            };
 
-            // -- SUMMARY --
-            doc.fontSize(14).text('Resumen de Auditoría', { underline: true });
-            doc.fontSize(10).text(`Cumplimiento Declarado: ${registro.porcentaje_cumplimiento}%`);
-            doc.text(`Cumplimiento Auditor: ${registro.porcentaje_cumplimiento_auditor !== null ? registro.porcentaje_cumplimiento_auditor + '%' : 'Pendiente'}`);
-            doc.text(`Estado: ${registro.estado_auditoria.toUpperCase()}`);
-            if (registro.auditor) {
-                doc.text(`Auditor: ${registro.auditor.name}`);
-            }
-            if (registro.observaciones_auditoria || registro.comentario_general) {
-                doc.moveDown(0.5);
-                doc.text(`Comentario General: ${registro.observaciones_auditoria || registro.comentario_general}`);
-            }
-            doc.moveDown();
+            const nowFormatted = `${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`;
+            const periodoLabel = formatPeriodStr(registro.periodo);
 
-            // -- FINDINGS --
-            const hallazgos = [];
-            registro.actividades.forEach(ra => {
-                if (ra.hallazgos && ra.hallazgos.length > 0) {
-                    hallazgos.push(...ra.hallazgos.map(h => ({ ...h.toJSON(), actividad: ra.actividad.codigo })));
-                }
-            });
+            const vinc = registro.vinculacionEntidad;
+            const numContrato = vinc?.numero_contrato || registro.numero_contrato || null;
+            const contratoLabel = numContrato 
+                ? (String(numContrato).toLowerCase().startsWith('contrato') ? numContrato : `Contrato N° ${numContrato}`)
+                : (vinc?.servicio?.nombre || 'Sin Contrato');
+            const servicioNombre = vinc?.servicio?.nombre || 'General';
+            const dependenciaNombre = vinc?.dependencia?.nombre || registro.dependencia || 'N/A';
+            const programaNombre = registro.programa?.nombre || 'Estándar OIEM';
+            const eeccNombre = registro.eecc_nombre || registro.usuario?.eecc_nombre || 'N/A';
+            const rutEecc = registro.usuario?.rut || '-';
+            const auditorNombre = registro.auditor?.name || (registro.auditado ? 'Auditor OVAL' : 'Pendiente de auditoría');
 
-            if (hallazgos.length > 0) {
-                doc.fontSize(14).text('Hallazgos Identificados', { underline: true });
-                doc.moveDown(0.5);
+            // Draw Running / Main Header
+            const drawPageHeader = (isFirstPage) => {
+                // Top Corporate Bars (Abastible Blue & Orange)
+                doc.rect(0, 0, pageWidth, 5).fill('#003594');
+                doc.rect(0, 5, pageWidth, 2.5).fill('#FE5000');
 
-                hallazgos.forEach((h, i) => {
-                    doc.fontSize(10).font('Helvetica-Bold').text(`${i + 1}. [${h.actividad}] ${h.tipo.toUpperCase()}`);
-                    doc.font('Helvetica').text(`   Detalle: ${h.descripcion}`);
-                    doc.text(`   Estado: ${h.estado}`);
-                    if (h.compromisos && h.compromisos.length > 0) {
-                        doc.fillColor('blue').text(`   Compromiso: ${h.compromisos[0].descripcion_compromiso || h.compromisos[0].descripcion} (${new Date(h.compromisos[0].fecha_cumplimiento || h.compromisos[0].fecha_compromiso).toLocaleDateString()})`);
-                        doc.fillColor('black');
+                if (isFirstPage) {
+                    let titleX = startX;
+                    if (hasLogo) {
+                        try {
+                            doc.image(logoAbastible, startX, 13, { height: 26 });
+                            titleX = startX + 96;
+                        } catch (e) {
+                            titleX = startX;
+                        }
                     }
-                    doc.moveDown(0.5);
-                });
-                doc.moveDown();
+
+                    doc.fillColor('#003594').font('Helvetica-Bold').fontSize(14).text('INFORME DE CUMPLIMIENTO OIEM', titleX, 15);
+                    doc.fillColor('#64748b').font('Helvetica').fontSize(8.5).text('Reporte oficial de cumplimiento operacional, dotación y auditoría', titleX, 31);
+
+                    doc.fontSize(7.5).fillColor('#64748b').font('Helvetica')
+                       .text(`Fecha emisión: ${nowFormatted}`, startX, 15, { align: 'right', width: totalWidth });
+                    doc.text(`ID Registro: #${registro.id}  |  Periodo: ${periodoLabel}`, startX, 28, { align: 'right', width: totalWidth });
+
+                    doc.moveTo(startX, 46).lineTo(startX + totalWidth, 46).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
+                } else {
+                    let titleX = startX;
+                    if (hasLogo) {
+                        try {
+                            doc.image(logoAbastible, startX, 10, { height: 18 });
+                            titleX = startX + 70;
+                        } catch (e) {
+                            titleX = startX;
+                        }
+                    }
+
+                    doc.fillColor('#003594').font('Helvetica-Bold').fontSize(10).text('INFORME DE CUMPLIMIENTO OIEM', titleX, 12);
+                    doc.fillColor('#64748b').font('Helvetica').fontSize(7.5).text(`Registro #${registro.id} • ${eeccNombre} • Periodo ${periodoLabel}`, titleX, 23);
+
+                    doc.fontSize(7.5).fillColor('#64748b').font('Helvetica')
+                       .text(`Emisión: ${nowFormatted}`, startX, 15, { align: 'right', width: totalWidth });
+
+                    doc.moveTo(startX, 34).lineTo(startX + totalWidth, 34).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
+                }
+            };
+
+            // First Page Header
+            drawPageHeader(true);
+
+            let currY = 52;
+
+            // ==========================================
+            // 1. METADATA IDENTIFICATION CARD (UI HARMONY)
+            // ==========================================
+            doc.roundedRect(startX, currY, totalWidth, 44, 4).fillAndStroke('#f8fafc', '#e2e8f0');
+
+            // Col 1: Empresa & RUT
+            doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.5).text('EMPRESA (EECC)', startX + 10, currY + 6);
+            doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8.5).text(eeccNombre, startX + 10, currY + 15, { width: 160, ellipsis: true });
+            doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.5).text('RUT:', startX + 10, currY + 27, { continued: true });
+            doc.fillColor('#334155').font('Helvetica').fontSize(7.5).text(` ${rutEecc}`);
+
+            // Col 2: Contrato, Servicio & Dependencia
+            doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.5).text('CONTRATO / SERVICIO', startX + 180, currY + 6);
+            doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8.5).text(contratoLabel, startX + 180, currY + 15, { width: 170, ellipsis: true });
+            doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.5).text('DEP.:', startX + 180, currY + 27, { continued: true });
+            doc.fillColor('#334155').font('Helvetica').fontSize(7.5).text(` ${dependenciaNombre} • ${servicioNombre}`, { width: 165, ellipsis: true });
+
+            // Col 3: Programa & Auditor
+            doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.5).text('PROGRAMA / AUDITOR', startX + 360, currY + 6);
+            doc.fillColor('#003594').font('Helvetica-Bold').fontSize(8.5).text(programaNombre, startX + 360, currY + 15, { width: 155, ellipsis: true });
+            doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.5).text('AUDITOR:', startX + 360, currY + 27, { continued: true });
+            doc.fillColor('#334155').font('Helvetica').fontSize(7.5).text(` ${auditorNombre}`, { width: 145, ellipsis: true });
+
+            currY += 52;
+
+            // ==========================================
+            // 2. KPI SUMMARY METRIC CARDS (UI HARMONY)
+            // ==========================================
+            const cardW = (totalWidth - 3 * 8) / 4;
+            const cardH = 46;
+
+            const pDecl = parseFloat(registro.porcentaje_cumplimiento || 0);
+            const colorDecl = pDecl >= 85 ? '#059669' : (pDecl >= 70 ? '#d97706' : '#dc2626');
+
+            const hasAuditorScore = registro.porcentaje_cumplimiento_auditor !== null && registro.porcentaje_cumplimiento_auditor !== undefined;
+            const pAudit = hasAuditorScore ? parseFloat(registro.porcentaje_cumplimiento_auditor) : null;
+            const colorAudit = pAudit !== null ? (pAudit >= 85 ? '#059669' : (pAudit >= 70 ? '#d97706' : '#dc2626')) : '#64748b';
+
+            const estadoRaw = (registro.estado_auditoria || 'pendiente').toLowerCase();
+            const estadoFormatted = estadoRaw.replace(/_/g, ' ').toUpperCase();
+            let pillBg = '#f1f5f9';
+            let pillColor = '#475569';
+            if (['auditada', 'finalizado', 'subsanado'].includes(estadoRaw)) {
+                pillBg = '#ecfdf5';
+                pillColor = '#059669';
+            } else if (['auditando', 'en_revision', 'reapertura_solicitada', 'reapertura_pendiente'].includes(estadoRaw)) {
+                pillBg = '#fffbeb';
+                pillColor = '#d97706';
+            } else if (['pendiente', 'pendiente_subsanacion'].includes(estadoRaw)) {
+                pillBg = '#eff6ff';
+                pillColor = '#2563eb';
             }
 
-            // -- ACTIVITIES TABLE --
-            doc.fontSize(14).text('Detalle de Actividades', { underline: true });
-            doc.moveDown(0.5);
+            // Card 1: Declarado EECC
+            doc.roundedRect(startX, currY, cardW, cardH, 4).fillAndStroke('#f8fafc', '#e2e8f0');
+            doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.5).text('CUMPLIMIENTO EECC', startX + 8, currY + 6);
+            doc.fillColor(colorDecl).font('Helvetica-Bold').fontSize(14).text(`${pDecl.toFixed(1)}%`, startX + 8, currY + 15);
+            doc.fillColor('#94a3b8').font('Helvetica').fontSize(6.5).text('Auto-evaluación contratista', startX + 8, currY + 34);
 
-            registro.actividades.sort((a, b) => (a.actividad?.codigo || '').localeCompare(b.actividad?.codigo || '')).forEach(ra => {
-                const status = ra.cumple ? 'CUMPLE' : 'NO CUMPLE';
-                const auditStatus = ra.cumple_auditor === 1 || ra.cumple_auditor === true ? 'CUMPLE' : (ra.cumple_auditor === 0 || ra.cumple_auditor === false ? 'NO CUMPLE' : '-');
-                const color = ra.cumple ? 'green' : 'red';
-                const auditColor = ra.cumple_auditor === true || ra.cumple_auditor === 1 ? 'green' : (ra.cumple_auditor === false || ra.cumple_auditor === 0 ? 'red' : 'black');
+            // Card 2: Auditoría OVAL
+            doc.roundedRect(startX + cardW + 8, currY, cardW, cardH, 4).fillAndStroke('#f8fafc', '#e2e8f0');
+            doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.5).text('AUDITORÍA OVAL', startX + cardW + 16, currY + 6);
+            doc.fillColor(colorAudit).font('Helvetica-Bold').fontSize(14).text(pAudit !== null ? `${pAudit.toFixed(1)}%` : 'Pendiente', startX + cardW + 16, currY + 15);
+            doc.fillColor('#94a3b8').font('Helvetica').fontSize(6.5).text('Validación técnica en terreno/sistema', startX + cardW + 16, currY + 34);
 
-                doc.fontSize(9).font('Helvetica-Bold').text(`${ra.actividad?.codigo || '-'}: ${ra.actividad?.descripcion || ra.descripcion_actividad}`);
-                doc.font('Helvetica').fontSize(8);
-                doc.fillColor(color).text(`   Reportado: ${status}`, { continued: true });
-                doc.fillColor('black').text(` | Auditoría: `, { continued: true });
-                doc.fillColor(auditColor).text(`${auditStatus}`);
-                doc.fillColor('black');
+            // Card 3: Estado Auditoría
+            doc.roundedRect(startX + (cardW + 8) * 2, currY, cardW, cardH, 4).fillAndStroke('#f8fafc', '#e2e8f0');
+            doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.5).text('ESTADO AUDITORÍA', startX + (cardW + 8) * 2 + 8, currY + 6);
+            doc.roundedRect(startX + (cardW + 8) * 2 + 8, currY + 17, cardW - 16, 14, 3).fill(pillBg);
+            doc.fillColor(pillColor).font('Helvetica-Bold').fontSize(7.5).text(estadoFormatted, startX + (cardW + 8) * 2 + 8, currY + 20.5, { width: cardW - 16, align: 'center' });
+            doc.fillColor('#94a3b8').font('Helvetica').fontSize(6.5).text(`Auditado: ${registro.auditado ? 'Sí' : 'No'}`, startX + (cardW + 8) * 2 + 8, currY + 34);
 
-                if (ra.responsable) doc.text(`   Responsable: ${ra.responsable}`);
-                if (ra.descripcion_contratista) doc.text(`   Obs. Contratista: ${ra.descripcion_contratista}`);
-                if (ra.observacion_auditor) doc.text(`   Obs. Auditor: ${ra.observacion_auditor}`);
-                
-                if (ra.evidencias && ra.evidencias.length > 0) {
-                    const evNames = ra.evidencias.map(e => e.nombre_archivo).join(', ');
-                    doc.fillColor('blue').text(`   Evidencias: ${evNames}`);
-                    doc.fillColor('black');
+            // Card 4: Dotación
+            doc.roundedRect(startX + (cardW + 8) * 3, currY, cardW, cardH, 4).fillAndStroke('#f8fafc', '#e2e8f0');
+            doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.5).text('DOTACIÓN OPERATIVA', startX + (cardW + 8) * 3 + 8, currY + 6);
+            doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(13).text(`${registro.dotacion_total || 0} personas`, startX + (cardW + 8) * 3 + 8, currY + 15);
+            doc.fillColor('#64748b').font('Helvetica').fontSize(6.5).text(`Nuevos: ${registro.personas_nuevas || 0} | Sup: ${registro.supervisores || 0} | Prev: ${registro.prevencionistas || 0}`, startX + (cardW + 8) * 3 + 8, currY + 34);
+
+            currY += cardH + 10;
+
+            // ==========================================
+            // 3. COMENTARIO GENERAL / OBSERVACIONES BOX
+            // ==========================================
+            const generalComment = registro.observaciones_auditoria || registro.comentario_general;
+            if (generalComment) {
+                doc.roundedRect(startX, currY, totalWidth, 26, 3).fillAndStroke('#eff6ff', '#bfdbfe');
+                doc.rect(startX, currY, 3, 26).fill('#2563eb');
+                doc.fillColor('#1e40af').font('Helvetica-Bold').fontSize(7).text('OBSERVACIÓN GENERAL DEL AUDITOR:', startX + 8, currY + 4);
+                doc.fillColor('#1e293b').font('Helvetica').fontSize(7.5).text(generalComment, startX + 8, currY + 13, { width: totalWidth - 16, height: 12, ellipsis: true });
+                currY += 32;
+            }
+
+            // ==========================================
+            // 4. HALLAZGOS Y PLAN DE ACCIÓN SECTION
+            // ==========================================
+            const hallazgosList = [];
+            (registro.actividades || []).forEach(ra => {
+                if (ra.hallazgos && ra.hallazgos.length > 0) {
+                    ra.hallazgos.forEach(h => {
+                        hallazgosList.push({
+                            ...h.toJSON(),
+                            actividadCodigo: ra.actividad?.codigo || '-',
+                            actividadNombre: ra.actividad?.actividad || ra.actividad?.descripcion || ra.descripcion_actividad || ''
+                        });
+                    });
                 }
-
-                doc.moveDown(0.4);
             });
 
-            // Footer
+            if (hallazgosList.length > 0) {
+                doc.rect(startX, currY, 3, 10).fill('#003594');
+                doc.fillColor('#003594').font('Helvetica-Bold').fontSize(9).text(`HALLAZGOS Y COMPROMISOS IDENTIFICADOS (${hallazgosList.length})`, startX + 7, currY + 1);
+                currY += 15;
+
+                hallazgosList.forEach((h) => {
+                    const cardHeight = (h.compromisos && h.compromisos.length > 0) ? 30 : 22;
+                    if (currY + cardHeight > 780) {
+                        doc.addPage();
+                        drawPageHeader(false);
+                        currY = 42;
+                    }
+
+                    doc.roundedRect(startX, currY, totalWidth, cardHeight, 3).fillAndStroke('#ffffff', '#e2e8f0');
+
+                    // Tipo Pill
+                    const tipoRaw = (h.tipo || 'observacion').toLowerCase();
+                    const isNC = tipoRaw === 'no_conformidad';
+                    const tipoBg = isNC ? '#fee2e2' : (tipoRaw === 'desviacion' ? '#fef3c7' : '#eff6ff');
+                    const tipoColor = isNC ? '#b91c1c' : (tipoRaw === 'desviacion' ? '#b45309' : '#1d4ed8');
+                    const tipoText = tipoRaw.replace(/_/g, ' ').toUpperCase();
+
+                    doc.roundedRect(startX + 6, currY + 4, 75, 12, 2).fill(tipoBg);
+                    doc.fillColor(tipoColor).font('Helvetica-Bold').fontSize(6).text(tipoText, startX + 6, currY + 6.5, { width: 75, align: 'center' });
+
+                    // Estado Pill
+                    const estRaw = (h.estado || 'abierto').toLowerCase();
+                    const estBg = estRaw === 'cerrado' ? '#ecfdf5' : (estRaw === 'en_proceso' ? '#fffbeb' : '#fef2f2');
+                    const estColor = estRaw === 'cerrado' ? '#059669' : (estRaw === 'en_proceso' ? '#d97706' : '#dc2626');
+                    doc.roundedRect(startX + 85, currY + 4, 55, 12, 2).fill(estBg);
+                    doc.fillColor(estColor).font('Helvetica-Bold').fontSize(6).text(estRaw.toUpperCase(), startX + 85, currY + 6.5, { width: 55, align: 'center' });
+
+                    // Title & Description
+                    doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(7.5).text(`[${h.actividadCodigo}] ${h.descripcion || 'Sin descripción'}`, startX + 146, currY + 4, { width: totalWidth - 152, ellipsis: true });
+
+                    // Compromiso Line
+                    if (h.compromisos && h.compromisos.length > 0) {
+                        const comp = h.compromisos[0];
+                        const compDate = comp.fecha_cumplimiento || comp.fecha_compromiso;
+                        const dateStr = compDate ? new Date(compDate).toLocaleDateString('es-CL') : 'S/F';
+                        doc.fillColor('#2563eb').font('Helvetica-Bold').fontSize(7).text('COMPROMISO:', startX + 146, currY + 16, { continued: true });
+                        doc.fillColor('#475569').font('Helvetica').fontSize(7).text(` ${comp.descripcion || comp.descripcion_compromiso || '-'} (Fecha Límite: ${dateStr})`, { width: totalWidth - 220, ellipsis: true });
+                    }
+
+                    currY += cardHeight + 4;
+                });
+
+                currY += 6;
+            }
+
+            // ==========================================
+            // 5. DETALLE DE ACTIVIDADES EVALUADAS TABLE
+            // ==========================================
+            const actividadesSorted = (registro.actividades || []).slice().sort((a, b) => {
+                const codA = a.actividad?.codigo || '';
+                const codB = b.actividad?.codigo || '';
+                return codA.localeCompare(codB, undefined, { numeric: true, sensitivity: 'base' });
+            });
+
+            if (currY + 40 > 780) {
+                doc.addPage();
+                drawPageHeader(false);
+                currY = 42;
+            }
+
+            doc.rect(startX, currY, 3, 10).fill('#003594');
+            doc.fillColor('#003594').font('Helvetica-Bold').fontSize(9).text(`DETALLE DE ACTIVIDADES EVALUADAS (${actividadesSorted.length})`, startX + 7, currY + 1);
+            currY += 14;
+
+            const drawTableHeader = (yPos) => {
+                doc.rect(startX, yPos, totalWidth, 16).fill('#003594');
+                doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(7);
+                doc.text('CÓD.', startX + 6, yPos + 5, { width: 32 });
+                doc.text('ELEMENTO & ACTIVIDAD', startX + 40, yPos + 5, { width: 235 });
+                doc.text('DECLARADO EECC', startX + 278, yPos + 5, { width: 75, align: 'center' });
+                doc.text('AUDITORÍA OVAL', startX + 356, yPos + 5, { width: 75, align: 'center' });
+                doc.text('OBSERVACIONES & EVIDENCIAS', startX + 434, yPos + 5, { width: 85 });
+                return yPos + 16;
+            };
+
+            currY = drawTableHeader(currY);
+
+            actividadesSorted.forEach((ra, idx) => {
+                const act = ra.actividad || {};
+                const elem = act.elemento || {};
+                const codigo = act.codigo || '-';
+                const nombreAct = act.actividad || act.descripcion || ra.descripcion_actividad || 'Actividad operacional';
+                const nombreElem = elem.nombre ? `${elem.numero ? `Elem. ${elem.numero}: ` : ''}${elem.nombre}` : '';
+
+                const hasObs = Boolean(ra.observacion_auditor || ra.descripcion_contratista);
+                const hasEv = Boolean(ra.evidencias && ra.evidencias.length > 0);
+                const rowHeight = (hasObs && hasEv) ? 26 : 22;
+
+                if (currY + rowHeight > 785) {
+                    doc.addPage();
+                    drawPageHeader(false);
+                    currY = drawTableHeader(40);
+                }
+
+                // Row Background
+                if (idx % 2 === 0) {
+                    doc.rect(startX, currY, totalWidth, rowHeight).fill('#f8fafc');
+                }
+                doc.moveTo(startX, currY + rowHeight).lineTo(startX + totalWidth, currY + rowHeight).strokeColor('#f1f5f9').lineWidth(0.5).stroke();
+
+                // Col 1: Code
+                doc.fillColor('#003594').font('Helvetica-Bold').fontSize(7.5).text(codigo, startX + 6, currY + 4, { width: 32 });
+
+                // Col 2: Element & Description
+                doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(7.5).text(nombreAct, startX + 40, currY + 4, { width: 235, height: 9, ellipsis: true });
+                if (nombreElem) {
+                    doc.fillColor('#64748b').font('Helvetica').fontSize(6.5).text(nombreElem, startX + 40, currY + 13, { width: 235, height: 8, ellipsis: true });
+                }
+
+                // Col 3: Declarado Pill
+                const decVal = ra.cumple;
+                let decBg = '#ecfdf5';
+                let decColor = '#059669';
+                let decText = '✓ CUMPLE';
+                if (decVal === 0 || decVal === false) {
+                    decBg = '#fef2f2';
+                    decColor = '#dc2626';
+                    decText = '✗ NO CUMPLE';
+                } else if (decVal === 2) {
+                    decBg = '#f1f5f9';
+                    decColor = '#64748b';
+                    decText = '— NO APLICA';
+                }
+                doc.roundedRect(startX + 283, currY + 4.5, 65, 12, 2).fill(decBg);
+                doc.fillColor(decColor).font('Helvetica-Bold').fontSize(6.5).text(decText, startX + 283, currY + 7.5, { width: 65, align: 'center' });
+
+                // Col 4: Auditor Pill
+                const audVal = ra.cumple_auditor;
+                let audBg = '#ecfdf5';
+                let audColor = '#059669';
+                let audText = '✓ CUMPLE';
+                if (audVal === 0 || audVal === false) {
+                    audBg = '#fef2f2';
+                    audColor = '#dc2626';
+                    audText = '✗ NO CUMPLE';
+                } else if (audVal === 2) {
+                    audBg = '#f1f5f9';
+                    audColor = '#64748b';
+                    audText = '— NO APLICA';
+                } else if (audVal === null || audVal === undefined) {
+                    audBg = '#f8fafc';
+                    audColor = '#94a3b8';
+                    audText = '— PENDIENTE';
+                }
+                doc.roundedRect(startX + 361, currY + 4.5, 65, 12, 2).fill(audBg);
+                doc.fillColor(audColor).font('Helvetica-Bold').fontSize(6.5).text(audText, startX + 361, currY + 7.5, { width: 65, align: 'center' });
+
+                // Col 5: Evidencias & Obs
+                let evObsText = '';
+                if (ra.evidencias && ra.evidencias.length > 0) {
+                    evObsText = `📎 ${ra.evidencias.length} archivo(s)`;
+                } else {
+                    evObsText = 'Sin evidencia';
+                }
+                doc.fillColor('#2563eb').font('Helvetica').fontSize(6.5).text(evObsText, startX + 434, currY + 4.5, { width: 85, ellipsis: true });
+
+                const note = ra.observacion_auditor || ra.descripcion_contratista;
+                if (note) {
+                    doc.fillColor('#64748b').font('Helvetica-Oblique').fontSize(6).text(note, startX + 434, currY + 13, { width: 85, height: 9, ellipsis: true });
+                }
+
+                currY += rowHeight;
+            });
+
+            // ==========================================
+            // 6. RUNNING FOOTER ON ALL PAGES
+            // ==========================================
+            const pages = doc.bufferedPageRange();
+            for (let p = 0; p < pages.count; p++) {
+                doc.switchToPage(p);
+                doc.moveTo(startX, pageHeight - 24).lineTo(startX + totalWidth, pageHeight - 24).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
+                doc.fontSize(7).fillColor('#94a3b8').font('Helvetica')
+                   .text(`Plataforma OVAL Control para Abastible S.A. | Informe Oficial de Cumplimiento OIEM #${registro.id}`, startX, pageHeight - 17);
+                doc.text(`Página ${p + 1} de ${pages.count}`, startX, pageHeight - 17, { align: 'right', width: totalWidth });
+            }
+
             doc.end();
 
         } catch (error) {
@@ -245,22 +559,31 @@ module.exports = {
             doc.moveDown();
 
             tableTop = doc.y;
-            doc.fontSize(10).fillColor('#475569');
+            doc.fontSize(9).fillColor('#475569');
             doc.text('Empresa (EECC)', 50, tableTop);
-            doc.text('Cumplimiento', 400, tableTop);
+            doc.text('Contrato / Servicio / Dependencia', 190, tableTop);
+            doc.text('Cumplimiento', 430, tableTop);
             doc.text('Estado', 500, tableTop);
             
             doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke('#cbd5e1');
             doc.moveDown();
 
             registros.forEach((r, index) => {
+                if (doc.y > 700) {
+                    doc.addPage();
+                }
                 const rowY = doc.y;
-                if (index % 2 === 0) doc.rect(50, rowY - 5, 500, 25).fill('#f1f5f9');
-                doc.fillColor('#1e293b').font('Helvetica');
-                doc.text(r.eecc, 50, rowY, { width: 340 });
-                doc.text(`${r.cumplimiento}%`, 400, rowY);
+                if (index % 2 === 0) doc.rect(50, rowY - 5, 500, 28).fill('#f1f5f9');
+                doc.fillColor('#1e293b').font('Helvetica').fontSize(8);
+                doc.text(r.eecc, 50, rowY, { width: 135 });
+                const contratoStr = r.numero_contrato 
+                    ? (String(r.numero_contrato).toLowerCase().startsWith('contrato') ? r.numero_contrato : `Contrato N° ${r.numero_contrato}`)
+                    : (r.servicio || '-');
+                const subStr = [r.servicio, r.dependencia].filter(Boolean).join(' • ') || '-';
+                doc.text(`${contratoStr}\n${subStr}`, 190, rowY, { width: 230 });
+                doc.text(`${r.cumplimiento}%`, 430, rowY);
                 doc.text(r.estado, 500, rowY);
-                doc.moveDown(1.5);
+                doc.moveDown(1.8);
             });
 
             // Footer
@@ -291,14 +614,22 @@ module.exports = {
             sheet.columns = [
                 { header: 'Periodo', key: 'periodo', width: 15 },
                 { header: 'Empresa (EECC)', key: 'eecc', width: 30 },
+                { header: 'Nº Contrato / Servicio / Dependencia', key: 'contrato_servicio_dependencia', width: 40 },
                 { header: 'Cumplimiento %', key: 'cumplimiento', width: 15 },
                 { header: 'Estado', key: 'estado', width: 20 }
             ];
 
             registros.forEach(r => {
+                const contratoStr = r.numero_contrato 
+                    ? (String(r.numero_contrato).toLowerCase().startsWith('contrato') ? r.numero_contrato : `Contrato N° ${r.numero_contrato}`)
+                    : (r.servicio || 'Sin Contrato');
+                const subStr = [r.servicio, r.dependencia].filter(Boolean).join(' • ');
+                const fullInfo = subStr ? `${contratoStr} (${subStr})` : contratoStr;
+
                 sheet.addRow({
                     periodo: r.periodo,
                     eecc: r.eecc,
+                    contrato_servicio_dependencia: fullInfo,
                     cumplimiento: r.cumplimiento,
                     estado: r.estado
                 });
@@ -849,7 +1180,19 @@ module.exports = {
 
         const registros = await Registro.findAll({
             where: whereRegistro,
-            attributes: ['id', 'periodo', 'eecc_nombre', 'porcentaje_cumplimiento', 'estado_auditoria'],
+            attributes: ['id', 'periodo', 'eecc_nombre', 'porcentaje_cumplimiento', 'estado_auditoria', 'numero_contrato', 'dependencia', 'contratista_asignacion_id'],
+            include: [
+                {
+                    model: Vinculacion,
+                    as: 'vinculacionEntidad',
+                    attributes: ['id', 'numero_contrato'],
+                    required: false,
+                    include: [
+                        { model: TipoContratista, as: 'servicio', attributes: ['id', 'nombre'], required: false },
+                        { model: Dependencia, as: 'dependencia', attributes: ['id', 'nombre'], required: false }
+                    ]
+                }
+            ],
             order: [['periodo', 'DESC']]
         });
 
@@ -894,14 +1237,24 @@ module.exports = {
 
         return {
             elementos: elementosStats,
-            registros: registros.map(r => ({
-                id: r.id,
-                periodo: String(r.periodo).slice(0, 7),
-                eecc: r.eecc_nombre || 'N/A',
-                cumplimiento: parseFloat(r.porcentaje_cumplimiento || 0),
-                estado: parseFloat(r.porcentaje_cumplimiento || 0) >= 85 ? 'Cumple meta' : 'Bajo meta',
-                statusClass: parseFloat(r.porcentaje_cumplimiento || 0) >= 85 ? 'ok' : 'bad'
-            }))
+            registros: registros.map(r => {
+                const vinc = r.vinculacionEntidad;
+                const numContrato = vinc?.numero_contrato || r.numero_contrato || null;
+                const servicio = vinc?.servicio?.nombre || null;
+                const dependencia = vinc?.dependencia?.nombre || r.dependencia || null;
+
+                return {
+                    id: r.id,
+                    periodo: String(r.periodo).slice(0, 7),
+                    eecc: r.eecc_nombre || 'N/A',
+                    numero_contrato: numContrato,
+                    servicio: servicio,
+                    dependencia: dependencia,
+                    cumplimiento: parseFloat(r.porcentaje_cumplimiento || 0),
+                    estado: parseFloat(r.porcentaje_cumplimiento || 0) >= 85 ? 'Cumple meta' : 'Bajo meta',
+                    statusClass: parseFloat(r.porcentaje_cumplimiento || 0) >= 85 ? 'ok' : 'bad'
+                };
+            })
         };
     },
 

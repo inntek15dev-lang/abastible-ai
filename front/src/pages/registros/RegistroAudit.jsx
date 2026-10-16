@@ -118,11 +118,17 @@ export default function RegistroAudit() {
                 participantesJson: JSON.stringify(loadedParticipantes)
             };
 
-            // Initialize local audit state
+            // Initialize local audit state con soporte de periodicidad
             const initialAuditState = {};
             response.data.data.actividades?.forEach(act => {
+                let defaultCumple = null;
+                if (act.cumple_auditor !== null) {
+                    defaultCumple = (act.cumple_auditor === 1 || act.cumple_auditor === true || act.cumple_auditor === '1');
+                } else if (act.cumplido_periodo_anterior && (act.cumple === 1 || act.cumple === true)) {
+                    defaultCumple = true;
+                }
                 initialAuditState[act.id] = {
-                    cumple: act.cumple_auditor === null ? null : (act.cumple_auditor === 1 || act.cumple_auditor === true || act.cumple_auditor === '1'),
+                    cumple: defaultCumple,
                     observacion: act.observacion_auditor || ''
                 };
             });
@@ -378,9 +384,7 @@ export default function RegistroAudit() {
     };
 
     const generatePDF = () => {
-        const doc = new jsPDF();
-        doc.text(`Auditoría - ${registro.eecc_nombre}`, 14, 15);
-        doc.save(`auditoria_${registro.id}.pdf`);
+        window.open(`${api.defaults.baseURL}/reportes/registro/${id}/pdf?token=${localStorage.getItem('token')}`, '_blank');
     };
 
     // Group Activities by First Number (Element) - Assumes code format "X.Y"
@@ -657,9 +661,19 @@ export default function RegistroAudit() {
                                             </td>
                                         )}
 
-                                        {/* Code */}
+                                        {/* Code & Frecuencia */}
                                         <td style={{ verticalAlign: 'top' }}>
                                             <span className="badge secondary">{act.actividad?.codigo}</span>
+                                            <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', textTransform: 'capitalize', fontWeight: 600 }}>
+                                                {act.actividad?.frecuencia || act.frecuencia || 'Mensual'}
+                                            </div>
+                                            {act.cumplido_periodo_anterior && (
+                                                <div style={{ marginTop: '4px' }}>
+                                                    <span className="badge" style={{ fontSize: '0.65rem', background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                                                        ✓ Cumplido ({act.periodo_origen})
+                                                    </span>
+                                                </div>
+                                            )}
                                         </td>
 
                                         {/* Activity Details */}
@@ -750,6 +764,11 @@ export default function RegistroAudit() {
                                                         return (
                                                             <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '4px 0', flexWrap: 'wrap' }}>
                                                                 <span style={{ fontWeight: 600, color: '#94a3b8', fontSize: '0.8rem', minWidth: '15px' }}>{index + 1}.</span>
+                                                                {ev.heredada && (
+                                                                    <span style={{ fontSize: '0.65rem', background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '1px 5px', borderRadius: '3px', fontWeight: 600 }}>
+                                                                        Periodo {ev.periodo_origen}
+                                                                    </span>
+                                                                )}
 
                                                                 <FileThumbnail />
 

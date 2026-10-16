@@ -307,6 +307,33 @@ router.delete('/actividades/:id', auth, requirePrivilege('Gestion_Configuracion'
  *       201:
  *         description: Register created
  */
+/**
+ * @swagger
+ * /registros/actividades-periodo:
+ *   get:
+ *     summary: Obtener actividades de un programa con estado de periodicidad resuelto para un periodo
+ *     tags: [Registros]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: programa_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: contratista_asignacion_id
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: periodo
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Lista de actividades con periodicidad resuelta
+ */
+router.get('/registros/actividades-periodo', auth, registroController.getActividadesConPeriodicidad);
 router.get('/registros', auth, registroController.index);
 router.get('/registros/:id', auth, registroController.show);
 router.post('/registros', auth, requirePrivilege('Registros', 'write'), registroController.store);
@@ -974,9 +1001,25 @@ router.get('/reportes/registro/:id/pdf', auth, reporteController.registroPdf);
  *     tags: [Reportes]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: periodo
+ *         schema:
+ *           type: string
+ *         description: Period filter (YYYY-MM)
+ *       - in: query
+ *         name: fecha_inicio
+ *         schema:
+ *           type: string
+ *         description: Start date (YYYY-MM-DD)
+ *       - in: query
+ *         name: fecha_fin
+ *         schema:
+ *           type: string
+ *         description: End date (YYYY-MM-DD)
  *     responses:
  *       200:
- *         description: Compliance report
+ *         description: Compliance report with elementos and registros (including numero_contrato, servicio, dependencia)
  */
 router.get('/reportes/cumplimiento', auth, reporteController.cumplimientoGeneral);
 router.get('/reportes/cumplimiento/pdf', auth, reporteController.cumplimientoGeneralPdf);

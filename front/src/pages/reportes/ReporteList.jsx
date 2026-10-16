@@ -163,12 +163,13 @@ export default function ReporteList() {
 
                     {/* Detailed Log Table */}
                     <div className="report-card registro-log">
-                        <h3>Registros del Periodo</h3>
+                        <h3>Resumen de Registros</h3>
                         <div className="table-wrapper">
                             <table className="report-table">
                                 <thead>
                                     <tr>
                                         <th>Empresa (EECC)</th>
+                                        <th>Nº CONTRATO / SERVICIO / DEPENDENCIA</th>
                                         <th>Cumplimiento</th>
                                         <th>Estado</th>
                                         <th>Acciones</th>
@@ -176,33 +177,56 @@ export default function ReporteList() {
                                 </thead>
                                 <tbody>
                                     {reportData.registros.length > 0 ? (
-                                        reportData.registros.map(reg => (
-                                            <tr key={reg.id}>
-                                                <td className="eecc-cell">
-                                                    <strong>{reg.eecc}</strong>
-                                                </td>
-                                                <td className="score-cell">
-                                                    <span className="badge-score" style={{ backgroundColor: getScoreColor(reg.cumplimiento) + '20', color: getScoreColor(reg.cumplimiento) }}>
-                                                        {reg.cumplimiento}%
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <div className={`status-pill ${reg.statusClass}`}>
-                                                        {reg.cumplimiento >= 85 ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
-                                                        {reg.estado}
-                                                    </div>
-                                                </td>
-                                                <td className="actions-cell">
-                                                    <button onClick={() => viewRegistroPdf(reg.id)} title="Ver PDF Detallado">
-                                                        <ExternalLink size={16} />
-                                                        PDF
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
+                                        reportData.registros.map(reg => {
+                                            const numContrato = reg.numero_contrato;
+                                            const contratoLabel = numContrato 
+                                                ? (String(numContrato).toLowerCase().startsWith('contrato') ? numContrato : `Contrato N° ${numContrato}`)
+                                                : (reg.servicio || 'Sin Contrato');
+                                            const subInfo = [reg.servicio, reg.dependencia].filter(Boolean).join(' • ');
+
+                                            return (
+                                                <tr key={reg.id}>
+                                                    <td className="eecc-cell">
+                                                        <strong>{reg.eecc}</strong>
+                                                        {reg.periodo && (
+                                                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                                                                Periodo: {reg.periodo}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        <div style={{ fontWeight: 600, color: '#374151', fontSize: '0.85rem' }}>
+                                                            {contratoLabel}
+                                                        </div>
+                                                        {subInfo && (
+                                                            <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '2px' }}>
+                                                                {subInfo}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="score-cell">
+                                                        <span className="badge-score" style={{ backgroundColor: getScoreColor(reg.cumplimiento) + '20', color: getScoreColor(reg.cumplimiento) }}>
+                                                            {reg.cumplimiento}%
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <div className={`status-pill ${reg.statusClass}`}>
+                                                            {reg.cumplimiento >= 85 ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+                                                            {reg.estado}
+                                                        </div>
+                                                    </td>
+                                                    <td className="actions-cell">
+                                                        <button onClick={() => viewRegistroPdf(reg.id)} title="Ver PDF Detallado">
+                                                            <ExternalLink size={16} />
+                                                            PDF
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
                                     ) : (
                                         <tr>
-                                            <td colSpan="4" className="empty-table">Sin registros encontrados</td>
+                                            <td colSpan="5" className="empty-table">Sin registros encontrados</td>
                                         </tr>
                                     )}
                                 </tbody>
