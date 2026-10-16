@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const archiver = require('archiver');
 const { Evidencia, RegistroActividad, Registro, Actividad, Elemento, Vinculacion, Contratista } = require('../database/models');
+const periodicidadService = require('../services/periodicidadService');
 const { Op } = require('sequelize');
 const { safeMove } = require('../utils/fileHelper');
 const { getAllowedVinculacionIds, isRegistroInScope } = require('../utils/scopeHelper');

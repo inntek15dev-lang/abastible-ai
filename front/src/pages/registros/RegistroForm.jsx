@@ -338,9 +338,9 @@ export default function RegistroForm() {
             // since fetchRegistro already populated them.
             if (isEdit) return;
             
-            fetchActividades(programaId);
+            fetchActividades(programaId, form.contratista_asignacion_id, form.periodo);
         }
-    }, [form.contratista_asignacion_id, assignments, isEdit]);
+    }, [form.contratista_asignacion_id, form.periodo, assignments, isEdit]);
 
     const handleCompromisoClick = (hallazgo) => {
         setCompromisoModal({ show: true, hallazgo });
@@ -441,22 +441,33 @@ export default function RegistroForm() {
         }));
     };
 
-    const fetchActividades = async (programaId) => {
+    const fetchActividades = async (programaId, vinculacionId, periodoStr) => {
         try {
-            const url = programaId ? `/actividades?programa_id=${programaId}` : '/actividades';
+            const vId = vinculacionId || form.contratista_asignacion_id;
+            const pStr = periodoStr || form.periodo;
+            let url = programaId ? `/actividades?programa_id=${programaId}` : '/actividades';
+            if (vId && pStr) {
+                url += `&contratista_asignacion_id=${vId}&periodo=${pStr}`;
+            }
             const response = await api.get(url);
             const acts = response.data.data.map(a => ({
-                actividad_id: a.id,
+                actividad_id: a.id || a.actividad_id,
                 codigo: a.codigo,
                 descripcion: a.descripcion,
                 criterios: a.criterios,
                 frecuencia: a.frecuencia,
-                requiere_evidencia: a.requiere_evidencia,
-                template_url: a.template_url, // Include template_url
-                elemento: a.elemento, // Include entire elemento object
-                cumple: false,
-                responsable: '',
-                descripcion_contratista: ''
+                frecuencia_badge: a.frecuencia_badge,
+                frecuencia_label: a.frecuencia_label,
+                cumplido_periodo_anterior: a.cumplido_periodo_anterior,
+                periodo_origen: a.periodo_origen,
+                requiere_evidencia: a.requiere_evidencia === 1 || a.requiere_evidencia === true,
+                template_url: a.template_url,
+                elemento: a.elemento,
+                cumple: a.cumple || false,
+                cumple_auditor: a.cumple_auditor || null,
+                responsable: a.responsable || '',
+                descripcion_contratista: a.descripcion_contratista || '',
+                evidencias: a.evidencias || []
             }));
             setActividades(acts);
         } catch (err) {
@@ -507,9 +518,13 @@ export default function RegistroForm() {
                     codigo: ra.actividad?.codigo,
                     descripcion: ra.actividad?.descripcion,
                     criterios: ra.actividad?.criterios,
-                    frecuencia: ra.actividad?.frecuencia,
-                    template_url: ra.actividad?.template_url, // Include template_url
-                    elemento: ra.actividad?.elemento, // Include elemento
+                    frecuencia: ra.actividad?.frecuencia || ra.frecuencia,
+                    frecuencia_badge: ra.frecuencia_badge,
+                    frecuencia_label: ra.frecuencia_label,
+                    cumplido_periodo_anterior: ra.cumplido_periodo_anterior,
+                    periodo_origen: ra.periodo_origen,
+                    template_url: ra.actividad?.template_url,
+                    elemento: ra.actividad?.elemento,
                     requiere_evidencia: ra.actividad?.requiere_evidencia === 1 || ra.actividad?.requiere_evidencia === true,
                     cumple: ra.cumple,
                     responsable: ra.responsable || '',
@@ -1280,7 +1295,16 @@ export default function RegistroForm() {
                                                     {act.criterios || '-'}
                                                 </td>
                                                 <td style={{ padding: '1rem', verticalAlign: 'top', textAlign: 'center', color: themeColors.textSecondary, fontSize: '0.8rem' }}>
-                                                    {act.frecuencia || 'Mensual'}
+                                                    <div style={{ fontWeight: 600, textTransform: 'capitalize' }}>
+                                                        {act.frecuencia || 'Mensual'}
+                                                    </div>
+                                                    {act.cumplido_periodo_anterior && (
+                                                        <div style={{ marginTop: '4px' }}>
+                                                            <span className="badge" style={{ fontSize: '0.65rem', background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                                                                ✓ Cumplido ({act.periodo_origen})
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td style={{ padding: '0.5rem', verticalAlign: 'top', textAlign: 'center' }}>
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>
@@ -1446,9 +1470,9 @@ export default function RegistroForm() {
                                                                                 style={{ fontSize: '0.7rem', color: '#003594', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left', fontWeight: 600 }}
                                                                                 title={`Ver evidencia ${e.nombre_archivo} en modo cine`}
                                                                             >
-                                                                                📄 {e.nombre_archivo.length > 20 ? e.nombre_archivo.substring(0, 20) + '...' : e.nombre_archivo}
+                                                                                📄 {e.nombre_archivo.length > 20 ? e.nombre_archivo.substring(0, 20) + '...' : e.nombre_archivo} {e.heredada && <span style={{ fontSize: '0.65rem', color: '#047857', fontWeight: 600 }}>({e.periodo_origen})</span>}
                                                                             </button>
-                                                                            {!isLocked && !(isContractor && form.estado_auditoria === 'pendiente_subsanacion') && (
+                                                                            {!isLocked && !e.heredada && !(isContractor && form.estado_auditoria === 'pendiente_subsanacion') && (
                                                                                 <button
                                                                                     type="button"
                                                                                     title="Eliminar evidencia"

@@ -23,6 +23,7 @@ const {
 const emailService = require('../services/emailService'); // Import emailService
 const { getAllowedVinculacionIds, isRegistroInScope, buildScopeWhere } = require('../utils/scopeHelper');
 const { getProgramaScope, scopeWhereClause } = require('../utils/programaScopeHelper');
+const periodicidadService = require('../services/periodicidadService');
 
 const registroController = {
     // GET /api/registros
@@ -667,6 +668,48 @@ const registroController = {
     },
 
     // POST /api/registros/:id/migrar-periodo (Solo Admin dios)
+    // GET /api/registros/actividades-periodo
+    async getActividadesConPeriodicidad(req, res) {
+        try {
+            const { programa_id, contratista_asignacion_id, periodo } = req.query;
+            if (!programa_id) {
+                return res.status(400).json({ success: false, message: 'El programa_id es requerido' });
+            }
+
+            const actividades = await Actividad.findAll({
+                include: [{
+                    model: Elemento,
+                    as: 'elemento',
+                    where: { programa_id },
+                    required: true
+                }],
+                order: [['orden', 'ASC']]
+            });
+
+            const plainActs = actividades.map(a => {
+                const item = a.toJSON ? a.toJSON() : { ...a };
+                item.actividad_id = item.id;
+                item.cumple = false;
+                item.cumple_auditor = null;
+                item.evidencias = [];
+                return item;
+            });
+
+            if (periodo && contratista_asignacion_id) {
+                await periodicidadService.resolverPeriodicidadActividades({
+                    actividades: plainActs,
+                    periodo,
+                    contratistaAsignacionId: contratista_asignacion_id
+                });
+            }
+
+            res.json({ success: true, data: plainActs });
+        } catch (error) {
+            console.error('getActividadesConPeriodicidad error:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener actividades con periodicidad' });
+        }
+    },
+
     async migrarPeriodo(req, res) {
         try {
             if (req.user.role !== 'admin') {

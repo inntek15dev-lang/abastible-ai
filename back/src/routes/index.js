@@ -307,6 +307,33 @@ router.delete('/actividades/:id', auth, requirePrivilege('Gestion_Configuracion'
  *       201:
  *         description: Register created
  */
+/**
+ * @swagger
+ * /registros/actividades-periodo:
+ *   get:
+ *     summary: Obtener actividades de un programa con estado de periodicidad resuelto para un periodo
+ *     tags: [Registros]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: programa_id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: contratista_asignacion_id
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: periodo
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Lista de actividades con periodicidad resuelta
+ */
+router.get('/registros/actividades-periodo', auth, registroController.getActividadesConPeriodicidad);
 router.get('/registros', auth, registroController.index);
 router.get('/registros/:id', auth, registroController.show);
 router.post('/registros', auth, requirePrivilege('Registros', 'write'), registroController.store);

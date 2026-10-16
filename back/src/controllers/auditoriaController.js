@@ -12,6 +12,7 @@ const {
     User
 } = require('../database/models');
 const emailService = require('../services/emailService');
+const periodicidadService = require('../services/periodicidadService');
 
 const auditoriaController = {
     // POST /api/registros/:id/auditar - Iniciar auditoría
