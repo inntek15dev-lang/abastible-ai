@@ -799,11 +799,15 @@ export default function RegistroAudit() {
 
                                                                     {act.actividad?.template_url && (
                                                                         <button
-                                                                            onClick={() => openViewer(
-                                                                                act.actividad?.id ? `/actividades/${act.actividad.id}/plantilla` : `/${act.actividad.template_url}`,
-                                                                                `Plantilla_${act.actividad?.codigo || 'Oficial'}.xlsx`,
-                                                                                `Plantilla Oficial - Actividad ${act.actividad?.codigo || ''}`
-                                                                            )}
+                                                                            onClick={() => {
+                                                                                const tExt = (act.actividad?.template_url || "").split(".").pop().toLowerCase();
+                                                                                const tExtSuffix = (tExt && tExt.length <= 5) ? `.${tExt}` : "";
+                                                                                openViewer(
+                                                                                    act.actividad?.id ? `/actividades/${act.actividad.id}/plantilla` : `/${act.actividad.template_url}`,
+                                                                                    `Plantilla_${act.actividad?.codigo || "Oficial"}${tExtSuffix}`,
+                                                                                    `Plantilla Oficial - Actividad ${act.actividad?.codigo || ""}`
+                                                                                );
+                                                                            }}
                                                                             className="btn-action"
                                                                             title="Visualizar plantilla de evidencia oficial en modo cine"
                                                                             style={{
@@ -843,11 +847,15 @@ export default function RegistroAudit() {
                                                     <span style={{ fontSize: '0.75rem', color: '#9ca3af', fontStyle: 'italic' }}>Sin Evidencia</span>
                                                     {act.actividad?.template_url && (
                                                         <button
-                                                            onClick={() => openViewer(
-                                                                act.actividad?.id ? `/actividades/${act.actividad.id}/plantilla` : `/${act.actividad.template_url}`,
-                                                                `Plantilla_${act.actividad?.codigo || 'Oficial'}.xlsx`,
-                                                                `Plantilla Oficial - Actividad ${act.actividad?.codigo || ''}`
-                                                            )}
+                                                            onClick={() => {
+                                                                const tExt = (act.actividad?.template_url || "").split(".").pop().toLowerCase();
+                                                                const tExtSuffix = (tExt && tExt.length <= 5) ? `.${tExt}` : "";
+                                                                openViewer(
+                                                                    act.actividad?.id ? `/actividades/${act.actividad.id}/plantilla` : `/${act.actividad.template_url}`,
+                                                                    `Plantilla_${act.actividad?.codigo || "Oficial"}${tExtSuffix}`,
+                                                                    `Plantilla Oficial - Actividad ${act.actividad?.codigo || ""}`
+                                                                );
+                                                            }}
                                                             className="btn-action"
                                                             title="Visualizar plantilla de evidencia oficial en modo cine"
                                                             style={{

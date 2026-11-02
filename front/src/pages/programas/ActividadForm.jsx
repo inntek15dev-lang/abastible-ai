@@ -346,10 +346,12 @@ export default function ActividadForm() {
                                     type="button"
                                     onClick={() => {
                                         const url = id ? `/actividades/${id}/plantilla` : `/${form.template_url}`;
+                                        const ext = form.template_url ? form.template_url.split('.').pop().toLowerCase() : '';
+                                        const extSuffix = (ext && ext.length <= 5) ? `.${ext}` : '';
                                         setViewerState({
                                             isOpen: true,
                                             fileUrl: url,
-                                            fileName: `Plantilla_${form.codigo || 'Oficial'}.xlsx`,
+                                            fileName: `Plantilla_${form.codigo || 'Oficial'}${extSuffix}`,
                                             fileTitle: `Plantilla Oficial - Actividad ${form.codigo || ''}`
                                         });
                                     }}
