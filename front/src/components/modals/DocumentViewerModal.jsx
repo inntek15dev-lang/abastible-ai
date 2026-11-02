@@ -112,8 +112,8 @@ function PdfViewer({ pdfBuffer, downloadUrl, fileName, onDownload }) {
                 <AlertCircle size={64} color="#ef4444" />
                 <h3>No se pudo previsualizar el PDF</h3>
                 <p style={{ maxWidth: '400px', margin: '0 auto 16px auto', color: '#475569' }}>{error}</p>
-                <a href={downloadUrl} download={fileName} onClick={onDownload} className="btn-cinema-download-large">
-                    <Download size={18} /> Descargar {fileName}
+                <a href={downloadUrl} download={activeFileName} onClick={onDownload} className="btn-cinema-download-large">
+                    <Download size={18} /> Descargar {activeFileName}
                 </a>
             </div>
         );
@@ -161,6 +161,194 @@ function PdfViewer({ pdfBuffer, downloadUrl, fileName, onDownload }) {
     );
 }
 
+const getFileExtension = (name) => {
+    if (!name) return "";
+    const clean = name.split("?")[0].split("#")[0];
+    const parts = clean.split(".");
+    return parts.length > 1 ? parts.pop().toLowerCase() : "";
+};
+
+const getCategoryFromExt = (ext) => {
+    if (["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp"].includes(ext)) return "image";
+    if (["pdf"].includes(ext)) return "pdf";
+    if (["xls", "xlsx", "csv", "ods"].includes(ext)) return "excel";
+    if (["doc", "docx", "rtf", "txt", "log", "json"].includes(ext)) return "document";
+    if (["mp4", "webm", "mov", "avi", "mkv"].includes(ext)) return "video";
+    if (["mp3", "wav", "ogg", "m4a"].includes(ext)) return "audio";
+    return "other";
+};
+
+// Inspect buffer magic bytes, server headers, and filename to accurately detect file type
+function inspectFile(buffer, headers, initialName, url) {
+    let detectedExt = "";
+    let detectedCategory = "";
+    let detectedMime = "";
+
+    // 1. Magic bytes inspection (highest priority ground truth)
+    if (buffer && buffer.byteLength >= 4) {
+        const bytes = new Uint8Array(buffer.slice(0, 32));
+
+        // PDF: %PDF (0x25, 0x50, 0x44, 0x46)
+        if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) {
+            detectedExt = "pdf";
+            detectedCategory = "pdf";
+            detectedMime = "application/pdf";
+        }
+        // PNG: 0x89 0x50 0x4E 0x47
+        else if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
+            detectedExt = "png";
+            detectedCategory = "image";
+            detectedMime = "image/png";
+        }
+        // JPEG: 0xFF 0xD8 0xFF
+        else if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+            detectedExt = "jpg";
+            detectedCategory = "image";
+            detectedMime = "image/jpeg";
+        }
+        // GIF: GIF87a or GIF89a (0x47 0x49 0x46)
+        else if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) {
+            detectedExt = "gif";
+            detectedCategory = "image";
+            detectedMime = "image/gif";
+        }
+        // WEBP: RIFF....WEBP
+        else if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+                 bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
+            detectedExt = "webp";
+            detectedCategory = "image";
+            detectedMime = "image/webp";
+        }
+        // ZIP container (PK\x03\x04 or PK\x05\x06) - could be XLSX, DOCX, PPTX or pure ZIP
+        else if (bytes[0] === 0x50 && bytes[1] === 0x4B && (bytes[2] === 0x03 || bytes[2] === 0x05)) {
+            const sampleSize = Math.min(buffer.byteLength, 8192);
+            const sampleStr = new TextDecoder("latin1").decode(new Uint8Array(buffer.slice(0, sampleSize)));
+            if (sampleStr.includes("xl/") || sampleStr.includes("xl\\")) {
+                detectedExt = "xlsx";
+                detectedCategory = "excel";
+                detectedMime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            } else if (sampleStr.includes("word/") || sampleStr.includes("word\\")) {
+                detectedExt = "docx";
+                detectedCategory = "document";
+                detectedMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            } else {
+                detectedExt = "zip";
+                detectedCategory = "other";
+                detectedMime = "application/zip";
+            }
+        }
+        // Legacy Microsoft Compound File Binary Format: 0xD0 0xCF 0x11 0xE0
+        else if (bytes[0] === 0xD0 && bytes[1] === 0xCF && bytes[2] === 0x11 && bytes[3] === 0xE0) {
+            const ct = (headers?.["content-type"] || "").toLowerCase();
+            const nm = (initialName || "").toLowerCase();
+            if (ct.includes("excel") || nm.endsWith(".xls")) {
+                detectedExt = "xls";
+                detectedCategory = "excel";
+                detectedMime = "application/vnd.ms-excel";
+            } else {
+                detectedExt = "doc";
+                detectedCategory = "document";
+                detectedMime = "application/msword";
+            }
+        }
+    }
+
+    // 2. Server Content-Type header fallback
+    const contentType = (headers?.["content-type"] || "").toLowerCase();
+    if (!detectedCategory && contentType) {
+        if (contentType.includes("application/pdf")) {
+            detectedExt = "pdf";
+            detectedCategory = "pdf";
+            detectedMime = "application/pdf";
+        } else if (contentType.includes("spreadsheetml") || contentType.includes("ms-excel")) {
+            detectedExt = contentType.includes("spreadsheetml") ? "xlsx" : "xls";
+            detectedCategory = "excel";
+            detectedMime = contentType;
+        } else if (contentType.includes("wordprocessingml") || contentType.includes("msword")) {
+            detectedExt = contentType.includes("wordprocessingml") ? "docx" : "doc";
+            detectedCategory = "document";
+            detectedMime = contentType;
+        } else if (contentType.startsWith("image/")) {
+            detectedExt = contentType.split("/")[1]?.split(";")[0]?.replace("jpeg", "jpg") || "png";
+            detectedCategory = "image";
+            detectedMime = contentType;
+        } else if (contentType.startsWith("video/")) {
+            detectedExt = contentType.split("/")[1]?.split(";")[0] || "mp4";
+            detectedCategory = "video";
+            detectedMime = contentType;
+        } else if (contentType.startsWith("audio/")) {
+            detectedExt = contentType.split("/")[1]?.split(";")[0] || "mp3";
+            detectedCategory = "audio";
+            detectedMime = contentType;
+        } else if (contentType.includes("text/csv")) {
+            detectedExt = "csv";
+            detectedCategory = "excel";
+            detectedMime = "text/csv";
+        } else if (contentType.startsWith("text/")) {
+            detectedExt = "txt";
+            detectedCategory = "document";
+            detectedMime = "text/plain";
+        }
+    }
+
+    // 3. Content-Disposition header filename
+    let headerFileName = "";
+    const dispHeader = headers?.["content-disposition"];
+    if (dispHeader) {
+        const match = dispHeader.match(/filename\*?=(?:UTF-8'')?["']?([^"';\r\n]+)["']?/i);
+        if (match && match[1]) {
+            headerFileName = decodeURIComponent(match[1].trim());
+        }
+    }
+
+    // 4. Fallback to headerFileName, initialName or url
+    if (!detectedExt) {
+        const nameToUse = headerFileName || initialName || url || "";
+        detectedExt = getFileExtension(nameToUse);
+    }
+
+    if (!detectedCategory) {
+        detectedCategory = getCategoryFromExt(detectedExt);
+    }
+
+    if (!detectedMime) {
+        if (detectedExt === "pdf") detectedMime = "application/pdf";
+        else if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(detectedExt)) {
+            detectedMime = detectedExt === "svg" ? "image/svg+xml" : `image/${detectedExt === "jpg" ? "jpeg" : detectedExt}`;
+        } else if (["mp4", "webm"].includes(detectedExt)) detectedMime = `video/${detectedExt}`;
+        else if (["mp3", "wav"].includes(detectedExt)) detectedMime = `audio/${detectedExt}`;
+        else if (["xls", "xlsx"].includes(detectedExt)) detectedMime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        else if (detectedExt === "csv") detectedMime = "text/csv";
+        else if (["doc", "docx"].includes(detectedExt)) detectedMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        else detectedMime = "application/octet-stream";
+    }
+
+    // 5. Compute corrected filename
+    let finalFileName = initialName;
+    if (headerFileName && (!initialName || initialName === "archivo.dat" || initialName === "plantilla")) {
+        finalFileName = headerFileName;
+    }
+
+    if (detectedExt && finalFileName) {
+        const lastDot = finalFileName.lastIndexOf(".");
+        if (lastDot > 0) {
+            const currentExt = finalFileName.substring(lastDot + 1).toLowerCase();
+            if (currentExt !== detectedExt && (detectedCategory === "pdf" || detectedCategory === "excel" || detectedCategory === "image")) {
+                finalFileName = `${finalFileName.substring(0, lastDot)}.${detectedExt}`;
+            }
+        } else {
+            finalFileName = `${finalFileName}.${detectedExt}`;
+        }
+    }
+
+    return {
+        ext: detectedExt,
+        category: detectedCategory,
+        mime: detectedMime,
+        fileName: finalFileName
+    };
+}
+
 export default function DocumentViewerModal({
     isOpen,
     onClose,
@@ -191,23 +379,18 @@ export default function DocumentViewerModal({
     // Text File state
     const [textContent, setTextContent] = useState('');
 
-    const getFileExtension = (name) => {
-        if (!name) return '';
-        const parts = name.split('.');
-        return parts.length > 1 ? parts.pop().toLowerCase() : '';
-    };
+    // Dynamic file detection state (initialized from filename, refined from buffer & headers)
+    const [resolvedInfo, setResolvedInfo] = useState(() => {
+        const initialExt = getFileExtension(fileName) || getFileExtension(fileUrl);
+        return {
+            ext: initialExt,
+            category: getCategoryFromExt(initialExt),
+            mime: "application/octet-stream",
+            fileName: fileName
+        };
+    });
 
-    const fileExt = useMemo(() => getFileExtension(fileName), [fileName]);
-
-    const category = useMemo(() => {
-        if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(fileExt)) return 'image';
-        if (['pdf'].includes(fileExt)) return 'pdf';
-        if (['xls', 'xlsx', 'csv', 'ods'].includes(fileExt)) return 'excel';
-        if (['doc', 'docx', 'rtf', 'txt'].includes(fileExt)) return 'document';
-        if (['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(fileExt)) return 'video';
-        if (['mp3', 'wav', 'ogg', 'm4a'].includes(fileExt)) return 'audio';
-        return 'other';
-    }, [fileExt]);
+    const { ext: fileExt, category, fileName: activeFileName, mime: resolvedMime } = resolvedInfo;
 
     // Main loader effect
     useEffect(() => {
@@ -244,59 +427,52 @@ export default function DocumentViewerModal({
                     : (fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`);
 
                 // Always fetch binary ArrayBuffer with Axios auth headers
-                const response = await api.get(fetchUrl, { responseType: 'arraybuffer' });
+                const response = await api.get(fetchUrl, { responseType: "arraybuffer" });
                 const buffer = response.data;
                 setFileBuffer(buffer);
 
+                // Automatically inspect file type from binary magic bytes and headers
+                const detected = inspectFile(buffer, response.headers, fileName, fileUrl);
+                setResolvedInfo(detected);
+
                 // Handle DOCX conversion via mammoth
-                if (['docx', 'doc'].includes(fileExt)) {
+                if (detected.category === "document" && ["docx", "doc"].includes(detected.ext)) {
                     try {
                         setLoadingDocx(true);
                         const result = await mammoth.convertToHtml({ arrayBuffer: buffer.slice(0) });
-                        setDocxHtml(result.value || '<p><em>Documento sin contenido de texto reconocible.</em></p>');
+                        setDocxHtml(result.value || "<p><em>Documento sin contenido de texto reconocible.</em></p>");
                     } catch (docxErr) {
-                        console.warn('Mammoth docx conversion warning:', docxErr);
+                        console.warn("Mammoth docx conversion warning:", docxErr);
                     } finally {
                         setLoadingDocx(false);
                     }
                 }
 
                 // Handle TXT / Log / JSON
-                if (['txt', 'log', 'json'].includes(fileExt)) {
-                    const decoder = new TextDecoder('utf-8');
+                if (["txt", "log", "json"].includes(detected.ext)) {
+                    const decoder = new TextDecoder("utf-8");
                     setTextContent(decoder.decode(buffer));
                 }
 
-                // Determine Mime Type
-                let mimeType = 'application/octet-stream';
-                if (fileExt === 'pdf') mimeType = 'application/pdf';
-                else if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(fileExt)) {
-                    mimeType = fileExt === 'svg' ? 'image/svg+xml' : `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
-                } else if (['mp4', 'webm'].includes(fileExt)) mimeType = `video/${fileExt}`;
-                else if (['mp3', 'wav'].includes(fileExt)) mimeType = `audio/${fileExt}`;
-                else if (['xls', 'xlsx'].includes(fileExt)) mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-                else if (fileExt === 'csv') mimeType = 'text/csv';
-                else if (['doc', 'docx'].includes(fileExt)) mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-
-                // Create Blob from ArrayBuffer for images, video, audio, excel, download
-                const blob = new Blob([buffer], { type: mimeType });
+                // Create Blob from ArrayBuffer with verified MIME
+                const blob = new Blob([buffer], { type: detected.mime });
                 activeBlobUrl = URL.createObjectURL(blob);
                 setBlobUrl(activeBlobUrl);
 
-                // Handle Excel parsing via SheetJS
-                if (category === 'excel') {
+                // Handle Excel parsing via SheetJS ONLY if truly Excel
+                if (detected.category === "excel") {
                     try {
                         setLoadingExcel(true);
-                        setExcelError('');
+                        setExcelError("");
                         const data = new Uint8Array(buffer);
-                        const wb = XLSX.read(data, { type: 'array' });
+                        const wb = XLSX.read(data, { type: "array" });
                         setWorkbook(wb);
                         if (wb.SheetNames && wb.SheetNames.length > 0) {
                             setActiveSheet(wb.SheetNames[0]);
                         }
                     } catch (excelErr) {
-                        console.error('Error parsing Excel file in viewer:', excelErr);
-                        setExcelError('No se pudo procesar la plantilla de cálculo en el visor. Puedes descargar el archivo directamente.');
+                        console.error("Error parsing Excel file in viewer:", excelErr);
+                        setExcelError("No se pudo procesar la plantilla de cálculo en el visor. Puedes descargar el archivo directamente.");
                     } finally {
                         setLoadingExcel(false);
                     }
@@ -321,7 +497,7 @@ export default function DocumentViewerModal({
                 URL.revokeObjectURL(activeBlobUrl);
             }
         };
-    }, [isOpen, fileUrl, fileName, category, fileExt]);
+    }, [isOpen, fileUrl, fileName]);
 
     // Convert Active Excel Sheet to Table Data
     const sheetData = useMemo(() => {
@@ -362,27 +538,35 @@ export default function DocumentViewerModal({
 
     // Robust download handler that uses blobUrl or fetches authenticated blob
     const handleDownload = async (e) => {
+        const downloadName = activeFileName || fileName;
         if (blobUrl) {
+            if (e) e.preventDefault();
+            const link = document.createElement("a");
+            link.href = blobUrl;
+            link.download = downloadName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
             return;
         }
         if (e) e.preventDefault();
         try {
-            const fetchUrl = fileUrl.startsWith('http')
+            const fetchUrl = fileUrl.startsWith("http")
                 ? fileUrl
-                : (fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`);
-            const response = await api.get(fetchUrl, { responseType: 'blob' });
-            const blob = new Blob([response.data]);
+                : (fileUrl.startsWith("/") ? fileUrl : `/${fileUrl}`);
+            const response = await api.get(fetchUrl, { responseType: "blob" });
+            const blob = new Blob([response.data], { type: resolvedMime || "application/octet-stream" });
             const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
+            const link = document.createElement("a");
             link.href = url;
-            link.download = fileName;
+            link.download = downloadName;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
         } catch (err) {
-            console.error('Error downloading file via api:', err);
-            window.open(getAuthenticatedUrl(fileUrl), '_blank');
+            console.error("Error downloading file via api:", err);
+            window.open(getAuthenticatedUrl(fileUrl), "_blank");
         }
     };
 
@@ -403,7 +587,7 @@ export default function DocumentViewerModal({
                         </div>
                         <div className="cinema-title-box">
                             <div className="cinema-filename">
-                                {fileName}
+                                {activeFileName}
                                 <span className="cinema-ext-badge">{fileExt.toUpperCase()}</span>
                             </div>
                             {fileTitle && <div className="cinema-subtitle">{fileTitle}</div>}
@@ -429,7 +613,7 @@ export default function DocumentViewerModal({
 
                         <a
                             href={downloadUrl}
-                            download={fileName}
+                            download={activeFileName}
                             onClick={handleDownload}
                             target="_blank"
                             rel="noopener noreferrer"
@@ -457,8 +641,8 @@ export default function DocumentViewerModal({
                         <div className="cinema-error-state">
                             <AlertCircle size={36} color="#ef4444" />
                             <p>{fileError}</p>
-                            <a href={downloadUrl} download={fileName} onClick={handleDownload} className="btn-cinema-download-large">
-                                <Download size={18} /> Descargar {fileName}
+                            <a href={downloadUrl} download={activeFileName} onClick={handleDownload} className="btn-cinema-download-large">
+                                <Download size={18} /> Descargar {activeFileName}
                             </a>
                         </div>
                     ) : (
@@ -484,7 +668,7 @@ export default function DocumentViewerModal({
 
                             {/* 2. PDF VIEWER (PDFjs Canvas Engine) */}
                             {category === 'pdf' && (
-                                <PdfViewer pdfBuffer={fileBuffer} downloadUrl={downloadUrl} fileName={fileName} onDownload={handleDownload} />
+                                <PdfViewer pdfBuffer={fileBuffer} downloadUrl={downloadUrl} fileName={activeFileName} onDownload={handleDownload} />
                             )}
 
                             {/* 3. EXCEL / SPREADSHEET VIEWER */}
@@ -499,8 +683,8 @@ export default function DocumentViewerModal({
                                         <div className="cinema-error-state">
                                             <AlertCircle size={36} color="#ef4444" />
                                             <p>{excelError || fileError}</p>
-                                            <a href={downloadUrl} download={fileName} onClick={handleDownload} className="btn-cinema-download-large">
-                                                <Download size={18} /> Descargar {fileName}
+                                            <a href={downloadUrl} download={activeFileName} onClick={handleDownload} className="btn-cinema-download-large">
+                                                <Download size={18} /> Descargar {activeFileName}
                                             </a>
                                         </div>
                                     ) : (
@@ -591,8 +775,8 @@ export default function DocumentViewerModal({
                                             <p style={{ maxWidth: '400px', margin: '0 auto 16px auto', color: '#64748b' }}>
                                                 Documento Microsoft Word ({fileExt.toUpperCase()}). Haz clic en el botón a continuación para descargarlo.
                                             </p>
-                                            <a href={downloadUrl} download={fileName} onClick={handleDownload} className="btn-cinema-download-large">
-                                                <Download size={18} /> Descargar {fileName}
+                                            <a href={downloadUrl} download={activeFileName} onClick={handleDownload} className="btn-cinema-download-large">
+                                                <Download size={18} /> Descargar {activeFileName}
                                             </a>
                                         </div>
                                     )}
@@ -625,9 +809,9 @@ export default function DocumentViewerModal({
                                 <div className="cinema-fallback-card">
                                     <FileBox size={64} color="#0284c7" />
                                     <h3>{fileName}</h3>
-                                    <p>Vista previa no disponible directamente para este tipo de archivo (.${fileExt}).</p>
-                                    <a href={downloadUrl} download={fileName} onClick={handleDownload} className="btn-cinema-download-large">
-                                        <Download size={18} /> Descargar {fileName}
+                                    <p>Vista previa no disponible directamente para este tipo de archivo ({fileExt ? `.${fileExt}` : "desconocido"}).</p>
+                                    <a href={downloadUrl} download={activeFileName} onClick={handleDownload} className="btn-cinema-download-large">
+                                        <Download size={18} /> Descargar {activeFileName}
                                     </a>
                                 </div>
                             )}

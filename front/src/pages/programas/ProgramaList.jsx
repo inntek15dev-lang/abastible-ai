@@ -248,10 +248,12 @@ export default function ProgramaList() {
                                                                 type="button"
                                                                 onClick={() => {
                                                                     const url = act.id ? `/actividades/${act.id}/plantilla` : `/${act.template_url}`;
+                                                                    const ext = act.template_url ? act.template_url.split('.').pop().toLowerCase() : '';
+                                                                    const extSuffix = (ext && ext.length <= 5) ? `.${ext}` : '';
                                                                     setViewerState({
                                                                         isOpen: true,
                                                                         fileUrl: url,
-                                                                        fileName: `Plantilla_${act.codigo || 'Oficial'}.xlsx`,
+                                                                        fileName: `Plantilla_${act.codigo || 'Oficial'}${extSuffix}`,
                                                                         fileTitle: `Plantilla Oficial - Actividad ${act.codigo || ''}`
                                                                     });
                                                                 }}

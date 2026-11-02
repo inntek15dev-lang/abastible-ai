@@ -247,7 +247,10 @@ const actividadController = {
                 }
             }
 
-            const downloadName = path.basename(targetPath);
+            const ext = path.extname(targetPath) || "";
+            const downloadName = actividad.codigo
+                ? `Plantilla_${actividad.codigo.replace(/[^a-zA-Z0-9_-]/g, "_")}${ext}`
+                : path.basename(targetPath);
             return res.download(targetPath, downloadName);
         } catch (error) {
             console.error('Actividad downloadPlantilla error:', error);

@@ -136,7 +136,8 @@ export default function FileUpload({
                                 onClick={(e) => {
                                     e.preventDefault();
                                     if (!templateUrl) return;
-                                    const cleanName = templateUrl.split('/').pop() || 'plantilla.xlsx';
+                                    const rawName = templateUrl.split('/').pop() || '';
+                                    const cleanName = rawName.includes('.') ? rawName : 'plantilla';
                                     const viewUrl = templateUrl.startsWith('http') ? templateUrl : (templateUrl.startsWith('/') ? templateUrl : `/${templateUrl}`);
                                     setViewerState({
                                         isOpen: true,

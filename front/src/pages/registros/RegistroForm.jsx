@@ -1463,8 +1463,8 @@ export default function RegistroForm() {
                                                                                     setViewerState({
                                                                                         isOpen: true,
                                                                                         fileUrl: `/evidencias/${e.id}/download`,
-                                                                                        fileName: e.nombre_archivo,
-                                                                                        fileTitle: `Evidencia: ${e.nombre_archivo}`
+                                                                                        fileName: e.nombre_original || e.nombre_archivo,
+                                                                                        fileTitle: `Evidencia: ${e.nombre_original || e.nombre_archivo}`
                                                                                     });
                                                                                 }}
                                                                                 style={{ fontSize: '0.7rem', color: '#003594', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left', fontWeight: 600 }}
