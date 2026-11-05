@@ -1,6 +1,6 @@
 // IEEE Trace: REQ-012 | US-052 | components/TraceabilityPanel.jsx
 import { useEffect, useState } from 'react';
-import { Clock, User, Shield, Info, Edit, CheckCircle, X, FileText, Send, Lock } from 'lucide-react';
+import { Clock, User, Shield, Info, Edit, CheckCircle, X, FileText, Send, Lock, Wrench, AlertTriangle, RefreshCw } from 'lucide-react';
 import api from '../api';
 import Modal from './ui/Modal';
 
@@ -45,6 +45,9 @@ export default function TraceabilityPanel({ isOpen, onClose, registroId }) {
             case 'AUDITAR': return <Shield size={14} className="text-orange-600" />;
             case 'FINALIZAR_AUDITORIA': return <CheckCircle size={14} className="text-green-600" />;
             case 'REABRIR': return <Lock size={14} className="text-yellow-600" />;
+            case 'CORRECCION_ADMIN_DIOS': return <Wrench size={14} className="text-purple-600" />;
+            case 'CAMBIO_ESTADO_FORZADO': return <RefreshCw size={14} className="text-amber-600" />;
+            case 'MIGRAR_PERIODO': return <RefreshCw size={14} className="text-blue-600" />;
             default: return <Info size={14} className="text-gray-600" />;
         }
     };
@@ -56,6 +59,9 @@ export default function TraceabilityPanel({ isOpen, onClose, registroId }) {
             case 'AUDITAR': return '#fff7ed'; // orange-50
             case 'FINALIZAR_AUDITORIA': return '#ecfdf5';
             case 'REABRIR': return '#fffbeb'; // amber-50
+            case 'CORRECCION_ADMIN_DIOS': return '#f3e8ff'; // purple-100
+            case 'CAMBIO_ESTADO_FORZADO': return '#fef3c7'; // amber-100
+            case 'MIGRAR_PERIODO': return '#eff6ff'; // blue-50
             default: return '#f9fafb'; // gray-50
         }
     };
@@ -67,6 +73,9 @@ export default function TraceabilityPanel({ isOpen, onClose, registroId }) {
             case 'AUDITAR': return '#ea580c'; // orange-600
             case 'FINALIZAR_AUDITORIA': return '#059669';
             case 'REABRIR': return '#d97706'; // amber-600
+            case 'CORRECCION_ADMIN_DIOS': return '#7e22ce'; // purple-700
+            case 'CAMBIO_ESTADO_FORZADO': return '#b45309'; // amber-700
+            case 'MIGRAR_PERIODO': return '#1d4ed8'; // blue-700
             default: return '#4b5563'; // gray-600
         }
     };
@@ -170,6 +179,9 @@ export default function TraceabilityPanel({ isOpen, onClose, registroId }) {
                                                     log.accion === 'REABRIR' ? 'Solicitud de Reapertura' :
                                                         log.accion === 'SUBSANACION' ? 'Subsanación Enviada' : // Handle implicit logic if exists or generic
                                                             log.accion === 'AUDITAR' ? 'Auditoría en proceso' :
+                                                        log.accion === 'CORRECCION_ADMIN_DIOS' ? 'Corrección Admin Dios' :
+                                                        log.accion === 'CAMBIO_ESTADO_FORZADO' ? 'Cambio Forzado Estado' :
+                                                        log.accion === 'MIGRAR_PERIODO' ? 'Migración Periodo' :
                                                                 log.accion}
                                         </span>
                                     </div>

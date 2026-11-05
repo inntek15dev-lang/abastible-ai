@@ -3,7 +3,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
-import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock, CheckCircle, Trash2, Clock, AlertTriangle, User, Download, Calendar } from 'lucide-react';
+import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock, CheckCircle, Trash2, Clock, AlertTriangle, User, Download, Calendar, Wrench, List } from 'lucide-react';
+import TraceabilityPanel from '../../components/TraceabilityPanel';
 import FileUpload from '../../components/forms/FileUpload';
 import HallazgoModal from '../../components/forms/HallazgoModal';
 import HallazgoList from '../../components/forms/HallazgoList';
@@ -48,9 +49,18 @@ export default function RegistroForm() {
     const [reaperturaModal, setReaperturaModal] = useState({ show: false });
     const [errorModal, setErrorModal] = useState({ show: false, message: '' });
     const [registroCerrado, setRegistroCerrado] = useState(false);
-    const isLocked = isReadOnly || (isAdminOrADC
+    // Admin Dios: Modo Corregir & Switch Forzado de Estado
+    const [modoCorregir, setModoCorregir] = useState(Boolean(location.state?.modoCorregir && user?.role === 'admin'));
+    const [savingCorreccion, setSavingCorreccion] = useState(false);
+    const [showForzarEstadoModal, setShowForzarEstadoModal] = useState(false);
+    const [forzarEstadoSeleccionado, setForzarEstadoSeleccionado] = useState('');
+    const [forzarEstadoMotivo, setForzarEstadoMotivo] = useState('');
+    const [forzarEstadoLoading, setForzarEstadoLoading] = useState(false);
+    const [showTraceModal, setShowTraceModal] = useState(false);
+
+    const isLocked = !modoCorregir && (isReadOnly || (isAdminOrADC
         ? ['auditada', 'finalizado'].includes(form.estado_auditoria)
-        : (registroCerrado && !['pendiente', 'pendiente_subsanacion', 'reabierto'].includes(form.estado_auditoria)));
+        : (registroCerrado && !['pendiente', 'pendiente_subsanacion', 'reabierto'].includes(form.estado_auditoria))));
     // Solo admin/administrador_contrato pueden crear un registro para CUALQUIER empresa
     // (el resto siempre tiene su propia empresa pre-cargada, ver initData más abajo), y
     // solo tiene sentido buscar/cambiar de empresa al crear uno nuevo, no al editar.
@@ -70,6 +80,65 @@ export default function RegistroForm() {
         window.addEventListener('registro-theme-change', handler);
         return () => window.removeEventListener('registro-theme-change', handler);
     }, []);
+
+    // === Handlers Modo Corregir & Forzar Estado (Admin Dios) ===
+    const handleGuardarCorreccionAdmin = async () => {
+        if (!id) return;
+        setSavingCorreccion(true);
+        try {
+            const payload = {
+                dotacion_total: form.dotacion_total,
+                personas_nuevas: form.personas_nuevas,
+                supervisores: form.supervisores,
+                prevencionistas: form.prevencionistas,
+                actividades: actividades.map(a => ({
+                    id: a.id,
+                    actividad_id: a.actividad_id,
+                    cumple: a.cumple,
+                    responsable: a.responsable,
+                    descripcion_contratista: a.descripcion_contratista,
+                    cumple_auditor: a.cumple_auditor,
+                    observacion_auditor: a.observacion_auditor
+                }))
+            };
+
+            const response = await api.put(`/registros/${id}/corregir`, payload);
+            toast.success(response.data?.message || 'Correcciones guardadas exitosamente sin alterar el estado.');
+            await fetchRegistro();
+        } catch (err) {
+            console.error('Error al guardar corrección admin:', err);
+            toast.error(err.response?.data?.message || 'Error al guardar correcciones.');
+        } finally {
+            setSavingCorreccion(false);
+        }
+    };
+
+    const handleForzarEstadoSubmit = async (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        if (!id || !forzarEstadoSeleccionado) return;
+        if (!forzarEstadoMotivo.trim()) {
+            toast.error('Debe ingresar un motivo para forzar el cambio de estado.');
+            return;
+        }
+
+        setForzarEstadoLoading(true);
+        try {
+            const response = await api.post(`/registros/${id}/forzar-estado`, {
+                nuevo_estado: forzarEstadoSeleccionado,
+                motivo: forzarEstadoMotivo.trim()
+            });
+
+            toast.success(response.data?.message || `Estado forzado a ${forzarEstadoSeleccionado} exitosamente.`);
+            setShowForzarEstadoModal(false);
+            setForzarEstadoMotivo('');
+            await fetchRegistro();
+        } catch (err) {
+            console.error('Error al forzar estado:', err);
+            toast.error(err.response?.data?.message || 'Error al forzar estado.');
+        } finally {
+            setForzarEstadoLoading(false);
+        }
+    };
 
     const scrollToFinding = (hallazgoId) => {
         const element = document.getElementById(`finding-${hallazgoId}`);
@@ -852,12 +921,151 @@ export default function RegistroForm() {
         <div className="page-container" style={{ width: '100%', margin: '0 auto', padding: '16px', backgroundColor: themeColors.pageBg, minHeight: '100vh', transition: 'background-color 0.3s ease', boxSizing: 'border-box' }}>
 
             {/* Header Title */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: `1px solid ${themeColors.border}`, paddingBottom: '1rem' }}>
-                <FileText size={24} color={themeColors.headerBg} />
-                <h1 style={{ fontSize: '1.25rem', fontWeight: 600, color: themeColors.textPrimary, margin: 0 }}>
-                    Registro Mensual de Cumplimiento {isReadOnly && <span style={{ fontSize: '0.8rem', backgroundColor: themeColors.inputBg, padding: '2px 8px', borderRadius: '4px', border: `1px solid ${themeColors.inputBorder}`, color: themeColors.textSecondary, marginLeft: '10px' }}>VISTA SOLO LECTURA</span>}
-                </h1>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: `1px solid ${themeColors.border}`, paddingBottom: '1rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <FileText size={24} color={themeColors.headerBg} />
+                    <h1 style={{ fontSize: '1.25rem', fontWeight: 600, color: themeColors.textPrimary, margin: 0, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                        <span>Registro Mensual de Cumplimiento</span>
+                        {isReadOnly && !modoCorregir && <span style={{ fontSize: '0.8rem', backgroundColor: themeColors.inputBg, padding: '2px 8px', borderRadius: '4px', border: `1px solid ${themeColors.inputBorder}`, color: themeColors.textSecondary }}>VISTA SOLO LECTURA</span>}
+                        {modoCorregir && <span style={{ fontSize: '0.8rem', backgroundColor: '#f3e8ff', padding: '3px 10px', borderRadius: '6px', border: '1px solid #c084fc', color: '#7e22ce', fontWeight: 700 }}>⚡ MODO CORREGIR ACTIVO</span>}
+                    </h1>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {isEdit && (
+                        <button
+                            id="btn-ver-trazabilidad-form"
+                            type="button"
+                            onClick={() => setShowTraceModal(true)}
+                            className="btn-secondary"
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 12px',
+                                fontSize: '0.85rem'
+                            }}
+                        >
+                            <List size={16} />
+                            <span>Trazabilidad</span>
+                        </button>
+                    )}
+
+                    {user?.role === 'admin' && isEdit && (
+                        <button
+                            id="btn-toggle-modo-corregir"
+                            type="button"
+                            onClick={() => setModoCorregir(!modoCorregir)}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '6px 14px',
+                                borderRadius: '6px',
+                                fontSize: '0.85rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                backgroundColor: modoCorregir ? '#7e22ce' : '#f3e8ff',
+                                color: modoCorregir ? '#ffffff' : '#7e22ce',
+                                border: '1px solid #c084fc',
+                                transition: 'all 0.2s ease',
+                                boxShadow: modoCorregir ? '0 2px 8px rgba(126, 34, 206, 0.3)' : 'none'
+                            }}
+                        >
+                            <Wrench size={16} />
+                            <span>{modoCorregir ? 'Salir de Modo Corregir' : 'Modo Corregir (Admin Dios)'}</span>
+                        </button>
+                    )}
+                </div>
             </div>
+
+            {/* Banner Destacado Modo Corregir (Admin Dios) */}
+            {user?.role === 'admin' && isEdit && modoCorregir && (
+                <div style={{
+                    backgroundColor: '#faf5ff',
+                    border: '2px solid #a855f7',
+                    borderRadius: '8px',
+                    padding: '1rem 1.25rem',
+                    marginBottom: '1.5rem',
+                    boxShadow: '0 4px 12px rgba(168, 85, 247, 0.15)',
+                    background: 'linear-gradient(135deg, rgba(243, 232, 255, 0.7) 0%, rgba(255, 255, 255, 0.98) 100%)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
+                                <Wrench size={20} color="#7e22ce" />
+                                <h2 style={{ fontSize: '1rem', fontWeight: 800, color: '#581c87', margin: 0 }}>
+                                    MODO CORREGIR (ADMIN DIOS)
+                                </h2>
+                                <span style={{ fontSize: '0.7rem', fontWeight: 700, backgroundColor: '#7e22ce', color: '#ffffff', padding: '2px 8px', borderRadius: '12px' }}>
+                                    EDICIÓN TOTAL
+                                </span>
+                                <span style={{ fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#ffffff', color: '#1e293b', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '6px' }}>
+                                    Estado Actual: <strong>{form.estado_auditoria}</strong>
+                                </span>
+                            </div>
+                            <p style={{ fontSize: '0.8rem', color: '#6b21a8', margin: 0, lineHeight: 1.4 }}>
+                                Puede modificar libremente datos de cabecera, respuestas y evidencias del contratista, y calificaciones u observaciones del auditor. 
+                                Al guardar correcciones, <strong>se preserva el estado actual sin alterarlo</strong>. 
+                                Si desea mover el registro a otra etapa del flujo, use el botón <strong>Switch de Estado</strong>.
+                            </p>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                            <button
+                                id="btn-switch-estado-forzado"
+                                type="button"
+                                onClick={() => {
+                                    setForzarEstadoSeleccionado(form.estado_auditoria);
+                                    setForzarEstadoMotivo('');
+                                    setShowForzarEstadoModal(true);
+                                }}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '8px 16px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 700,
+                                    backgroundColor: '#f59e0b',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 2px 4px rgba(245, 158, 11, 0.3)'
+                                }}
+                            >
+                                <RefreshCw size={15} />
+                                <span>Switch de Estado (Forzar)</span>
+                            </button>
+
+                            <button
+                                id="btn-guardar-correccion-admin"
+                                type="button"
+                                onClick={handleGuardarCorreccionAdmin}
+                                disabled={savingCorreccion}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '8px 18px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 700,
+                                    backgroundColor: '#7e22ce',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    cursor: savingCorreccion ? 'not-allowed' : 'pointer',
+                                    boxShadow: '0 2px 6px rgba(126, 34, 206, 0.4)'
+                                }}
+                            >
+                                <Save size={16} />
+                                <span>{savingCorreccion ? 'Guardando...' : 'Guardar Correcciones'}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Sección Especial: Migración de Periodo (Solo Admin dios) */}
             {user?.role === 'admin' && isEdit && (
@@ -1312,32 +1520,34 @@ export default function RegistroForm() {
                                                             type="button"
                                                             onClick={() => {
                                                                 if (isLocked) return;
-                                                                if (act.requiere_evidencia && (!act.evidencias?.length && !act.pendingFiles?.length)) {
+                                                                if (!modoCorregir && act.requiere_evidencia && (!act.evidencias?.length && !act.pendingFiles?.length)) {
                                                                     toast.error('Esta actividad requiere evidencia obligatoria. Por favor, cárguela antes de marcar como "Cumple".');
                                                                     return;
                                                                 }
-                                                                handleActividadChange(globalIndex, 'cumple', true);
+                                                                handleActividadChange(globalIndex, 'cumple', 1);
                                                             }}
                                                             style={{
                                                                 padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid', cursor: parsedCursor(isLocked),
-                                                                backgroundColor: act.cumple ? '#f0fdf4' : 'transparent',
-                                                                borderColor: act.cumple ? '#16a34a' : '#e5e7eb',
-                                                                color: act.cumple ? '#15803d' : '#9ca3af',
-                                                                fontWeight: act.cumple ? 600 : 400,
-                                                                opacity: isLocked ? 0.6 : 1
+                                                                backgroundColor: (act.cumple === true || act.cumple === 1) ? '#f0fdf4' : 'transparent',
+                                                                borderColor: (act.cumple === true || act.cumple === 1) ? '#16a34a' : '#e5e7eb',
+                                                                color: (act.cumple === true || act.cumple === 1) ? '#15803d' : '#9ca3af',
+                                                                fontWeight: (act.cumple === true || act.cumple === 1) ? 600 : 400,
+                                                                opacity: isLocked ? 0.6 : 1,
+                                                                width: '100%',
+                                                                minWidth: '95px'
                                                             }}
                                                         >
                                                             ✓ Cumple
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            onClick={() => !isLocked && handleActividadChange(globalIndex, 'cumple', false)}
+                                                            onClick={() => !isLocked && handleActividadChange(globalIndex, 'cumple', 0)}
                                                             style={{
                                                                 padding: '4px 8px', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid', cursor: parsedCursor(isLocked),
-                                                                backgroundColor: !act.cumple ? '#fef2f2' : 'transparent',
-                                                                borderColor: !act.cumple ? '#ef4444' : '#e5e7eb',
-                                                                color: !act.cumple ? '#b91c1c' : '#9ca3af',
-                                                                fontWeight: !act.cumple ? 600 : 400,
+                                                                backgroundColor: (act.cumple === false || act.cumple === 0) ? '#fef2f2' : 'transparent',
+                                                                borderColor: (act.cumple === false || act.cumple === 0) ? '#ef4444' : '#e5e7eb',
+                                                                color: (act.cumple === false || act.cumple === 0) ? '#b91c1c' : '#9ca3af',
+                                                                fontWeight: (act.cumple === false || act.cumple === 0) ? 600 : 400,
                                                                 opacity: isLocked ? 0.6 : 1,
                                                                 width: '100%',
                                                                 minWidth: '95px'
@@ -1345,43 +1555,170 @@ export default function RegistroForm() {
                                                         >
                                                             ✕ No Cumple
                                                         </button>
-                                                    </div>
-                                                </td>
-                                                {/* Auditor Columns */}
-                                                <td style={{ padding: '1rem', verticalAlign: 'top', textAlign: 'center', backgroundColor: '#f0f9ff' }}>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                                        <div>
-                                                            {(act.cumple_auditor === true || act.cumple_auditor === 1) && <span style={{ color: '#16a34a', fontWeight: 'bold', fontSize: '1.2rem' }}>✓</span>}
-                                                            {(act.cumple_auditor === false || act.cumple_auditor === 0) && <span style={{ color: '#dc2626', fontWeight: 'bold', fontSize: '1.2rem' }}>✕</span>}
-                                                            {(act.cumple_auditor === null || act.cumple_auditor === undefined) && <span style={{ color: '#9ca3af' }}>-</span>}
-                                                        </div>
-                                                        {act.hallazgos && act.hallazgos.length > 0 && (
-                                                            <div 
-                                                                onClick={() => scrollToFinding(act.hallazgos[0].id)}
-                                                                style={{ 
-                                                                    display: 'flex', 
-                                                                    alignItems: 'center', 
-                                                                    gap: '3px', 
-                                                                    backgroundColor: '#fef2f2', 
-                                                                    color: '#dc2626', 
-                                                                    padding: '2px 6px', 
-                                                                    borderRadius: '10px', 
-                                                                    fontSize: '0.65rem',
-                                                                    fontWeight: 700,
-                                                                    border: '1px solid #fee2e2',
-                                                                    cursor: 'pointer',
-                                                                    transition: 'transform 0.2s'
-                                                                }} 
-                                                                className="hover-scale"
-                                                                title="Clic para ver detalle del hallazgo"
+                                                        {modoCorregir && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleActividadChange(globalIndex, 'cumple', 2)}
+                                                                style={{
+                                                                    padding: '3px 6px', fontSize: '0.7rem', borderRadius: '4px', border: '1px solid', cursor: 'pointer',
+                                                                    backgroundColor: (act.cumple === 2 || act.cumple === '2') ? '#e2e8f0' : 'transparent',
+                                                                    borderColor: '#cbd5e1',
+                                                                    color: (act.cumple === 2 || act.cumple === '2') ? '#1e293b' : '#64748b',
+                                                                    fontWeight: (act.cumple === 2 || act.cumple === '2') ? 600 : 400,
+                                                                    width: '100%',
+                                                                    minWidth: '95px'
+                                                                }}
                                                             >
-                                                                <AlertTriangle size={10} /> HALLAZGO
-                                                            </div>
+                                                                N/A No Aplica
+                                                            </button>
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td style={{ padding: '1rem', verticalAlign: 'top', backgroundColor: '#f0f9ff', fontSize: '0.8rem', color: '#374151' }}>
-                                                    {act.observacion_auditor || '-'}
+                                                {/* Auditor Columns */}
+                                                <td style={{ padding: '0.5rem', verticalAlign: 'top', textAlign: 'center', backgroundColor: '#f0f9ff' }}>
+                                                    {modoCorregir ? (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
+                                                            <div style={{ display: 'flex', gap: '3px' }}>
+                                                                <button
+                                                                    type="button"
+                                                                    title="Auditor: Cumple"
+                                                                    onClick={() => handleActividadChange(globalIndex, 'cumple_auditor', 1)}
+                                                                    style={{
+                                                                        padding: '3px 6px',
+                                                                        fontSize: '0.7rem',
+                                                                        borderRadius: '4px',
+                                                                        border: '1px solid',
+                                                                        cursor: 'pointer',
+                                                                        backgroundColor: (act.cumple_auditor === 1 || act.cumple_auditor === true) ? '#16a34a' : '#f0fdf4',
+                                                                        borderColor: '#16a34a',
+                                                                        color: (act.cumple_auditor === 1 || act.cumple_auditor === true) ? '#ffffff' : '#15803d',
+                                                                        fontWeight: 700
+                                                                    }}
+                                                                >
+                                                                    ✓
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    title="Auditor: No Cumple"
+                                                                    onClick={() => handleActividadChange(globalIndex, 'cumple_auditor', 0)}
+                                                                    style={{
+                                                                        padding: '3px 6px',
+                                                                        fontSize: '0.7rem',
+                                                                        borderRadius: '4px',
+                                                                        border: '1px solid',
+                                                                        cursor: 'pointer',
+                                                                        backgroundColor: (act.cumple_auditor === 0 || act.cumple_auditor === false) ? '#dc2626' : '#fef2f2',
+                                                                        borderColor: '#dc2626',
+                                                                        color: (act.cumple_auditor === 0 || act.cumple_auditor === false) ? '#ffffff' : '#b91c1c',
+                                                                        fontWeight: 700
+                                                                    }}
+                                                                >
+                                                                    ✕
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    title="Auditor: No Aplica"
+                                                                    onClick={() => handleActividadChange(globalIndex, 'cumple_auditor', 2)}
+                                                                    style={{
+                                                                        padding: '3px 6px',
+                                                                        fontSize: '0.65rem',
+                                                                        borderRadius: '4px',
+                                                                        border: '1px solid',
+                                                                        cursor: 'pointer',
+                                                                        backgroundColor: (act.cumple_auditor === 2 || act.cumple_auditor === '2') ? '#475569' : '#f1f5f9',
+                                                                        borderColor: '#94a3b8',
+                                                                        color: (act.cumple_auditor === 2 || act.cumple_auditor === '2') ? '#ffffff' : '#475569',
+                                                                        fontWeight: 600
+                                                                    }}
+                                                                >
+                                                                    N/A
+                                                                </button>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                title="Auditor: Sin evaluar"
+                                                                onClick={() => handleActividadChange(globalIndex, 'cumple_auditor', null)}
+                                                                style={{
+                                                                    padding: '2px 6px',
+                                                                    fontSize: '0.65rem',
+                                                                    borderRadius: '4px',
+                                                                    border: '1px dashed #cbd5e1',
+                                                                    cursor: 'pointer',
+                                                                    backgroundColor: act.cumple_auditor === null ? '#e2e8f0' : 'transparent',
+                                                                    color: '#64748b'
+                                                                }}
+                                                            >
+                                                                Sin evaluar
+                                                            </button>
+                                                            {act.hallazgos && act.hallazgos.length > 0 && (
+                                                                <div 
+                                                                    onClick={() => scrollToFinding(act.hallazgos[0].id)}
+                                                                    style={{ 
+                                                                        display: 'flex', 
+                                                                        alignItems: 'center', 
+                                                                        gap: '3px', 
+                                                                        backgroundColor: '#fef2f2', 
+                                                                        color: '#dc2626', 
+                                                                        padding: '2px 6px', 
+                                                                        borderRadius: '10px', 
+                                                                        fontSize: '0.65rem',
+                                                                        fontWeight: 700,
+                                                                        border: '1px solid #fee2e2',
+                                                                        cursor: 'pointer'
+                                                                    }} 
+                                                                    className="hover-scale"
+                                                                    title="Clic para ver detalle del hallazgo"
+                                                                >
+                                                                    <AlertTriangle size={10} /> HALLAZGO
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                                            <div>
+                                                                {(act.cumple_auditor === true || act.cumple_auditor === 1) && <span style={{ color: '#16a34a', fontWeight: 'bold', fontSize: '1.2rem' }}>✓</span>}
+                                                                {(act.cumple_auditor === false || act.cumple_auditor === 0) && <span style={{ color: '#dc2626', fontWeight: 'bold', fontSize: '1.2rem' }}>✕</span>}
+                                                                {(act.cumple_auditor === 2 || act.cumple_auditor === '2') && <span style={{ color: '#64748b', fontWeight: 600, fontSize: '0.8rem' }}>N/A</span>}
+                                                                {(act.cumple_auditor === null || act.cumple_auditor === undefined) && <span style={{ color: '#9ca3af' }}>-</span>}
+                                                            </div>
+                                                            {act.hallazgos && act.hallazgos.length > 0 && (
+                                                                <div 
+                                                                    onClick={() => scrollToFinding(act.hallazgos[0].id)}
+                                                                    style={{ 
+                                                                        display: 'flex', 
+                                                                        alignItems: 'center', 
+                                                                        gap: '3px', 
+                                                                        backgroundColor: '#fef2f2', 
+                                                                        color: '#dc2626', 
+                                                                        padding: '2px 6px', 
+                                                                        borderRadius: '10px', 
+                                                                        fontSize: '0.65rem',
+                                                                        fontWeight: 700,
+                                                                        border: '1px solid #fee2e2',
+                                                                        cursor: 'pointer',
+                                                                        transition: 'transform 0.2s'
+                                                                    }} 
+                                                                    className="hover-scale"
+                                                                    title="Clic para ver detalle del hallazgo"
+                                                                >
+                                                                    <AlertTriangle size={10} /> HALLAZGO
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td style={{ padding: '0.75rem', verticalAlign: 'top', backgroundColor: '#f0f9ff', fontSize: '0.8rem', color: '#374151' }}>
+                                                    {modoCorregir ? (
+                                                        <textarea
+                                                            className="form-control"
+                                                            placeholder="Observación del auditor..."
+                                                            value={act.observacion_auditor || ''}
+                                                            onChange={(e) => handleActividadChange(globalIndex, 'observacion_auditor', e.target.value)}
+                                                            style={{ fontSize: '0.8rem', padding: '0.4rem', minHeight: '60px', resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
+                                                        />
+                                                    ) : (
+                                                        act.observacion_auditor || '-'
+                                                    )}
                                                 </td>
                                                 <td style={{ padding: '1rem', verticalAlign: 'top' }}>
                                                     <input
@@ -1782,7 +2119,38 @@ export default function RegistroForm() {
                             </button>
                         )}
 
-                        {!isLocked && (
+                        {modoCorregir ? (
+                            <>
+                                <button
+                                    id="btn-switch-estado-bottom"
+                                    type="button"
+                                    onClick={() => {
+                                        setForzarEstadoSeleccionado(form.estado_auditoria);
+                                        setForzarEstadoMotivo('');
+                                        setShowForzarEstadoModal(true);
+                                    }}
+                                    style={{
+                                        backgroundColor: '#f59e0b', color: 'white', padding: '0.75rem 1.5rem', borderRadius: '6px', border: 'none', fontWeight: 600, cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 2px 4px rgba(245, 158, 11, 0.25)'
+                                    }}
+                                >
+                                    <RefreshCw size={18} /> Switch de Estado (Forzar)
+                                </button>
+                                <button
+                                    id="btn-save-correccion-bottom"
+                                    type="button"
+                                    onClick={handleGuardarCorreccionAdmin}
+                                    disabled={savingCorreccion}
+                                    style={{
+                                        backgroundColor: '#7e22ce', color: 'white', padding: '0.75rem 2rem', borderRadius: '6px', border: 'none', fontWeight: 700, cursor: savingCorreccion ? 'not-allowed' : 'pointer',
+                                        display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 2px 6px rgba(126, 34, 206, 0.3)'
+                                    }}
+                                >
+                                    {savingCorreccion ? <RefreshCw className="spin" size={18} /> : <Save size={18} />}
+                                    Guardar Correcciones
+                                </button>
+                            </>
+                        ) : !isLocked ? (
                             <>
                                 {isContractor && (form.estado_auditoria === 'reabierto' || form.estado_auditoria === 'pendiente_subsanacion') && (
                                     <button
@@ -1832,7 +2200,7 @@ export default function RegistroForm() {
                                     </button>
                                 )}
                             </>
-                        )}
+                        ) : null}
                     </div>
                 </div>
             </form >
@@ -1903,6 +2271,154 @@ export default function RegistroForm() {
                 fileName={viewerState.fileName}
                 fileTitle={viewerState.fileTitle}
             />
+
+            {/* Modal Switch de Estado Forzado (Admin Dios) */}
+            {showForzarEstadoModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 9999,
+                    padding: '1rem'
+                }}>
+                    <div style={{
+                        backgroundColor: '#ffffff',
+                        borderRadius: '12px',
+                        width: '100%',
+                        maxWidth: '520px',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                        overflow: 'hidden'
+                    }}>
+                        <div style={{
+                            padding: '1rem 1.25rem',
+                            backgroundColor: '#fef3c7',
+                            borderBottom: '1px solid #fde68a',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <RefreshCw size={20} color="#d97706" />
+                                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#92400e', margin: 0 }}>
+                                    Switch Forzado de Estado (Admin Dios)
+                                </h3>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowForzarEstadoModal(false)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', padding: '4px', fontSize: '1rem' }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div style={{ padding: '1.25rem' }}>
+                            <div style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: '#fffbeb', borderRadius: '6px', border: '1px solid #fef3c7' }}>
+                                <div style={{ fontSize: '0.82rem', color: '#92400e', lineHeight: 1.4 }}>
+                                    ⚠️ <strong>Acción con trazabilidad directa:</strong> Esta acción cambiará de forma inmediata el estado del registro a la fase seleccionada, permitiendo continuar o reiniciar el flujo desde ese punto.
+                                </div>
+                            </div>
+
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>
+                                    Estado Actual del Registro:
+                                </label>
+                                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1f2937', padding: '0.5rem 0.75rem', backgroundColor: '#f3f4f6', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
+                                    {form.estado_auditoria}
+                                </div>
+                            </div>
+
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label htmlFor="select-forzar-estado" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>
+                                    Seleccionar Nuevo Estado Destino *:
+                                </label>
+                                <select
+                                    id="select-forzar-estado"
+                                    className="form-control"
+                                    value={forzarEstadoSeleccionado}
+                                    onChange={(e) => setForzarEstadoSeleccionado(e.target.value)}
+                                    style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem' }}
+                                >
+                                    <option value="pendiente">pendiente - Borrador editable por Contratista</option>
+                                    <option value="auditable">auditable - Enviado a Auditoría (Listo para auditar)</option>
+                                    <option value="auditando">auditando - En Proceso de Auditoría</option>
+                                    <option value="auditada">auditada - Auditoría Finalizada</option>
+                                    <option value="pendiente_subsanacion">pendiente_subsanacion - Subsanación abierta para Contratista</option>
+                                    <option value="subsanado">subsanado - Subsanación enviada (Listo para revisión)</option>
+                                    <option value="en_revision">en_revision - En Revisión de Subsanación</option>
+                                    <option value="finalizado">finalizado - Auditoría Finalizada Definitiva</option>
+                                    <option value="reabierto">reabierto - Reabierto para corrección por Contratista</option>
+                                    <option value="reapertura_solicitada">reapertura_solicitada - Solicitud de reapertura pendiente</option>
+                                </select>
+                            </div>
+
+                            <div style={{ marginBottom: '1.25rem' }}>
+                                <label htmlFor="motivo-forzar-estado" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>
+                                    Motivo o Justificación del Cambio (Mandatorio para Trazabilidad) *:
+                                </label>
+                                <textarea
+                                    id="motivo-forzar-estado"
+                                    className="form-control"
+                                    rows={3}
+                                    placeholder="Describa el motivo por el cual se fuerza este estado (ej: subsanación errónea, reinicio de auditoría, corrección administrativa, etc.)..."
+                                    value={forzarEstadoMotivo}
+                                    onChange={(e) => setForzarEstadoMotivo(e.target.value)}
+                                    style={{ width: '100%', fontSize: '0.85rem', resize: 'vertical' }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowForzarEstadoModal(false)}
+                                    className="btn-secondary"
+                                    disabled={forzarEstadoLoading}
+                                    style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    id="btn-confirmar-forzar-estado"
+                                    type="button"
+                                    onClick={handleForzarEstadoSubmit}
+                                    disabled={forzarEstadoLoading || !forzarEstadoMotivo.trim()}
+                                    className="btn-primary"
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '0.5rem 1.25rem',
+                                        fontSize: '0.85rem',
+                                        backgroundColor: '#d97706',
+                                        borderColor: '#d97706',
+                                        color: '#ffffff',
+                                        cursor: (forzarEstadoLoading || !forzarEstadoMotivo.trim()) ? 'not-allowed' : 'pointer',
+                                        opacity: (forzarEstadoLoading || !forzarEstadoMotivo.trim()) ? 0.6 : 1
+                                    }}
+                                >
+                                    <RefreshCw size={14} className={forzarEstadoLoading ? 'animate-spin' : ''} />
+                                    <span>{forzarEstadoLoading ? 'Cambiando Estado...' : 'Confirmar Cambio Forzado'}</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Traceability Panel */}
+            {showTraceModal && (
+                <TraceabilityPanel
+                    isOpen={showTraceModal}
+                    onClose={() => setShowTraceModal(false)}
+                    registroId={id}
+                />
+            )}
         </div >
     );
 };

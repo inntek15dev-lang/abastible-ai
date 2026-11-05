@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { formatPeriodo } from '../utils/dateUtils';
 import { 
@@ -25,15 +25,119 @@ import { toast } from 'react-hot-toast';
 import ConfirmationModal from '../components/modals/ConfirmationModal';
 import './Dashboard.css';
 
+const MESES = [
+    { value: '01', label: 'Enero' },
+    { value: '02', label: 'Febrero' },
+    { value: '03', label: 'Marzo' },
+    { value: '04', label: 'Abril' },
+    { value: '05', label: 'Mayo' },
+    { value: '06', label: 'Junio' },
+    { value: '07', label: 'Julio' },
+    { value: '08', label: 'Agosto' },
+    { value: '09', label: 'Septiembre' },
+    { value: '10', label: 'Octubre' },
+    { value: '11', label: 'Noviembre' },
+    { value: '12', label: 'Diciembre' }
+];
+
 export default function Pendientes() {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    // Año y Periodo en curso preseleccionados
+    const now = new Date();
+    const currentYear = String(now.getFullYear());
+    const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+
+    const [selectedYear, setSelectedYear] = useState(() => {
+        const urlP = searchParams.get('periodo');
+        if (urlP && urlP !== 'todos' && urlP.length >= 4) return urlP.substring(0, 4);
+        return searchParams.get('year') || currentYear;
+    });
+
+    const [selectedMonth, setSelectedMonth] = useState(() => {
+        const urlP = searchParams.get('periodo');
+        if (urlP && urlP !== 'todos' && urlP.length >= 7) return urlP.substring(5, 7);
+        return searchParams.get('month') || currentMonth;
+    });
+
     const [kpis, setKpis] = useState(null);
     const [solicitudes, setSolicitudes] = useState([]);
     const [porAuditar, setPorAuditar] = useState([]);
     const [porRevisar, setPorRevisar] = useState([]);
     const [potentialAdmins, setPotentialAdmins] = useState([]);
     const [selectedAdc, setSelectedAdc] = useState('todos');
+
+    const isPeriodoFiltered = selectedYear !== 'todos' || selectedMonth !== 'todos';
+    const isCurrentPeriodSelected = selectedYear === currentYear && selectedMonth === currentMonth;
+
+    const selectedPeriodo = useMemo(() => {
+        if (selectedYear === 'todos' && selectedMonth === 'todos') return 'todos';
+        if (selectedYear !== 'todos' && selectedMonth !== 'todos') return `${selectedYear}-${selectedMonth}`;
+        if (selectedYear !== 'todos') return selectedYear;
+        return `-${selectedMonth}`;
+    }, [selectedYear, selectedMonth]);
+
+    const handleYearChange = (newYear) => {
+        setSelectedYear(newYear);
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            if (newYear === 'todos') {
+                next.delete('year');
+            } else {
+                next.set('year', newYear);
+            }
+            if (newYear !== 'todos' && selectedMonth !== 'todos') {
+                next.set('periodo', `${newYear}-${selectedMonth}`);
+            } else {
+                next.delete('periodo');
+            }
+            return next;
+        });
+    };
+
+    const handleMonthChange = (newMonth) => {
+        setSelectedMonth(newMonth);
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            if (newMonth === 'todos') {
+                next.delete('month');
+            } else {
+                next.set('month', newMonth);
+            }
+            if (selectedYear !== 'todos' && newMonth !== 'todos') {
+                next.set('periodo', `${selectedYear}-${newMonth}`);
+            } else {
+                next.delete('periodo');
+            }
+            return next;
+        });
+    };
+
+    const handleResetPeriodoActual = () => {
+        setSelectedYear(currentYear);
+        setSelectedMonth(currentMonth);
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('periodo', `${currentYear}-${currentMonth}`);
+            next.delete('year');
+            next.delete('month');
+            return next;
+        });
+    };
+
+    const handleVerTodosPeriodos = () => {
+        setSelectedYear('todos');
+        setSelectedMonth('todos');
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.delete('periodo');
+            next.delete('year');
+            next.delete('month');
+            return next;
+        });
+    };
     const [filterEstadoCreacion, setFilterEstadoCreacion] = useState('todos');
     const [filterEstadoAuditoria, setFilterEstadoAuditoria] = useState('todos');
     const [filterEstadoRevision, setFilterEstadoRevision] = useState('todos');
@@ -54,14 +158,55 @@ export default function Pendientes() {
     const [pendientesCreacion, setPendientesCreacion] = useState([]);
 
     const formatPeriodoStr = (periodoStr) => {
-        if (!periodoStr) return '-';
-        const parts = String(periodoStr).split('-');
-        if (parts.length < 2) return periodoStr;
-        const year = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10) - 1;
-        const d = new Date(year, month, 1);
-        const formatted = d.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
-        return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+        if (!periodoStr || periodoStr === 'todos') return 'Todos';
+        const str = String(periodoStr);
+        if (/^\d{4}-\d{2}$/.test(str)) {
+            const parts = str.split('-');
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const d = new Date(year, month, 1);
+            const formatted = d.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
+            return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+        }
+        if (/^\d{4}$/.test(str)) {
+            return `Año ${str}`;
+        }
+        if (/^-\d{2}$/.test(str)) {
+            const monthVal = str.replace('-', '');
+            const mesObj = MESES.find(m => m.value === monthVal);
+            return mesObj ? mesObj.label : `Mes ${monthVal}`;
+        }
+        return str;
+    };
+
+    const displayPeriodoLabel = useMemo(() => {
+        if (selectedYear === 'todos' && selectedMonth === 'todos') {
+            return 'Todos los Periodos';
+        }
+        if (selectedYear !== 'todos' && selectedMonth !== 'todos') {
+            const mesObj = MESES.find(m => m.value === selectedMonth);
+            return `${mesObj?.label || selectedMonth} ${selectedYear}`;
+        }
+        if (selectedYear !== 'todos') {
+            return `Año ${selectedYear}`;
+        }
+        const mesObj = MESES.find(m => m.value === selectedMonth);
+        return `Mes ${mesObj?.label || selectedMonth}`;
+    }, [selectedYear, selectedMonth]);
+
+    const matchesPeriodo = (p) => {
+        if (!p) return false;
+        const str = String(p);
+        if (selectedYear !== 'todos' && selectedMonth !== 'todos') {
+            return str.startsWith(`${selectedYear}-${selectedMonth}`);
+        }
+        if (selectedYear !== 'todos') {
+            return str.startsWith(selectedYear);
+        }
+        if (selectedMonth !== 'todos') {
+            return str.length >= 7 && str.substring(5, 7) === selectedMonth;
+        }
+        return true;
     };
     
     // Modal state for Reopening Requests
@@ -139,30 +284,141 @@ export default function Pendientes() {
         setPendientesCreacion(pending);
     };
 
+    const availablePeriods = useMemo(() => {
+        const periodSet = new Set();
+
+        pendientesCreacion.forEach(item => {
+            if (item.periodo) {
+                const p = String(item.periodo).substring(0, 7);
+                if (/^\d{4}-\d{2}$/.test(p)) periodSet.add(p);
+            }
+        });
+
+        porAuditar.forEach(reg => {
+            if (reg.periodo) {
+                const p = String(reg.periodo).substring(0, 7);
+                if (/^\d{4}-\d{2}$/.test(p)) periodSet.add(p);
+            }
+        });
+
+        porRevisar.forEach(reg => {
+            if (reg.periodo) {
+                const p = String(reg.periodo).substring(0, 7);
+                if (/^\d{4}-\d{2}$/.test(p)) periodSet.add(p);
+            }
+        });
+
+        solicitudes.forEach(sol => {
+            const raw = sol.periodo || sol.registro?.periodo;
+            if (raw) {
+                const p = String(raw).substring(0, 7);
+                if (/^\d{4}-\d{2}$/.test(p)) periodSet.add(p);
+            }
+        });
+
+        allRegistros.forEach(reg => {
+            if (reg.periodo) {
+                const p = String(reg.periodo).substring(0, 7);
+                if (/^\d{4}-\d{2}$/.test(p)) periodSet.add(p);
+            }
+        });
+
+        const urlP = searchParams.get('periodo');
+        if (urlP && /^\d{4}-\d{2}$/.test(urlP)) {
+            periodSet.add(urlP);
+        }
+
+        const now = new Date();
+        for (let i = 0; i <= 12; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const p = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            periodSet.add(p);
+        }
+
+        return Array.from(periodSet).sort((a, b) => b.localeCompare(a));
+    }, [pendientesCreacion, porAuditar, porRevisar, solicitudes, allRegistros, searchParams]);
+
+    const availableYears = useMemo(() => {
+        const yearsSet = new Set();
+        const currentYearNum = new Date().getFullYear();
+
+        yearsSet.add(String(currentYearNum));
+        yearsSet.add(String(currentYearNum - 1));
+        yearsSet.add(String(currentYearNum + 1));
+
+        availablePeriods.forEach(p => {
+            if (typeof p === 'string' && p.length >= 4) {
+                const y = p.substring(0, 4);
+                if (/^\d{4}$/.test(y)) yearsSet.add(y);
+            }
+        });
+
+        return Array.from(yearsSet).sort((a, b) => b.localeCompare(a));
+    }, [availablePeriods]);
+
     const filteredPendientesCreacion = useMemo(() => {
-        if (filterEstadoCreacion === 'todos') return pendientesCreacion;
-        return pendientesCreacion.filter(item => item.action === filterEstadoCreacion);
-    }, [pendientesCreacion, filterEstadoCreacion]);
+        let list = pendientesCreacion;
+        if (isPeriodoFiltered) {
+            list = list.filter(item => matchesPeriodo(item.periodo));
+        }
+        if (filterEstadoCreacion === 'todos') return list;
+        return list.filter(item => item.action === filterEstadoCreacion);
+    }, [pendientesCreacion, filterEstadoCreacion, isPeriodoFiltered, selectedYear, selectedMonth]);
 
     const filteredPorAuditar = useMemo(() => {
-        if (filterEstadoAuditoria === 'todos') return porAuditar;
-        return porAuditar.filter(reg => {
+        let list = porAuditar;
+        if (isPeriodoFiltered) {
+            list = list.filter(reg => matchesPeriodo(reg.periodo));
+        }
+        if (filterEstadoAuditoria === 'todos') return list;
+        return list.filter(reg => {
             if (filterEstadoAuditoria === 'auditable') {
                 return ['auditable', 'pendiente'].includes(reg.estado_auditoria);
             }
             return reg.estado_auditoria === filterEstadoAuditoria;
         });
-    }, [porAuditar, filterEstadoAuditoria]);
+    }, [porAuditar, filterEstadoAuditoria, isPeriodoFiltered, selectedYear, selectedMonth]);
 
     const filteredPorRevisar = useMemo(() => {
-        if (filterEstadoRevision === 'todos') return porRevisar;
-        return porRevisar.filter(reg => reg.estado_auditoria === filterEstadoRevision);
-    }, [porRevisar, filterEstadoRevision]);
+        let list = porRevisar;
+        if (isPeriodoFiltered) {
+            list = list.filter(reg => matchesPeriodo(reg.periodo));
+        }
+        if (filterEstadoRevision === 'todos') return list;
+        return list.filter(reg => reg.estado_auditoria === filterEstadoRevision);
+    }, [porRevisar, filterEstadoRevision, isPeriodoFiltered, selectedYear, selectedMonth]);
 
     const filteredSolicitudes = useMemo(() => {
-        if (filterEstadoSolicitud === 'todos') return solicitudes;
-        return solicitudes.filter(sol => sol.estado === filterEstadoSolicitud);
-    }, [solicitudes, filterEstadoSolicitud]);
+        let list = solicitudes;
+        if (isPeriodoFiltered) {
+            list = list.filter(sol => matchesPeriodo(sol.periodo || sol.registro?.periodo));
+        }
+        if (filterEstadoSolicitud === 'todos') return list;
+        return list.filter(sol => sol.estado === filterEstadoSolicitud);
+    }, [solicitudes, filterEstadoSolicitud, isPeriodoFiltered, selectedYear, selectedMonth]);
+
+    const kpiSolicitudesCount = useMemo(() => {
+        let list = solicitudes;
+        if (isPeriodoFiltered) {
+            list = list.filter(s => matchesPeriodo(s.periodo || s.registro?.periodo));
+        }
+        return list.filter(s => s.estado === 'pendiente').length;
+    }, [solicitudes, isPeriodoFiltered, selectedYear, selectedMonth]);
+
+    const kpiCreacionCount = useMemo(() => {
+        if (!isPeriodoFiltered) return pendientesCreacion.length;
+        return pendientesCreacion.filter(item => matchesPeriodo(item.periodo)).length;
+    }, [pendientesCreacion, isPeriodoFiltered, selectedYear, selectedMonth]);
+
+    const kpiAuditarCount = useMemo(() => {
+        if (!isPeriodoFiltered) return porAuditar.length;
+        return porAuditar.filter(reg => matchesPeriodo(reg.periodo)).length;
+    }, [porAuditar, isPeriodoFiltered, selectedYear, selectedMonth]);
+
+    const kpiRevisarCount = useMemo(() => {
+        if (!isPeriodoFiltered) return porRevisar.length;
+        return porRevisar.filter(reg => matchesPeriodo(reg.periodo)).length;
+    }, [porRevisar, isPeriodoFiltered, selectedYear, selectedMonth]);
 
     useEffect(() => {
         fetchAllData();
@@ -283,36 +539,190 @@ export default function Pendientes() {
                 </div>
             </header>
 
-            {user?.role === 'admin' && (
-                <div style={{ 
-                    background: '#fff', padding: '1rem', borderRadius: '12px', 
-                    border: '1px solid #e2e8f0', marginBottom: '2rem',
-                    display: 'flex', alignItems: 'center', gap: '1rem'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Filter size={16} className="text-slate-400" />
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>Filtrar por ADC:</span>
+            {/* General Filters Toolbar */}
+            <div style={{ 
+                background: '#ffffff', 
+                padding: '0.875rem 1.25rem', 
+                borderRadius: '12px', 
+                border: '1px solid #e2e8f0', 
+                marginBottom: '1.75rem',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                display: 'flex', 
+                flexWrap: 'wrap',
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                gap: '1rem'
+            }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1.25rem' }}>
+                    
+                    {/* Filtro General por Periodo: Año y Nombre de Mes seleccionables */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                        <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '6px',
+                            color: isPeriodoFiltered ? '#4f46e5' : '#64748b'
+                        }}>
+                            <Calendar size={18} />
+                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>
+                                Periodo:
+                            </span>
+                        </div>
+
+                        {/* Selector de Año */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <select
+                                id="filter-year-select"
+                                value={selectedYear}
+                                onChange={(e) => handleYearChange(e.target.value)}
+                                style={{
+                                    padding: '6px 10px',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 600,
+                                    color: selectedYear !== 'todos' ? '#1e293b' : '#64748b',
+                                    border: `1px solid ${selectedYear !== 'todos' ? '#6366f1' : '#cbd5e1'}`,
+                                    borderRadius: '8px',
+                                    backgroundColor: selectedYear !== 'todos' ? '#f5f7ff' : '#ffffff',
+                                    outline: 'none',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                                }}
+                            >
+                                <option value="todos">Todos los Años</option>
+                                {availableYears.map(y => (
+                                    <option key={y} value={y}>
+                                        {y} {y === currentYear ? '(Año en curso)' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Selector de Mes con Nombre de Mes en español */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <select
+                                id="filter-month-select"
+                                value={selectedMonth}
+                                onChange={(e) => handleMonthChange(e.target.value)}
+                                style={{
+                                    padding: '6px 12px',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 600,
+                                    color: selectedMonth !== 'todos' ? '#1e293b' : '#64748b',
+                                    border: `1px solid ${selectedMonth !== 'todos' ? '#6366f1' : '#cbd5e1'}`,
+                                    borderRadius: '8px',
+                                    backgroundColor: selectedMonth !== 'todos' ? '#f5f7ff' : '#ffffff',
+                                    outline: 'none',
+                                    cursor: 'pointer',
+                                    minWidth: '150px',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                                }}
+                            >
+                                <option value="todos">Todos los Meses</option>
+                                {MESES.map(m => {
+                                    const isCurrent = m.value === currentMonth && selectedYear === currentYear;
+                                    return (
+                                        <option key={m.value} value={m.value}>
+                                            {m.label} {isCurrent ? '(Mes en curso)' : ''}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                        </div>
+
+                        {/* Botón Volver a Periodo en Curso si se cambió */}
+                        {!isCurrentPeriodSelected && (
+                            <button
+                                type="button"
+                                onClick={handleResetPeriodoActual}
+                                style={{
+                                    padding: '5px 10px',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 600,
+                                    color: '#4f46e5',
+                                    backgroundColor: '#eef2ff',
+                                    border: '1px solid #c7d2fe',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer'
+                                }}
+                                title="Volver al periodo en curso"
+                            >
+                                Periodo en curso
+                            </button>
+                        )}
+
+                        {/* Botón Ver Todos si hay filtro activo */}
+                        {isPeriodoFiltered && (
+                            <button
+                                type="button"
+                                onClick={handleVerTodosPeriodos}
+                                style={{
+                                    padding: '5px 10px',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 600,
+                                    color: '#64748b',
+                                    backgroundColor: '#f1f5f9',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer'
+                                }}
+                                title="Ver todos los periodos históricos"
+                            >
+                                Ver Todos
+                            </button>
+                        )}
                     </div>
-                    <select
-                        value={selectedAdc}
-                        onChange={(e) => setSelectedAdc(e.target.value)}
-                        style={{
-                            padding: '6px 12px',
-                            fontSize: '0.85rem',
-                            color: '#1e293b',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '6px',
-                            outline: 'none',
-                            minWidth: '200px'
-                        }}
-                    >
-                        <option value="todos">Todos los Administradores</option>
-                        {potentialAdmins.map(admin => (
-                            <option key={admin.id} value={admin.id}>{admin.name}</option>
-                        ))}
-                    </select>
+
+                    {/* Filtro por Administrador de Contrato (ADC) */}
+                    {user?.role === 'admin' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', borderLeft: '1px solid #e2e8f0', paddingLeft: '1.25rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b' }}>
+                                <Filter size={16} />
+                                <label htmlFor="filter-adc-select" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>
+                                    Filtrar por ADC:
+                                </label>
+                            </div>
+                            <select
+                                id="filter-adc-select"
+                                value={selectedAdc}
+                                onChange={(e) => setSelectedAdc(e.target.value)}
+                                style={{
+                                    padding: '6px 12px',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 500,
+                                    color: '#1e293b',
+                                    border: '1px solid #cbd5e1',
+                                    borderRadius: '8px',
+                                    outline: 'none',
+                                    minWidth: '220px',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                                }}
+                            >
+                                <option value="todos">Todos los Administradores</option>
+                                {potentialAdmins.map(admin => (
+                                    <option key={admin.id} value={admin.id}>{admin.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                 </div>
-            )}
+
+                {/* Status Indicator / Active Filter Info */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    backgroundColor: isCurrentPeriodSelected ? '#ecfdf5' : isPeriodoFiltered ? '#e0e7ff' : '#f1f5f9',
+                    color: isCurrentPeriodSelected ? '#047857' : isPeriodoFiltered ? '#3730a3' : '#475569',
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    border: `1px solid ${isCurrentPeriodSelected ? '#a7f3d0' : isPeriodoFiltered ? '#c7d2fe' : '#e2e8f0'}`
+                }}>
+                    <span>Periodo: {displayPeriodoLabel} {isCurrentPeriodSelected ? '• EN CURSO' : ''}</span>
+                </div>
+            </div>
 
             {error && <div className="error-message" style={{ marginBottom: '2rem' }}>{error}</div>}
 
@@ -324,8 +734,8 @@ export default function Pendientes() {
                     </div>
                     <div className="kpi-card-content">
                         <span className="kpi-card-title">SOLICITUDES REAPERTURA</span>
-                        <span className="kpi-card-value" style={{ color: '#f59e0b' }}>{solicitudes.filter(s => s.estado === 'pendiente').length}</span>
-                        <span className="kpi-card-subtitle">Pendientes de aprobación</span>
+                        <span className="kpi-card-value" style={{ color: '#f59e0b' }}>{kpiSolicitudesCount}</span>
+                        <span className="kpi-card-subtitle">{selectedPeriodo !== 'todos' ? `Periodo ${formatPeriodoStr(selectedPeriodo)}` : 'Pendientes de aprobación'}</span>
                     </div>
                 </div>
 
@@ -335,8 +745,8 @@ export default function Pendientes() {
                     </div>
                     <div className="kpi-card-content">
                         <span className="kpi-card-title">PENDIENTES DE CREACIÓN</span>
-                        <span className="kpi-card-value" style={{ color: '#f97316' }}>{pendientesCreacion.length}</span>
-                        <span className="kpi-card-subtitle">Carpetas por iniciar o completar</span>
+                        <span className="kpi-card-value" style={{ color: '#f97316' }}>{kpiCreacionCount}</span>
+                        <span className="kpi-card-subtitle">{selectedPeriodo !== 'todos' ? `Periodo ${formatPeriodoStr(selectedPeriodo)}` : 'Carpetas por iniciar o completar'}</span>
                     </div>
                 </div>
 
@@ -346,8 +756,8 @@ export default function Pendientes() {
                     </div>
                     <div className="kpi-card-content">
                         <span className="kpi-card-title">POR AUDITAR</span>
-                        <span className="kpi-card-value" style={{ color: '#3b82f6' }}>{porAuditar.length}</span>
-                        <span className="kpi-card-subtitle">Nuevas carpetas entregadas</span>
+                        <span className="kpi-card-value" style={{ color: '#3b82f6' }}>{kpiAuditarCount}</span>
+                        <span className="kpi-card-subtitle">{selectedPeriodo !== 'todos' ? `Periodo ${formatPeriodoStr(selectedPeriodo)}` : 'Nuevas carpetas entregadas'}</span>
                     </div>
                 </div>
 
@@ -357,8 +767,8 @@ export default function Pendientes() {
                     </div>
                     <div className="kpi-card-content">
                         <span className="kpi-card-title">REVISIÓN SUBSANACIÓN</span>
-                        <span className="kpi-card-value" style={{ color: '#8b5cf6' }}>{porRevisar.length}</span>
-                        <span className="kpi-card-subtitle">Correcciones listas para validar</span>
+                        <span className="kpi-card-value" style={{ color: '#8b5cf6' }}>{kpiRevisarCount}</span>
+                        <span className="kpi-card-subtitle">{selectedPeriodo !== 'todos' ? `Periodo ${formatPeriodoStr(selectedPeriodo)}` : 'Correcciones listas para validar'}</span>
                     </div>
                 </div>
             </div>
@@ -379,7 +789,7 @@ export default function Pendientes() {
 
                         {filteredSolicitudes.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>
-                                {solicitudes.length === 0 ? 'No hay solicitudes de reapertura.' : 'No hay solicitudes coincidentes con el estado seleccionado.'}
+                                {solicitudes.length === 0 ? 'No hay solicitudes de reapertura.' : (selectedPeriodo !== 'todos' ? `No hay solicitudes de reapertura para el periodo ${formatPeriodoStr(selectedPeriodo)}.` : 'No hay solicitudes coincidentes con los filtros seleccionados.')}
                             </div>
                         ) : (
                             <div className="table-container" style={{ overflowX: 'auto' }}>
@@ -509,7 +919,7 @@ export default function Pendientes() {
 
                         {filteredPendientesCreacion.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>
-                                No hay registros coincidentes con el estado seleccionado.
+                                {selectedPeriodo !== 'todos' ? `No hay registros pendientes de creación para el periodo ${formatPeriodoStr(selectedPeriodo)}.` : 'No hay registros coincidentes con el estado seleccionado.'}
                             </div>
                         ) : (
                             <div className="table-container" style={{ overflowX: 'auto' }}>
@@ -649,7 +1059,7 @@ export default function Pendientes() {
                     {porAuditar.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>No hay registros por auditar.</div>
                     ) : filteredPorAuditar.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>No hay registros coincidentes con el estado seleccionado.</div>
+                        <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>{selectedPeriodo !== 'todos' ? `No hay registros por auditar para el periodo ${formatPeriodoStr(selectedPeriodo)}.` : 'No hay registros coincidentes con el estado seleccionado.'}</div>
                     ) : (
                         <div className="table-container" style={{ overflowX: 'auto' }}>
                             <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -769,7 +1179,7 @@ export default function Pendientes() {
                     {porRevisar.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>No hay registros por revisar.</div>
                     ) : filteredPorRevisar.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>No hay registros coincidentes con el estado seleccionado.</div>
+                        <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>{selectedPeriodo !== 'todos' ? `No hay registros por revisar para el periodo ${formatPeriodoStr(selectedPeriodo)}.` : 'No hay registros coincidentes con el estado seleccionado.'}</div>
                     ) : (
                         <div className="table-container" style={{ overflowX: 'auto' }}>
                             <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
