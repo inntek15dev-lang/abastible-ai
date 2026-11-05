@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
-import { Plus, Eye, Edit, Edit2, RefreshCw, Trash2, FileText, Search, Filter, Calendar, Building, List, ClipboardCheck, Monitor, X, Lock, Check, Clock, AlertTriangle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Plus, Eye, Edit, Edit2, RefreshCw, Trash2, FileText, Search, Filter, Calendar, Building, List, ClipboardCheck, Monitor, X, Lock, Check, Clock, AlertTriangle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Wrench } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toast } from 'react-hot-toast'; // Import toast
@@ -773,6 +773,24 @@ export default function RegistroList() {
                                     </td>
                                     <td className="actions-cell" style={{ borderBottom: '3px solid var(--color-brand-primary)' }}>
                                         <div className="btn-action-group" style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '4px', maxWidth: '300px', marginLeft: 'auto' }}>
+                                            {/* Action: Modo Corregir (Admin Dios - Cualquier Estado) */}
+                                            {user?.role === 'admin' && (
+                                                <Link
+                                                    id={`btn-corregir-${registro.id}`}
+                                                    to={`/registros/${registro.id}`}
+                                                    state={{ modoCorregir: true }}
+                                                    className="btn-action"
+                                                    title="Modo Corregir (Admin Dios) - Editar sin alterar estado"
+                                                    style={{
+                                                        backgroundColor: '#f3e8ff',
+                                                        color: '#7e22ce',
+                                                        borderColor: '#c084fc',
+                                                        fontWeight: 600
+                                                    }}
+                                                >
+                                                    <Wrench size={14} /> <span>Corregir</span>
+                                                </Link>
+                                            )}
                                             {/* Action: Audit (US-003) - Admin Contrato / Admin Only & Auditable Status (PARKO) */}
                                             {(isAdmin || user?.role === 'administrador_contrato') && ['auditable', 'auditando'].includes(registro.estado_auditoria) && (
                                                 <Link id={`btn-audit-${registro.id}`} to={`/registros/${registro.id}/auditar`} className="btn-action btn-auditar" title="Auditar Registro">

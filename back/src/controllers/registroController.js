@@ -783,6 +783,278 @@ const registroController = {
             console.error('Registro migrarPeriodo error:', error);
             res.status(500).json({ success: false, message: 'Error al migrar periodo del registro' });
         }
+    },
+
+    // PUT /api/registros/:id/corregir
+    // Modo CORREGIR (Solo Admin Dios): Permite modificar campos de contratista o auditor
+    // SIN alterar el estado actual del registro.
+    async corregirRegistro(req, res) {
+        try {
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Solo el usuario con rol Admin (admin dios) puede ejecutar correcciones globales.'
+                });
+            }
+
+            const registro = await Registro.findByPk(req.params.id, {
+                include: [
+                    {
+                        model: RegistroActividad,
+                        as: 'actividades'
+                    }
+                ]
+            });
+
+            if (!registro) {
+                return res.status(404).json({ success: false, message: 'Registro no encontrado' });
+            }
+
+            const {
+                dotacion_total,
+                personas_nuevas,
+                supervisores,
+                prevencionistas,
+                actividades = []
+            } = req.body;
+
+            // Snapshot anterior para trazabilidad
+            const datosAnteriores = {
+                dotacion_total: registro.dotacion_total,
+                personas_nuevas: registro.personas_nuevas,
+                supervisores: registro.supervisores,
+                prevencionistas: registro.prevencionistas,
+                porcentaje_cumplimiento: registro.porcentaje_cumplimiento,
+                porcentaje_cumplimiento_auditor: registro.porcentaje_cumplimiento_auditor,
+                actividades_modificadas: []
+            };
+
+            const updateHeader = {};
+            if (dotacion_total !== undefined) updateHeader.dotacion_total = Number(dotacion_total) || 0;
+            if (personas_nuevas !== undefined) updateHeader.personas_nuevas = Number(personas_nuevas) || 0;
+            if (supervisores !== undefined) updateHeader.supervisores = Number(supervisores) || 0;
+            if (prevencionistas !== undefined) updateHeader.prevencionistas = Number(prevencionistas) || 0;
+
+            if (Object.keys(updateHeader).length > 0) {
+                await registro.update(updateHeader);
+            }
+
+            const datosNuevos = {
+                ...updateHeader,
+                actividades_modificadas: []
+            };
+
+            // Actualizar actividades si vienen provistas
+            if (actividades && actividades.length > 0) {
+                for (const act of actividades) {
+                    const existingAct = registro.actividades?.find(a => 
+                        (act.id && a.id === act.id) || 
+                        (act.actividad_id && a.actividad_id === act.actividad_id)
+                    );
+
+                    if (!existingAct) continue;
+
+                    const actOldSnapshot = {
+                        id: existingAct.id,
+                        actividad_id: existingAct.actividad_id,
+                        cumple: existingAct.cumple,
+                        responsable: existingAct.responsable,
+                        descripcion_contratista: existingAct.descripcion_contratista,
+                        cumple_auditor: existingAct.cumple_auditor,
+                        observacion_auditor: existingAct.observacion_auditor
+                    };
+
+                    const updateAct = {};
+
+                    // Contratista: cumple
+                    if (act.cumple !== undefined) {
+                        if (act.cumple === 1 || act.cumple === true || act.cumple === '1') updateAct.cumple = 1;
+                        else if (act.cumple === 0 || act.cumple === false || act.cumple === '0') updateAct.cumple = 0;
+                        else if (act.cumple === 2 || act.cumple === '2') updateAct.cumple = 2;
+                        else updateAct.cumple = act.cumple;
+                    }
+
+                    // Contratista: responsable
+                    if (act.responsable !== undefined) {
+                        updateAct.responsable = act.responsable || null;
+                    }
+
+                    // Contratista: descripcion_contratista
+                    if (act.descripcion_contratista !== undefined) {
+                        updateAct.descripcion_contratista = act.descripcion_contratista || null;
+                    }
+
+                    // Auditor: cumple_auditor
+                    if (act.cumple_auditor !== undefined) {
+                        if (act.cumple_auditor === null || act.cumple_auditor === undefined || act.cumple_auditor === '' || act.cumple_auditor === 'null') {
+                            updateAct.cumple_auditor = null;
+                        } else if (act.cumple_auditor === 1 || act.cumple_auditor === true || act.cumple_auditor === '1') {
+                            updateAct.cumple_auditor = 1;
+                        } else if (act.cumple_auditor === 0 || act.cumple_auditor === false || act.cumple_auditor === '0') {
+                            updateAct.cumple_auditor = 0;
+                        } else if (act.cumple_auditor === 2 || act.cumple_auditor === '2') {
+                            updateAct.cumple_auditor = 2;
+                        }
+                    }
+
+                    // Auditor: observacion_auditor
+                    if (act.observacion_auditor !== undefined) {
+                        updateAct.observacion_auditor = act.observacion_auditor || null;
+                    }
+
+                    if (Object.keys(updateAct).length > 0) {
+                        await existingAct.update(updateAct);
+                        datosAnteriores.actividades_modificadas.push(actOldSnapshot);
+                        datosNuevos.actividades_modificadas.push({
+                            id: existingAct.id,
+                            actividad_id: existingAct.actividad_id,
+                            ...updateAct
+                        });
+                    }
+                }
+
+                // Recalcular porcentajes
+                const allActs = await RegistroActividad.findAll({ where: { registro_id: registro.id } });
+                
+                // Porcentaje Contratista
+                const applicableContractor = allActs.filter(a => a.cumple !== 2 && a.cumple !== '2');
+                const cumplidasContractor = applicableContractor.filter(a => a.cumple === 1 || a.cumple === true || a.cumple === '1').length;
+                const porcentajeContractor = applicableContractor.length > 0 ? (cumplidasContractor / applicableContractor.length) * 100 : 0;
+
+                // Porcentaje Auditor
+                const auditedApplicable = allActs.filter(a => a.cumple_auditor !== null && a.cumple_auditor !== 2 && a.cumple_auditor !== '2');
+                const cumplidasAuditor = auditedApplicable.filter(a => a.cumple_auditor === 1 || a.cumple_auditor === true || a.cumple_auditor === '1').length;
+                const porcentajeAuditor = auditedApplicable.length > 0 ? (cumplidasAuditor / auditedApplicable.length) * 100 : null;
+
+                const newPctContractor = porcentajeContractor.toFixed(2);
+                const newPctAuditor = porcentajeAuditor !== null ? porcentajeAuditor.toFixed(2) : null;
+
+                await registro.update({
+                    porcentaje_cumplimiento: newPctContractor,
+                    porcentaje_cumplimiento_auditor: newPctAuditor
+                });
+
+                datosNuevos.porcentaje_cumplimiento = newPctContractor;
+                datosNuevos.porcentaje_cumplimiento_auditor = newPctAuditor;
+            }
+
+            // Registrar en historial de trazabilidad
+            await RegistroLog.create({
+                registro_id: registro.id,
+                user_id: req.user.id || req.user.usu_id || null,
+                accion: 'CORRECCION_ADMIN_DIOS',
+                descripcion: `Corrección global realizada por Admin Dios (Estado conservado: ${registro.estado_auditoria})`,
+                datos_anteriores: datosAnteriores,
+                datos_nuevos: datosNuevos,
+                ip_address: req.ip || null
+            });
+
+            // Refrescar registro completo con actividades
+            const updatedRegistro = await Registro.findByPk(registro.id, {
+                include: [
+                    {
+                        model: RegistroActividad,
+                        as: 'actividades'
+                    }
+                ]
+            });
+
+            res.json({
+                success: true,
+                message: 'Corrección guardada exitosamente sin alterar el estado del registro.',
+                data: updatedRegistro
+            });
+        } catch (error) {
+            console.error('Registro corregirRegistro error:', error);
+            res.status(500).json({ success: false, message: 'Error al corregir registro' });
+        }
+    },
+
+    // POST /api/registros/:id/forzar-estado
+    // Switch de estado forzado (Solo Admin Dios): cambia el registro directamente
+    // a cualquier estado y lo deja listo para continuar o repetir el flujo.
+    async forzarEstado(req, res) {
+        try {
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Solo el usuario con rol Admin (admin dios) puede forzar el cambio de estado.'
+                });
+            }
+
+            const registro = await Registro.findByPk(req.params.id);
+            if (!registro) {
+                return res.status(404).json({ success: false, message: 'Registro no encontrado' });
+            }
+
+            const { nuevo_estado, motivo } = req.body;
+            const estadosValidos = [
+                'pendiente',
+                'auditable',
+                'auditando',
+                'auditada',
+                'reabierto',
+                'subsanado',
+                'reapertura_solicitada',
+                'reapertura_pendiente',
+                'pendiente_subsanacion',
+                'en_revision',
+                'finalizado'
+            ];
+
+            if (!nuevo_estado || !estadosValidos.includes(nuevo_estado)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Estado no válido. Estados permitidos: ${estadosValidos.join(', ')}`
+                });
+            }
+
+            const oldEstado = registro.estado_auditoria;
+            const oldCerrado = registro.cerrado;
+            const oldAuditado = registro.auditado;
+
+            // Determinar si cerrado debe ser 0 o 1 según el estado
+            // En pendiente o reabierto el contratista debe poder editar -> cerrado = 0
+            const cerrado = ['pendiente', 'reabierto'].includes(nuevo_estado) ? 0 : 1;
+            
+            // Determinar auditado
+            const auditado = ['auditada', 'finalizado'].includes(nuevo_estado) ? 1 : 0;
+
+            await registro.update({
+                estado_auditoria: nuevo_estado,
+                cerrado,
+                auditado
+            });
+
+            // Trazabilidad mandatoria
+            await RegistroLog.create({
+                registro_id: registro.id,
+                user_id: req.user.id || req.user.usu_id || null,
+                accion: 'CAMBIO_ESTADO_FORZADO',
+                descripcion: `Estado forzado de "${oldEstado}" a "${nuevo_estado}" por Admin Dios. Motivo: ${motivo || 'Ajuste operativo administrativo'}`,
+                datos_anteriores: {
+                    estado_auditoria: oldEstado,
+                    cerrado: oldCerrado,
+                    auditado: oldAuditado
+                },
+                datos_nuevos: {
+                    estado_auditoria: nuevo_estado,
+                    cerrado,
+                    auditado,
+                    motivo: motivo || 'Ajuste operativo administrativo'
+                },
+                ip_address: req.ip || null
+            });
+
+            res.json({
+                success: true,
+                message: `Estado cambiado forzadamente a "${nuevo_estado}". El registro queda listo para seguir el flujo desde este estado.`,
+                data: registro
+            });
+        } catch (error) {
+            console.error('Registro forzarEstado error:', error);
+            res.status(500).json({ success: false, message: 'Error al forzar estado del registro' });
+        }
     }
 };
 

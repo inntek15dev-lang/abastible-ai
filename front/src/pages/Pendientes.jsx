@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { formatPeriodo } from '../utils/dateUtils';
 import { 
@@ -28,12 +28,27 @@ import './Dashboard.css';
 export default function Pendientes() {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [selectedPeriodo, setSelectedPeriodo] = useState(() => searchParams.get('periodo') || 'todos');
     const [kpis, setKpis] = useState(null);
     const [solicitudes, setSolicitudes] = useState([]);
     const [porAuditar, setPorAuditar] = useState([]);
     const [porRevisar, setPorRevisar] = useState([]);
     const [potentialAdmins, setPotentialAdmins] = useState([]);
     const [selectedAdc, setSelectedAdc] = useState('todos');
+
+    const handlePeriodoChange = (newPeriod) => {
+        setSelectedPeriodo(newPeriod);
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            if (newPeriod && newPeriod !== 'todos') {
+                next.set('periodo', newPeriod);
+            } else {
+                next.delete('periodo');
+            }
+            return next;
+        });
+    };
     const [filterEstadoCreacion, setFilterEstadoCreacion] = useState('todos');
     const [filterEstadoAuditoria, setFilterEstadoAuditoria] = useState('todos');
     const [filterEstadoRevision, setFilterEstadoRevision] = useState('todos');
@@ -139,30 +154,129 @@ export default function Pendientes() {
         setPendientesCreacion(pending);
     };
 
+    const availablePeriods = useMemo(() => {
+        const periodSet = new Set();
+
+        pendientesCreacion.forEach(item => {
+            if (item.periodo) {
+                const p = String(item.periodo).substring(0, 7);
+                if (/^\d{4}-\d{2}$/.test(p)) periodSet.add(p);
+            }
+        });
+
+        porAuditar.forEach(reg => {
+            if (reg.periodo) {
+                const p = String(reg.periodo).substring(0, 7);
+                if (/^\d{4}-\d{2}$/.test(p)) periodSet.add(p);
+            }
+        });
+
+        porRevisar.forEach(reg => {
+            if (reg.periodo) {
+                const p = String(reg.periodo).substring(0, 7);
+                if (/^\d{4}-\d{2}$/.test(p)) periodSet.add(p);
+            }
+        });
+
+        solicitudes.forEach(sol => {
+            const raw = sol.periodo || sol.registro?.periodo;
+            if (raw) {
+                const p = String(raw).substring(0, 7);
+                if (/^\d{4}-\d{2}$/.test(p)) periodSet.add(p);
+            }
+        });
+
+        allRegistros.forEach(reg => {
+            if (reg.periodo) {
+                const p = String(reg.periodo).substring(0, 7);
+                if (/^\d{4}-\d{2}$/.test(p)) periodSet.add(p);
+            }
+        });
+
+        const urlP = searchParams.get('periodo');
+        if (urlP && /^\d{4}-\d{2}$/.test(urlP)) {
+            periodSet.add(urlP);
+        }
+
+        const now = new Date();
+        for (let i = 0; i <= 12; i++) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const p = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            periodSet.add(p);
+        }
+
+        return Array.from(periodSet).sort((a, b) => b.localeCompare(a));
+    }, [pendientesCreacion, porAuditar, porRevisar, solicitudes, allRegistros, searchParams]);
+
     const filteredPendientesCreacion = useMemo(() => {
-        if (filterEstadoCreacion === 'todos') return pendientesCreacion;
-        return pendientesCreacion.filter(item => item.action === filterEstadoCreacion);
-    }, [pendientesCreacion, filterEstadoCreacion]);
+        let list = pendientesCreacion;
+        if (selectedPeriodo !== 'todos') {
+            list = list.filter(item => item.periodo && item.periodo.startsWith(selectedPeriodo));
+        }
+        if (filterEstadoCreacion === 'todos') return list;
+        return list.filter(item => item.action === filterEstadoCreacion);
+    }, [pendientesCreacion, filterEstadoCreacion, selectedPeriodo]);
 
     const filteredPorAuditar = useMemo(() => {
-        if (filterEstadoAuditoria === 'todos') return porAuditar;
-        return porAuditar.filter(reg => {
+        let list = porAuditar;
+        if (selectedPeriodo !== 'todos') {
+            list = list.filter(reg => reg.periodo && reg.periodo.startsWith(selectedPeriodo));
+        }
+        if (filterEstadoAuditoria === 'todos') return list;
+        return list.filter(reg => {
             if (filterEstadoAuditoria === 'auditable') {
                 return ['auditable', 'pendiente'].includes(reg.estado_auditoria);
             }
             return reg.estado_auditoria === filterEstadoAuditoria;
         });
-    }, [porAuditar, filterEstadoAuditoria]);
+    }, [porAuditar, filterEstadoAuditoria, selectedPeriodo]);
 
     const filteredPorRevisar = useMemo(() => {
-        if (filterEstadoRevision === 'todos') return porRevisar;
-        return porRevisar.filter(reg => reg.estado_auditoria === filterEstadoRevision);
-    }, [porRevisar, filterEstadoRevision]);
+        let list = porRevisar;
+        if (selectedPeriodo !== 'todos') {
+            list = list.filter(reg => reg.periodo && reg.periodo.startsWith(selectedPeriodo));
+        }
+        if (filterEstadoRevision === 'todos') return list;
+        return list.filter(reg => reg.estado_auditoria === filterEstadoRevision);
+    }, [porRevisar, filterEstadoRevision, selectedPeriodo]);
 
     const filteredSolicitudes = useMemo(() => {
-        if (filterEstadoSolicitud === 'todos') return solicitudes;
-        return solicitudes.filter(sol => sol.estado === filterEstadoSolicitud);
-    }, [solicitudes, filterEstadoSolicitud]);
+        let list = solicitudes;
+        if (selectedPeriodo !== 'todos') {
+            list = list.filter(sol => {
+                const p = sol.periodo || sol.registro?.periodo;
+                return p && p.startsWith(selectedPeriodo);
+            });
+        }
+        if (filterEstadoSolicitud === 'todos') return list;
+        return list.filter(sol => sol.estado === filterEstadoSolicitud);
+    }, [solicitudes, filterEstadoSolicitud, selectedPeriodo]);
+
+    const kpiSolicitudesCount = useMemo(() => {
+        let list = solicitudes;
+        if (selectedPeriodo !== 'todos') {
+            list = list.filter(s => {
+                const p = s.periodo || s.registro?.periodo;
+                return p && p.startsWith(selectedPeriodo);
+            });
+        }
+        return list.filter(s => s.estado === 'pendiente').length;
+    }, [solicitudes, selectedPeriodo]);
+
+    const kpiCreacionCount = useMemo(() => {
+        if (selectedPeriodo === 'todos') return pendientesCreacion.length;
+        return pendientesCreacion.filter(item => item.periodo && item.periodo.startsWith(selectedPeriodo)).length;
+    }, [pendientesCreacion, selectedPeriodo]);
+
+    const kpiAuditarCount = useMemo(() => {
+        if (selectedPeriodo === 'todos') return porAuditar.length;
+        return porAuditar.filter(reg => reg.periodo && reg.periodo.startsWith(selectedPeriodo)).length;
+    }, [porAuditar, selectedPeriodo]);
+
+    const kpiRevisarCount = useMemo(() => {
+        if (selectedPeriodo === 'todos') return porRevisar.length;
+        return porRevisar.filter(reg => reg.periodo && reg.periodo.startsWith(selectedPeriodo)).length;
+    }, [porRevisar, selectedPeriodo]);
 
     useEffect(() => {
         fetchAllData();
@@ -283,36 +397,163 @@ export default function Pendientes() {
                 </div>
             </header>
 
-            {user?.role === 'admin' && (
-                <div style={{ 
-                    background: '#fff', padding: '1rem', borderRadius: '12px', 
-                    border: '1px solid #e2e8f0', marginBottom: '2rem',
-                    display: 'flex', alignItems: 'center', gap: '1rem'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Filter size={16} className="text-slate-400" />
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>Filtrar por ADC:</span>
+            {/* General Filters Toolbar */}
+            <div style={{ 
+                background: '#ffffff', 
+                padding: '1rem 1.25rem', 
+                borderRadius: '14px', 
+                border: '1px solid #e2e8f0', 
+                marginBottom: '2rem',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                display: 'flex', 
+                flexWrap: 'wrap',
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                gap: '1rem'
+            }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1.25rem' }}>
+                    {/* Period Filter (General for all roles) */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            width: '34px', 
+                            height: '34px', 
+                            borderRadius: '8px', 
+                            backgroundColor: selectedPeriodo !== 'todos' ? '#eef2ff' : '#f8fafc',
+                            color: selectedPeriodo !== 'todos' ? '#4f46e5' : '#64748b',
+                            border: `1px solid ${selectedPeriodo !== 'todos' ? '#c7d2fe' : '#e2e8f0'}`
+                        }}>
+                            <Calendar size={18} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <label htmlFor="filter-periodo-select" style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                Periodo:
+                            </label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '2px' }}>
+                                <select
+                                    id="filter-periodo-select"
+                                    value={selectedPeriodo}
+                                    onChange={(e) => handlePeriodoChange(e.target.value)}
+                                    style={{
+                                        padding: '6px 12px',
+                                        fontSize: '0.85rem',
+                                        fontWeight: 600,
+                                        color: selectedPeriodo !== 'todos' ? '#4338ca' : '#1e293b',
+                                        border: `1px solid ${selectedPeriodo !== 'todos' ? '#818cf8' : '#cbd5e1'}`,
+                                        borderRadius: '8px',
+                                        backgroundColor: selectedPeriodo !== 'todos' ? '#f5f7ff' : '#ffffff',
+                                        outline: 'none',
+                                        cursor: 'pointer',
+                                        minWidth: '200px',
+                                        boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                                    }}
+                                >
+                                    <option value="todos">Todos los Periodos</option>
+                                    {availablePeriods.map(p => {
+                                        const now = new Date();
+                                        const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                                        const isCurrent = p === currentMonthStr;
+                                        return (
+                                            <option key={p} value={p}>
+                                                {formatPeriodoStr(p)}{isCurrent ? ' (Mes Actual)' : ''}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+
+                                {selectedPeriodo !== 'todos' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handlePeriodoChange('todos')}
+                                        style={{
+                                            padding: '5px 10px',
+                                            fontSize: '0.78rem',
+                                            fontWeight: 600,
+                                            color: '#dc2626',
+                                            backgroundColor: '#fef2f2',
+                                            border: '1px solid #fecaca',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                        }}
+                                        title="Ver todos los periodos"
+                                    >
+                                        <X size={13} /> Limpiar
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                    <select
-                        value={selectedAdc}
-                        onChange={(e) => setSelectedAdc(e.target.value)}
-                        style={{
-                            padding: '6px 12px',
-                            fontSize: '0.85rem',
-                            color: '#1e293b',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '6px',
-                            outline: 'none',
-                            minWidth: '200px'
-                        }}
-                    >
-                        <option value="todos">Todos los Administradores</option>
-                        {potentialAdmins.map(admin => (
-                            <option key={admin.id} value={admin.id}>{admin.name}</option>
-                        ))}
-                    </select>
+
+                    {/* ADC Filter (Visible for Admin) */}
+                    {user?.role === 'admin' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', borderLeft: '1px solid #f1f5f9', paddingLeft: '1.25rem' }}>
+                            <div style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                width: '34px', 
+                                height: '34px', 
+                                borderRadius: '8px', 
+                                backgroundColor: selectedAdc !== 'todos' ? '#eff6ff' : '#f8fafc',
+                                color: selectedAdc !== 'todos' ? '#2563eb' : '#64748b',
+                                border: `1px solid ${selectedAdc !== 'todos' ? '#bfdbfe' : '#e2e8f0'}`
+                            }}>
+                                <User size={18} />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <label htmlFor="filter-adc-select" style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    Administrador de Contrato:
+                                </label>
+                                <select
+                                    id="filter-adc-select"
+                                    value={selectedAdc}
+                                    onChange={(e) => setSelectedAdc(e.target.value)}
+                                    style={{
+                                        padding: '6px 12px',
+                                        fontSize: '0.85rem',
+                                        fontWeight: 600,
+                                        color: '#1e293b',
+                                        border: '1px solid #cbd5e1',
+                                        borderRadius: '8px',
+                                        outline: 'none',
+                                        minWidth: '220px',
+                                        marginTop: '2px',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                                    }}
+                                >
+                                    <option value="todos">Todos los Administradores</option>
+                                    {potentialAdmins.map(admin => (
+                                        <option key={admin.id} value={admin.id}>{admin.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    )}
                 </div>
-            )}
+
+                {/* Status Indicator / Active Filter Info */}
+                {selectedPeriodo !== 'todos' && (
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        backgroundColor: '#e0e7ff',
+                        color: '#3730a3',
+                        padding: '4px 12px',
+                        borderRadius: '20px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700
+                    }}>
+                        <span>Mostrando periodo: {formatPeriodoStr(selectedPeriodo)}</span>
+                    </div>
+                )}
+            </div>
 
             {error && <div className="error-message" style={{ marginBottom: '2rem' }}>{error}</div>}
 
@@ -324,8 +565,8 @@ export default function Pendientes() {
                     </div>
                     <div className="kpi-card-content">
                         <span className="kpi-card-title">SOLICITUDES REAPERTURA</span>
-                        <span className="kpi-card-value" style={{ color: '#f59e0b' }}>{solicitudes.filter(s => s.estado === 'pendiente').length}</span>
-                        <span className="kpi-card-subtitle">Pendientes de aprobación</span>
+                        <span className="kpi-card-value" style={{ color: '#f59e0b' }}>{kpiSolicitudesCount}</span>
+                        <span className="kpi-card-subtitle">{selectedPeriodo !== 'todos' ? `Periodo ${formatPeriodoStr(selectedPeriodo)}` : 'Pendientes de aprobación'}</span>
                     </div>
                 </div>
 
@@ -335,8 +576,8 @@ export default function Pendientes() {
                     </div>
                     <div className="kpi-card-content">
                         <span className="kpi-card-title">PENDIENTES DE CREACIÓN</span>
-                        <span className="kpi-card-value" style={{ color: '#f97316' }}>{pendientesCreacion.length}</span>
-                        <span className="kpi-card-subtitle">Carpetas por iniciar o completar</span>
+                        <span className="kpi-card-value" style={{ color: '#f97316' }}>{kpiCreacionCount}</span>
+                        <span className="kpi-card-subtitle">{selectedPeriodo !== 'todos' ? `Periodo ${formatPeriodoStr(selectedPeriodo)}` : 'Carpetas por iniciar o completar'}</span>
                     </div>
                 </div>
 
@@ -346,8 +587,8 @@ export default function Pendientes() {
                     </div>
                     <div className="kpi-card-content">
                         <span className="kpi-card-title">POR AUDITAR</span>
-                        <span className="kpi-card-value" style={{ color: '#3b82f6' }}>{porAuditar.length}</span>
-                        <span className="kpi-card-subtitle">Nuevas carpetas entregadas</span>
+                        <span className="kpi-card-value" style={{ color: '#3b82f6' }}>{kpiAuditarCount}</span>
+                        <span className="kpi-card-subtitle">{selectedPeriodo !== 'todos' ? `Periodo ${formatPeriodoStr(selectedPeriodo)}` : 'Nuevas carpetas entregadas'}</span>
                     </div>
                 </div>
 
@@ -357,8 +598,8 @@ export default function Pendientes() {
                     </div>
                     <div className="kpi-card-content">
                         <span className="kpi-card-title">REVISIÓN SUBSANACIÓN</span>
-                        <span className="kpi-card-value" style={{ color: '#8b5cf6' }}>{porRevisar.length}</span>
-                        <span className="kpi-card-subtitle">Correcciones listas para validar</span>
+                        <span className="kpi-card-value" style={{ color: '#8b5cf6' }}>{kpiRevisarCount}</span>
+                        <span className="kpi-card-subtitle">{selectedPeriodo !== 'todos' ? `Periodo ${formatPeriodoStr(selectedPeriodo)}` : 'Correcciones listas para validar'}</span>
                     </div>
                 </div>
             </div>
@@ -379,7 +620,7 @@ export default function Pendientes() {
 
                         {filteredSolicitudes.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>
-                                {solicitudes.length === 0 ? 'No hay solicitudes de reapertura.' : 'No hay solicitudes coincidentes con el estado seleccionado.'}
+                                {solicitudes.length === 0 ? 'No hay solicitudes de reapertura.' : (selectedPeriodo !== 'todos' ? `No hay solicitudes de reapertura para el periodo ${formatPeriodoStr(selectedPeriodo)}.` : 'No hay solicitudes coincidentes con los filtros seleccionados.')}
                             </div>
                         ) : (
                             <div className="table-container" style={{ overflowX: 'auto' }}>
@@ -509,7 +750,7 @@ export default function Pendientes() {
 
                         {filteredPendientesCreacion.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>
-                                No hay registros coincidentes con el estado seleccionado.
+                                {selectedPeriodo !== 'todos' ? `No hay registros pendientes de creación para el periodo ${formatPeriodoStr(selectedPeriodo)}.` : 'No hay registros coincidentes con el estado seleccionado.'}
                             </div>
                         ) : (
                             <div className="table-container" style={{ overflowX: 'auto' }}>
@@ -649,7 +890,7 @@ export default function Pendientes() {
                     {porAuditar.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>No hay registros por auditar.</div>
                     ) : filteredPorAuditar.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>No hay registros coincidentes con el estado seleccionado.</div>
+                        <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>{selectedPeriodo !== 'todos' ? `No hay registros por auditar para el periodo ${formatPeriodoStr(selectedPeriodo)}.` : 'No hay registros coincidentes con el estado seleccionado.'}</div>
                     ) : (
                         <div className="table-container" style={{ overflowX: 'auto' }}>
                             <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -769,7 +1010,7 @@ export default function Pendientes() {
                     {porRevisar.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>No hay registros por revisar.</div>
                     ) : filteredPorRevisar.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>No hay registros coincidentes con el estado seleccionado.</div>
+                        <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af', fontStyle: 'italic' }}>{selectedPeriodo !== 'todos' ? `No hay registros por revisar para el periodo ${formatPeriodoStr(selectedPeriodo)}.` : 'No hay registros coincidentes con el estado seleccionado.'}</div>
                     ) : (
                         <div className="table-container" style={{ overflowX: 'auto' }}>
                             <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>

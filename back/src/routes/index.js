@@ -377,6 +377,8 @@ router.delete('/registros/:id', auth, requirePrivilege('Registros', 'excec'), re
  *         description: La vinculación ya cuenta con un registro en el periodo seleccionado
  */
 router.post('/registros/:id/migrar-periodo', auth, registroController.migrarPeriodo);
+router.put('/registros/:id/corregir', auth, registroController.corregirRegistro);
+router.post('/registros/:id/forzar-estado', auth, registroController.forzarEstado);
 
 // ============= SPRINT 2: AUDITORÍA =============
 
