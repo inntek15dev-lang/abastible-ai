@@ -113,8 +113,10 @@ async registroPdf(req, res) {
                     let titleX = startX;
                     if (hasLogo) {
                         try {
-                            doc.image(logoAbastible, startX, 12, { height: 26 });
-                            titleX = startX + 96;
+                            const logoHeight = 22;
+                            const logoWidth = Math.round((1024 / 235) * logoHeight); // ~96pt
+                            doc.image(logoAbastible, startX, 13, { width: logoWidth, height: logoHeight });
+                            titleX = startX + logoWidth + 14; // 36 + 96 + 14 = 146pt (clear 14pt gap from logo)
                         } catch (e) {
                             titleX = startX;
                         }
@@ -134,8 +136,10 @@ async registroPdf(req, res) {
                     let titleX = startX;
                     if (hasLogo) {
                         try {
-                            doc.image(logoAbastible, startX, 10, { height: 18 });
-                            titleX = startX + 70;
+                            const logoHeight = 16;
+                            const logoWidth = Math.round((1024 / 235) * logoHeight); // ~70pt
+                            doc.image(logoAbastible, startX, 10, { width: logoWidth, height: logoHeight });
+                            titleX = startX + logoWidth + 12; // 36 + 70 + 12 = 118pt
                         } catch (e) {
                             titleX = startX;
                         }
@@ -2020,8 +2024,10 @@ async registroPdf(req, res) {
                 let titleX = startX;
                 if (hasLogo) {
                     try {
-                        doc.image(logoAbastible, startX, 10, { height: 26 });
-                        titleX = startX + 96;
+                        const logoHeight = 22;
+                        const logoWidth = Math.round((1024 / 235) * logoHeight); // ~96pt
+                        doc.image(logoAbastible, startX, 10, { width: logoWidth, height: logoHeight });
+                        titleX = startX + logoWidth + 14; // 18 + 96 + 14 = 128pt
                     } catch (e) {
                         titleX = startX;
                     }
