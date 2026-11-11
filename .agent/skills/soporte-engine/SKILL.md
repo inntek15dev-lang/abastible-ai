@@ -1,3 +1,9 @@
+---
+name: soporte-engine
+description: Especialista en depuración profunda, gestión de incidentes y optimización de resiliencia del sistema.
+triggers: ["manual invocation: '/img-soporte'", "error logs detection"]
+---
+
 # SKILL: Soporte Engine
 **Role:** SOPORTE (Advanced Software Support & Reliability Engineer)
 

@@ -19,10 +19,17 @@ import {
     ClipboardIcon,
     ArrowUpRight,
     AlertCircle,
-    PlusCircle
+    PlusCircle,
+    Download
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import ConfirmationModal from '../components/modals/ConfirmationModal';
+import {
+    generateSolicitudesReaperturaPDF,
+    generatePendientesCreacionPDF,
+    generatePendientesAuditoriaPDF,
+    generatePendientesRevisionPDF
+} from '../utils/pendientesPdfReport';
 import './Dashboard.css';
 
 const MESES = [
@@ -779,12 +786,37 @@ export default function Pendientes() {
                 {/* 1. Solicitudes de Reapertura - Solo Admin/ADC */}
                 {isAdminOrADC && (
                     <section className="dashboard-section-card" style={{ padding: '1.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '1rem' }}>
-                            <div style={{ backgroundColor: '#fffbeb', padding: '8px', borderRadius: '8px' }}>
-                                <Clock size={20} color="#f59e0b" />
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <div style={{ backgroundColor: '#fffbeb', padding: '8px', borderRadius: '8px' }}>
+                                    <Clock size={20} color="#f59e0b" />
+                                </div>
+                                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#374151' }}>Solicitudes de Reapertura</h3>
+                                <span style={{ backgroundColor: '#f59e0b', color: 'white', borderRadius: '12px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }}>{filteredSolicitudes.length}</span>
                             </div>
-                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#374151' }}>Solicitudes de Reapertura</h3>
-                            <span style={{ backgroundColor: '#f59e0b', color: 'white', borderRadius: '12px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }}>{filteredSolicitudes.length}</span>
+                            <button
+                                onClick={() => generateSolicitudesReaperturaPDF({ solicitudes: filteredSolicitudes, periodoLabel: displayPeriodoLabel, filterEstado: filterEstadoSolicitud, user })}
+                                disabled={filteredSolicitudes.length === 0}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    backgroundColor: filteredSolicitudes.length === 0 ? '#f3f4f6' : '#ffffff',
+                                    color: filteredSolicitudes.length === 0 ? '#9ca3af' : '#003594',
+                                    border: `1px solid ${filteredSolicitudes.length === 0 ? '#e5e7eb' : '#cbd5e1'}`,
+                                    borderRadius: '8px',
+                                    padding: '6px 12px',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 600,
+                                    cursor: filteredSolicitudes.length === 0 ? 'not-allowed' : 'pointer',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                                    transition: 'all 0.15s ease'
+                                }}
+                                title="Descargar reporte PDF de Solicitudes de Reapertura"
+                            >
+                                <Download size={15} />
+                                <span>Descargar PDF</span>
+                            </button>
                         </div>
 
                         {filteredSolicitudes.length === 0 ? (
@@ -909,12 +941,37 @@ export default function Pendientes() {
                 {/* 2. Registros Pendientes de Creación - Visible para Todos los Roles segun Scope */}
                 {pendientesCreacion.length > 0 && (
                     <section className="dashboard-section-card" style={{ padding: '1.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '1rem' }}>
-                            <div style={{ backgroundColor: '#fff7ed', padding: '8px', borderRadius: '8px' }}>
-                                <AlertCircle size={20} color="#f97316" />
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <div style={{ backgroundColor: '#fff7ed', padding: '8px', borderRadius: '8px' }}>
+                                    <AlertCircle size={20} color="#f97316" />
+                                </div>
+                                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#374151' }}>Registros Pendientes de Creación</h3>
+                                <span style={{ backgroundColor: '#f97316', color: 'white', borderRadius: '12px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }}>{filteredPendientesCreacion.length}</span>
                             </div>
-                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#374151' }}>Registros Pendientes de Creación</h3>
-                            <span style={{ backgroundColor: '#f97316', color: 'white', borderRadius: '12px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }}>{filteredPendientesCreacion.length}</span>
+                            <button
+                                onClick={() => generatePendientesCreacionPDF({ pendientesCreacion: filteredPendientesCreacion, periodoLabel: displayPeriodoLabel, filterEstado: filterEstadoCreacion, user })}
+                                disabled={filteredPendientesCreacion.length === 0}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    backgroundColor: filteredPendientesCreacion.length === 0 ? '#f3f4f6' : '#ffffff',
+                                    color: filteredPendientesCreacion.length === 0 ? '#9ca3af' : '#003594',
+                                    border: `1px solid ${filteredPendientesCreacion.length === 0 ? '#e5e7eb' : '#cbd5e1'}`,
+                                    borderRadius: '8px',
+                                    padding: '6px 12px',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 600,
+                                    cursor: filteredPendientesCreacion.length === 0 ? 'not-allowed' : 'pointer',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                                    transition: 'all 0.15s ease'
+                                }}
+                                title="Descargar reporte PDF de Registros Pendientes de Creación"
+                            >
+                                <Download size={15} />
+                                <span>Descargar PDF</span>
+                            </button>
                         </div>
 
                         {filteredPendientesCreacion.length === 0 ? (
@@ -1048,12 +1105,37 @@ export default function Pendientes() {
 
                 {/* 3. Registros Pendientes de Auditoría */}
                 <section className="dashboard-section-card" style={{ padding: '1.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '1rem' }}>
-                        <div style={{ backgroundColor: '#eff6ff', padding: '8px', borderRadius: '8px' }}>
-                            <FileText size={20} color="#3b82f6" />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <div style={{ backgroundColor: '#eff6ff', padding: '8px', borderRadius: '8px' }}>
+                                <FileText size={20} color="#3b82f6" />
+                            </div>
+                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#374151' }}>Registros Pendientes de Auditoría</h3>
+                            <span style={{ backgroundColor: '#3b82f6', color: 'white', borderRadius: '12px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }}>{filteredPorAuditar.length}</span>
                         </div>
-                        <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#374151' }}>Registros Pendientes de Auditoría</h3>
-                        <span style={{ backgroundColor: '#3b82f6', color: 'white', borderRadius: '12px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }}>{filteredPorAuditar.length}</span>
+                        <button
+                            onClick={() => generatePendientesAuditoriaPDF({ porAuditar: filteredPorAuditar, periodoLabel: displayPeriodoLabel, filterEstado: filterEstadoAuditoria, user })}
+                            disabled={filteredPorAuditar.length === 0}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                backgroundColor: filteredPorAuditar.length === 0 ? '#f3f4f6' : '#ffffff',
+                                color: filteredPorAuditar.length === 0 ? '#9ca3af' : '#003594',
+                                border: `1px solid ${filteredPorAuditar.length === 0 ? '#e5e7eb' : '#cbd5e1'}`,
+                                borderRadius: '8px',
+                                padding: '6px 12px',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                cursor: filteredPorAuditar.length === 0 ? 'not-allowed' : 'pointer',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                                transition: 'all 0.15s ease'
+                            }}
+                            title="Descargar reporte PDF de Registros Pendientes de Auditoría"
+                        >
+                            <Download size={15} />
+                            <span>Descargar PDF</span>
+                        </button>
                     </div>
 
                     {porAuditar.length === 0 ? (
@@ -1168,12 +1250,37 @@ export default function Pendientes() {
 
                 {/* 4. Revisión de Subsanación */}
                 <section className="dashboard-section-card" style={{ padding: '1.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '1rem' }}>
-                        <div style={{ backgroundColor: '#f5f3ff', padding: '8px', borderRadius: '8px' }}>
-                            <CheckCircle2 size={20} color="#8b5cf6" />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', borderBottom: '1px solid #f3f4f6', paddingBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <div style={{ backgroundColor: '#f5f3ff', padding: '8px', borderRadius: '8px' }}>
+                                <CheckCircle2 size={20} color="#8b5cf6" />
+                            </div>
+                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#374151' }}>Pendientes de Revisión (Subsanados)</h3>
+                            <span style={{ backgroundColor: '#8b5cf6', color: 'white', borderRadius: '12px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }}>{filteredPorRevisar.length}</span>
                         </div>
-                        <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#374151' }}>Pendientes de Revisión (Subsanados)</h3>
-                        <span style={{ backgroundColor: '#8b5cf6', color: 'white', borderRadius: '12px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }}>{filteredPorRevisar.length}</span>
+                        <button
+                            onClick={() => generatePendientesRevisionPDF({ porRevisar: filteredPorRevisar, periodoLabel: displayPeriodoLabel, filterEstado: filterEstadoRevision, user })}
+                            disabled={filteredPorRevisar.length === 0}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                backgroundColor: filteredPorRevisar.length === 0 ? '#f3f4f6' : '#ffffff',
+                                color: filteredPorRevisar.length === 0 ? '#9ca3af' : '#003594',
+                                border: `1px solid ${filteredPorRevisar.length === 0 ? '#e5e7eb' : '#cbd5e1'}`,
+                                borderRadius: '8px',
+                                padding: '6px 12px',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                cursor: filteredPorRevisar.length === 0 ? 'not-allowed' : 'pointer',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                                transition: 'all 0.15s ease'
+                            }}
+                            title="Descargar reporte PDF de Pendientes de Revisión"
+                        >
+                            <Download size={15} />
+                            <span>Descargar PDF</span>
+                        </button>
                     </div>
 
                     {porRevisar.length === 0 ? (

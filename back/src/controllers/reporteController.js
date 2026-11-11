@@ -1,6 +1,6 @@
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
-const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso, Elemento, Vinculacion, Administracion, sequelize, Contratista, TipoContratista, Dependencia, Programa, Gerencia, Subgerencia, Evidencia } = require('../database/models');
+const { Registro, RegistroActividad, Actividad, Hallazgo, User, Compromiso, Elemento, Vinculacion, Administracion, sequelize, Contratista, TipoContratista, Dependencia, Programa, Gerencia, Subgerencia, Evidencia, AuditoriaComentario } = require('../database/models');
 const { Op } = require('sequelize');
 const { getProgramaScope, intersectWithProgramaScope } = require('../utils/programaScopeHelper');
 const { buildScopeWhere, getAllowedVinculacionIds } = require('../utils/scopeHelper');
@@ -42,7 +42,8 @@ async registroPdf(req, res) {
                             },
                             { model: Evidencia, as: 'evidencias' }
                         ]
-                    }
+                    },
+                    { model: AuditoriaComentario, as: 'comentarios' }
                 ]
             });
 
@@ -73,7 +74,9 @@ async registroPdf(req, res) {
             const totalWidth = 523.28;
 
             const logoAbastible = path.join(__dirname, '../assets/logos/abastible.png');
+            const logoOval = path.join(__dirname, '../assets/logos/oval.png');
             const hasLogo = fs.existsSync(logoAbastible);
+            const hasOvalLogo = fs.existsSync(logoOval);
 
             // Period and dates formatting
             const formatPeriodStr = (p) => {
@@ -100,7 +103,7 @@ async registroPdf(req, res) {
             const rutEecc = registro.usuario?.rut || '-';
             const auditorNombre = registro.auditor?.name || (registro.auditado ? 'Auditor OVAL' : 'Pendiente de auditoría');
 
-            // Draw Running / Main Header
+            // Draw Running / Main Header adhering strictly to Matriz de Cumplimiento Standard
             const drawPageHeader = (isFirstPage) => {
                 // Top Corporate Bars (Abastible Blue & Orange)
                 doc.rect(0, 0, pageWidth, 5).fill('#003594');
@@ -110,27 +113,33 @@ async registroPdf(req, res) {
                     let titleX = startX;
                     if (hasLogo) {
                         try {
-                            doc.image(logoAbastible, startX, 13, { height: 26 });
-                            titleX = startX + 96;
+                            const logoHeight = 22;
+                            const logoWidth = Math.round((1024 / 235) * logoHeight); // ~96pt
+                            doc.image(logoAbastible, startX, 13, { width: logoWidth, height: logoHeight });
+                            titleX = startX + logoWidth + 14; // 36 + 96 + 14 = 146pt (clear 14pt gap from logo)
                         } catch (e) {
                             titleX = startX;
                         }
                     }
 
-                    doc.fillColor('#003594').font('Helvetica-Bold').fontSize(14).text('INFORME DE CUMPLIMIENTO OIEM', titleX, 15);
-                    doc.fillColor('#64748b').font('Helvetica').fontSize(8.5).text('Reporte oficial de cumplimiento operacional, dotación y auditoría', titleX, 31);
+                    // Title & Subtitle in White Area
+                    doc.fillColor('#003594').font('Helvetica-Bold').fontSize(13).text('INFORME DE CUMPLIMIENTO OIEM', titleX, 14);
+                    doc.fillColor('#64748b').font('Helvetica').fontSize(8.5).text('Reporte oficial de cumplimiento operacional, dotación y auditoría', titleX, 29);
 
                     doc.fontSize(7.5).fillColor('#64748b').font('Helvetica')
-                       .text(`Fecha emisión: ${nowFormatted}`, startX, 15, { align: 'right', width: totalWidth });
-                    doc.text(`ID Registro: #${registro.id}  |  Periodo: ${periodoLabel}`, startX, 28, { align: 'right', width: totalWidth });
+                       .text(`Fecha emisión: ${nowFormatted}`, startX, 14, { align: 'right', width: totalWidth });
+                    doc.text(`ID Registro: #${registro.id}  |  Periodo: ${periodoLabel}`, startX, 26, { align: 'right', width: totalWidth });
 
-                    doc.moveTo(startX, 46).lineTo(startX + totalWidth, 46).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
+                    // Divider line
+                    doc.moveTo(startX, 44).lineTo(startX + totalWidth, 44).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
                 } else {
                     let titleX = startX;
                     if (hasLogo) {
                         try {
-                            doc.image(logoAbastible, startX, 10, { height: 18 });
-                            titleX = startX + 70;
+                            const logoHeight = 16;
+                            const logoWidth = Math.round((1024 / 235) * logoHeight); // ~70pt
+                            doc.image(logoAbastible, startX, 10, { width: logoWidth, height: logoHeight });
+                            titleX = startX + logoWidth + 12; // 36 + 70 + 12 = 118pt
                         } catch (e) {
                             titleX = startX;
                         }
@@ -140,7 +149,7 @@ async registroPdf(req, res) {
                     doc.fillColor('#64748b').font('Helvetica').fontSize(7.5).text(`Registro #${registro.id} • ${eeccNombre} • Periodo ${periodoLabel}`, titleX, 23);
 
                     doc.fontSize(7.5).fillColor('#64748b').font('Helvetica')
-                       .text(`Emisión: ${nowFormatted}`, startX, 15, { align: 'right', width: totalWidth });
+                       .text(`Emisión: ${nowFormatted}`, startX, 14, { align: 'right', width: totalWidth });
 
                     doc.moveTo(startX, 34).lineTo(startX + totalWidth, 34).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
                 }
@@ -152,29 +161,31 @@ async registroPdf(req, res) {
             let currY = 52;
 
             // ==========================================
-            // 1. METADATA IDENTIFICATION CARD (UI HARMONY)
+            // 1. METADATA IDENTIFICATION CARD (ZERO OVERLAP)
             // ==========================================
-            doc.roundedRect(startX, currY, totalWidth, 44, 4).fillAndStroke('#f8fafc', '#e2e8f0');
+            doc.roundedRect(startX, currY, totalWidth, 48, 4).fillAndStroke('#f8fafc', '#e2e8f0');
 
             // Col 1: Empresa & RUT
+            const col1W = 165;
             doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.5).text('EMPRESA (EECC)', startX + 10, currY + 6);
-            doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8.5).text(eeccNombre, startX + 10, currY + 15, { width: 160, ellipsis: true });
-            doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.5).text('RUT:', startX + 10, currY + 27, { continued: true });
-            doc.fillColor('#334155').font('Helvetica').fontSize(7.5).text(` ${rutEecc}`);
+            doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8).text(eeccNombre, startX + 10, currY + 16, { width: col1W, height: 11, lineBreak: false, ellipsis: true });
+            doc.fillColor('#64748b').font('Helvetica').fontSize(7).text(`RUT: ${rutEecc}`, startX + 10, currY + 30, { width: col1W, height: 10, lineBreak: false, ellipsis: true });
 
             // Col 2: Contrato, Servicio & Dependencia
-            doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.5).text('CONTRATO / SERVICIO', startX + 180, currY + 6);
-            doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8.5).text(contratoLabel, startX + 180, currY + 15, { width: 170, ellipsis: true });
-            doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.5).text('DEP.:', startX + 180, currY + 27, { continued: true });
-            doc.fillColor('#334155').font('Helvetica').fontSize(7.5).text(` ${dependenciaNombre} • ${servicioNombre}`, { width: 165, ellipsis: true });
+            const col2X = startX + 185;
+            const col2W = 165;
+            doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.5).text('CONTRATO / SERVICIO', col2X, currY + 6);
+            doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(8).text(contratoLabel, col2X, currY + 16, { width: col2W, height: 11, lineBreak: false, ellipsis: true });
+            doc.fillColor('#64748b').font('Helvetica').fontSize(7).text(`DEP.: ${dependenciaNombre} • ${servicioNombre}`, col2X, currY + 30, { width: col2W, height: 10, lineBreak: false, ellipsis: true });
 
             // Col 3: Programa & Auditor
-            doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.5).text('PROGRAMA / AUDITOR', startX + 360, currY + 6);
-            doc.fillColor('#003594').font('Helvetica-Bold').fontSize(8.5).text(programaNombre, startX + 360, currY + 15, { width: 155, ellipsis: true });
-            doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.5).text('AUDITOR:', startX + 360, currY + 27, { continued: true });
-            doc.fillColor('#334155').font('Helvetica').fontSize(7.5).text(` ${auditorNombre}`, { width: 145, ellipsis: true });
+            const col3X = startX + 360;
+            const col3W = 155;
+            doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(6.5).text('PROGRAMA / AUDITOR', col3X, currY + 6);
+            doc.fillColor('#003594').font('Helvetica-Bold').fontSize(8).text(programaNombre, col3X, currY + 16, { width: col3W, height: 11, lineBreak: false, ellipsis: true });
+            doc.fillColor('#64748b').font('Helvetica').fontSize(7).text(`AUDITOR: ${auditorNombre}`, col3X, currY + 30, { width: col3W, height: 10, lineBreak: false, ellipsis: true });
 
-            currY += 52;
+            currY += 56;
 
             // ==========================================
             // 2. KPI SUMMARY METRIC CARDS (UI HARMONY)
@@ -234,13 +245,32 @@ async registroPdf(req, res) {
             // ==========================================
             // 3. COMENTARIO GENERAL / OBSERVACIONES BOX
             // ==========================================
-            const generalComment = registro.observaciones_auditoria || registro.comentario_general;
-            if (generalComment) {
-                doc.roundedRect(startX, currY, totalWidth, 26, 3).fillAndStroke('#eff6ff', '#bfdbfe');
-                doc.rect(startX, currY, 3, 26).fill('#2563eb');
+            const generalCommentsList = [];
+            if (registro.observaciones_auditoria) {
+                generalCommentsList.push(registro.observaciones_auditoria);
+            }
+            if (registro.comentarios && registro.comentarios.length > 0) {
+                registro.comentarios
+                    .filter(c => c.tipo === 'general' && c.comentario && !generalCommentsList.includes(c.comentario))
+                    .forEach(c => generalCommentsList.push(c.comentario));
+            }
+            const generalCommentText = generalCommentsList.join('\n\n');
+
+            if (generalCommentText) {
+                const commentHeight = doc.heightOfString(generalCommentText, { width: totalWidth - 20, fontSize: 7.5 });
+                const boxHeight = Math.max(28, commentHeight + 16);
+
+                if (currY + boxHeight > 780) {
+                    doc.addPage();
+                    drawPageHeader(false);
+                    currY = 44;
+                }
+
+                doc.roundedRect(startX, currY, totalWidth, boxHeight, 3).fillAndStroke('#eff6ff', '#bfdbfe');
+                doc.rect(startX, currY, 3, boxHeight).fill('#2563eb');
                 doc.fillColor('#1e40af').font('Helvetica-Bold').fontSize(7).text('OBSERVACIÓN GENERAL DEL AUDITOR:', startX + 8, currY + 4);
-                doc.fillColor('#1e293b').font('Helvetica').fontSize(7.5).text(generalComment, startX + 8, currY + 13, { width: totalWidth - 16, height: 12, ellipsis: true });
-                currY += 32;
+                doc.fillColor('#1e293b').font('Helvetica').fontSize(7.5).text(generalCommentText, startX + 8, currY + 14, { width: totalWidth - 16 });
+                currY += boxHeight + 8;
             }
 
             // ==========================================
@@ -269,7 +299,7 @@ async registroPdf(req, res) {
                     if (currY + cardHeight > 780) {
                         doc.addPage();
                         drawPageHeader(false);
-                        currY = 42;
+                        currY = 44;
                     }
 
                     doc.roundedRect(startX, currY, totalWidth, cardHeight, 3).fillAndStroke('#ffffff', '#e2e8f0');
@@ -299,8 +329,8 @@ async registroPdf(req, res) {
                         const comp = h.compromisos[0];
                         const compDate = comp.fecha_cumplimiento || comp.fecha_compromiso;
                         const dateStr = compDate ? new Date(compDate).toLocaleDateString('es-CL') : 'S/F';
-                        doc.fillColor('#2563eb').font('Helvetica-Bold').fontSize(7).text('COMPROMISO:', startX + 146, currY + 16, { continued: true });
-                        doc.fillColor('#475569').font('Helvetica').fontSize(7).text(` ${comp.descripcion || comp.descripcion_compromiso || '-'} (Fecha Límite: ${dateStr})`, { width: totalWidth - 220, ellipsis: true });
+                        doc.fillColor('#2563eb').font('Helvetica-Bold').fontSize(7).text('COMPROMISO: ', startX + 146, currY + 16, { continued: true });
+                        doc.fillColor('#475569').font('Helvetica').fontSize(7).text(`${comp.descripcion || comp.descripcion_compromiso || '-'} (Fecha Límite: ${dateStr})`, { width: totalWidth - 220, ellipsis: true });
                     }
 
                     currY += cardHeight + 4;
@@ -321,7 +351,7 @@ async registroPdf(req, res) {
             if (currY + 40 > 780) {
                 doc.addPage();
                 drawPageHeader(false);
-                currY = 42;
+                currY = 44;
             }
 
             doc.rect(startX, currY, 3, 10).fill('#003594');
@@ -331,11 +361,11 @@ async registroPdf(req, res) {
             const drawTableHeader = (yPos) => {
                 doc.rect(startX, yPos, totalWidth, 16).fill('#003594');
                 doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(7);
-                doc.text('CÓD.', startX + 6, yPos + 5, { width: 32 });
-                doc.text('ELEMENTO & ACTIVIDAD', startX + 40, yPos + 5, { width: 235 });
-                doc.text('DECLARADO EECC', startX + 278, yPos + 5, { width: 75, align: 'center' });
-                doc.text('AUDITORÍA OVAL', startX + 356, yPos + 5, { width: 75, align: 'center' });
-                doc.text('OBSERVACIONES & EVIDENCIAS', startX + 434, yPos + 5, { width: 85 });
+                doc.text('CÓD.', startX + 6, yPos + 5, { width: 28 });
+                doc.text('ELEMENTO & ACTIVIDAD', startX + 36, yPos + 5, { width: 175 });
+                doc.text('DECLARADO EECC', startX + 215, yPos + 5, { width: 68, align: 'center' });
+                doc.text('AUDITORÍA OVAL', startX + 287, yPos + 5, { width: 68, align: 'center' });
+                doc.text('OBSERVACIONES & EVIDENCIAS', startX + 360, yPos + 5, { width: 155 });
                 return yPos + 16;
             };
 
@@ -348,14 +378,33 @@ async registroPdf(req, res) {
                 const nombreAct = act.actividad || act.descripcion || ra.descripcion_actividad || 'Actividad operacional';
                 const nombreElem = elem.nombre ? `${elem.numero ? `Elem. ${elem.numero}: ` : ''}${elem.nombre}` : '';
 
-                const hasObs = Boolean(ra.observacion_auditor || ra.descripcion_contratista);
-                const hasEv = Boolean(ra.evidencias && ra.evidencias.length > 0);
-                const rowHeight = (hasObs && hasEv) ? 26 : 22;
+                // Observations & Comments resolution
+                const auditorObs = ra.observacion_auditor;
+                const contratistaObs = ra.descripcion_contratista;
+                const auditComments = (registro.comentarios || [])
+                    .filter(c => c.tipo === 'actividad' && String(c.registro_actividad_id) === String(ra.id))
+                    .map(c => c.comentario)
+                    .filter(Boolean);
 
-                if (currY + rowHeight > 785) {
+                const hasEv = Boolean(ra.evidencias && ra.evidencias.length > 0);
+                const hasNotes = Boolean(auditorObs || contratistaObs || auditComments.length > 0);
+
+                // Compute dynamic row height
+                let neededHeight = 22;
+                if (hasEv || hasNotes) {
+                    let linesCount = 0;
+                    if (hasEv) linesCount++;
+                    if (auditorObs) linesCount += Math.ceil(auditorObs.length / 40);
+                    if (contratistaObs) linesCount += Math.ceil(contratistaObs.length / 40);
+                    if (auditComments.length > 0) linesCount += auditComments.length;
+                    neededHeight = Math.max(22, Math.min(65, 12 + linesCount * 9));
+                }
+                const rowHeight = neededHeight;
+
+                if (currY + rowHeight > 780) {
                     doc.addPage();
                     drawPageHeader(false);
-                    currY = drawTableHeader(40);
+                    currY = drawTableHeader(44);
                 }
 
                 // Row Background
@@ -365,64 +414,80 @@ async registroPdf(req, res) {
                 doc.moveTo(startX, currY + rowHeight).lineTo(startX + totalWidth, currY + rowHeight).strokeColor('#f1f5f9').lineWidth(0.5).stroke();
 
                 // Col 1: Code
-                doc.fillColor('#003594').font('Helvetica-Bold').fontSize(7.5).text(codigo, startX + 6, currY + 4, { width: 32 });
+                doc.fillColor('#003594').font('Helvetica-Bold').fontSize(7.5).text(codigo, startX + 6, currY + 4, { width: 28 });
 
                 // Col 2: Element & Description
-                doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(7.5).text(nombreAct, startX + 40, currY + 4, { width: 235, height: 9, ellipsis: true });
+                doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(7.5).text(nombreAct, startX + 36, currY + 4, { width: 175, height: 10, lineBreak: false, ellipsis: true });
                 if (nombreElem) {
-                    doc.fillColor('#64748b').font('Helvetica').fontSize(6.5).text(nombreElem, startX + 40, currY + 13, { width: 235, height: 8, ellipsis: true });
+                    doc.fillColor('#64748b').font('Helvetica').fontSize(6.5).text(nombreElem, startX + 36, currY + 14, { width: 175, height: 9, lineBreak: false, ellipsis: true });
                 }
 
-                // Col 3: Declarado Pill
+                // Col 3: Declarado Pill (Standard clean text, no broken Unicode)
                 const decVal = ra.cumple;
                 let decBg = '#ecfdf5';
                 let decColor = '#059669';
-                let decText = '✓ CUMPLE';
+                let decText = 'CUMPLE';
                 if (decVal === 0 || decVal === false) {
                     decBg = '#fef2f2';
                     decColor = '#dc2626';
-                    decText = '✗ NO CUMPLE';
+                    decText = 'NO CUMPLE';
                 } else if (decVal === 2) {
                     decBg = '#f1f5f9';
                     decColor = '#64748b';
-                    decText = '— NO APLICA';
+                    decText = 'NO APLICA';
                 }
-                doc.roundedRect(startX + 283, currY + 4.5, 65, 12, 2).fill(decBg);
-                doc.fillColor(decColor).font('Helvetica-Bold').fontSize(6.5).text(decText, startX + 283, currY + 7.5, { width: 65, align: 'center' });
+                doc.roundedRect(startX + 219, currY + 5, 60, 13, 2).fill(decBg);
+                doc.fillColor(decColor).font('Helvetica-Bold').fontSize(6.5).text(decText, startX + 219, currY + 8, { width: 60, align: 'center' });
 
-                // Col 4: Auditor Pill
+                // Col 4: Auditor Pill (Standard clean text)
                 const audVal = ra.cumple_auditor;
                 let audBg = '#ecfdf5';
                 let audColor = '#059669';
-                let audText = '✓ CUMPLE';
+                let audText = 'CUMPLE';
                 if (audVal === 0 || audVal === false) {
                     audBg = '#fef2f2';
                     audColor = '#dc2626';
-                    audText = '✗ NO CUMPLE';
+                    audText = 'NO CUMPLE';
                 } else if (audVal === 2) {
                     audBg = '#f1f5f9';
                     audColor = '#64748b';
-                    audText = '— NO APLICA';
+                    audText = 'NO APLICA';
                 } else if (audVal === null || audVal === undefined) {
                     audBg = '#f8fafc';
                     audColor = '#94a3b8';
-                    audText = '— PENDIENTE';
+                    audText = 'PENDIENTE';
                 }
-                doc.roundedRect(startX + 361, currY + 4.5, 65, 12, 2).fill(audBg);
-                doc.fillColor(audColor).font('Helvetica-Bold').fontSize(6.5).text(audText, startX + 361, currY + 7.5, { width: 65, align: 'center' });
+                doc.roundedRect(startX + 291, currY + 5, 60, 13, 2).fill(audBg);
+                doc.fillColor(audColor).font('Helvetica-Bold').fontSize(6.5).text(audText, startX + 291, currY + 8, { width: 60, align: 'center' });
 
-                // Col 5: Evidencias & Obs
-                let evObsText = '';
-                if (ra.evidencias && ra.evidencias.length > 0) {
-                    evObsText = `📎 ${ra.evidencias.length} archivo(s)`;
-                } else {
-                    evObsText = 'Sin evidencia';
+                // Col 5: Evidencias & Observaciones (Clean text, robust multi-line layout)
+                let noteY = currY + 4;
+                if (hasEv) {
+                    const evCount = ra.evidencias.length;
+                    const evLabel = evCount === 1 ? '1 archivo adjunto' : `${evCount} archivos adjuntos`;
+                    doc.fillColor('#2563eb').font('Helvetica-Bold').fontSize(6.5).text(`[${evLabel}]`, startX + 360, noteY, { width: 155, lineBreak: false, ellipsis: true });
+                    noteY += 9;
                 }
-                doc.fillColor('#2563eb').font('Helvetica').fontSize(6.5).text(evObsText, startX + 434, currY + 4.5, { width: 85, ellipsis: true });
 
-                const note = ra.observacion_auditor || ra.descripcion_contratista;
-                if (note) {
-                    doc.fillColor('#64748b').font('Helvetica-Oblique').fontSize(6).text(note, startX + 434, currY + 13, { width: 85, height: 9, ellipsis: true });
+                if (auditorObs) {
+                    doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(6).text('Auditor: ', startX + 360, noteY, { continued: true });
+                    doc.fillColor('#334155').font('Helvetica').fontSize(6).text(auditorObs, { width: 155, height: 16, ellipsis: true });
+                    noteY += 9;
+                }
+
+                if (contratistaObs) {
+                    doc.fillColor('#475569').font('Helvetica-Bold').fontSize(6).text('EECC: ', startX + 360, noteY, { continued: true });
+                    doc.fillColor('#64748b').font('Helvetica').fontSize(6).text(contratistaObs, { width: 155, height: 16, ellipsis: true });
+                    noteY += 9;
+                }
+
+                if (auditComments.length > 0) {
+                    doc.fillColor('#475569').font('Helvetica-Oblique').fontSize(6).text(`Comentario: ${auditComments.join(' | ')}`, startX + 360, noteY, { width: 155, height: 16, ellipsis: true });
+                    noteY += 9;
+                }
+
+                if (!hasEv && !hasNotes) {
+                    doc.fillColor('#94a3b8').font('Helvetica').fontSize(6.5).text('Sin evidencia', startX + 360, currY + 8, { width: 155 });
                 }
 
                 currY += rowHeight;
@@ -484,31 +549,45 @@ async registroPdf(req, res) {
             doc.pipe(res);
 
             const path = require('path');
+            const fs = require('fs');
             const logoAbastible = path.join(__dirname, '../assets/logos/abastible.png');
             const logoOval = path.join(__dirname, '../assets/logos/oval.png');
 
-            // --- HEADER ---
-            doc.rect(0, 0, 612, 80).fill('#003399'); // Abastible Blue
-            
+            // --- STANDARD CORPORATE HEADER (Matriz de Cumplimiento Benchmark) ---
+            doc.rect(0, 0, 612, 5).fill('#003594');
+            doc.rect(0, 5, 612, 2.5).fill('#FE5000');
+
+            let titleX = 50;
             try {
-                const fs = require('fs');
-                if (fs.existsSync(logoAbastible)) doc.image(logoAbastible, 40, 20, { height: 40 });
-                if (fs.existsSync(logoOval)) doc.image(logoOval, 480, 20, { height: 40 });
+                if (fs.existsSync(logoAbastible)) {
+                    doc.image(logoAbastible, 50, 12, { height: 26 });
+                    titleX = 145;
+                }
+                if (fs.existsSync(logoOval)) {
+                    doc.image(logoOval, 520, 12, { height: 24 });
+                }
             } catch (err) {
                 console.warn('Logos not found for PDF');
             }
 
-            doc.fillColor('white').fontSize(16).font('Helvetica-Bold')
-               .text('REPORTE CONSOLIDADO DE CUMPLIMIENTO', 0, 30, { align: 'center' });
-            
-            doc.moveDown(4);
+            doc.fillColor('#003594').fontSize(13).font('Helvetica-Bold')
+               .text('REPORTE CONSOLIDADO DE CUMPLIMIENTO', titleX, 14);
+            doc.fillColor('#64748b').fontSize(8.5).font('Helvetica')
+               .text('Consolidado general de autoevaluaciones y estado de auditorías OIEM', titleX, 29);
+
+            const nowFormatted = `${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`;
+            doc.fontSize(7.5).fillColor('#64748b').font('Helvetica')
+               .text(`Fecha emisión: ${nowFormatted}`, 50, 14, { align: 'right', width: 512 });
+
+            doc.moveTo(50, 44).lineTo(562, 44).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
 
             // --- INFO BOX ---
-            doc.fillColor('#1e293b');
-            doc.fontSize(10).font('Helvetica')
-               .text(`Periodo: ${periodo_desde || 'Todos'}`, { align: 'left' });
-            doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString('es-CL')}`, { align: 'right' });
-            doc.moveDown();
+            const infoY = 50;
+            doc.rect(50, infoY, 512, 18).fillAndStroke('#f8fafc', '#e2e8f0');
+            doc.fillColor('#1e293b').fontSize(8.5).font('Helvetica-Bold')
+               .text(`Periodo evaluado: ${periodo_desde || 'Todos los periodos'}`, 60, infoY + 5);
+            doc.fontSize(8).fillColor('#64748b').font('Helvetica')
+               .text(`Total registros: ${registros.length}`, 380, infoY + 5, { align: 'right', width: 170 });
 
             // --- SUMMARY CARDS ---
             const startY = doc.y;
@@ -1431,29 +1510,42 @@ async registroPdf(req, res) {
         const logoAbastible = path.join(__dirname, '../assets/logos/abastible.png');
         const logoOval = path.join(__dirname, '../assets/logos/oval.png');
 
-        // --- HEADER ---
-        // Draw a top blue bar
-        doc.rect(0, 0, 612, 80).fill('#003399'); // Abastible Blue
-        
-        // Add logos in header
+        // --- STANDARD CORPORATE HEADER (Matriz de Cumplimiento Benchmark) ---
+        doc.rect(0, 0, 612, 5).fill('#003594');
+        doc.rect(0, 5, 612, 2.5).fill('#FE5000');
+
+        let titleX = 50;
         try {
             const fs = require('fs');
-            if (fs.existsSync(logoAbastible)) doc.image(logoAbastible, 40, 20, { height: 40 });
-            if (fs.existsSync(logoOval)) doc.image(logoOval, 480, 20, { height: 40 });
+            if (fs.existsSync(logoAbastible)) {
+                doc.image(logoAbastible, 50, 12, { height: 26 });
+                titleX = 145;
+            }
+            if (fs.existsSync(logoOval)) {
+                doc.image(logoOval, 520, 12, { height: 24 });
+            }
         } catch (err) {
             console.warn('Logos not found for PDF, skipping images');
         }
 
-        doc.fillColor('white').fontSize(16).font('Helvetica-Bold')
-           .text('INFORME DE FACTURACIÓN MENSUAL', 0, 30, { align: 'center' });
-        
-        doc.moveDown(4);
+        doc.fillColor('#003594').fontSize(13).font('Helvetica-Bold')
+           .text('REPORTE DE FACTURACIÓN OVAL', titleX, 14);
+        doc.fillColor('#64748b').fontSize(8.5).font('Helvetica')
+           .text('Informe mensual de contratos y servicios facturables OVAL Control', titleX, 29);
+
+        const nowFormatted = `${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`;
+        doc.fontSize(7.5).fillColor('#64748b').font('Helvetica')
+           .text(`Fecha emisión: ${nowFormatted}`, 50, 14, { align: 'right', width: 512 });
+
+        doc.moveTo(50, 44).lineTo(562, 44).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
 
         // --- INFO BOX ---
-        doc.fillColor('#1e293b'); // Dark Slate
-        doc.fontSize(10).font('Helvetica')
-           .text(`Fecha de Emisión: ${new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}`, { align: 'right' });
-        doc.moveDown();
+        const infoY = 50;
+        doc.rect(50, infoY, 512, 18).fillAndStroke('#f8fafc', '#e2e8f0');
+        doc.fillColor('#1e293b').fontSize(8.5).font('Helvetica-Bold')
+           .text(`Periodo: ${new Date().toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}`, 60, infoY + 5);
+        doc.fontSize(8).fillColor('#64748b').font('Helvetica')
+           .text(`Total contratistas: ${reportData.resumen.totalContratistas}`, 380, infoY + 5, { align: 'right', width: 170 });
 
         // --- SUMMARY CARDS ---
         const startY = doc.y;
@@ -1932,8 +2024,10 @@ async registroPdf(req, res) {
                 let titleX = startX;
                 if (hasLogo) {
                     try {
-                        doc.image(logoAbastible, startX, 10, { height: 26 });
-                        titleX = startX + 96;
+                        const logoHeight = 22;
+                        const logoWidth = Math.round((1024 / 235) * logoHeight); // ~96pt
+                        doc.image(logoAbastible, startX, 10, { width: logoWidth, height: logoHeight });
+                        titleX = startX + logoWidth + 14; // 18 + 96 + 14 = 128pt
                     } catch (e) {
                         titleX = startX;
                     }

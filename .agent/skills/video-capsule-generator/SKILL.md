@@ -1,3 +1,9 @@
+---
+name: video-capsule-generator
+description: Automates the generation of video tutorial capsules using browser automation.
+triggers: ["manual invocation", "workflow:tutorial-video"]
+---
+
 # Tutorial Video Capsule Generator Skill
 
 This skill automates the generation of video tutorial capsules for the Abastible AI platform. It uses a browser automation engine to execute the walkthroughs defined in `tutorials.json` and records the session into `.webm` files.

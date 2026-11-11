@@ -1,3 +1,9 @@
+---
+name: preprod-linux-docker-deploy-maker
+description: Automates the generation of deployment files (Dockerfile, docker-compose, CI/CD GitHub Actions) for Linux servers.
+triggers: ["manual invocation", "workflow:docker-deploy"]
+---
+
 # Skill: Preprod Linux Docker Deploy Maker
 
 This skill automates the generation of all necessary files for deploying a web application (monorepo or single-repo) to a Linux server using Docker, Docker Compose, and GitHub Actions.
