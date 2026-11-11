@@ -103,72 +103,58 @@ async registroPdf(req, res) {
             const rutEecc = registro.usuario?.rut || '-';
             const auditorNombre = registro.auditor?.name || (registro.auditado ? 'Auditor OVAL' : 'Pendiente de auditoría');
 
-            // Draw Running / Main Header with corporate branding
+            // Draw Running / Main Header adhering strictly to Matriz de Cumplimiento Standard
             const drawPageHeader = (isFirstPage) => {
-                const headerH = isFirstPage ? 54 : 36;
-                // Corporate Abastible Blue Band
-                doc.rect(0, 0, pageWidth, headerH).fill('#003594');
-                // Corporate Orange Accent Stripe
-                doc.rect(0, headerH, pageWidth, 3).fill('#FE5000');
+                // Top Corporate Bars (Abastible Blue & Orange)
+                doc.rect(0, 0, pageWidth, 5).fill('#003594');
+                doc.rect(0, 5, pageWidth, 2.5).fill('#FE5000');
 
                 if (isFirstPage) {
                     let titleX = startX;
                     if (hasLogo) {
                         try {
-                            doc.image(logoAbastible, startX, 11, { height: 32 });
-                            titleX = startX + 105;
+                            doc.image(logoAbastible, startX, 12, { height: 26 });
+                            titleX = startX + 96;
                         } catch (e) {
                             titleX = startX;
                         }
                     }
 
-                    if (hasOvalLogo) {
-                        try {
-                            doc.image(logoOval, startX + totalWidth - 45, 12, { height: 28 });
-                        } catch (e) {}
-                    }
+                    // Title & Subtitle in White Area
+                    doc.fillColor('#003594').font('Helvetica-Bold').fontSize(13).text('INFORME DE CUMPLIMIENTO OIEM', titleX, 14);
+                    doc.fillColor('#64748b').font('Helvetica').fontSize(8.5).text('Reporte oficial de cumplimiento operacional, dotación y auditoría', titleX, 29);
 
-                    doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(13)
-                       .text('INFORME DE CUMPLIMIENTO OIEM', titleX, 14);
-                    doc.fillColor('#cbd5e1').font('Helvetica').fontSize(7.5)
-                       .text('Reporte oficial de cumplimiento operacional, dotación y auditoría', titleX, 31);
+                    doc.fontSize(7.5).fillColor('#64748b').font('Helvetica')
+                       .text(`Fecha emisión: ${nowFormatted}`, startX, 14, { align: 'right', width: totalWidth });
+                    doc.text(`ID Registro: #${registro.id}  |  Periodo: ${periodoLabel}`, startX, 26, { align: 'right', width: totalWidth });
 
-                    const rightMargin = hasOvalLogo ? 52 : 0;
-                    doc.fontSize(7).fillColor('#e2e8f0').font('Helvetica')
-                       .text(`Fecha emisión: ${nowFormatted}`, startX, 15, { align: 'right', width: totalWidth - rightMargin });
-                    doc.text(`ID Registro: #${registro.id}  |  Periodo: ${periodoLabel}`, startX, 27, { align: 'right', width: totalWidth - rightMargin });
+                    // Divider line
+                    doc.moveTo(startX, 44).lineTo(startX + totalWidth, 44).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
                 } else {
                     let titleX = startX;
                     if (hasLogo) {
                         try {
-                            doc.image(logoAbastible, startX, 7, { height: 22 });
-                            titleX = startX + 75;
+                            doc.image(logoAbastible, startX, 10, { height: 18 });
+                            titleX = startX + 70;
                         } catch (e) {
                             titleX = startX;
                         }
                     }
 
-                    if (hasOvalLogo) {
-                        try {
-                            doc.image(logoOval, startX + totalWidth - 32, 7, { height: 20 });
-                        } catch (e) {}
-                    }
+                    doc.fillColor('#003594').font('Helvetica-Bold').fontSize(10).text('INFORME DE CUMPLIMIENTO OIEM', titleX, 12);
+                    doc.fillColor('#64748b').font('Helvetica').fontSize(7.5).text(`Registro #${registro.id} • ${eeccNombre} • Periodo ${periodoLabel}`, titleX, 23);
 
-                    doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(9.5)
-                       .text('INFORME DE CUMPLIMIENTO OIEM', titleX, 10);
-                    doc.fillColor('#cbd5e1').font('Helvetica').fontSize(7)
-                       .text(`Registro #${registro.id} • ${eeccNombre} • Periodo ${periodoLabel}`, titleX, 22, { width: 280, ellipsis: true });
+                    doc.fontSize(7.5).fillColor('#64748b').font('Helvetica')
+                       .text(`Emisión: ${nowFormatted}`, startX, 14, { align: 'right', width: totalWidth });
 
-                    const rightMargin = hasOvalLogo ? 38 : 0;
-                    doc.fontSize(7).fillColor('#e2e8f0').font('Helvetica')
-                       .text(`Emisión: ${nowFormatted}`, startX, 14, { align: 'right', width: totalWidth - rightMargin });
+                    doc.moveTo(startX, 34).lineTo(startX + totalWidth, 34).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
                 }
             };
 
             // First Page Header
             drawPageHeader(true);
 
-            let currY = 66;
+            let currY = 52;
 
             // ==========================================
             // 1. METADATA IDENTIFICATION CARD (ZERO OVERLAP)
@@ -559,31 +545,45 @@ async registroPdf(req, res) {
             doc.pipe(res);
 
             const path = require('path');
+            const fs = require('fs');
             const logoAbastible = path.join(__dirname, '../assets/logos/abastible.png');
             const logoOval = path.join(__dirname, '../assets/logos/oval.png');
 
-            // --- HEADER ---
-            doc.rect(0, 0, 612, 80).fill('#003399'); // Abastible Blue
-            
+            // --- STANDARD CORPORATE HEADER (Matriz de Cumplimiento Benchmark) ---
+            doc.rect(0, 0, 612, 5).fill('#003594');
+            doc.rect(0, 5, 612, 2.5).fill('#FE5000');
+
+            let titleX = 50;
             try {
-                const fs = require('fs');
-                if (fs.existsSync(logoAbastible)) doc.image(logoAbastible, 40, 20, { height: 40 });
-                if (fs.existsSync(logoOval)) doc.image(logoOval, 480, 20, { height: 40 });
+                if (fs.existsSync(logoAbastible)) {
+                    doc.image(logoAbastible, 50, 12, { height: 26 });
+                    titleX = 145;
+                }
+                if (fs.existsSync(logoOval)) {
+                    doc.image(logoOval, 520, 12, { height: 24 });
+                }
             } catch (err) {
                 console.warn('Logos not found for PDF');
             }
 
-            doc.fillColor('white').fontSize(16).font('Helvetica-Bold')
-               .text('REPORTE CONSOLIDADO DE CUMPLIMIENTO', 0, 30, { align: 'center' });
-            
-            doc.moveDown(4);
+            doc.fillColor('#003594').fontSize(13).font('Helvetica-Bold')
+               .text('REPORTE CONSOLIDADO DE CUMPLIMIENTO', titleX, 14);
+            doc.fillColor('#64748b').fontSize(8.5).font('Helvetica')
+               .text('Consolidado general de autoevaluaciones y estado de auditorías OIEM', titleX, 29);
+
+            const nowFormatted = `${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`;
+            doc.fontSize(7.5).fillColor('#64748b').font('Helvetica')
+               .text(`Fecha emisión: ${nowFormatted}`, 50, 14, { align: 'right', width: 512 });
+
+            doc.moveTo(50, 44).lineTo(562, 44).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
 
             // --- INFO BOX ---
-            doc.fillColor('#1e293b');
-            doc.fontSize(10).font('Helvetica')
-               .text(`Periodo: ${periodo_desde || 'Todos'}`, { align: 'left' });
-            doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString('es-CL')}`, { align: 'right' });
-            doc.moveDown();
+            const infoY = 50;
+            doc.rect(50, infoY, 512, 18).fillAndStroke('#f8fafc', '#e2e8f0');
+            doc.fillColor('#1e293b').fontSize(8.5).font('Helvetica-Bold')
+               .text(`Periodo evaluado: ${periodo_desde || 'Todos los periodos'}`, 60, infoY + 5);
+            doc.fontSize(8).fillColor('#64748b').font('Helvetica')
+               .text(`Total registros: ${registros.length}`, 380, infoY + 5, { align: 'right', width: 170 });
 
             // --- SUMMARY CARDS ---
             const startY = doc.y;
@@ -1506,29 +1506,42 @@ async registroPdf(req, res) {
         const logoAbastible = path.join(__dirname, '../assets/logos/abastible.png');
         const logoOval = path.join(__dirname, '../assets/logos/oval.png');
 
-        // --- HEADER ---
-        // Draw a top blue bar
-        doc.rect(0, 0, 612, 80).fill('#003399'); // Abastible Blue
-        
-        // Add logos in header
+        // --- STANDARD CORPORATE HEADER (Matriz de Cumplimiento Benchmark) ---
+        doc.rect(0, 0, 612, 5).fill('#003594');
+        doc.rect(0, 5, 612, 2.5).fill('#FE5000');
+
+        let titleX = 50;
         try {
             const fs = require('fs');
-            if (fs.existsSync(logoAbastible)) doc.image(logoAbastible, 40, 20, { height: 40 });
-            if (fs.existsSync(logoOval)) doc.image(logoOval, 480, 20, { height: 40 });
+            if (fs.existsSync(logoAbastible)) {
+                doc.image(logoAbastible, 50, 12, { height: 26 });
+                titleX = 145;
+            }
+            if (fs.existsSync(logoOval)) {
+                doc.image(logoOval, 520, 12, { height: 24 });
+            }
         } catch (err) {
             console.warn('Logos not found for PDF, skipping images');
         }
 
-        doc.fillColor('white').fontSize(16).font('Helvetica-Bold')
-           .text('INFORME DE FACTURACIÓN MENSUAL', 0, 30, { align: 'center' });
-        
-        doc.moveDown(4);
+        doc.fillColor('#003594').fontSize(13).font('Helvetica-Bold')
+           .text('REPORTE DE FACTURACIÓN OVAL', titleX, 14);
+        doc.fillColor('#64748b').fontSize(8.5).font('Helvetica')
+           .text('Informe mensual de contratos y servicios facturables OVAL Control', titleX, 29);
+
+        const nowFormatted = `${new Date().toLocaleDateString('es-CL')} ${new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`;
+        doc.fontSize(7.5).fillColor('#64748b').font('Helvetica')
+           .text(`Fecha emisión: ${nowFormatted}`, 50, 14, { align: 'right', width: 512 });
+
+        doc.moveTo(50, 44).lineTo(562, 44).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
 
         // --- INFO BOX ---
-        doc.fillColor('#1e293b'); // Dark Slate
-        doc.fontSize(10).font('Helvetica')
-           .text(`Fecha de Emisión: ${new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}`, { align: 'right' });
-        doc.moveDown();
+        const infoY = 50;
+        doc.rect(50, infoY, 512, 18).fillAndStroke('#f8fafc', '#e2e8f0');
+        doc.fillColor('#1e293b').fontSize(8.5).font('Helvetica-Bold')
+           .text(`Periodo: ${new Date().toLocaleDateString('es-CL', { month: 'long', year: 'numeric' })}`, 60, infoY + 5);
+        doc.fontSize(8).fillColor('#64748b').font('Helvetica')
+           .text(`Total contratistas: ${reportData.resumen.totalContratistas}`, 380, infoY + 5, { align: 'right', width: 170 });
 
         // --- SUMMARY CARDS ---
         const startY = doc.y;
