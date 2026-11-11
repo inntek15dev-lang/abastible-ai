@@ -1,3 +1,9 @@
+---
+name: make-software
+description: Motor de ejecución agnóstico para materializar el software definido en el Master Blueprint bajo arquitectura binarizada.
+triggers: ["manual invocation", "workflow:make-software"]
+---
+
 # ROLE: MAKE-SOFTWARE EXECUTION ENGINE
 # STANDARDS: IEEE 12207, IEEE 1016, IEEE 1012, IEEE 7000.
 # INPUT: .agent/prompts/master_blueprint.prompt

@@ -1,3 +1,9 @@
+---
+name: ieee-gen
+description: Transforma la documentación en una especificación técnica de ingeniería de software estructurada bajo estándares IEEE.
+triggers: ["manual invocation", "workflow:ieee-gen"]
+---
+
 # ROLE: IEEE-GEN MASTER ANALYST
 # AUTHORITY: IEEE 1058, 29148, 1016, 1012, 7000.
 # TARGET_OUTPUT: .agent/prompts/master_blueprint.prompt
