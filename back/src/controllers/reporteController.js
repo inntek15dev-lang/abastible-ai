@@ -243,38 +243,7 @@ async registroPdf(req, res) {
             currY += cardH + 10;
 
             // ==========================================
-            // 3. COMENTARIO GENERAL / OBSERVACIONES BOX
-            // ==========================================
-            const generalCommentsList = [];
-            if (registro.observaciones_auditoria) {
-                generalCommentsList.push(registro.observaciones_auditoria);
-            }
-            if (registro.comentarios && registro.comentarios.length > 0) {
-                registro.comentarios
-                    .filter(c => c.tipo === 'general' && c.comentario && !generalCommentsList.includes(c.comentario))
-                    .forEach(c => generalCommentsList.push(c.comentario));
-            }
-            const generalCommentText = generalCommentsList.join('\n\n');
-
-            if (generalCommentText) {
-                const commentHeight = doc.heightOfString(generalCommentText, { width: totalWidth - 20, fontSize: 7.5 });
-                const boxHeight = Math.max(28, commentHeight + 16);
-
-                if (currY + boxHeight > 780) {
-                    doc.addPage();
-                    drawPageHeader(false);
-                    currY = 44;
-                }
-
-                doc.roundedRect(startX, currY, totalWidth, boxHeight, 3).fillAndStroke('#eff6ff', '#bfdbfe');
-                doc.rect(startX, currY, 3, boxHeight).fill('#2563eb');
-                doc.fillColor('#1e40af').font('Helvetica-Bold').fontSize(7).text('OBSERVACIÓN GENERAL DEL AUDITOR:', startX + 8, currY + 4);
-                doc.fillColor('#1e293b').font('Helvetica').fontSize(7.5).text(generalCommentText, startX + 8, currY + 14, { width: totalWidth - 16 });
-                currY += boxHeight + 8;
-            }
-
-            // ==========================================
-            // 4. HALLAZGOS Y PLAN DE ACCIÓN SECTION
+            // 3. HALLAZGOS Y PLAN DE ACCIÓN SECTION
             // ==========================================
             const hallazgosList = [];
             (registro.actividades || []).forEach(ra => {
@@ -494,7 +463,121 @@ async registroPdf(req, res) {
             });
 
             // ==========================================
-            // 6. RUNNING FOOTER ON ALL PAGES
+            // 5. OBSERVACIÓN GENERAL DEL AUDITOR
+            // ==========================================
+            const generalCommentsList = [];
+            if (registro.observaciones_auditoria) {
+                generalCommentsList.push(registro.observaciones_auditoria);
+            }
+            if (registro.comentarios && registro.comentarios.length > 0) {
+                registro.comentarios
+                    .filter(c => c.tipo === 'general' && c.comentario && !generalCommentsList.includes(c.comentario))
+                    .forEach(c => generalCommentsList.push(c.comentario));
+            }
+            const generalCommentText = generalCommentsList.join('\n\n');
+
+            if (generalCommentText) {
+                currY += 14;
+                const commentHeight = doc.heightOfString(generalCommentText, { width: totalWidth - 20, fontSize: 7.5 });
+                const boxHeight = Math.max(28, commentHeight + 18);
+
+                if (currY + boxHeight + 20 > 780) {
+                    doc.addPage();
+                    drawPageHeader(false);
+                    currY = 44;
+                }
+
+                doc.rect(startX, currY, 3, 10).fill('#003594');
+                doc.fillColor('#003594').font('Helvetica-Bold').fontSize(9).text('OBSERVACIÓN GENERAL DEL AUDITOR', startX + 7, currY + 1);
+                currY += 14;
+
+                doc.roundedRect(startX, currY, totalWidth, boxHeight, 3).fillAndStroke('#eff6ff', '#bfdbfe');
+                doc.rect(startX, currY, 3, boxHeight).fill('#2563eb');
+                doc.fillColor('#1e293b').font('Helvetica').fontSize(7.5).text(generalCommentText, startX + 8, currY + 8, { width: totalWidth - 16 });
+                currY += boxHeight;
+            }
+
+            // ==========================================
+            // 6. PARTICIPANTES DE LA REUNIÓN DE ACCOUNTING
+            // ==========================================
+            const participantsComment = (registro.comentarios || []).find(c => c.tipo === 'participantes');
+            let participantesList = [];
+            if (participantsComment && participantsComment.comentario) {
+                try {
+                    const parsed = typeof participantsComment.comentario === 'string'
+                        ? JSON.parse(participantsComment.comentario)
+                        : participantsComment.comentario;
+                    if (Array.isArray(parsed)) participantesList = parsed;
+                } catch (e) {
+                    participantesList = [];
+                }
+            }
+
+            if (participantesList.length > 0 || registro.auditado || generalCommentText) {
+                currY += 14;
+                if (currY + 50 > 780) {
+                    doc.addPage();
+                    drawPageHeader(false);
+                    currY = 44;
+                }
+
+                doc.rect(startX, currY, 3, 10).fill('#003594');
+                doc.fillColor('#003594').font('Helvetica-Bold').fontSize(9).text(`PARTICIPANTES DE LA REUNIÓN DE ACCOUNTING (${participantesList.length})`, startX + 7, currY + 1);
+                currY += 15;
+
+                if (participantesList.length === 0) {
+                    doc.roundedRect(startX, currY, totalWidth, 22, 3).fillAndStroke('#f8fafc', '#e2e8f0');
+                    doc.fillColor('#94a3b8').font('Helvetica-Oblique').fontSize(7.5)
+                       .text('No se registraron participantes para la reunión de accounting.', startX + 10, currY + 7);
+                    currY += 26;
+                } else {
+                    const headerH = 16;
+                    const rowH = 16;
+
+                    // Table Header
+                    doc.rect(startX, currY, totalWidth, headerH).fill('#003594');
+                    doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(7);
+                    doc.text('#', startX + 6, currY + 4.5, { width: 16 });
+                    doc.text('NOMBRE Y APELLIDO', startX + 26, currY + 4.5, { width: 164 });
+                    doc.text('RUT', startX + 195, currY + 4.5, { width: 80 });
+                    doc.text('CARGO / FUNCIÓN', startX + 280, currY + 4.5, { width: 125 });
+                    doc.text('EMPRESA / INSTITUCIÓN', startX + 410, currY + 4.5, { width: 125 });
+                    currY += headerH;
+
+                    participantesList.forEach((p, pIdx) => {
+                        if (currY + rowH > 780) {
+                            doc.addPage();
+                            drawPageHeader(false);
+                            currY = 44;
+
+                            doc.rect(startX, currY, totalWidth, headerH).fill('#003594');
+                            doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(7);
+                            doc.text('#', startX + 6, currY + 4.5, { width: 16 });
+                            doc.text('NOMBRE Y APELLIDO', startX + 26, currY + 4.5, { width: 164 });
+                            doc.text('RUT', startX + 195, currY + 4.5, { width: 80 });
+                            doc.text('CARGO / FUNCIÓN', startX + 280, currY + 4.5, { width: 125 });
+                            doc.text('EMPRESA / INSTITUCIÓN', startX + 410, currY + 4.5, { width: 125 });
+                            currY += headerH;
+                        }
+
+                        if (pIdx % 2 === 0) {
+                            doc.rect(startX, currY, totalWidth, rowH).fill('#f8fafc');
+                        }
+                        doc.moveTo(startX, currY + rowH).lineTo(startX + totalWidth, currY + rowH).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
+
+                        doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(7).text(String(pIdx + 1), startX + 6, currY + 4.5, { width: 16 });
+                        doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(7).text(p.nombre || '-', startX + 26, currY + 4.5, { width: 164, ellipsis: true });
+                        doc.fillColor('#334155').font('Helvetica').fontSize(7).text(p.rut || '-', startX + 195, currY + 4.5, { width: 80, ellipsis: true });
+                        doc.fillColor('#334155').font('Helvetica').fontSize(7).text(p.cargo || '-', startX + 280, currY + 4.5, { width: 125, ellipsis: true });
+                        doc.fillColor('#003594').font('Helvetica-Bold').fontSize(7).text(p.empresa || '-', startX + 410, currY + 4.5, { width: 125, ellipsis: true });
+
+                        currY += rowH;
+                    });
+                }
+            }
+
+            // ==========================================
+            // 7. RUNNING FOOTER ON ALL PAGES
             // ==========================================
             const pages = doc.bufferedPageRange();
             for (let p = 0; p < pages.count; p++) {
