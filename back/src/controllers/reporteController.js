@@ -532,31 +532,51 @@ async registroPdf(req, res) {
                     currY += 26;
                 } else {
                     const headerH = 16;
-                    const rowH = 16;
+                    const col1X = startX + 6;
+                    const col1W = 16;
+                    const col2X = startX + 26;
+                    const col2W = 135;
+                    const col3X = startX + 165;
+                    const col3W = 68;
+                    const col4X = startX + 237;
+                    const col4W = 105;
+                    const col5X = startX + 346;
+                    const col5W = 170;
 
-                    // Table Header
-                    doc.rect(startX, currY, totalWidth, headerH).fill('#003594');
-                    doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(7);
-                    doc.text('#', startX + 6, currY + 4.5, { width: 16 });
-                    doc.text('NOMBRE Y APELLIDO', startX + 26, currY + 4.5, { width: 164 });
-                    doc.text('RUT', startX + 195, currY + 4.5, { width: 80 });
-                    doc.text('CARGO / FUNCIÓN', startX + 280, currY + 4.5, { width: 125 });
-                    doc.text('EMPRESA / INSTITUCIÓN', startX + 410, currY + 4.5, { width: 125 });
+                    const drawParticipantsTableHeader = (headerY) => {
+                        doc.rect(startX, headerY, totalWidth, headerH).fill('#003594');
+                        doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(7);
+                        doc.text('#', col1X, headerY + 4.5, { width: col1W });
+                        doc.text('NOMBRE Y APELLIDO', col2X, headerY + 4.5, { width: col2W });
+                        doc.text('RUT', col3X, headerY + 4.5, { width: col3W });
+                        doc.text('CARGO / FUNCIÓN', col4X, headerY + 4.5, { width: col4W });
+                        doc.text('EMPRESA / INSTITUCIÓN', col5X, headerY + 4.5, { width: col5W });
+                    };
+
+                    // Initial Table Header
+                    drawParticipantsTableHeader(currY);
                     currY += headerH;
 
                     participantesList.forEach((p, pIdx) => {
+                        const nomText = p.nombre || '-';
+                        const rutText = p.rut || '-';
+                        const cargoText = p.cargo || '-';
+                        const empText = p.empresa || '-';
+
+                        doc.font('Helvetica-Bold').fontSize(7);
+                        const empH = doc.heightOfString(empText, { width: col5W });
+                        const nomH = doc.heightOfString(nomText, { width: col2W });
+                        doc.font('Helvetica').fontSize(7);
+                        const cargoH = doc.heightOfString(cargoText, { width: col4W });
+
+                        const maxTextH = Math.max(empH, nomH, cargoH, 9);
+                        const rowH = Math.max(16, maxTextH + 8);
+
                         if (currY + rowH > 780) {
                             doc.addPage();
                             drawPageHeader(false);
                             currY = 44;
-
-                            doc.rect(startX, currY, totalWidth, headerH).fill('#003594');
-                            doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(7);
-                            doc.text('#', startX + 6, currY + 4.5, { width: 16 });
-                            doc.text('NOMBRE Y APELLIDO', startX + 26, currY + 4.5, { width: 164 });
-                            doc.text('RUT', startX + 195, currY + 4.5, { width: 80 });
-                            doc.text('CARGO / FUNCIÓN', startX + 280, currY + 4.5, { width: 125 });
-                            doc.text('EMPRESA / INSTITUCIÓN', startX + 410, currY + 4.5, { width: 125 });
+                            drawParticipantsTableHeader(currY);
                             currY += headerH;
                         }
 
@@ -565,11 +585,12 @@ async registroPdf(req, res) {
                         }
                         doc.moveTo(startX, currY + rowH).lineTo(startX + totalWidth, currY + rowH).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
 
-                        doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(7).text(String(pIdx + 1), startX + 6, currY + 4.5, { width: 16 });
-                        doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(7).text(p.nombre || '-', startX + 26, currY + 4.5, { width: 164, ellipsis: true });
-                        doc.fillColor('#334155').font('Helvetica').fontSize(7).text(p.rut || '-', startX + 195, currY + 4.5, { width: 80, ellipsis: true });
-                        doc.fillColor('#334155').font('Helvetica').fontSize(7).text(p.cargo || '-', startX + 280, currY + 4.5, { width: 125, ellipsis: true });
-                        doc.fillColor('#003594').font('Helvetica-Bold').fontSize(7).text(p.empresa || '-', startX + 410, currY + 4.5, { width: 125, ellipsis: true });
+                        const textY = currY + 4;
+                        doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(7).text(String(pIdx + 1), col1X, textY, { width: col1W });
+                        doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(7).text(nomText, col2X, textY, { width: col2W });
+                        doc.fillColor('#334155').font('Helvetica').fontSize(7).text(rutText, col3X, textY, { width: col3W });
+                        doc.fillColor('#334155').font('Helvetica').fontSize(7).text(cargoText, col4X, textY, { width: col4W });
+                        doc.fillColor('#003594').font('Helvetica-Bold').fontSize(7).text(empText, col5X, textY, { width: col5W });
 
                         currY += rowH;
                     });
@@ -582,10 +603,11 @@ async registroPdf(req, res) {
             const pages = doc.bufferedPageRange();
             for (let p = 0; p < pages.count; p++) {
                 doc.switchToPage(p);
+                doc.page.margins.bottom = 0; // Prevent auto page break in footer
                 doc.moveTo(startX, pageHeight - 24).lineTo(startX + totalWidth, pageHeight - 24).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
                 doc.fontSize(7).fillColor('#94a3b8').font('Helvetica')
-                   .text(`Plataforma OVAL Control para Abastible S.A. | Informe Oficial de Cumplimiento OIEM #${registro.id}`, startX, pageHeight - 17);
-                doc.text(`Página ${p + 1} de ${pages.count}`, startX, pageHeight - 17, { align: 'right', width: totalWidth });
+                   .text(`Plataforma OVAL Control para Abastible S.A. | Informe Oficial de Cumplimiento OIEM #${registro.id}`, startX, pageHeight - 17, { lineBreak: false });
+                doc.text(`Página ${p + 1} de ${pages.count}`, startX, pageHeight - 17, { align: 'right', width: totalWidth, lineBreak: false });
             }
 
             doc.end();
