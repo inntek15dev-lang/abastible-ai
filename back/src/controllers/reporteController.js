@@ -360,9 +360,9 @@ async registroPdf(req, res) {
 
                 // Compute dynamic row height
                 let neededHeight = 22;
-                if (hasEv || hasNotes) {
+                if (!hasEv || hasNotes) {
                     let linesCount = 0;
-                    if (hasEv) linesCount++;
+                    if (!hasEv) linesCount++;
                     if (auditorObs) linesCount += Math.ceil(auditorObs.length / 40);
                     if (contratistaObs) linesCount += Math.ceil(contratistaObs.length / 40);
                     if (auditComments.length > 0) linesCount += auditComments.length;
@@ -429,12 +429,10 @@ async registroPdf(req, res) {
                 doc.roundedRect(startX + 291, currY + 5, 60, 13, 2).fill(audBg);
                 doc.fillColor(audColor).font('Helvetica-Bold').fontSize(6.5).text(audText, startX + 291, currY + 8, { width: 60, align: 'center' });
 
-                // Col 5: Evidencias & Observaciones (Clean text, robust multi-line layout)
-                let noteY = currY + 4;
-                if (hasEv) {
-                    const evCount = ra.evidencias.length;
-                    const evLabel = evCount === 1 ? '1 archivo adjunto' : `${evCount} archivos adjuntos`;
-                    doc.fillColor('#2563eb').font('Helvetica-Bold').fontSize(6.5).text(`[${evLabel}]`, startX + 360, noteY, { width: 155, lineBreak: false, ellipsis: true });
+                // Col 5: Evidencias & Observaciones (Only show "Sin evidencia" when no evidence exists; never show file count)
+                let noteY = (!hasEv && !hasNotes) ? currY + 8 : currY + 4;
+                if (!hasEv) {
+                    doc.fillColor('#94a3b8').font('Helvetica').fontSize(6.5).text('Sin evidencia', startX + 360, noteY, { width: 155 });
                     noteY += 9;
                 }
 
@@ -453,10 +451,6 @@ async registroPdf(req, res) {
                 if (auditComments.length > 0) {
                     doc.fillColor('#475569').font('Helvetica-Oblique').fontSize(6).text(`Comentario: ${auditComments.join(' | ')}`, startX + 360, noteY, { width: 155, height: 16, ellipsis: true });
                     noteY += 9;
-                }
-
-                if (!hasEv && !hasNotes) {
-                    doc.fillColor('#94a3b8').font('Helvetica').fontSize(6.5).text('Sin evidencia', startX + 360, currY + 8, { width: 155 });
                 }
 
                 currY += rowHeight;

@@ -58,6 +58,10 @@ import ServicioForm from './pages/configuracion/ServicioForm';
 // OVAL Pages
 import OvalBilling from './pages/oval/OvalBilling';
 
+// Avisos Module Pages
+import AvisoList from './pages/avisos/AvisoList';
+import AvisoForm from './pages/avisos/AvisoForm';
+
 const queryClient = new QueryClient();
 
 // Protected Route wrapper
@@ -199,6 +203,11 @@ function AppRoutes() {
 
         {/* OVAL */}
         <Route path="/oval/billing" element={<OvalBilling />} />
+
+        {/* Avisos Module (Admin Dios) */}
+        <Route path="/avisos" element={<AvisoList />} />
+        <Route path="/avisos/new" element={<AvisoForm />} />
+        <Route path="/avisos/:id/edit" element={<AvisoForm />} />
       </Route>
 
       {/* Catch all */}

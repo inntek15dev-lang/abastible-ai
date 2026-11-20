@@ -34,6 +34,8 @@ const upload = require('../middleware/upload');
  *     description: Generación de PDF y Reportes
  *   - name: Usuarios
  *     description: Gestión de Usuarios
+ *   - name: Avisos
+ *     description: Gestión de Avisos y Comunicados Oficiales del Sistema
  */
 
 // Sprint 1 Controllers
@@ -1676,6 +1678,167 @@ router.post('/vinculaciones/:id/usuarios', auth, requirePrivilege('Vinculaciones
 router.delete('/vinculaciones/:id/usuarios/:userId', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.removeUser);
 router.put('/vinculaciones/:id', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.update);
 router.delete('/vinculaciones/:id', auth, requirePrivilege('Vinculaciones', 'excec'), vinculacionController.destroy);
+
+// ============= AVISOS DEL SISTEMA =============
+const avisoController = require('../controllers/avisoController');
+
+// Exclusive middleware for Admin Dios
+const requireAdminDios = (req, res, next) => {
+    if (req.user?.role !== 'admin') {
+        return res.status(403).json({
+            success: false,
+            message: 'Acceso denegado: Solo el Administrador Dios puede gestionar los avisos del sistema.'
+        });
+    }
+    next();
+};
+
+/**
+ * @swagger
+ * /avisos/activos:
+ *   get:
+ *     summary: Get active avisos for the authenticated user filtered by date and role
+ *     tags: [Avisos]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of active announcements for current user
+ */
+router.get('/avisos/activos', auth, avisoController.getActive);
+
+/**
+ * @swagger
+ * /avisos:
+ *   get:
+ *     summary: List all avisos (Admin Dios only)
+ *     tags: [Avisos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: estado
+ *         schema:
+ *           type: string
+ *           enum: [todos, vigente, activo, inactivo, vencido]
+ *     responses:
+ *       200:
+ *         description: List of avisos
+ *       403:
+ *         description: Forbidden - Admin Dios only
+ *   post:
+ *     summary: Create a new aviso (Admin Dios only)
+ *     tags: [Avisos]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [titulo, contenido, fecha_desde, fecha_hasta]
+ *             properties:
+ *               titulo:
+ *                 type: string
+ *               contenido:
+ *                 type: string
+ *               fecha_desde:
+ *                 type: string
+ *                 format: date
+ *               fecha_hasta:
+ *                 type: string
+ *                 format: date
+ *               para_todos:
+ *                 type: boolean
+ *               roles:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               activo:
+ *                 type: boolean
+ *     responses:
+ *       201:
+ *         description: Created
+ *       403:
+ *         description: Forbidden - Admin Dios only
+ */
+router.get('/avisos', auth, requireAdminDios, avisoController.list);
+router.post('/avisos', auth, requireAdminDios, avisoController.create);
+
+/**
+ * @swagger
+ * /avisos/{id}:
+ *   get:
+ *     summary: Get aviso by ID (Admin Dios only)
+ *     tags: [Avisos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Aviso detail
+ *   put:
+ *     summary: Update aviso (Admin Dios only)
+ *     tags: [Avisos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Updated
+ *   delete:
+ *     summary: Delete aviso (Admin Dios only)
+ *     tags: [Avisos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Deleted
+ */
+router.get('/avisos/:id', auth, requireAdminDios, avisoController.getById);
+router.put('/avisos/:id', auth, requireAdminDios, avisoController.update);
+router.delete('/avisos/:id', auth, requireAdminDios, avisoController.delete);
+
+/**
+ * @swagger
+ * /avisos/{id}/toggle-activo:
+ *   patch:
+ *     summary: Toggle active state of an aviso (Admin Dios only)
+ *     tags: [Avisos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Status toggled
+ */
+router.patch('/avisos/:id/toggle-activo', auth, requireAdminDios, avisoController.toggleActivo);
 
 // End of Routes
 

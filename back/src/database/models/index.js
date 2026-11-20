@@ -39,6 +39,13 @@ const VinculacionUsuario = require('./VinculacionUsuario');
 const ContratistaUsuario = require('./ContratistaUsuario');
 const PasswordResetToken = require('./PasswordResetToken');
 
+// Avisos Module
+const Aviso = require('./Aviso');
+
+// User -> Aviso (1:N)
+User.hasMany(Aviso, { foreignKey: 'creado_por_id', as: 'avisosCreados' });
+Aviso.belongsTo(User, { foreignKey: 'creado_por_id', as: 'creador' });
+
 // ============= SPRINT 1 ASSOCIATIONS =============
 
 // Role -> Privilegios (1:N)
@@ -295,5 +302,7 @@ module.exports = {
     Administracion,
     VinculacionUsuario,
     ContratistaUsuario,
-    PasswordResetToken
+    PasswordResetToken,
+    // Avisos
+    Aviso
 };

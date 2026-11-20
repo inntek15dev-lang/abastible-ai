@@ -141,6 +141,29 @@ async function start() {
             console.warn("⚠️ Auto-migration check warning (auditoria_comentarios):", migErr.message);
         }
 
+        // Self-healing schema migration for avisos table
+        try {
+            await sequelize.query(`
+                CREATE TABLE IF NOT EXISTS avisos (
+                    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    titulo VARCHAR(255) NOT NULL,
+                    contenido LONGTEXT NOT NULL,
+                    fecha_desde DATE NOT NULL,
+                    fecha_hasta DATE NOT NULL,
+                    para_todos TINYINT(1) NOT NULL DEFAULT 0,
+                    roles TEXT NULL,
+                    activo TINYINT(1) NOT NULL DEFAULT 1,
+                    creado_por_id BIGINT UNSIGNED NULL,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_avisos_fechas (fecha_desde, fecha_hasta, activo)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            `);
+            console.log("✅ Auto-migration: Checked/Created `avisos` table");
+        } catch (migErr) {
+            console.warn("⚠️ Auto-migration check warning (avisos):", migErr.message);
+        }
+
         app.listen(PORT, () => {
             console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
             console.log(`📋 Health check: http://localhost:${PORT}/health`);

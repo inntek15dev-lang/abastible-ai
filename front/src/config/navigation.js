@@ -14,7 +14,8 @@ import {
     BookOpen,
     Link,
     AlertTriangle,
-    DollarSign
+    DollarSign,
+    Megaphone
 } from 'lucide-react';
 
 export const MODULES = [
@@ -87,8 +88,18 @@ export const MODULES = [
         color: '#EF4444', // Red
         items: [
             { path: '/usuarios', label: 'Gestión de Usuarios', icon: Users, module: 'Usuarios' },
-            { path: '/roles', label: 'Roles y Privilegios', icon: Shield, module: 'Admin_Usuarios' }
+            { path: '/roles', label: 'Roles y Privilegios', icon: Shield, module: 'Admin_Usuarios' },
+            { path: '/avisos', label: 'Gestión de Avisos', icon: Megaphone, module: 'Admin_Usuarios', restrictedTo: ['admin'] }
         ]
+    },
+    {
+        id: 'avisos',
+        label: 'Avisos',
+        icon: Megaphone,
+        color: '#F59E0B', // Amber
+        path: '/avisos',
+        restrictedTo: ['admin'],
+        module: 'Dashboard' // Accessible to admin
     },
     {
         id: 'tutoriales',
@@ -108,11 +119,11 @@ function settingsIconHelper(type) {
 export function getVisibleModules(canRead) {
     return MODULES.map(module => {
         // First check if user has access to the main module category
-        // If module.module is set, check it. If not, maybe check items?
-        // Let's assume if the top level module requires a privilege, we check it.
-        // But for 'Operaciones', we might want to show it if they have access to ANY of the sub-modules.
-
-        let hasAccessToModule = true;
+        // Check role restriction on top-level module
+        if (module.restrictedTo) {
+            const user = JSON.parse(localStorage.getItem('user')) || {};
+            if (!module.restrictedTo.includes(user.role)) return null;
+        }
 
         // If it's a direct link (like Resumen), strictly check
         if (!module.items && module.module) {
