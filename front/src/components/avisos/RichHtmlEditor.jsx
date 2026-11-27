@@ -21,22 +21,37 @@ import './RichHtmlEditor.css';
 
 export default function RichHtmlEditor({ value = '', onChange, placeholder = 'Redacte el aviso aquí con formato enriquecido...' }) {
     const editorRef = useRef(null);
+    const lastHtmlRef = useRef(value || '');
     const [mode, setMode] = useState('visual'); // 'visual' | 'code'
-    const [rawHtml, setRawHtml] = useState(value);
+    const [rawHtml, setRawHtml] = useState(value || '');
 
-    // Sync external value to editor ref when changing from outside
+    // Sync external value (or mode switch back to visual) without resetting cursor while typing
     useEffect(() => {
-        setRawHtml(value);
+        const nextVal = value || '';
+        setRawHtml(nextVal);
         if (editorRef.current && mode === 'visual') {
-            if (editorRef.current.innerHTML !== value) {
-                editorRef.current.innerHTML = value || '';
+            if (nextVal !== lastHtmlRef.current || editorRef.current.innerHTML !== nextVal) {
+                if (document.activeElement !== editorRef.current) {
+                    editorRef.current.innerHTML = nextVal;
+                    lastHtmlRef.current = nextVal;
+                }
             }
         }
     }, [value, mode]);
 
+    // Initialize innerHTML on mount or when switching back from code mode
+    useEffect(() => {
+        if (editorRef.current && mode === 'visual') {
+            editorRef.current.innerHTML = rawHtml || '';
+            lastHtmlRef.current = rawHtml || '';
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mode]);
+
     const handleInput = () => {
         if (editorRef.current) {
             const html = editorRef.current.innerHTML;
+            lastHtmlRef.current = html;
             setRawHtml(html);
             if (onChange) onChange(html);
         }
@@ -44,6 +59,7 @@ export default function RichHtmlEditor({ value = '', onChange, placeholder = 'Re
 
     const handleRawChange = (e) => {
         const val = e.target.value;
+        lastHtmlRef.current = val;
         setRawHtml(val);
         if (onChange) onChange(val);
     };
@@ -298,10 +314,11 @@ export default function RichHtmlEditor({ value = '', onChange, placeholder = 'Re
                         ref={editorRef}
                         className="rich-editable-area"
                         contentEditable
+                        suppressContentEditableWarning
+                        dir="ltr"
                         onInput={handleInput}
                         onBlur={handleInput}
                         data-placeholder={placeholder}
-                        dangerouslySetInnerHTML={{ __html: rawHtml }}
                     />
                 ) : (
                     <textarea
