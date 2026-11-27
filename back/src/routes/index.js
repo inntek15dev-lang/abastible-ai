@@ -3,9 +3,22 @@ const express = require('express');
 const router = express.Router();
 
 // Middleware
+const rateLimit = require('express-rate-limit');
 const auth = require('../middleware/auth');
 const requirePrivilege = require('../middleware/requirePrivilege');
 const upload = require('../middleware/upload');
+
+// Strict Rate Limiter for authentication & password recovery endpoints (HU-OIEM-06 / F-06)
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, // Limit each IP to 10 requests per windowMs
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        success: false,
+        message: 'Demasiados intentos desde esta IP. Por favor intente nuevamente en 15 minutos.'
+    }
+});
 
 /**
  * @swagger
@@ -34,6 +47,10 @@ const upload = require('../middleware/upload');
  *     description: Generación de PDF y Reportes
  *   - name: Usuarios
  *     description: Gestión de Usuarios
+ *   - name: Avisos
+ *     description: Gestión de Avisos y Comunicados Oficiales del Sistema
+ *   - name: Storage
+ *     description: Acceso autenticado y autorizado a archivos de almacenamiento
  */
 
 // Sprint 1 Controllers
@@ -86,7 +103,7 @@ const compromisoController = require('../controllers/compromisoController');
  *       401:
  *         description: Invalid credentials
  */
-router.post('/auth/login', authController.login);
+router.post('/auth/login', authLimiter, authController.login);
 
 /**
  * @swagger
@@ -118,7 +135,7 @@ router.post('/auth/login', authController.login);
  *       401:
  *         description: Invalid or expired token, or user disabled
  */
-router.post('/auth/login-external', authController.loginExternal);
+router.post('/auth/login-external', authLimiter, authController.loginExternal);
 
 // ============= PROTECTED ROUTES =============
 
@@ -156,9 +173,9 @@ router.get('/auth/me', auth, authController.me);
 router.post('/auth/logout', auth, authController.logout);
 
 // Recuperación de contraseña (contratista_user) — rutas públicas, sin sesión.
-router.post('/auth/forgot-password', authController.forgotPassword);
+router.post('/auth/forgot-password', authLimiter, authController.forgotPassword);
 router.get('/auth/reset-password/:token', authController.validateResetToken);
-router.post('/auth/reset-password', authController.resetPassword);
+router.post('/auth/reset-password', authLimiter, authController.resetPassword);
 
 // Programas (Admin only)
 /**
@@ -1676,6 +1693,208 @@ router.post('/vinculaciones/:id/usuarios', auth, requirePrivilege('Vinculaciones
 router.delete('/vinculaciones/:id/usuarios/:userId', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.removeUser);
 router.put('/vinculaciones/:id', auth, requirePrivilege('Vinculaciones', 'write'), vinculacionController.update);
 router.delete('/vinculaciones/:id', auth, requirePrivilege('Vinculaciones', 'excec'), vinculacionController.destroy);
+
+// ============= AVISOS DEL SISTEMA =============
+const avisoController = require('../controllers/avisoController');
+
+// Exclusive middleware for Admin Dios
+const requireAdminDios = (req, res, next) => {
+    if (req.user?.role !== 'admin') {
+        return res.status(403).json({
+            success: false,
+            message: 'Acceso denegado: Solo el Administrador Dios puede gestionar los avisos del sistema.'
+        });
+    }
+    next();
+};
+
+/**
+ * @swagger
+ * /avisos/activos:
+ *   get:
+ *     summary: Get active avisos for the authenticated user filtered by date and role
+ *     tags: [Avisos]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of active announcements for current user
+ */
+router.get('/avisos/activos', auth, avisoController.getActive);
+
+/**
+ * @swagger
+ * /avisos:
+ *   get:
+ *     summary: List all avisos (Admin Dios only)
+ *     tags: [Avisos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: estado
+ *         schema:
+ *           type: string
+ *           enum: [todos, vigente, activo, inactivo, vencido]
+ *     responses:
+ *       200:
+ *         description: List of avisos
+ *       403:
+ *         description: Forbidden - Admin Dios only
+ *   post:
+ *     summary: Create a new aviso (Admin Dios only)
+ *     tags: [Avisos]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [titulo, contenido, fecha_desde, fecha_hasta]
+ *             properties:
+ *               titulo:
+ *                 type: string
+ *               contenido:
+ *                 type: string
+ *               fecha_desde:
+ *                 type: string
+ *                 format: date
+ *               fecha_hasta:
+ *                 type: string
+ *                 format: date
+ *               para_todos:
+ *                 type: boolean
+ *               roles:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               activo:
+ *                 type: boolean
+ *     responses:
+ *       201:
+ *         description: Created
+ *       403:
+ *         description: Forbidden - Admin Dios only
+ */
+router.get('/avisos', auth, requireAdminDios, avisoController.list);
+router.post('/avisos', auth, requireAdminDios, avisoController.create);
+
+/**
+ * @swagger
+ * /avisos/{id}:
+ *   get:
+ *     summary: Get aviso by ID (Admin Dios only)
+ *     tags: [Avisos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Aviso detail
+ *   put:
+ *     summary: Update aviso (Admin Dios only)
+ *     tags: [Avisos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Updated
+ *   delete:
+ *     summary: Delete aviso (Admin Dios only)
+ *     tags: [Avisos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Deleted
+ */
+router.get('/avisos/:id', auth, requireAdminDios, avisoController.getById);
+router.put('/avisos/:id', auth, requireAdminDios, avisoController.update);
+router.delete('/avisos/:id', auth, requireAdminDios, avisoController.delete);
+
+/**
+ * @swagger
+ * /avisos/{id}/toggle-activo:
+ *   patch:
+ *     summary: Toggle active state of an aviso (Admin Dios only)
+ *     tags: [Avisos]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Status toggled
+ */
+router.patch('/avisos/:id/toggle-activo', auth, requireAdminDios, avisoController.toggleActivo);
+
+// ============= AUTHENTICATED STORAGE (HU-02 / F-02) =============
+const storageController = require('../controllers/storageController');
+
+const requireBearerHeaderStorage = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({
+            success: false,
+            message: 'Token de acceso no proporcionado en cabecera Authorization'
+        });
+    }
+    next();
+};
+
+/**
+ * @swagger
+ * /storage/{filepath}:
+ *   get:
+ *     summary: Serve an authorized file from storage (JWT Bearer header & tenant scope required)
+ *     tags: [Storage]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: filepath
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Relative file path inside /storage
+ *     responses:
+ *       200:
+ *         description: File content
+ *       401:
+ *         description: Unauthorized - Missing or invalid JWT Bearer token
+ *       403:
+ *         description: Forbidden - Path traversal or insufficient permissions
+ *       404:
+ *         description: File not found
+ */
+router.get('/storage/*', requireBearerHeaderStorage, auth, storageController.serve);
 
 // End of Routes
 

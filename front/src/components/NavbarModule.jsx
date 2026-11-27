@@ -1,7 +1,7 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getVisibleModules } from '../config/navigation';
-import { LogOut, ChevronDown, UserCircle, HelpCircle } from 'lucide-react';
+import { LogOut, ChevronDown, UserCircle, HelpCircle, Megaphone } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import './NavbarModule.css';
 
@@ -158,6 +158,17 @@ export default function NavbarModule() {
                         />
                     </div>
                 )}
+
+                {/* Quick Access to Avisos */}
+                <button
+                    type="button"
+                    onClick={() => window.dispatchEvent(new CustomEvent('open-avisos-modal'))}
+                    className="user-btn outline-none"
+                    style={{ padding: '8px 10px', marginRight: 4, cursor: 'pointer' }}
+                    title="Ver Comunicados y Avisos"
+                >
+                    <Megaphone size={18} style={{ color: '#003594' }} />
+                </button>
 
                 {/* User Profile */}
                 <div className="navbar-user">

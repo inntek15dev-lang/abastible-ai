@@ -140,6 +140,9 @@ async function run() {
             return user;
         };
 
+        // Ensure core Admin Dios account (admin@abastible.cl) exists and has role 'admin'
+        await ensureUser({ email: 'admin@abastible.cl', name: 'Administrador OIEM', role: 'admin', usu_id: 2 });
+
         const adminContrato = await ensureUser({ email: 'administrador.contrato@abastible.cl', name: 'Administrador de Contratos', role: 'administrador_contrato', usu_id: 3 });
         const contratistaAdmin = await ensureUser({ email: 'contratista.admin@demo.cl', name: 'Contratista Administrador', role: 'contratista_admin', usu_id: 4, extra: { contratista_id: contratista.id } });
         const contratistaUser = await ensureUser({ email: 'contratista.usuario@demo.cl', name: 'Contratista Usuario', role: 'contratista_user', usu_id: 5, extra: { parent_id: 4 } });

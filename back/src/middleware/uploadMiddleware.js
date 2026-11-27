@@ -22,21 +22,28 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-    // Allowed types: PDF, Images, Excel
-    const allowedTypes = /jpeg|jpg|png|pdf|xlsx|xls/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+    const allowedExts = ['.jpeg', '.jpg', '.png', '.pdf', '.xlsx', '.xls'];
+    const allowedMimes = [
+        'image/jpeg',
+        'image/png',
+        'application/pdf',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+    const ext = path.extname(file.originalname || '').toLowerCase();
 
-    if (extname && mimetype) {
+    if (allowedExts.includes(ext) && allowedMimes.includes(file.mimetype)) {
         return cb(null, true);
-    } else {
-        cb(new Error('Formato de archivo no permitido. Solo PDF, Imágenes y Excel.'));
     }
+    cb(new Error('Formato de archivo no permitido. Solo PDF, Imágenes y Excel.'), false);
 };
 
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+    limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB limit
+        files: 5
+    },
     fileFilter: fileFilter
 });
 

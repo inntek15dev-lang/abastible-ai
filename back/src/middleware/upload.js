@@ -59,19 +59,20 @@ const fileFilter = (req, file, cb) => {
     const ext = path.extname(file.originalname || '').toLowerCase();
     const allowedExts = ['.pdf', '.xlsx', '.xls', '.docx', '.doc', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.csv', '.txt'];
 
-    if (allowedTypes.includes(file.mimetype) || allowedExts.includes(ext)) {
+    if (allowedTypes.includes(file.mimetype) && allowedExts.includes(ext)) {
         cb(null, true);
     } else {
         cb(new Error('Tipo de archivo no permitido. Solo imágenes, PDF y documentos Office.'), false);
     }
 };
 
-// Configure multer
+// Configure multer (2.x)
 const upload = multer({
     storage,
     fileFilter,
     limits: {
-        fileSize: 50 * 1024 * 1024 // 50MB max
+        fileSize: 50 * 1024 * 1024, // 50MB max
+        files: 10
     }
 });
 

@@ -7,10 +7,9 @@ const authMiddleware = async (req, res, next) => {
         let token;
         const authHeader = req.headers.authorization;
 
+        // Strictly accept JWT via Authorization: Bearer <token> header only (HU-OIEM-07 / F-07)
         if (authHeader && authHeader.startsWith('Bearer ')) {
             token = authHeader.split(' ')[1];
-        } else if (req.query.token) {
-            token = req.query.token;
         }
 
         if (!token) {

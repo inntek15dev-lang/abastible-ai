@@ -10,11 +10,16 @@ RUN npm install
 # Copiar el código fuente
 COPY . .
 
+RUN tr -d '\r' < entrypoint.sh > entrypoint_temp.sh && \
+    mv entrypoint_temp.sh entrypoint.sh && \
+    chmod +x entrypoint.sh && \
+    mkdir -p /storage /app/uploads && \
+    chown -R node:node /app /storage
+
+# Ejecutar como usuario no privilegiado (HU-OIEM-08 / F-08)
+USER node
+
 # Exponer el puerto
 EXPOSE 4000
 
-COPY entrypoint.sh .
-RUN tr -d '\r' < entrypoint.sh > entrypoint_temp.sh && \
-    mv entrypoint_temp.sh entrypoint.sh && \
-    chmod +x entrypoint.sh
 ENTRYPOINT ["./entrypoint.sh"]

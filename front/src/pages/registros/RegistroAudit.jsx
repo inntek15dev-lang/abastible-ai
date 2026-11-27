@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
+import { openAuthenticatedBlob } from '../../utils/downloadHelper';
 import {
     ArrowLeft,
     Check,
@@ -383,8 +384,13 @@ export default function RegistroAudit() {
         }
     };
 
-    const generatePDF = () => {
-        window.open(`${api.defaults.baseURL}/reportes/registro/${id}/pdf?token=${localStorage.getItem('token')}`, '_blank');
+    const generatePDF = async () => {
+        try {
+            await openAuthenticatedBlob(`/reportes/registro/${id}/pdf`);
+        } catch (err) {
+            console.error('Error viewing PDF:', err);
+            setError('Error al generar el PDF');
+        }
     };
 
     // Group Activities by First Number (Element) - Assumes code format "X.Y"

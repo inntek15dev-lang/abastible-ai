@@ -9,8 +9,6 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
       - MYSQL_DATABASE=${DB_NAME}
-    env_file:
-      - .env
     ports:
       - "127.0.0.1:3376:3306" # Puerto externo para gestión (ej. DBeaver)
     volumes:
@@ -32,6 +30,7 @@ services:
       - PIZZA_API_KEY=${PIZZA_API_KEY}
       - EXTERNAL_API_KEY=${EXTERNAL_API_KEY}
       - PORT=4077
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:8087}
     # Forzamos la lectura del .env que está en la raíz del servidor
     env_file:
       - .env
@@ -51,7 +50,7 @@ services:
     environment:
       - VITE_API_URL=https://oiem-abastible-api.inntek.cl/api
     ports:
-      - "127.0.0.1:8087:80"
+      - "127.0.0.1:8087:8080"
     depends_on:
       - api
     networks:

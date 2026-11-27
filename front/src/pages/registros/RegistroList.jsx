@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
+import { openAuthenticatedBlob } from '../../utils/downloadHelper';
 import { Plus, Eye, Edit, Edit2, RefreshCw, Trash2, FileText, Search, Filter, Calendar, Building, List, ClipboardCheck, Monitor, X, Lock, Check, Clock, AlertTriangle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Wrench } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -420,8 +421,13 @@ export default function RegistroList() {
         }
     };
 
-    const generatePDF = (registroSummary) => {
-        window.open(`${api.defaults.baseURL}/reportes/registro/${registroSummary.id}/pdf?token=${localStorage.getItem('token')}`, '_blank');
+    const generatePDF = async (registroSummary) => {
+        try {
+            await openAuthenticatedBlob(`/reportes/registro/${registroSummary.id}/pdf`);
+        } catch (err) {
+            console.error('Error viewing PDF:', err);
+            alert('Error al generar el reporte PDF');
+        }
     };
 
     const getPorcentajeBadgeClass = (score) => {

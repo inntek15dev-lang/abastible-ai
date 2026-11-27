@@ -9,8 +9,6 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
       - MYSQL_DATABASE=${DB_NAME}
-    env_file:
-      - .env
     ports:
       - "127.0.0.1:3378:3306" # Puerto externo para gestión producción (ej. DBeaver)
     volumes:
@@ -32,6 +30,9 @@ services:
       - PIZZA_API_KEY=${PIZZA_API_KEY}
       - EXTERNAL_API_KEY=${EXTERNAL_API_KEY}
       - PORT=${PORT}
+      - ALLOWED_ORIGINS=https://oiem-abastible.ovalcontrol.com
+      - DEMO_USERS_ENABLED=false
+      - DEBUG=
     env_file:
       - .env
     ports:
@@ -50,7 +51,7 @@ services:
     environment:
       - VITE_API_URL=https://oiem-abastible-api.ovalcontrol.com/api
     ports:
-      - "127.0.0.1:8078:80"
+      - "127.0.0.1:8078:8080"
     depends_on:
       - api
     networks:

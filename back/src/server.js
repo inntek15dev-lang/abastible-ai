@@ -2,8 +2,11 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const { sequelize } = require('./database/models');
 const routes = require('./routes');
+const auth = require('./middleware/auth');
+const storageController = require('./controllers/storageController');
 const path = require('path');
 
 const app = express();
@@ -12,46 +15,74 @@ const PORT = process.env.PORT || 4000;
 // Trust Proxy (Required for Nginx/Load Balancers to handle CORS/IPs correctly)
 app.set('trust proxy', 1);
 
-// Configuración de CORS con paquete cors + middleware atómico de respaldo
+// HTTP Security Headers via Helmet & disable X-Powered-By (HU-OIEM-06 / F-06)
+app.disable('x-powered-by');
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
+
+// Strict CORS Whitelist (HU-01 / F-01)
+const getAllowedOrigins = () => {
+    const envOrigins = process.env.ALLOWED_ORIGINS;
+    if (envOrigins && envOrigins.trim()) {
+        return envOrigins
+            .split(',')
+            .map(o => o.trim().replace(/\/+$/, ''))
+            .filter(Boolean);
+    }
+
+    if (process.env.NODE_ENV === 'production') {
+        return ['https://oiem-abastible.ovalcontrol.com'];
+    }
+    if (process.env.NODE_ENV === 'preproduction') {
+        return ['https://prepro-oiem-abastible.ovalcontrol.com'];
+    }
+    return ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'];
+};
+
+const allowedOrigins = getAllowedOrigins();
+
 const corsOptions = {
-    origin: true,
+    origin: (origin, callback) => {
+        // Requests without Origin header (server-to-server, healthchecks, curl without Origin)
+        // Return false so no Access-Control-Allow-Origin: * header is emitted
+        if (!origin) {
+            return callback(null, false);
+        }
+        const normalizedOrigin = origin.trim().replace(/\/+$/, '');
+        if (allowedOrigins.includes(normalizedOrigin)) {
+            return callback(null, true);
+        }
+        const corsError = new Error(`Origin ${origin} not allowed by CORS`);
+        corsError.statusCode = 403;
+        corsError.isCorsError = true;
+        return callback(corsError);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-Api-Key'],
-    optionsSuccessStatus: 200
+    optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
-app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    
-    if (origin) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-        res.setHeader('Access-Control-Allow-Credentials', 'true');
-    } else {
-        res.setHeader('Access-Control-Allow-Origin', '*');
-    }
-
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Api-Key');
-    res.setHeader('Vary', 'Origin');
-    res.setHeader('X-CORS-Status', 'Universal-Applied');
-
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
-    next();
-});
-
 // Middleware de parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Serve Storage
-app.use('/api/storage', express.static(path.join(__dirname, '../../storage')));
-app.use('/storage', express.static(path.join(__dirname, '../../storage')));
+// Authenticated & authorized storage access (HU-02 / F-02) - Bearer header required
+const requireBearerHeader = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({
+            success: false,
+            message: 'Token de acceso no proporcionado en cabecera Authorization'
+        });
+    }
+    next();
+};
+app.get('/storage/*', requireBearerHeader, auth, storageController.serve);
 
 // Health check
 app.get('/health', async (req, res) => {
@@ -71,18 +102,18 @@ app.get('/health', async (req, res) => {
     }
 });
 
-// Swagger
-const swaggerUi = require('swagger-ui-express');
-const swaggerSpecs = require('./config/swagger');
-app.get('/api-docs.json', (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.send(swaggerSpecs);
-});
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
-const swaggerUrl = process.env.NODE_ENV === 'production'
-    ? 'https://a-oiem-api.onrender.com/api-docs'
-    : `http://localhost:${PORT}/api-docs`;
-console.log(`📄 Swagger Docs available at ${swaggerUrl}`);
+// Swagger (Disabled in production - HU-OIEM-04 / F-04)
+if (process.env.NODE_ENV !== 'production') {
+    const swaggerUi = require('swagger-ui-express');
+    const swaggerSpecs = require('./config/swagger');
+    app.get('/api-docs.json', (req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.send(swaggerSpecs);
+    });
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
+    const swaggerUrl = `http://localhost:${PORT}/api-docs`;
+    console.log(`📄 Swagger Docs available at ${swaggerUrl}`);
+}
 
 // Routes
 app.use('/api', routes);
@@ -97,6 +128,18 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
+    if (err?.isCorsError) {
+        return res.status(403).json({
+            success: false,
+            message: 'Origin no permitido por política CORS'
+        });
+    }
+    if (err?.name === 'MulterError' || err?.message?.includes('no permitido')) {
+        return res.status(400).json({
+            success: false,
+            message: err.message
+        });
+    }
     console.error('Server error:', err);
     res.status(500).json({
         success: false,
@@ -139,6 +182,29 @@ async function start() {
             }
         } catch (migErr) {
             console.warn("⚠️ Auto-migration check warning (auditoria_comentarios):", migErr.message);
+        }
+
+        // Self-healing schema migration for avisos table
+        try {
+            await sequelize.query(`
+                CREATE TABLE IF NOT EXISTS avisos (
+                    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    titulo VARCHAR(255) NOT NULL,
+                    contenido LONGTEXT NOT NULL,
+                    fecha_desde DATE NOT NULL,
+                    fecha_hasta DATE NOT NULL,
+                    para_todos TINYINT(1) NOT NULL DEFAULT 0,
+                    roles TEXT NULL,
+                    activo TINYINT(1) NOT NULL DEFAULT 1,
+                    creado_por_id BIGINT UNSIGNED NULL,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_avisos_fechas (fecha_desde, fecha_hasta, activo)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            `);
+            console.log("✅ Auto-migration: Checked/Created `avisos` table");
+        } catch (migErr) {
+            console.warn("⚠️ Auto-migration check warning (avisos):", migErr.message);
         }
 
         app.listen(PORT, () => {

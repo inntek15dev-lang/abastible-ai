@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api';
+import { openAuthenticatedBlob } from '../../utils/downloadHelper';
 import { 
     Building2, 
     FileCheck, 
@@ -65,16 +66,26 @@ export default function OvalBilling() {
         fetchData(val);
     };
 
-    const handleExportPdf = () => {
-        const query = periodoFilter ? `?periodo=${periodoFilter}` : '';
-        const tokenQuery = `${query ? '&' : '?'}token=${localStorage.getItem('token')}`;
-        window.open(`${api.defaults.baseURL}/reportes/oval/billing/pdf${query}${tokenQuery}`, '_blank');
+    const handleExportPdf = async () => {
+        try {
+            const query = periodoFilter ? `?periodo=${periodoFilter}` : '';
+            await openAuthenticatedBlob(`/reportes/oval/billing/pdf${query}`);
+        } catch (err) {
+            console.error('Error exporting PDF:', err);
+            alert('Error al descargar el reporte PDF');
+        }
     };
 
-    const handleExportExcel = () => {
-        const query = periodoFilter ? `?periodo=${periodoFilter}` : '';
-        const tokenQuery = `${query ? '&' : '?'}token=${localStorage.getItem('token')}`;
-        window.open(`${api.defaults.baseURL}/reportes/oval/billing/excel${query}${tokenQuery}`, '_blank');
+    const handleExportExcel = async () => {
+        try {
+            const query = periodoFilter ? `?periodo=${periodoFilter}` : '';
+            await openAuthenticatedBlob(`/reportes/oval/billing/excel${query}`, {
+                downloadName: `oval_billing_${periodoFilter || 'todos'}.xlsx`
+            });
+        } catch (err) {
+            console.error('Error exporting Excel:', err);
+            alert('Error al descargar el reporte Excel');
+        }
     };
 
     const handleSendEmail = async () => {

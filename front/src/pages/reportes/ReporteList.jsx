@@ -4,6 +4,7 @@ import { FileText, FileSpreadsheet, ExternalLink, TrendingUp, AlertCircle, Check
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
+import { openAuthenticatedBlob } from '../../utils/downloadHelper';
 import './Reportes.css';
 
 const getDefaultPeriodRange = () => {
@@ -50,11 +51,21 @@ export default function ReporteList() {
     };
 
     const handleExportPdf = async () => {
-        window.open(`${api.defaults.baseURL}/reportes/cumplimiento/pdf?periodo_desde=${periodoDesde}&periodo_hasta=${periodoHasta}&token=${localStorage.getItem('token')}`, '_blank');
+        try {
+            await openAuthenticatedBlob(`/reportes/cumplimiento/pdf?periodo_desde=${periodoDesde}&periodo_hasta=${periodoHasta}`);
+        } catch (err) {
+            console.error('Error exporting PDF:', err);
+        }
     };
 
     const handleExportExcel = async () => {
-        window.open(`${api.defaults.baseURL}/reportes/cumplimiento/excel?periodo_desde=${periodoDesde}&periodo_hasta=${periodoHasta}&token=${localStorage.getItem('token')}`, '_blank');
+        try {
+            await openAuthenticatedBlob(`/reportes/cumplimiento/excel?periodo_desde=${periodoDesde}&periodo_hasta=${periodoHasta}`, {
+                downloadName: `cumplimiento_${periodoDesde}_${periodoHasta}.xlsx`
+            });
+        } catch (err) {
+            console.error('Error exporting Excel:', err);
+        }
     };
 
     const handleDesdeChange = (val) => {
@@ -64,8 +75,12 @@ export default function ReporteList() {
         }
     };
 
-    const viewRegistroPdf = (id) => {
-        window.open(`${api.defaults.baseURL}/reportes/registro/${id}/pdf?token=${localStorage.getItem('token')}`, '_blank');
+    const viewRegistroPdf = async (id) => {
+        try {
+            await openAuthenticatedBlob(`/reportes/registro/${id}/pdf`);
+        } catch (err) {
+            console.error('Error viewing registro PDF:', err);
+        }
     };
 
     const getScoreColor = (score) => {
