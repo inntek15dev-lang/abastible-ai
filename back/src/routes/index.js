@@ -3,9 +3,22 @@ const express = require('express');
 const router = express.Router();
 
 // Middleware
+const rateLimit = require('express-rate-limit');
 const auth = require('../middleware/auth');
 const requirePrivilege = require('../middleware/requirePrivilege');
 const upload = require('../middleware/upload');
+
+// Strict Rate Limiter for authentication & password recovery endpoints (HU-OIEM-06 / F-06)
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 10, // Limit each IP to 10 requests per windowMs
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        success: false,
+        message: 'Demasiados intentos desde esta IP. Por favor intente nuevamente en 15 minutos.'
+    }
+});
 
 /**
  * @swagger
@@ -36,6 +49,8 @@ const upload = require('../middleware/upload');
  *     description: Gestión de Usuarios
  *   - name: Avisos
  *     description: Gestión de Avisos y Comunicados Oficiales del Sistema
+ *   - name: Storage
+ *     description: Acceso autenticado y autorizado a archivos de almacenamiento
  */
 
 // Sprint 1 Controllers
@@ -88,7 +103,7 @@ const compromisoController = require('../controllers/compromisoController');
  *       401:
  *         description: Invalid credentials
  */
-router.post('/auth/login', authController.login);
+router.post('/auth/login', authLimiter, authController.login);
 
 /**
  * @swagger
@@ -120,7 +135,7 @@ router.post('/auth/login', authController.login);
  *       401:
  *         description: Invalid or expired token, or user disabled
  */
-router.post('/auth/login-external', authController.loginExternal);
+router.post('/auth/login-external', authLimiter, authController.loginExternal);
 
 // ============= PROTECTED ROUTES =============
 
@@ -158,9 +173,9 @@ router.get('/auth/me', auth, authController.me);
 router.post('/auth/logout', auth, authController.logout);
 
 // Recuperación de contraseña (contratista_user) — rutas públicas, sin sesión.
-router.post('/auth/forgot-password', authController.forgotPassword);
+router.post('/auth/forgot-password', authLimiter, authController.forgotPassword);
 router.get('/auth/reset-password/:token', authController.validateResetToken);
-router.post('/auth/reset-password', authController.resetPassword);
+router.post('/auth/reset-password', authLimiter, authController.resetPassword);
 
 // Programas (Admin only)
 /**
@@ -1839,6 +1854,47 @@ router.delete('/avisos/:id', auth, requireAdminDios, avisoController.delete);
  *         description: Status toggled
  */
 router.patch('/avisos/:id/toggle-activo', auth, requireAdminDios, avisoController.toggleActivo);
+
+// ============= AUTHENTICATED STORAGE (HU-02 / F-02) =============
+const storageController = require('../controllers/storageController');
+
+const requireBearerHeaderStorage = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({
+            success: false,
+            message: 'Token de acceso no proporcionado en cabecera Authorization'
+        });
+    }
+    next();
+};
+
+/**
+ * @swagger
+ * /storage/{filepath}:
+ *   get:
+ *     summary: Serve an authorized file from storage (JWT Bearer header & tenant scope required)
+ *     tags: [Storage]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: filepath
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Relative file path inside /storage
+ *     responses:
+ *       200:
+ *         description: File content
+ *       401:
+ *         description: Unauthorized - Missing or invalid JWT Bearer token
+ *       403:
+ *         description: Forbidden - Path traversal or insufficient permissions
+ *       404:
+ *         description: File not found
+ */
+router.get('/storage/*', requireBearerHeaderStorage, auth, storageController.serve);
 
 // End of Routes
 

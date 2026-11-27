@@ -520,23 +520,10 @@ export default function DocumentViewerModal({
 
     if (!isOpen) return null;
 
-    // Helper to build authenticated download URL with token query parameter as fallback
-    const getAuthenticatedUrl = (rawUrl) => {
-        if (!rawUrl || rawUrl === '#') return '#';
-        let base = rawUrl.startsWith('http')
-            ? rawUrl
-            : (rawUrl.startsWith('/') ? `${api.defaults.baseURL}${rawUrl}` : `${api.defaults.baseURL}/${rawUrl}`);
-        const token = localStorage.getItem('token');
-        if (token && !base.includes('token=')) {
-            base += (base.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
-        }
-        return base;
-    };
+    // Direct Download URL: only in-memory Blob URL (never expose JWT in query string)
+    const downloadUrl = blobUrl || '#';
 
-    // Direct Download URL: prefer in-memory Blob URL, otherwise authenticated API URL
-    const downloadUrl = blobUrl || getAuthenticatedUrl(fileUrl);
-
-    // Robust download handler that uses blobUrl or fetches authenticated blob
+    // Robust download handler that uses blobUrl or fetches authenticated blob via Bearer header
     const handleDownload = async (e) => {
         const downloadName = activeFileName || fileName;
         if (blobUrl) {
@@ -566,7 +553,7 @@ export default function DocumentViewerModal({
             URL.revokeObjectURL(url);
         } catch (err) {
             console.error("Error downloading file via api:", err);
-            window.open(getAuthenticatedUrl(fileUrl), "_blank");
+            setFileError("No se pudo descargar el archivo. Verifique su sesión o permisos.");
         }
     };
 

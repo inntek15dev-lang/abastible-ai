@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../../api';
+import { openAuthenticatedBlob } from '../../utils/downloadHelper';
 import { useAuth } from '../../context/AuthContext';
 import { Save, ArrowLeft, ClipboardCheck, FileText, RefreshCw, Lock, CheckCircle, Trash2, Clock, AlertTriangle, User, Download, Calendar, Wrench, List } from 'lucide-react';
 import TraceabilityPanel from '../../components/TraceabilityPanel';
@@ -2109,7 +2110,7 @@ export default function RegistroForm() {
                         {isEdit && (
                             <button
                                 type="button"
-                                onClick={() => window.open(`${api.defaults.baseURL}/reportes/registro/${id}/pdf?token=${localStorage.getItem('token')}`, '_blank')}
+                                onClick={() => openAuthenticatedBlob(`/reportes/registro/${id}/pdf`)}
                                 style={{
                                     backgroundColor: '#f8fafc', color: '#475569', padding: '0.75rem 1.5rem', borderRadius: '6px', border: '1px solid #e2e8f0', fontWeight: 600, cursor: 'pointer',
                                     display: 'flex', alignItems: 'center', gap: '0.5rem'

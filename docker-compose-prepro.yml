@@ -9,8 +9,6 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
       - MYSQL_DATABASE=${DB_NAME}
-    env_file:
-      - .env
     ports:
       - "127.0.0.1:3377:3306" # Puerto externo para gestión prepro (ej. DBeaver)
     volumes:
@@ -32,6 +30,7 @@ services:
       - PIZZA_API_KEY=${PIZZA_API_KEY}
       - EXTERNAL_API_KEY=${EXTERNAL_API_KEY}
       - PORT=${PORT}
+      - ALLOWED_ORIGINS=https://prepro-oiem-abastible.ovalcontrol.com
     env_file:
       - .env
     ports:
@@ -50,7 +49,7 @@ services:
     environment:
       - VITE_API_URL=https://prepro-oiem-abastible-api.ovalcontrol.com/api
     ports:
-      - "127.0.0.1:8077:80"
+      - "127.0.0.1:8077:8080"
     depends_on:
       - api
     networks:
